@@ -38,6 +38,7 @@ Output in the results directory:
 | File | Content |
 |---|---|
 | `MCCs.json` | MCCs per pair, in the `MCC_dict` format of TreeKnit.jl. If any leaves were missing from one tree of a pair, an `imputed` list gives each such leaf, its source tree, the index of the MCC it joined, and whether the placement was ambiguous. |
+| `MCCs.dat` | the same MCCs in the text format of TreeKnit.jl before 0.5: one MCC per line, leaves separated by commas. With more than two trees: `MCCs_<a>_<b>.dat` per pair. |
 | `<tree>_resolved.nwk` | input trees after resolution, with polytomies sorted for tanglegrams |
 | `<tree>_imputed.nwk` | with `--impute`: resolved trees with missing leaves placed |
 | `ARG/arg.nwk` | two trees only: ARG in extended Newick, `[&segments={0,1}]` annotations, hybrids `#Hi` |

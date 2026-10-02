@@ -50,7 +50,12 @@ fn two_trees_with_arg() {
     ] {
         assert!(out.join(f).exists(), "missing {f}");
     }
-    let n = mccs(&out)["MCC_dict"]["1"]["mccs"].as_array().unwrap().len();
+    let json = mccs(&out)["MCC_dict"]["1"]["mccs"].clone();
+    let n = json.as_array().unwrap().len();
+    // Legacy text output holds the same MCCs, one per line.
+    let dat = std::fs::read_to_string(out.join("MCCs.dat")).unwrap();
+    let from_dat: Vec<Vec<String>> = dat.lines().map(|l| l.split(',').map(String::from).collect()).collect();
+    assert_eq!(serde_json::to_value(from_dat).unwrap(), json);
     let arg = std::fs::read_to_string(out.join("ARG/arg.nwk")).unwrap();
     assert_eq!(arg.matches("#H").count(), 2 * (n - 1));
 }
@@ -80,6 +85,9 @@ fn three_trees_partial_overlap_imputed() {
     let m = mccs(&out);
     let d = m["MCC_dict"].as_object().unwrap();
     assert_eq!(d.len(), 3);
+    for pair in ["seg0_seg1", "seg0_seg2", "seg1_seg2"] {
+        assert!(out.join(format!("MCCs_{pair}.dat")).exists());
+    }
     // P is missing from seg0: pairs (0,1) and (0,2) place it.
     assert!(d["1"]["imputed"].as_array().unwrap().iter().any(|e| e["leaf"] == "P"));
     let imputed = std::fs::read_to_string(out.join("seg0_imputed.nwk")).unwrap();

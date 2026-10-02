@@ -183,6 +183,17 @@ fn main() -> Result<()> {
         cli.outdir.join("MCCs.json"),
         serde_json::to_string_pretty(&json)? + "\n",
     )?;
+    // Legacy text format of TreeKnit.jl < 0.5 (one MCC per line): `MCCs.dat` for two trees,
+    // `MCCs_<a>_<b>.dat` per pair otherwise.
+    for p in &pairs {
+        let name = if trees.len() == 2 {
+            "MCCs.dat".to_string()
+        } else {
+            format!("MCCs_{}_{}.dat", trees[p.i].label, trees[p.j].label)
+        };
+        let names: Vec<Vec<String>> = p.mccs.iter().map(|m| taxa.names_of(m)).collect();
+        fs::write(cli.outdir.join(name), mccs::to_lines(&names))?;
+    }
     for (t, path) in trees.iter().zip(&cli.trees) {
         fs::write(cli.outdir.join(out_name(path, "_resolved")), newick::write(t) + "\n")?;
     }
