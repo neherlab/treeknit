@@ -114,7 +114,7 @@ fn deterministic_functions_match_julia() {
         let k = ts.len();
         let same_leaves = ts.iter().all(|t| t.leaf_set(n) == ts[0].leaf_set(n));
 
-        if let Some(want) = f.get("naive_mccs").filter(|_| same_leaves && k == 2) {
+        if let Some(want) = f.get("naive_mccs").filter(|_| same_leaves) {
             let refs: Vec<&Tree> = ts.iter().collect();
             let got = mcc_names(&naive::naive_mccs(&refs, n), &taxa);
             r.check(

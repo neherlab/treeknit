@@ -1,22 +1,26 @@
 # Reference fixtures from legacy Julia TreeKnit
 
-Legacy versions: TreeKnit 0.5.8 and TreeTools 0.6.14, run on Julia 1.13.1. Output goes to `../fixtures/<case>.json`. Simulated trees are also written to `../fixtures/sim/<case>/tree<k>.nwk`.
+Reference version: TreeKnit 0.5.8 from `/workspace/legacy_julia_version`, branch
+`fix/issues-from-rust-port` (commit `186bf0d`), with TreeTools 0.6.14 on Julia 1.13.1. That branch
+fixes bugs found during the port; the Rust implementation follows it, including the strict-resolution
+fix for sisters whose MCC continues above a polytomy. Output goes to `../fixtures/<case>.json`.
+Simulated trees are also written to `../fixtures/sim/<case>/tree<k>.nwk`.
 
-## Environments
+## Environment
+
+One environment serves both scripts:
 
 ```sh
-# TreeKnit env (already exists): /tmp/tkref/TreeKnit, a copy of /workspace/legacy_julia_version with Manifest
-# Simulation env:
-mkdir -p /tmp/tkref/simenv && julia --project=/tmp/tkref/simenv -e 'using Pkg;
-  Pkg.develop([PackageSpec(path="/tmp/tkref/TreeKnit"), PackageSpec(path="/workspace/ARGTools")]);
+mkdir -p /tmp/tkref/fixedenv && julia --project=/tmp/tkref/fixedenv -e 'using Pkg;
+  Pkg.develop([PackageSpec(path="/workspace/legacy_julia_version"), PackageSpec(path="/workspace/ARGTools")]);
   Pkg.add(["JSON3","Distributions"]); Pkg.add(name="TreeTools", version="0.6.14")'
 ```
 
 ## Regenerate
 
 ```sh
-julia --project=/tmp/tkref/TreeKnit /workspace/treeknit-rs/ref/dump_fixtures.jl   # doc/test/real cases (~20 s)
-julia --project=/tmp/tkref/simenv   /workspace/treeknit-rs/ref/simulate.jl        # simulated cases (~20 s)
+julia --project=/tmp/tkref/fixedenv /workspace/treeknit-rs/ref/dump_fixtures.jl   # doc/test/real cases (~20 s)
+julia --project=/tmp/tkref/fixedenv /workspace/treeknit-rs/ref/simulate.jl        # simulated cases (~20 s)
 ```
 
 - `--no-runs` skips the 20 seeded `run_treeknit!` runs.

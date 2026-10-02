@@ -122,7 +122,17 @@
         1
     ],
     "name": "doc_resolve_3",
-    "naive_mccs_error": "MethodError: no method matching is_coherent_clade(::Vector{TreeNode{TreeTools.EmptyData}}, ::Tuple{SplitList{String}, SplitList{String}, SplitList{String}})\nThe function `is_coherent_clade` exists, but no method is defined for this combination of argument types.\n\nClosest candidates are:\n  is_coherent_clade(::Vector{<:TreeNode}, !Matched::Tuple{SplitList, Any})\n   @ TreeKnit /tmp/tkref/TreeKnit/src/mcc_base.jl:104\n",
+    "naive_mccs": [
+        [
+            "A"
+        ],
+        [
+            "B"
+        ],
+        [
+            "C"
+        ]
+    ],
     "pairwise_naive_mccs": {
         "1-2": [
             [

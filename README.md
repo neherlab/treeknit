@@ -56,12 +56,16 @@ Output in the results directory:
 
 ## Testing against the Julia implementation
 
-`ref/` holds Julia scripts that write reference outputs of TreeKnit.jl 0.5.8 to `fixtures/`. The cases come from the docs, the test suite, real data (NY H3N2, the examples) and ARGTools simulations; `ref/README.md` has the commands.
+`ref/` holds Julia scripts that write reference outputs of TreeKnit.jl 0.5.8 to `fixtures/`, using the branch `fix/issues-from-rust-port` of the Julia code, which fixes the bugs found during the port. The cases come from the docs, the test suite, real data (NY H3N2, the examples) and ARGTools simulations; `ref/README.md` has the commands.
 
 - `cargo test` checks every deterministic function exactly against these fixtures (about 5,000 checks): naive MCCs, K-tree resolution, strict and liberal resolution with MCCs, node→MCC maps, polytomy sorting, energies and likelihoods of given configurations, and ARGs. It also compares annealing outcomes with the 20 seeded Julia runs per case.
 - `cargo run --release -p treeknit-io --example accuracy [drop]` compares accuracy against the true MCCs of the simulated cases, for Julia and Rust, measured as scaled variation of information. It also drops a fraction of leaves per tree and reports how often the dropped leaves are placed with their true MCC.
 
 ## Deliberate differences from TreeKnit.jl
+
+These differ from the released TreeKnit.jl 0.5.8. The first two are also fixed on the Julia branch `fix/issues-from-rust-port`, against which the fixtures are generated.
+
+- **Strict resolution adds certain splits that 0.5.8 rejects.** A polytomy sister holding leaves of an MCC that also has leaves outside the polytomy must attach at the polytomy node, since MCCs are connected. 0.5.8 decides this only from the node→MCC map, which often assigns no MCC at such polytomies. Splits stay rejected when a sister consists only of MCCs inside the polytomy, which may be nested in the new clade.
 
 - **Missing branch lengths contribute 0 to the likelihood tie-break.** In Julia a single missing length makes the likelihood `missing`. Julia then prefers those configurations, because `maximum` over a vector containing `missing` is `missing`. This happens whenever resolved nodes, which get length 0, meet input trees without lengths.
 - **Node labels are deterministic counters** (`ARGNode_17`, `Singleton_3`) instead of random strings.

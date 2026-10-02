@@ -162,6 +162,10 @@ fn mcc_splits(tref: &Tree, t: &Tree, mccs: &[Mcc], n_taxa: usize, strict: bool) 
     let map_ref = strict.then(|| map_mccs(tref, &leaf_mcc));
     let ref_splits: Vec<&Bits> = tref.internals().into_iter().map(|n| &c_ref[n]).collect();
     let all = bits::full(n_taxa);
+    let mcc_sets: Vec<Bits> = mccs
+        .iter()
+        .map(|m| bits::from_iter(n_taxa, m.iter().copied()))
+        .collect();
 
     let mut out: Vec<Bits> = Vec::new();
     for m in mccs {
@@ -174,7 +178,7 @@ fn mcc_splits(tref: &Tree, t: &Tree, mccs: &[Mcc], n_taxa: usize, strict: bool) 
             }
             let (_, roots) = blca(tref, &leaf_ref, &leaves, &all).unwrap();
             if let Some(map) = &map_ref {
-                if !strict_ok(tref, &leaf_ref, map, &leaves, &roots) {
+                if !strict_ok(tref, &c_ref, &leaf_ref, map, &mcc_sets, &leaves, &roots) {
                     continue;
                 }
             }
@@ -193,7 +197,24 @@ fn mcc_splits(tref: &Tree, t: &Tree, mccs: &[Mcc], n_taxa: usize, strict: bool) 
 
 /// Strict resolution: a split may only be introduced if the placement of every sister
 /// branch in the polytomy is determined by the MCCs.
-fn strict_ok(t: &Tree, leaf_of: &[Option<NodeId>], map: &[Option<usize>], leaves: &Bits, roots: &[NodeId]) -> bool {
+///
+/// A sister is placed outside the new clade with certainty if
+/// - it continues the MCC of the polytomy node (node→MCC map), or
+/// - it holds leaves of an MCC that also has leaves outside the polytomy: MCC regions are
+///   connected, so that MCC passes through the polytomy node and the sister attaches there.
+///
+/// It belongs inside if it holds leaves of the MCC of the new clade. A sister made only of
+/// MCCs lying entirely within the polytomy may or may not be nested in the new clade, and
+/// the split is then ambiguous.
+fn strict_ok(
+    t: &Tree,
+    clades: &[Bits],
+    leaf_of: &[Option<NodeId>],
+    map: &[Option<usize>],
+    mcc_sets: &[Bits],
+    leaves: &Bits,
+    roots: &[NodeId],
+) -> bool {
     let all = bits::full(leaves.len());
     let (r, _) = blca(t, leaf_of, leaves, &all).unwrap();
     let leaf_mccs = |n: NodeId| t.leaves_below(n).into_iter().map(|l| map[l]).collect::<Vec<_>>();
@@ -208,8 +229,10 @@ fn strict_ok(t: &Tree, leaf_of: &[Option<NodeId>], map: &[Option<usize>], leaves
     let target = root_mccs.first().copied();
     for &s in t.children(r).iter().filter(|c| !roots.contains(c)) {
         let shares_parent = map[s].is_some() && map[t.parent(s).unwrap()] == map[s];
-        let contains_target = target.is_some_and(|m| leaf_mccs(s).contains(&Some(m)));
-        if !(shares_parent || contains_target) {
+        let mccs_of_s = leaf_mccs(s);
+        let contains_target = target.is_some_and(|m| mccs_of_s.contains(&Some(m)));
+        let continues_above = mccs_of_s.iter().flatten().any(|&m| !mcc_sets[m].is_subset(&clades[r]));
+        if !(shares_parent || contains_target || continues_above) {
             return false;
         }
     }
@@ -309,6 +332,35 @@ mod tests {
         let (a, b) = ts.split_at_mut(1);
         let ns = resolve_with_mccs(&mut a[0], &mut b[0], &mccs, taxa.len(), false);
         assert_eq!(names(&ns[1], &taxa), vec![vec!["A", "B", "C"], vec!["B", "C"]]);
+    }
+
+    #[test]
+    fn strict_resolves_when_sister_mcc_continues_above_polytomy() {
+        // Tree 2 has a polytomy holding MCC {A,B,C} and Y, whose MCC {X,Y} has X outside the
+        // polytomy. {X,Y} must pass through the polytomy node, so (A,B,C) is a clade. The
+        // node→MCC map assigns no MCC to the polytomy here (the root's children disagree).
+        let (mut ts, taxa) = trees(&["((((A,B),C),W),(X,Y),V);", "(((A,B,C,Y),W),X,V);"]);
+        let id = |s: &str| taxa.index[s];
+        let mccs = vec![
+            vec![id("V")],
+            vec![id("W")],
+            vec![id("X"), id("Y")],
+            vec![id("A"), id("B"), id("C")],
+        ];
+        let map = map_mccs(&ts[1], &leaf_mcc_map(&mccs, taxa.len()));
+        let p = ts[1].parent(ts[1].leaves()[0]).unwrap();
+        assert_eq!(map[p], None);
+        let (a, b) = ts.split_at_mut(1);
+        let ns = resolve_with_mccs(&mut a[0], &mut b[0], &mccs, taxa.len(), true);
+        assert!(names(&ns[1], &taxa).contains(&vec!["A".to_string(), "B".into(), "C".into()]));
+
+        // If Y's MCC lies entirely inside the polytomy, Y may be nested in {A,B,C}: ambiguous.
+        let (mut ts, taxa) = trees(&["(((A,B),C),(X,Y));", "((A,B,C,Y),X);"]);
+        let id = |s: &str| taxa.index[s];
+        let mccs = vec![vec![id("X")], vec![id("Y")], vec![id("A"), id("B"), id("C")]];
+        let (a, b) = ts.split_at_mut(1);
+        let ns = resolve_with_mccs(&mut a[0], &mut b[0], &mccs, taxa.len(), true);
+        assert!(!names(&ns[1], &taxa).contains(&vec!["A".to_string(), "B".into(), "C".into()]));
     }
 
     #[test]
