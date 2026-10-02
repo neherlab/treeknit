@@ -1,0 +1,23 @@
+[package]
+name = "treeknit-cli"
+description = "Command-line interface for TreeKnit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "treeknit"
+path = "src/main.rs"
+
+[dependencies]
+treeknit-core.workspace = true
+treeknit-io.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+log.workspace = true
+simplelog.workspace = true
+serde_json.workspace = true
+rayon.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = ["crates/treeknit-core", "crates/treeknit-io", "crates/treeknit-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+treeknit-core = { path = "crates/treeknit-core" }
+treeknit-io = { path = "crates/treeknit-io" }
+fixedbitset = "0.5"
+rand = "0.8"
+rand_xoshiro = "0.6"
+rayon = "1.10"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+clap = { version = "4.5", features = ["derive"] }
+anyhow = "1"
+simplelog = "0.12"
+
+[profile.quick]
+inherits = "release"
+opt-level = 2
+incremental = true
+codegen-units = 64

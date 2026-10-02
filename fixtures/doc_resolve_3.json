@@ -1,0 +1,205 @@
+{
+    "multi_runs": [
+        {
+            "1-2": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ],
+            "0-2": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ],
+            "0-1": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ]
+        },
+        {
+            "1-2": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ],
+            "0-2": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ],
+            "0-1": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ]
+        },
+        {
+            "1-2": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ],
+            "0-2": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ],
+            "0-1": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ]
+        },
+        {
+            "1-2": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ],
+            "0-2": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ],
+            "0-1": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ]
+        },
+        {
+            "1-2": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ],
+            "0-2": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ],
+            "0-1": [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ]
+            ]
+        }
+    ],
+    "seq_lengths": [
+        1,
+        1,
+        1
+    ],
+    "name": "doc_resolve_3",
+    "naive_mccs_error": "MethodError: no method matching is_coherent_clade(::Vector{TreeNode{TreeTools.EmptyData}}, ::Tuple{SplitList{String}, SplitList{String}, SplitList{String}})\nThe function `is_coherent_clade` exists, but no method is defined for this combination of argument types.\n\nClosest candidates are:\n  is_coherent_clade(::Vector{<:TreeNode}, !Matched::Tuple{SplitList, Any})\n   @ TreeKnit /tmp/tkref/TreeKnit/src/mcc_base.jl:104\n",
+    "pairwise_naive_mccs": {
+        "1-2": [
+            [
+                "A",
+                "B",
+                "C"
+            ]
+        ],
+        "0-2": [
+            [
+                "A"
+            ],
+            [
+                "B"
+            ],
+            [
+                "C"
+            ]
+        ],
+        "0-1": [
+            [
+                "A"
+            ],
+            [
+                "B"
+            ],
+            [
+                "C"
+            ]
+        ]
+    },
+    "trees": [
+        "(A,(B,C));",
+        "(A,B,C);",
+        "(A,B,C);"
+    ],
+    "n_leaves": [
+        3,
+        3,
+        3
+    ],
+    "pre_resolve": {
+        "new_splits": [
+            [
+            ],
+            [
+                [
+                    "B",
+                    "C"
+                ]
+            ],
+            [
+                [
+                    "B",
+                    "C"
+                ]
+            ]
+        ],
+        "splits_after": [
+            [
+                [
+                    "B",
+                    "C"
+                ]
+            ],
+            [
+                [
+                    "B",
+                    "C"
+                ]
+            ],
+            [
+                [
+                    "B",
+                    "C"
+                ]
+            ]
+        ]
+    }
+}

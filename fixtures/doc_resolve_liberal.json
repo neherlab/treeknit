@@ -1,0 +1,575 @@
+{
+    "name": "doc_resolve_liberal",
+    "mcc_resolve_liberal": {
+        "new_splits": [
+            [
+            ],
+            [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ],
+                [
+                    "B",
+                    "C"
+                ]
+            ]
+        ],
+        "splits_after": [
+            [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ],
+                [
+                    "B",
+                    "C"
+                ]
+            ],
+            [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ],
+                [
+                    "B",
+                    "C"
+                ]
+            ]
+        ]
+    },
+    "arg": {
+        "segment_trees": [
+            [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ],
+                [
+                    "B",
+                    "C"
+                ]
+            ],
+            [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ],
+                [
+                    "B",
+                    "C"
+                ]
+            ]
+        ],
+        "n_hybrids": 0,
+        "segment_trees_no_singletons": [
+            [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ],
+                [
+                    "B",
+                    "C"
+                ]
+            ],
+            [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ],
+                [
+                    "B",
+                    "C"
+                ]
+            ]
+        ],
+        "segment_leaf_sets": [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ],
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ]
+    },
+    "fitch": [
+        {
+            "mcc": 0,
+            "clade": [
+                "A"
+            ]
+        },
+        {
+            "mcc": 0,
+            "clade": [
+                "B"
+            ]
+        },
+        {
+            "mcc": 0,
+            "clade": [
+                "C"
+            ]
+        },
+        {
+            "mcc": 0,
+            "clade": [
+                "D"
+            ]
+        },
+        {
+            "mcc": 0,
+            "clade": [
+                "B",
+                "C"
+            ]
+        },
+        {
+            "mcc": 0,
+            "clade": [
+                "A",
+                "B",
+                "C"
+            ]
+        },
+        {
+            "mcc": 0,
+            "clade": [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        }
+    ],
+    "energy": [
+        {
+            "E_resolve": 0,
+            "removed": [
+            ],
+            "E_noresolve": 3,
+            "lk": 0
+        },
+        {
+            "E_resolve": 0,
+            "removed": [
+                [
+                    "D"
+                ]
+            ],
+            "E_noresolve": 2,
+            "lk": 0
+        },
+        {
+            "E_resolve": 0,
+            "removed": [
+                [
+                    "B"
+                ]
+            ],
+            "E_noresolve": 2,
+            "lk": 0
+        },
+        {
+            "E_resolve": 0,
+            "removed": [
+                [
+                    "A"
+                ]
+            ],
+            "E_noresolve": 2,
+            "lk": 0
+        },
+        {
+            "E_resolve": 0,
+            "removed": [
+                [
+                    "C"
+                ]
+            ],
+            "E_noresolve": 2,
+            "lk": 0
+        },
+        {
+            "E_resolve": 0,
+            "removed": [
+                [
+                    "A"
+                ],
+                [
+                    "B"
+                ],
+                [
+                    "D"
+                ]
+            ],
+            "E_noresolve": 0,
+            "lk": 0
+        },
+        {
+            "E_resolve": 0,
+            "removed": [
+                [
+                    "A"
+                ],
+                [
+                    "C"
+                ]
+            ],
+            "E_noresolve": 0,
+            "lk": 0
+        },
+        {
+            "E_resolve": 0,
+            "removed": [
+                [
+                    "A"
+                ],
+                [
+                    "B"
+                ]
+            ],
+            "E_noresolve": 0,
+            "lk": 0
+        },
+        {
+            "E_resolve": 0,
+            "removed": [
+                [
+                    "B"
+                ],
+                [
+                    "D"
+                ]
+            ],
+            "E_noresolve": 0,
+            "lk": 0
+        },
+        {
+            "E_resolve": 0,
+            "removed": [
+                [
+                    "A"
+                ],
+                [
+                    "B"
+                ],
+                [
+                    "C"
+                ],
+                [
+                    "D"
+                ]
+            ],
+            "E_noresolve": 0,
+            "lk": 0
+        }
+    ],
+    "trees": [
+        "((A,(B,C)),D);",
+        "(A,B,C,D);"
+    ],
+    "n_leaves": [
+        4,
+        4
+    ],
+    "pre_resolve": {
+        "new_splits": [
+            [
+            ],
+            [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ],
+                [
+                    "B",
+                    "C"
+                ]
+            ]
+        ],
+        "splits_after": [
+            [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ],
+                [
+                    "B",
+                    "C"
+                ]
+            ],
+            [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ],
+                [
+                    "B",
+                    "C"
+                ]
+            ]
+        ]
+    },
+    "runs": [
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ],
+        [
+            [
+                "A",
+                "B",
+                "C",
+                "D"
+            ]
+        ]
+    ],
+    "mcc_resolve_strict": {
+        "new_splits": [
+            [
+            ],
+            [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ],
+                [
+                    "B",
+                    "C"
+                ]
+            ]
+        ],
+        "splits_after": [
+            [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ],
+                [
+                    "B",
+                    "C"
+                ]
+            ],
+            [
+                [
+                    "A",
+                    "B",
+                    "C"
+                ],
+                [
+                    "B",
+                    "C"
+                ]
+            ]
+        ]
+    },
+    "mccs_source": "run_treeknit!(copies, OptArgs()) with Random.seed!(1)",
+    "seq_lengths": [
+        1,
+        1
+    ],
+    "naive_mccs": [
+        [
+            "A"
+        ],
+        [
+            "B"
+        ],
+        [
+            "C"
+        ],
+        [
+            "D"
+        ]
+    ],
+    "mccs": [
+        [
+            "A",
+            "B",
+            "C",
+            "D"
+        ]
+    ],
+    "sorted_leaf_order": [
+        [
+            "D",
+            "A",
+            "B",
+            "C"
+        ],
+        [
+            "D",
+            "A",
+            "B",
+            "C"
+        ]
+    ]
+}

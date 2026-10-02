@@ -1,0 +1,13 @@
+[package]
+name = "treeknit-core"
+description = "TreeKnit algorithms: maximally compatible clades and reassortment graphs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+fixedbitset.workspace = true
+rand.workspace = true
+rand_xoshiro.workspace = true
+rayon.workspace = true
+log.workspace = true

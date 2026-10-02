@@ -1,0 +1,258 @@
+{
+    "multi_runs": [
+        {
+            "1-2": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ],
+            "0-2": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ],
+            "0-1": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ]
+        },
+        {
+            "1-2": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ],
+            "0-2": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ],
+            "0-1": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ]
+        },
+        {
+            "1-2": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ],
+            "0-2": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ],
+            "0-1": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ]
+        },
+        {
+            "1-2": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ],
+            "0-2": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ],
+            "0-1": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ]
+        },
+        {
+            "1-2": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ],
+            "0-2": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ],
+            "0-1": [
+                [
+                    "A",
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ]
+        }
+    ],
+    "seq_lengths": [
+        1,
+        1,
+        1
+    ],
+    "name": "test_resolve_3_compatible",
+    "naive_mccs_error": "MethodError: no method matching is_coherent_clade(::Vector{TreeNode{TreeTools.EmptyData}}, ::Tuple{SplitList{String}, SplitList{String}, SplitList{String}})\nThe function `is_coherent_clade` exists, but no method is defined for this combination of argument types.\n\nClosest candidates are:\n  is_coherent_clade(::Vector{<:TreeNode}, !Matched::Tuple{SplitList, Any})\n   @ TreeKnit /tmp/tkref/TreeKnit/src/mcc_base.jl:104\n",
+    "pairwise_naive_mccs": {
+        "1-2": [
+            [
+                "A"
+            ],
+            [
+                "B"
+            ],
+            [
+                "C"
+            ],
+            [
+                "D"
+            ]
+        ],
+        "0-2": [
+            [
+                "A"
+            ],
+            [
+                "B"
+            ],
+            [
+                "C"
+            ],
+            [
+                "D"
+            ]
+        ],
+        "0-1": [
+            [
+                "A"
+            ],
+            [
+                "B"
+            ],
+            [
+                "C"
+            ],
+            [
+                "D"
+            ]
+        ]
+    },
+    "trees": [
+        "(A,B,C,D);",
+        "(A,(B,C,D));",
+        "(A,B,(C,D));"
+    ],
+    "n_leaves": [
+        4,
+        4,
+        4
+    ],
+    "pre_resolve": {
+        "new_splits": [
+            [
+                [
+                    "B",
+                    "C",
+                    "D"
+                ],
+                [
+                    "C",
+                    "D"
+                ]
+            ],
+            [
+                [
+                    "C",
+                    "D"
+                ]
+            ],
+            [
+                [
+                    "B",
+                    "C",
+                    "D"
+                ]
+            ]
+        ],
+        "splits_after": [
+            [
+                [
+                    "B",
+                    "C",
+                    "D"
+                ],
+                [
+                    "C",
+                    "D"
+                ]
+            ],
+            [
+                [
+                    "B",
+                    "C",
+                    "D"
+                ],
+                [
+                    "C",
+                    "D"
+                ]
+            ],
+            [
+                [
+                    "B",
+                    "C",
+                    "D"
+                ],
+                [
+                    "C",
+                    "D"
+                ]
+            ]
+        ]
+    }
+}
