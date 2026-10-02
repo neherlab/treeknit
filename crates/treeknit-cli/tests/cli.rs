@@ -30,10 +30,24 @@ fn two_trees_with_arg() {
         return;
     }
     let out = tmp("two");
-    run(&[&format!("{ex}/tree_h3n2_ha.nwk"), &format!("{ex}/tree_h3n2_na.nwk"), "--auspice-view"], &out);
-    for f in ["MCCs.json", "parameters.json", "log.txt", "tree_h3n2_ha_resolved.nwk", "auspice_tree_h3n2_na.json",
-        "ARG/arg.nwk", "ARG/nodes.dat", "ARG/tree_h3n2_na_liberal_resolved.nwk"]
-    {
+    run(
+        &[
+            &format!("{ex}/tree_h3n2_ha.nwk"),
+            &format!("{ex}/tree_h3n2_na.nwk"),
+            "--auspice-view",
+        ],
+        &out,
+    );
+    for f in [
+        "MCCs.json",
+        "parameters.json",
+        "log.txt",
+        "tree_h3n2_ha_resolved.nwk",
+        "auspice_tree_h3n2_na.json",
+        "ARG/arg.nwk",
+        "ARG/nodes.dat",
+        "ARG/tree_h3n2_na_liberal_resolved.nwk",
+    ] {
         assert!(out.join(f).exists(), "missing {f}");
     }
     let n = mccs(&out)["MCC_dict"]["1"]["mccs"].as_array().unwrap().len();
@@ -45,7 +59,11 @@ fn two_trees_with_arg() {
 fn three_trees_partial_overlap_imputed() {
     let dir = tmp("three-in");
     std::fs::create_dir_all(&dir).unwrap();
-    let trees = ["((A,B),(C,(D,(E,X))));", "((A,(B,X)),(C,D,E,P));", "((A,(B,P)),((C,D),(E,X)));"];
+    let trees = [
+        "((A,B),(C,(D,(E,X))));",
+        "((A,(B,X)),(C,D,E,P));",
+        "((A,(B,P)),((C,D),(E,X)));",
+    ];
     let paths: Vec<String> = trees
         .iter()
         .enumerate()

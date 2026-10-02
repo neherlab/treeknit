@@ -18,6 +18,8 @@ struct Color {
     parent: Vec<Option<usize>>,
     /// Internal children of each internal node.
     children: Vec<Vec<usize>>,
+    /// Leaf children of each internal node.
+    leaf_children: Vec<Vec<usize>>,
     tree_node: Vec<NodeId>,
     /// Parent (internal index) of each leaf.
     leaf_anc: Vec<usize>,
@@ -147,6 +149,7 @@ impl Color {
             clade: vec![],
             parent: vec![],
             children: vec![],
+            leaf_children: vec![],
             tree_node: vec![],
             leaf_anc: vec![usize::MAX; n],
             leaf_node: vec![usize::MAX; n],
@@ -156,6 +159,7 @@ impl Color {
             c.clade.push(bits::from_iter(n, [t.taxon(t.root)]));
             c.parent.push(None);
             c.children.push(vec![]);
+            c.leaf_children.push(vec![t.taxon(t.root)]);
             c.tree_node.push(t.root);
             c.leaf_anc[t.taxon(t.root)] = 0;
             c.leaf_node[t.taxon(t.root)] = t.root;
@@ -165,6 +169,7 @@ impl Color {
             if t.is_leaf(v) {
                 let x = t.taxon(v);
                 c.leaf_anc[x] = idx[t.parent(v).unwrap()];
+                c.leaf_children[c.leaf_anc[x]].push(x);
                 c.leaf_node[x] = v;
                 continue;
             }
@@ -176,6 +181,7 @@ impl Color {
             }
             c.parent.push(p);
             c.children.push(vec![]);
+            c.leaf_children.push(vec![]);
             c.tree_node.push(v);
             c.clade.push(Bits::with_capacity(n));
         }
@@ -184,6 +190,162 @@ impl Color {
             c.clade[i] = clades[v].clone();
         }
         c
+    }
+}
+
+/// Energy of a configuration maintained under single-leaf flips.
+///
+/// Flipping leaf `j` can only change the terms of `j` itself and of kept leaves whose first
+/// non-trivial ancestor is an ancestor of `j` in some tree. Those leaves are the unique
+/// kept leaf below each child (with exactly one kept leaf) of each ancestor of `j`. The
+/// number of kept leaves below every node is maintained along `j`'s root paths.
+pub struct EnergyState<'g> {
+    g: &'g Graph,
+    resolve: bool,
+    conf: Bits,
+    /// `count[k][a]`: kept leaves below internal node `a` of color `k`.
+    count: Vec<Vec<u32>>,
+    /// Mismatching tree pairs of each kept leaf (0 for removed leaves).
+    term: Vec<u32>,
+    energy: usize,
+    /// Undo information for the last flip: the leaf and the previous terms.
+    last: Option<(usize, Vec<(usize, u32)>)>,
+}
+
+impl<'g> EnergyState<'g> {
+    pub fn new(g: &'g Graph, conf: Bits, resolve: bool) -> Self {
+        let count = g
+            .colors
+            .iter()
+            .map(|c| c.clade.iter().map(|x| x.intersection_count(&conf) as u32).collect())
+            .collect();
+        let mut s = EnergyState {
+            g,
+            resolve,
+            conf,
+            count,
+            term: vec![0; g.n],
+            energy: 0,
+            last: None,
+        };
+        for i in 0..g.n {
+            s.term[i] = s.leaf_term(i);
+        }
+        s.energy = s.term.iter().map(|&x| x as usize).sum();
+        s
+    }
+
+    pub fn conf(&self) -> &Bits {
+        &self.conf
+    }
+    pub fn energy(&self) -> usize {
+        self.energy
+    }
+    pub fn n_kept(&self) -> usize {
+        self.conf.count_ones(..)
+    }
+
+    fn climb(&self, k: usize, leaf: usize) -> usize {
+        let c = &self.g.colors[k];
+        let mut a = c.leaf_anc[leaf];
+        while self.count[k][a] < 2 {
+            match c.parent[a] {
+                Some(p) => a = p,
+                None => break,
+            }
+        }
+        a
+    }
+
+    fn leaf_term(&self, i: usize) -> u32 {
+        if !self.conf.contains(i) || self.g.n == 1 {
+            return 0;
+        }
+        let k = self.g.k();
+        let anc: Vec<usize> = (0..k).map(|kk| self.climb(kk, i)).collect();
+        let mut e = 0;
+        for k1 in 0..k {
+            for k2 in k1 + 1..k {
+                if !self.g.compatible(k1, anc[k1], k2, anc[k2], &self.conf, self.resolve) {
+                    e += 1;
+                }
+            }
+        }
+        e
+    }
+
+    /// Kept leaves whose term may depend on whether `j` is kept, in the current state.
+    fn candidates(&self, j: usize, out: &mut Vec<usize>) {
+        for (k, c) in self.g.colors.iter().enumerate() {
+            let mut a = Some(c.leaf_anc[j]);
+            while let Some(v) = a {
+                out.extend(c.leaf_children[v].iter().copied().filter(|&x| self.conf.contains(x)));
+                for &ch in &c.children[v] {
+                    if self.count[k][ch] == 1 {
+                        out.push(self.single_kept(k, ch));
+                    }
+                }
+                a = c.parent[v];
+            }
+        }
+    }
+
+    /// The only kept leaf below `a` (which has exactly one).
+    fn single_kept(&self, k: usize, mut a: usize) -> usize {
+        let c = &self.g.colors[k];
+        loop {
+            if let Some(&x) = c.leaf_children[a].iter().find(|&&x| self.conf.contains(x)) {
+                return x;
+            }
+            a = *c.children[a].iter().find(|&&ch| self.count[k][ch] == 1).unwrap();
+        }
+    }
+
+    fn update_counts(&mut self, j: usize, add: bool) {
+        for (k, c) in self.g.colors.iter().enumerate() {
+            let mut a = Some(c.leaf_anc[j]);
+            while let Some(v) = a {
+                if add {
+                    self.count[k][v] += 1;
+                } else {
+                    self.count[k][v] -= 1;
+                }
+                a = c.parent[v];
+            }
+        }
+    }
+
+    /// Flip leaf `j` and return the new energy. [`EnergyState::undo`] reverts it.
+    pub fn flip(&mut self, j: usize) -> usize {
+        let mut cand = vec![j];
+        self.candidates(j, &mut cand);
+        let add = !self.conf.contains(j);
+        self.conf.toggle(j);
+        self.update_counts(j, add);
+        self.candidates(j, &mut cand);
+        cand.sort_unstable();
+        cand.dedup();
+        let mut old = Vec::with_capacity(cand.len());
+        for &i in &cand {
+            let t = self.leaf_term(i);
+            old.push((i, self.term[i]));
+            self.energy = self.energy + t as usize - self.term[i] as usize;
+            self.term[i] = t;
+        }
+        self.last = Some((j, old));
+        self.energy
+    }
+
+    /// Revert the last flip.
+    pub fn undo(&mut self) {
+        let (j, old) = self.last.take().expect("nothing to undo");
+        for (i, t) in old {
+            self.energy = self.energy + t as usize - self.term[i] as usize;
+            self.term[i] = t;
+        }
+        let add = !self.conf.contains(j);
+        self.conf.toggle(j);
+        self.update_counts(j, add);
     }
 }
 
@@ -219,6 +381,34 @@ mod tests {
             let mut c = bits::full(5);
             c.set(i, false);
             assert_eq!(g.energy(&c, false), 4);
+        }
+    }
+
+    /// Incremental energy equals the full recomputation along random flip sequences.
+    #[test]
+    fn incremental_energy_matches_full() {
+        use rand::{Rng, SeedableRng};
+        let nwk = [
+            "(((A,B),(C,(D,E))),((F,G),(H,(I,J))),K,L);",
+            "(((A,C),(B,(D,K))),((F,(G,L)),(H,I)),J,E);",
+            "((A,(B,C,D)),(E,F,G),((H,I),(J,K,L)));",
+        ];
+        let (ts, taxa) = trees(&nwk);
+        let refs: Vec<&Tree> = ts.iter().collect();
+        let g = Graph::new(&refs, taxa.len());
+        let mut rng = rand_xoshiro::Xoshiro256PlusPlus::seed_from_u64(3);
+        for resolve in [false, true] {
+            let mut st = EnergyState::new(&g, bits::full(g.n), resolve);
+            assert_eq!(st.energy(), g.energy(st.conf(), resolve));
+            for step in 0..3000 {
+                let j = rng.gen_range(0..g.n);
+                let e = st.flip(j);
+                assert_eq!(e, g.energy(st.conf(), resolve), "step {step} resolve {resolve}");
+                if rng.gen_bool(0.5) {
+                    st.undo();
+                    assert_eq!(st.energy(), g.energy(st.conf(), resolve), "undo {step}");
+                }
+            }
         }
     }
 

@@ -2,7 +2,7 @@
 
 use crate::bits::{self, Bits};
 use crate::options::Cooling;
-use crate::splitgraph::Graph;
+use crate::splitgraph::{EnergyState, Graph};
 use rand::Rng;
 use std::collections::HashSet;
 
@@ -34,11 +34,6 @@ pub fn schedule(cooling: Cooling, t_min: f64, t_max: f64, n_t: usize) -> Vec<f64
             (0..n_t).map(|i| (t_max - t_min) * f(lin(i)) + t_min).collect()
         }
     }
-}
-
-/// Free energy `E + γ · #removed`.
-fn free_energy(e: usize, conf: &Bits, n: usize, gamma: f64) -> f64 {
-    e as f64 + gamma * (n - conf.count_ones(..)) as f64
 }
 
 /// Set of distinct configurations preserving insertion order.
@@ -74,41 +69,43 @@ struct Chain<'a, R: Rng> {
 }
 
 impl<R: Rng> Chain<'_, R> {
-    /// `m` Metropolis steps at temperature `t` starting from `conf`.
-    /// Returns the minimal-F configurations visited, the final state, and the minimal F.
-    fn mcmc(&mut self, conf: Bits, m: usize, t: f64) -> (ConfSet, Bits, f64) {
+    fn free_energy(&self, st: &EnergyState) -> f64 {
+        st.energy() as f64 + self.gamma * (self.g.n - st.n_kept()) as f64
+    }
+
+    /// `m` Metropolis steps at temperature `t` from the current state.
+    /// Returns the minimal-F configurations visited and the minimal F.
+    fn mcmc(&mut self, st: &mut EnergyState, m: usize, t: f64) -> (ConfSet, f64) {
         let n = self.g.n;
-        let mut conf = conf;
-        let mut f = free_energy(self.g.energy(&conf, self.resolve), &conf, n, self.gamma);
+        let mut f = self.free_energy(st);
         let mut fmin = f;
-        let mut best = ConfSet::single(conf.clone());
+        let mut best = ConfSet::single(st.conf().clone());
         for _ in 0..m {
             let i = self.rng.gen_range(0..n);
-            conf.toggle(i);
-            let fnew = free_energy(self.g.energy(&conf, self.resolve), &conf, n, self.gamma);
+            st.flip(i);
+            let fnew = self.free_energy(st);
             if fnew < f || (-(fnew - f) / t).exp() > self.rng.gen::<f64>() {
                 f = fnew;
             } else {
-                conf.toggle(i);
+                st.undo();
             }
             if f < fmin {
                 fmin = f;
-                best = ConfSet::single(conf.clone());
+                best = ConfSet::single(st.conf().clone());
             } else if f == fmin {
-                best.push(conf.clone());
+                best.push(st.conf().clone());
             }
         }
-        (best, conf, fmin)
+        (best, fmin)
     }
 
     /// One annealing run starting from all leaves kept.
     fn anneal(&mut self, trange: &[f64], m: usize) -> (ConfSet, f64) {
-        let mut conf = bits::full(self.g.n);
-        let mut best = ConfSet::single(conf.clone());
+        let mut st = EnergyState::new(self.g, bits::full(self.g.n), self.resolve);
+        let mut best = ConfSet::single(st.conf().clone());
         let mut fmin = f64::INFINITY;
         for &t in trange {
-            let (b, c, f) = self.mcmc(conf, m, t);
-            conf = c;
+            let (b, f) = self.mcmc(&mut st, m, t);
             if f < fmin {
                 best = b;
                 fmin = f;
