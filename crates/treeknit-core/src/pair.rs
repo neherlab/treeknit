@@ -152,7 +152,7 @@ pub fn prune_mccs(t: &mut Tree, mccs: &[Mcc], n_taxa: usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::options::Options;
+    use crate::options::{Options, Resolution};
     use crate::tree::test_util::trees;
     use rand::SeedableRng;
     use rand_xoshiro::Xoshiro256PlusPlus;
@@ -162,7 +162,7 @@ mod tests {
             gamma: o.gamma,
             itmax: o.itmax,
             likelihood_sort: o.likelihood_sort,
-            resolve: o.resolve,
+            resolve: o.resolves(),
             seq_lengths: [1.0, 1.0],
             n_mcmc: o.n_mcmc,
             sa_rep: o.sa_rep,
@@ -216,7 +216,7 @@ mod tests {
             "((A1,A2):3.,((B1,B2):2.,(C1,C2):2.):1.);",
         ];
         let o = Options {
-            resolve: false,
+            resolution: Resolution::None,
             ..Options::default()
         };
         for seed in 0..10 {

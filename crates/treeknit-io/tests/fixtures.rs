@@ -307,7 +307,7 @@ fn annealing_distribution_vs_julia() {
             .map(|r| serde_json::from_value(r.clone()).unwrap())
             .collect();
         let jset: HashSet<&Clades> = julia.iter().collect();
-        let o = Options::for_trees(2, None);
+        let o = Options::treeknit_jl(2, None);
         let mut rust: Vec<Clades> = Vec::new();
         for seed in 0..julia.len() as u64 {
             let mut tt = ts.clone();
@@ -332,7 +332,7 @@ fn annealing_distribution_vs_julia() {
     assert!(bad.is_empty(), "Rust differs where Julia is unanimous: {bad:?}");
 }
 
-/// With `match_topologies`, every MCC of every pair has the same topology in both output trees,
+/// With matched resolution, every MCC of every pair has the same topology in both output trees,
 /// on simulated data with three segments (pairwise MCCs need not be transitive).
 #[test]
 fn matched_topologies_on_three_segments() {
@@ -343,10 +343,7 @@ fn matched_topologies_on_three_segments() {
         let (ts, taxa) = load(&f);
         let n = taxa.len();
         for seed in 0..3 {
-            let o = Options {
-                match_topologies: true,
-                ..Options::for_trees(ts.len(), None)
-            };
+            let o = Options::for_trees(ts.len()); // matched resolution is the default
             let mut tt = ts.clone();
             let res = treeknit_core::run(&mut tt, &taxa, &o, seed);
             let bad = treeknit_core::unmatched_mccs(&tt, &res, n);

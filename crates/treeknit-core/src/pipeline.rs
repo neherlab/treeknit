@@ -5,7 +5,7 @@ use crate::bits::{self, Bits};
 use crate::impute::{attach_private, graft_attachments, Attachment};
 use crate::mcc_map::{leaf_order, sort_by_leaf_order, sort_polytomies_by_mccs};
 use crate::naive::{naive_mccs, sort_mccs, Mcc};
-use crate::options::Options;
+use crate::options::{Options, Resolution};
 use crate::pair::{infer_pair, PairParams};
 use crate::resolve::{insert_all_on, insert_split, resolve_trees, resolve_with_mccs, Insert};
 use crate::tree::{Taxa, Tree};
@@ -49,22 +49,24 @@ pub fn run(trees: &mut [Tree], taxa: &Taxa, opts: &Options, seed: u64) -> Vec<Pa
     }
     let pairs: Vec<(usize, usize)> = (0..k).flat_map(|i| (i + 1..k).map(move |j| (i, j))).collect();
     let mut mccs: Vec<Vec<Mcc>> = vec![Vec::new(); pairs.len()];
-    for round in 1..=opts.rounds {
-        let last = round == opts.rounds;
-        let resolve = opts.resolve && !(opts.final_no_resolve && last);
-        let strict = opts.strict && !(opts.final_no_resolve && last);
-        log::info!(
-            "round {round}/{}{}",
-            opts.rounds,
-            if resolve { " (resolving)" } else { "" }
-        );
+    let matched = opts.resolution == Resolution::Matched;
+    let extra_round =
+        matches!(opts.resolution, Resolution::Strict | Resolution::Liberal) && k > 2 && opts.final_unresolved_round;
+    let rounds = opts.rounds + extra_round as usize;
+    for round in 1..=rounds {
+        let last = round == rounds;
+        let unresolved_round = extra_round && last;
+        let resolve = opts.resolves() && !unresolved_round;
+        // Splits added with MCCs: unambiguous ones only, except in liberal mode.
+        let strict = opts.resolution != Resolution::Liberal && resolve;
+        log::info!("round {round}/{rounds}{}", if resolve { " (resolving)" } else { "" });
         if resolve || !opts.parallel {
             for (p, &(i, j)) in pairs.iter().enumerate() {
                 mccs[p] = infer(trees, i, j, n, opts, resolve, seed, round);
                 if resolve {
                     resolve_pair(trees, i, j, &mccs[p], n, strict);
                 }
-                if last && !opts.match_topologies {
+                if last && !matched {
                     sort_pair(trees, i, j, &mccs[p], n, strict);
                 }
             }
@@ -74,14 +76,14 @@ pub fn run(trees: &mut [Tree], taxa: &Taxa, opts: &Options, seed: u64) -> Vec<Pa
                 .par_iter()
                 .map(|&(i, j)| infer(shared, i, j, n, opts, false, seed, round))
                 .collect();
-            if last && !opts.match_topologies {
+            if last && !matched {
                 for (p, &(i, j)) in pairs.iter().enumerate() {
                     sort_pair(trees, i, j, &mccs[p], n, strict);
                 }
             }
         }
     }
-    if opts.match_topologies {
+    if matched {
         match_topologies(trees, &pairs, &mut mccs, n);
         for (p, &(i, j)) in pairs.iter().enumerate() {
             sort_pair(trees, i, j, &mccs[p], n, false);
@@ -486,7 +488,7 @@ mod tests {
     #[test]
     fn three_trees_better_trees() {
         let (mut ts, taxa) = trees(&["((A,(B,C)),(D,E));", "((A,B,C,D),E);", "((A,B),((C,D),E));"]);
-        let o = Options::for_trees(3, None);
+        let o = Options::treeknit_jl(3, None);
         let res = run(&mut ts, &taxa, &o, 1);
         assert_eq!(res.len(), 3);
         for r in &res {
@@ -499,7 +501,7 @@ mod tests {
     fn partial_overlap_matches_prepruned() {
         let full = ["((A,B),(C,(D,(E,X))));", "((A,(B,X)),(C,D,E));"];
         let partial = ["((A,B),(C,(D,(E,X))));", "((A,(B,X)),(C,(D,P),E));"];
-        let o = Options::for_trees(2, None);
+        let o = Options::treeknit_jl(2, None);
         let (mut a, ta) = trees(&full);
         let (mut b, tb) = trees(&partial);
         let ra = run(&mut a, &ta, &o, 7);
