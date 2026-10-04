@@ -18,5 +18,5 @@ pub mod tree;
 
 pub use naive::{naive_mccs, Mcc};
 pub use options::{Cooling, Method, Options};
-pub use pipeline::{arg_inputs, imputed_trees, run, PairResult};
+pub use pipeline::{arg_inputs, imputed_trees, run, unmatched_mccs, PairResult};
 pub use tree::{NodeId, Taxa, Tree};

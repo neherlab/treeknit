@@ -111,6 +111,13 @@ struct Cli {
     #[arg(long)]
     no_likelihood: bool,
 
+    /// After inference, resolve all trees so that their topologies match within every MCC
+    /// (liberally, also where strict resolution would not). Where splits from different trees
+    /// conflict, trees given earlier take precedence, and MCCs that cannot be matched are split.
+    /// Implies resolving trees in all rounds, including the last.
+    #[arg(long)]
+    match_topologies: bool,
+
     /// Write trees with leaves missing from them placed by imputation (`*_imputed.nwk`).
     #[arg(long)]
     impute: bool,
@@ -289,7 +296,18 @@ fn options(cli: &Cli, k: usize) -> Result<Options> {
         }
         o.rounds = r;
     }
-    if k > 2 && o.resolve && !o.final_no_resolve {
+    if cli.match_topologies {
+        // MCCs inferred without resolution already have identical topologies; matching is
+        // meaningful for MCCs inferred up to resolution, and replaces a final unresolved round.
+        o.match_topologies = true;
+        o.final_no_resolve = false;
+        if cli.no_resolve {
+            log::warn!("--match-topologies with --no-resolve: MCCs already match, nothing to do");
+        } else {
+            o.resolve = true;
+        }
+    }
+    if k > 2 && o.resolve && !o.final_no_resolve && !o.match_topologies {
         log::warn!("for more than two trees, resolving in the final round is not recommended (--resolve-all-rounds)");
     }
     log::info!(
@@ -321,6 +339,7 @@ fn params_json(o: &Options, seed: u64) -> serde_json::Value {
         "nT": o.n_t,
         "cooling_schedule": format!("{:?}", o.cooling).to_lowercase(),
         "naive": o.naive,
+        "match_topologies": o.match_topologies,
         "seed": seed,
     })
 }

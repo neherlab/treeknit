@@ -27,6 +27,7 @@ Main options:
 | `--better-trees` / `--better-MCCs` | method presets; `--help-defaults` explains them |
 | `--seq-lengths "1700 1400"` | segment lengths for the branch-length tie-break |
 | `--no-resolve`, `--liberal-resolve`, `--no-pre-resolve`, `--resolve-all-rounds`, `--rounds` | control tree resolution |
+| `--match-topologies` | resolve all trees so that their topologies match within every MCC; earlier trees take precedence where splits conflict, and MCCs that cannot match are split (see below) |
 | `--naive` | naive MCCs (γ → ∞) |
 | `--impute` | also write trees with missing leaves placed |
 | `--auspice-view` | auspice JSON for tanglegrams |
@@ -45,6 +46,24 @@ Output in the results directory:
 | `ARG/nodes.dat` | ARG node ↔ tree node table |
 | `ARG/<tree>_liberal_resolved.nwk` | the trees the ARG was built from |
 | `parameters.json`, `log.txt` | parameters and log of the run |
+
+## Matching topologies
+
+With `--match-topologies`, the output trees agree within shared regions. For every pair of
+trees and every MCC, the two trees restricted to the MCC's leaves have the same topology.
+
+- **How:** after inference (with resolution in every round), the splits each tree has inside
+  an MCC are inserted into the other tree of the pair. Only the MCC's leaves are considered,
+  so branches of other MCCs may attach anywhere. Pairs are processed in argument order,
+  repeatedly until nothing changes, so splits pass along chains of shared regions.
+- **Precedence:** a split is inserted only if compatible with what the tree already has, so
+  splits of trees given earlier win conflicts. No input split is ever removed.
+- **Conflicts:** conflicting splits from different trees in the same shared region mean the
+  pairwise MCCs are not mutually consistent. Such an MCC is replaced by the maximal clades on
+  which its two trees agree, i.e. more reassortments, and this is logged.
+- **Compared with pre-resolution:** a tree that has reassorted relative to the others in some
+  region doesn't block resolution there, since only trees sharing the region take part.
+  Combining it with `--no-pre-resolve` removes pre-resolution's veto entirely.
 
 ## Layout
 

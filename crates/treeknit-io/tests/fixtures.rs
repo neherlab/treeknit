@@ -331,3 +331,32 @@ fn annealing_distribution_vs_julia() {
     }
     assert!(bad.is_empty(), "Rust differs where Julia is unanimous: {bad:?}");
 }
+
+/// With `match_topologies`, every MCC of every pair has the same topology in both output trees,
+/// on simulated data with three segments (pairwise MCCs need not be transitive).
+#[test]
+fn matched_topologies_on_three_segments() {
+    for (case, f) in fixtures() {
+        if f["trees"].as_array().unwrap().len() < 3 {
+            continue;
+        }
+        let (ts, taxa) = load(&f);
+        let n = taxa.len();
+        for seed in 0..3 {
+            let o = Options {
+                match_topologies: true,
+                ..Options::for_trees(ts.len(), None)
+            };
+            let mut tt = ts.clone();
+            let res = treeknit_core::run(&mut tt, &taxa, &o, seed);
+            let bad = treeknit_core::unmatched_mccs(&tt, &res, n);
+            assert!(bad.is_empty(), "{case} seed {seed}: unmatched MCCs {bad:?}");
+            // Matching only adds splits: every input split is still present.
+            for (t, t0) in tt.iter().zip(&ts) {
+                let before = tree_splits(t0, &taxa);
+                let after = tree_splits(t, &taxa);
+                assert!(before.iter().all(|s| after.contains(s)), "{case}: a split was removed");
+            }
+        }
+    }
+}

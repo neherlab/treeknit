@@ -48,6 +48,9 @@ pub struct Options {
     pub naive: bool,
     /// Run independent pairs in parallel.
     pub parallel: bool,
+    /// After inference, resolve trees so that their topologies match within every MCC, earlier
+    /// trees taking precedence (see `pipeline::match_topologies`).
+    pub match_topologies: bool,
 }
 
 impl Default for Options {
@@ -70,6 +73,7 @@ impl Default for Options {
             cooling: Cooling::Geometric,
             naive: false,
             parallel: true,
+            match_topologies: false,
         }
     }
 }
