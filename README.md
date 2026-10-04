@@ -26,7 +26,7 @@ Main options:
 | `-g/--gamma` | cost of a reassortment (default 2) |
 | `--seq-lengths "1700 1400"` | segment lengths for the branch-length tie-break |
 | `--resolve matched\|strict\|liberal\|none` | how trees are resolved (default `matched`, see below); `--help-resolve` explains the modes |
-| `--pre-resolve`, `--rounds`, `--resolve-all-rounds` | further control of tree resolution |
+| `--pre-resolve`, `--rounds`, `--no-final-round` | further control of tree resolution |
 | `--naive` | naive MCCs (γ → ∞) |
 | `--impute` | also write trees with missing leaves placed |
 | `--auspice-view` | auspice JSON for tanglegrams |
@@ -63,7 +63,7 @@ there for everyone. It is mostly useful with `--resolve none`.
 
 With `strict` or `liberal` and more than two trees, the MCCs are re-inferred without resolution
 in a final extra round, since resolving later pairs can invalidate earlier pairs' MCCs
-(`--resolve-all-rounds` skips it). `matched` doesn't need that round, because matching enforces
+(`--no-final-round` skips it). `matched` doesn't need that round, because matching enforces
 consistency itself.
 
 **How matching works**
@@ -77,19 +77,25 @@ consistency itself.
   not mutually consistent. Such an MCC is replaced by the maximal clades on which its two trees
   agree, i.e. more reassortments, and this is logged.
 
-**Former options**, still accepted with a deprecation warning:
+**Former options** are still accepted, with a deprecation warning and their TreeKnit.jl
+meaning, and reproduce its results. With them:
+- the method preset depends on the number of trees (`--better-MCCs` for two, `--better-trees`
+  for more);
+- `--rounds` counts all rounds; with `--better-MCCs` and more than two trees the default 2 means
+  one resolving round and a final one without;
+- `--resolve-all-rounds` makes the final round resolve too.
+
+They cannot be mixed with `--resolve`, `--pre-resolve` or `--no-final-round`. Closest current
+equivalents:
 
 | Former | Now |
 |---|---|
-| `--better-trees` (former default for more than two trees) | `--resolve none --pre-resolve` |
-| `--better-MCCs` (former default for two trees) | `--resolve strict --pre-resolve` |
+| `--better-trees` | `--resolve none --pre-resolve` |
+| `--better-MCCs` | `--resolve strict --pre-resolve` |
+| `--liberal-resolve` | `--resolve liberal` (in the `--better-MCCs` preset) |
 | `--no-resolve` | `--resolve none` |
-| `--liberal-resolve` | `--resolve liberal` |
-| `--match-topologies` | `--resolve matched` |
 | `--no-pre-resolve` | the default |
-
-They reproduce the former results exactly. `--rounds` now counts rounds with resolution; the
-extra final round is added on top.
+| `--resolve-all-rounds` | resolve in the final round too |
 
 ## Layout
 

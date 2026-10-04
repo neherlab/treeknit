@@ -67,7 +67,7 @@ pub fn run(trees: &mut [Tree], taxa: &Taxa, opts: &Options, seed: u64) -> Vec<Pa
                     resolve_pair(trees, i, j, &mccs[p], n, strict);
                 }
                 if last && !matched {
-                    sort_pair(trees, i, j, &mccs[p], n, strict);
+                    sort_pair(trees, i, j, &mccs[p], n, opts.sort_strict.unwrap_or(strict));
                 }
             }
         } else {
@@ -78,7 +78,7 @@ pub fn run(trees: &mut [Tree], taxa: &Taxa, opts: &Options, seed: u64) -> Vec<Pa
                 .collect();
             if last && !matched {
                 for (p, &(i, j)) in pairs.iter().enumerate() {
-                    sort_pair(trees, i, j, &mccs[p], n, strict);
+                    sort_pair(trees, i, j, &mccs[p], n, opts.sort_strict.unwrap_or(strict));
                 }
             }
         }

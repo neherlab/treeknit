@@ -63,6 +63,10 @@ pub struct Options {
     pub naive: bool,
     /// Run independent pairs in parallel.
     pub parallel: bool,
+    /// Whether polytomies of the output trees are sorted using strictly or liberally resolved
+    /// copies; by default as resolution in the final round. Only needed to reproduce the
+    /// output order of TreeKnit.jl option combinations exactly.
+    pub sort_strict: Option<bool>,
 }
 
 impl Default for Options {
@@ -84,6 +88,7 @@ impl Default for Options {
             cooling: Cooling::Geometric,
             naive: false,
             parallel: true,
+            sort_strict: None,
         }
     }
 }
