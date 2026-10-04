@@ -1,4 +1,4 @@
-//! Run options and the two method presets.
+//! Run options.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Cooling {
@@ -7,6 +7,21 @@ pub enum Cooling {
     Acos,
 }
 
+/// How trees are resolved during and after MCC inference.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Resolution {
+    /// No resolution with MCCs: MCCs require identical topologies.
+    None,
+    /// Resolve during pair inference and with the inferred MCCs, unambiguous splits only.
+    Strict,
+    /// As `Strict`, also adding ambiguous splits (placement of other MCCs chosen arbitrarily).
+    Liberal,
+    /// As `Strict`, then resolve all trees so that their topologies match within every MCC,
+    /// earlier trees taking precedence (see `pipeline::match_topologies`).
+    Matched,
+}
+
+/// The method presets of TreeKnit.jl (see [`Options::treeknit_jl`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Method {
     /// Pre-resolve, then one round of pair inference without resolving (default for K > 2).
@@ -24,18 +39,18 @@ pub struct Options {
     pub itmax: usize,
     /// Break ties between equally good configurations with branch lengths.
     pub likelihood_sort: bool,
-    /// Resolve trees during pair inference, and with inferred MCCs.
-    pub resolve: bool,
-    /// Only introduce unambiguous splits when resolving with MCCs.
-    pub strict: bool,
+    /// How trees are resolved during and after inference.
+    pub resolution: Resolution,
     /// Sequence length of each tree (for the likelihood).
     pub seq_lengths: Vec<f64>,
-    /// Resolve all trees with each other before inference.
+    /// Before inference, add to each tree the splits of other trees that are compatible with
+    /// all trees.
     pub pre_resolve: bool,
-    /// Rounds of pair inference.
+    /// Rounds of pair inference (resolving, unless `resolution` is `None`).
     pub rounds: usize,
-    /// Do not resolve in the final round.
-    pub final_no_resolve: bool,
+    /// With `Strict`/`Liberal` and more than two trees, re-infer all MCCs without resolution in a
+    /// final extra round, since resolving later pairs can invalidate earlier pairs' MCCs.
+    pub final_unresolved_round: bool,
     /// Total MCMC steps per leaf.
     pub n_mcmc: usize,
     /// Independent annealing runs per iteration.
@@ -48,6 +63,10 @@ pub struct Options {
     pub naive: bool,
     /// Run independent pairs in parallel.
     pub parallel: bool,
+    /// Whether polytomies of the output trees are sorted using strictly or liberally resolved
+    /// copies; by default as resolution in the final round. Only needed to reproduce the
+    /// output order of TreeKnit.jl option combinations exactly.
+    pub sort_strict: Option<bool>,
 }
 
 impl Default for Options {
@@ -56,12 +75,11 @@ impl Default for Options {
             gamma: 2.0,
             itmax: 15,
             likelihood_sort: true,
-            resolve: true,
-            strict: true,
+            resolution: Resolution::Matched,
             seq_lengths: vec![1.0, 1.0],
-            pre_resolve: true,
+            pre_resolve: false,
             rounds: 1,
-            final_no_resolve: false,
+            final_unresolved_round: true,
             n_mcmc: 50,
             sa_rep: 1,
             t_min: 0.05,
@@ -70,46 +88,37 @@ impl Default for Options {
             cooling: Cooling::Geometric,
             naive: false,
             parallel: true,
+            sort_strict: None,
         }
     }
 }
 
 impl Options {
-    /// Defaults for `k` trees with the given method (default: `BetterMccs` for k = 2,
-    /// `BetterTrees` otherwise).
-    pub fn for_trees(k: usize, method: Option<Method>) -> Options {
-        let method = method.unwrap_or(if k > 2 { Method::BetterTrees } else { Method::BetterMccs });
-        let mut o = Options {
+    /// Defaults for `k` trees (the same for any number of trees).
+    pub fn for_trees(k: usize) -> Options {
+        Options {
             seq_lengths: vec![1.0; k],
             ..Options::default()
-        };
-        match method {
-            Method::BetterTrees => {
-                o.resolve = false;
-                o.final_no_resolve = true;
-                o.rounds = 1;
-            }
-            Method::BetterMccs if k > 2 => {
-                o.resolve = true;
-                o.final_no_resolve = true;
-                o.rounds = 2;
-            }
-            Method::BetterMccs => {
-                o.resolve = true;
-                o.final_no_resolve = false;
-                o.rounds = 1;
-            }
         }
-        o.normalize();
-        o
     }
 
-    /// A single round that should not resolve is simply a round without resolution.
-    pub fn normalize(&mut self) {
-        if self.final_no_resolve && self.rounds == 1 && self.resolve {
-            self.resolve = false;
-            self.final_no_resolve = false;
+    /// The presets of TreeKnit.jl for `k` trees (default method: `BetterMccs` for k = 2,
+    /// `BetterTrees` otherwise).
+    pub fn treeknit_jl(k: usize, method: Option<Method>) -> Options {
+        let method = method.unwrap_or(if k > 2 { Method::BetterTrees } else { Method::BetterMccs });
+        Options {
+            resolution: match method {
+                Method::BetterTrees => Resolution::None,
+                Method::BetterMccs => Resolution::Strict,
+            },
+            pre_resolve: true,
+            ..Options::for_trees(k)
         }
+    }
+
+    /// Resolve during pair inference.
+    pub fn resolves(&self) -> bool {
+        self.resolution != Resolution::None
     }
 
     pub fn temperatures(&self) -> Vec<f64> {

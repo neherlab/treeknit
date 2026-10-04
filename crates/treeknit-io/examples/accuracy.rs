@@ -98,7 +98,7 @@ fn main() {
         } else {
             serde_json::from_value(f["multi_runs"].clone()).unwrap()
         };
-        let opts = Options::for_trees(k, None);
+        let opts = Options::treeknit_jl(k, None); // as the Julia runs it is compared with
         let rust: Vec<HashMap<String, Partition>> = (0..julia.len() as u64)
             .map(|seed| {
                 let mut tt = ts.clone();

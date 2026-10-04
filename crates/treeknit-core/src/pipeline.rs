@@ -5,9 +5,9 @@ use crate::bits::{self, Bits};
 use crate::impute::{attach_private, graft_attachments, Attachment};
 use crate::mcc_map::{leaf_order, sort_by_leaf_order, sort_polytomies_by_mccs};
 use crate::naive::{naive_mccs, sort_mccs, Mcc};
-use crate::options::Options;
+use crate::options::{Options, Resolution};
 use crate::pair::{infer_pair, PairParams};
-use crate::resolve::{insert_all_on, resolve_trees, resolve_with_mccs};
+use crate::resolve::{insert_all_on, insert_split, resolve_trees, resolve_with_mccs, Insert};
 use crate::tree::{Taxa, Tree};
 use rand::SeedableRng;
 use rand_xoshiro::Xoshiro256PlusPlus;
@@ -49,23 +49,25 @@ pub fn run(trees: &mut [Tree], taxa: &Taxa, opts: &Options, seed: u64) -> Vec<Pa
     }
     let pairs: Vec<(usize, usize)> = (0..k).flat_map(|i| (i + 1..k).map(move |j| (i, j))).collect();
     let mut mccs: Vec<Vec<Mcc>> = vec![Vec::new(); pairs.len()];
-    for round in 1..=opts.rounds {
-        let last = round == opts.rounds;
-        let resolve = opts.resolve && !(opts.final_no_resolve && last);
-        let strict = opts.strict && !(opts.final_no_resolve && last);
-        log::info!(
-            "round {round}/{}{}",
-            opts.rounds,
-            if resolve { " (resolving)" } else { "" }
-        );
+    let matched = opts.resolution == Resolution::Matched;
+    let extra_round =
+        matches!(opts.resolution, Resolution::Strict | Resolution::Liberal) && k > 2 && opts.final_unresolved_round;
+    let rounds = opts.rounds + extra_round as usize;
+    for round in 1..=rounds {
+        let last = round == rounds;
+        let unresolved_round = extra_round && last;
+        let resolve = opts.resolves() && !unresolved_round;
+        // Splits added with MCCs: unambiguous ones only, except in liberal mode.
+        let strict = opts.resolution != Resolution::Liberal && resolve;
+        log::info!("round {round}/{rounds}{}", if resolve { " (resolving)" } else { "" });
         if resolve || !opts.parallel {
             for (p, &(i, j)) in pairs.iter().enumerate() {
                 mccs[p] = infer(trees, i, j, n, opts, resolve, seed, round);
                 if resolve {
                     resolve_pair(trees, i, j, &mccs[p], n, strict);
                 }
-                if last {
-                    sort_pair(trees, i, j, &mccs[p], n, strict);
+                if last && !matched {
+                    sort_pair(trees, i, j, &mccs[p], n, opts.sort_strict.unwrap_or(strict));
                 }
             }
         } else {
@@ -74,17 +76,153 @@ pub fn run(trees: &mut [Tree], taxa: &Taxa, opts: &Options, seed: u64) -> Vec<Pa
                 .par_iter()
                 .map(|&(i, j)| infer(shared, i, j, n, opts, false, seed, round))
                 .collect();
-            if last {
+            if last && !matched {
                 for (p, &(i, j)) in pairs.iter().enumerate() {
-                    sort_pair(trees, i, j, &mccs[p], n, strict);
+                    sort_pair(trees, i, j, &mccs[p], n, opts.sort_strict.unwrap_or(strict));
                 }
             }
+        }
+    }
+    if matched {
+        match_topologies(trees, &pairs, &mut mccs, n);
+        for (p, &(i, j)) in pairs.iter().enumerate() {
+            sort_pair(trees, i, j, &mccs[p], n, false);
         }
     }
     pairs
         .iter()
         .zip(mccs)
         .map(|(&(i, j), m)| attach_pair(trees, i, j, m, n))
+        .collect()
+}
+
+/// Resolve `trees` so that, within every MCC of every pair, the two trees restricted to the
+/// MCC's leaves have the same topology. Earlier trees take precedence.
+///
+/// Pairs are visited in order (0,1), (0,2), …, (1,2), …; for each, the splits that either tree
+/// has inside their shared MCCs are inserted into the other. Passes are
+/// repeated until nothing changes, so splits propagate through chains of shared regions. A
+/// split is only inserted if compatible with what a tree already has, so splits of earlier
+/// trees win conflicts; no split is ever removed. MCCs whose topologies still differ after
+/// propagation (conflicting splits from different trees) are replaced by the maximal clades
+/// on which the two trees agree, i.e. additional reassortments are inferred there.
+///
+/// Returns the number of splits added and the number of MCCs that had to be split.
+pub fn match_topologies(
+    trees: &mut [Tree],
+    pairs: &[(usize, usize)],
+    mccs: &mut [Vec<Mcc>],
+    n: usize,
+) -> (usize, usize) {
+    let mut added = 0;
+    for pass in 1..=20 {
+        let before = added;
+        for (p, &(i, j)) in pairs.iter().enumerate() {
+            added += propagate_splits(trees, i, j, &mccs[p], n);
+            added += propagate_splits(trees, j, i, &mccs[p], n);
+        }
+        log::debug!("matching topologies, pass {pass}: {} splits added", added - before);
+        if added == before {
+            break;
+        }
+    }
+    let mut split = 0;
+    for (p, &(i, j)) in pairs.iter().enumerate() {
+        let mut out: Vec<Mcc> = Vec::with_capacity(mccs[p].len());
+        for m in std::mem::take(&mut mccs[p]) {
+            match mismatched_restrictions(&trees[i], &trees[j], &m, n) {
+                None => out.push(m),
+                Some((ri, rj)) => {
+                    let parts = naive_mccs(&[&ri, &rj], n);
+                    log::info!(
+                        "MCC of {} leaves has conflicting topologies in {} and {}: split into {} MCCs",
+                        m.len(),
+                        trees[i].label,
+                        trees[j].label,
+                        parts.len()
+                    );
+                    split += 1;
+                    out.extend(parts);
+                }
+            }
+        }
+        mccs[p] = sort_mccs(out);
+    }
+    log::info!("matched topologies within MCCs: {added} splits added, {split} MCCs split");
+    (added, split)
+}
+
+/// Insert into tree `dst` the splits tree `src` has inside each MCC, restricted to the MCC's
+/// leaves (where the placement of other branches is free). Splits that conflict with `dst` are
+/// skipped. Returns the number inserted.
+fn propagate_splits(trees: &mut [Tree], src: usize, dst: usize, mccs: &[Mcc], n: usize) -> usize {
+    let (s, d) = if src < dst {
+        let (a, b) = trees.split_at_mut(dst);
+        (&a[src], &mut b[0])
+    } else {
+        let (a, b) = trees.split_at_mut(src);
+        (&b[0], &mut a[dst])
+    };
+    let clades = s.clades(n);
+    let leaf_of = s.leaf_of(n);
+    let mut label = d.fresh_index("RESOLVED");
+    let mut added = 0;
+    for m in mccs.iter().filter(|m| m.len() >= 3) {
+        let mask = bits::from_iter(n, m.iter().copied());
+        let Some(r) = s.lca_of(m.iter().filter_map(|&x| leaf_of[x])) else {
+            continue;
+        };
+        for v in s.postorder_from(r).into_iter().filter(|&v| !s.is_leaf(v)) {
+            let split = bits::and(&clades[v], &mask);
+            if split.count_ones(..) < 2 || split == mask {
+                continue;
+            }
+            if insert_split(d, &split, &mask, n, &format!("RESOLVED_{label}")) == Insert::Added {
+                label += 1;
+                added += 1;
+            }
+        }
+    }
+    added
+}
+
+/// MCCs whose two trees, restricted to the MCC's leaves present in both, have different
+/// topologies: `(pair index, MCC index)`. Empty after `match_topologies`.
+pub fn unmatched_mccs(trees: &[Tree], results: &[PairResult], n: usize) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    for (p, r) in results.iter().enumerate() {
+        let shared = bits::and(&trees[r.i].leaf_set(n), &trees[r.j].leaf_set(n));
+        for (k, m) in r.mccs.iter().enumerate() {
+            let m: Mcc = m.iter().copied().filter(|&x| shared.contains(x)).collect();
+            if mismatched_restrictions(&trees[r.i], &trees[r.j], &m, n).is_some() {
+                out.push((p, k));
+            }
+        }
+    }
+    out
+}
+
+/// `t1` and `t2` restricted to the leaves of `m`, if their topologies differ there.
+fn mismatched_restrictions(t1: &Tree, t2: &Tree, m: &Mcc, n: usize) -> Option<(Tree, Tree)> {
+    if m.len() < 3 {
+        return None;
+    }
+    let keep = bits::from_iter(n, m.iter().copied());
+    let (r1, r2) = (t1.restricted(&keep)?, t2.restricted(&keep)?);
+    if internal_clades(&r1, n) == internal_clades(&r2, n) {
+        None
+    } else {
+        Some((r1, r2))
+    }
+}
+
+/// Clades of the internal non-root nodes of `t`.
+pub fn internal_clades(t: &Tree, n: usize) -> std::collections::HashSet<Bits> {
+    let c = t.clades(n);
+    t.internals()
+        .into_iter()
+        .filter(|&v| v != t.root)
+        .map(|v| c[v].clone())
         .collect()
 }
 
@@ -163,7 +301,8 @@ fn mix(seed: u64, round: usize, i: usize, j: usize) -> u64 {
 }
 
 /// Resolve trees `i` and `j` with their MCCs (computed on shared leaves).
-fn resolve_pair(trees: &mut [Tree], i: usize, j: usize, mccs: &[Mcc], n: usize, strict: bool) {
+/// Returns the number of splits added to the two trees.
+fn resolve_pair(trees: &mut [Tree], i: usize, j: usize, mccs: &[Mcc], n: usize, strict: bool) -> usize {
     let (shared, ti, tj) = restrict_pair(trees, i, j, n);
     let (mut ti, mut tj) = (ti.into_owned(), tj.into_owned());
     let [mut si, mut sj] = resolve_with_mccs(&mut ti, &mut tj, mccs, n, strict);
@@ -176,6 +315,7 @@ fn resolve_pair(trees: &mut [Tree], i: usize, j: usize, mccs: &[Mcc], n: usize, 
     );
     insert_all_on(&mut trees[i], &mut si, &shared, n);
     insert_all_on(&mut trees[j], &mut sj, &shared, n);
+    si.len() + sj.len()
 }
 
 /// Ladderize the first tree and order polytomies so that MCCs face each other.
@@ -293,10 +433,62 @@ mod tests {
     use super::*;
     use crate::tree::test_util::{splits, trees};
 
+    fn ids(taxa: &Taxa, m: &[&[&str]]) -> Vec<Mcc> {
+        sort_mccs(m.iter().map(|x| x.iter().map(|s| taxa.index[*s]).collect()).collect())
+    }
+
+    fn all_matching(trees: &[Tree], pairs: &[(usize, usize)], mccs: &[Vec<Mcc>], n: usize) -> bool {
+        pairs.iter().zip(mccs).all(|(&(i, j), ms)| {
+            ms.iter()
+                .all(|m| mismatched_restrictions(&trees[i], &trees[j], m, n).is_none())
+        })
+    }
+
+    #[test]
+    fn matching_two_trees_resolves_ambiguous_polytomy() {
+        // Strict resolution leaves t2 unresolved (D might be nested in the MCC); matching
+        // topologies requires the MCC's internal splits in both trees. The MCC's own clade
+        // (A,B,C) is not needed: restricted to the MCC it is the root.
+        let (mut ts, taxa) = trees(&["((A,(B,C)),D);", "(A,B,C,D);"]);
+        let pairs = [(0, 1)];
+        let mut mccs = vec![ids(&taxa, &[&["D"], &["A", "B", "C"]])];
+        let (added, split) = match_topologies(&mut ts, &pairs, &mut mccs, taxa.len());
+        assert_eq!((added, split), (1, 0));
+        assert_eq!(splits(&ts[1], &taxa), vec![vec!["B", "C"]]);
+        assert!(all_matching(&ts, &pairs, &mccs, taxa.len()));
+    }
+
+    #[test]
+    fn matching_precedence_and_conflicts() {
+        // Non-transitive MCCs: t1 and t2 both share everything with t0 but group B differently.
+        let (mut ts, taxa) = trees(&["(A,B,C,D);", "((A,B),C,D);", "((B,C),A,D);"]);
+        let n = taxa.len();
+        let pairs = [(0, 1), (0, 2), (1, 2)];
+        let all: &[&str] = &["A", "B", "C", "D"];
+        let mut mccs = vec![
+            ids(&taxa, &[all]),
+            ids(&taxa, &[all]),
+            ids(&taxa, &[&["A"], &["B", "C", "D"]]),
+        ];
+        let (_, split) = match_topologies(&mut ts, &pairs, &mut mccs, n);
+        // t1 comes first: its grouping (A,B) is adopted by t0, t2's conflicting (B,C) is not.
+        // (A,B,C) is consistent with all trees: within t1/t2's MCC {B,C,D}, t2's (B,C) has to
+        // exist in t1, and A, outside that MCC, goes along with B.
+        let s0 = splits(&ts[0], &taxa);
+        assert!(s0.contains(&vec!["A".to_string(), "B".into()]));
+        assert!(!s0.contains(&vec!["B".to_string(), "C".into()]));
+        // Only t0/t2 still conflict ((A,B) vs (B,C)); their MCC is split.
+        assert_eq!(split, 1);
+        assert_eq!(mccs[0], ids(&taxa, &[all]));
+        assert_eq!(mccs[2], ids(&taxa, &[&["A"], &["B", "C", "D"]]));
+        assert!(mccs[1].len() > 1);
+        assert!(all_matching(&ts, &pairs, &mccs, n));
+    }
+
     #[test]
     fn three_trees_better_trees() {
         let (mut ts, taxa) = trees(&["((A,(B,C)),(D,E));", "((A,B,C,D),E);", "((A,B),((C,D),E));"]);
-        let o = Options::for_trees(3, None);
+        let o = Options::treeknit_jl(3, None);
         let res = run(&mut ts, &taxa, &o, 1);
         assert_eq!(res.len(), 3);
         for r in &res {
@@ -309,7 +501,7 @@ mod tests {
     fn partial_overlap_matches_prepruned() {
         let full = ["((A,B),(C,(D,(E,X))));", "((A,(B,X)),(C,D,E));"];
         let partial = ["((A,B),(C,(D,(E,X))));", "((A,(B,X)),(C,(D,P),E));"];
-        let o = Options::for_trees(2, None);
+        let o = Options::treeknit_jl(2, None);
         let (mut a, ta) = trees(&full);
         let (mut b, tb) = trees(&partial);
         let ra = run(&mut a, &ta, &o, 7);

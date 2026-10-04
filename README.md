@@ -24,9 +24,9 @@ Main options:
 | Option | Effect |
 |---|---|
 | `-g/--gamma` | cost of a reassortment (default 2) |
-| `--better-trees` / `--better-MCCs` | method presets; `--help-defaults` explains them |
 | `--seq-lengths "1700 1400"` | segment lengths for the branch-length tie-break |
-| `--no-resolve`, `--liberal-resolve`, `--no-pre-resolve`, `--resolve-all-rounds`, `--rounds` | control tree resolution |
+| `--resolve matched\|strict\|liberal\|none` | how trees are resolved (default `matched`, see below); `--help-resolve` explains the modes |
+| `--pre-resolve`, `--rounds`, `--no-final-round` | further control of tree resolution |
 | `--naive` | naive MCCs (γ → ∞) |
 | `--impute` | also write trees with missing leaves placed |
 | `--auspice-view` | auspice JSON for tanglegrams |
@@ -45,6 +45,57 @@ Output in the results directory:
 | `ARG/nodes.dat` | ARG node ↔ tree node table |
 | `ARG/<tree>_liberal_resolved.nwk` | the trees the ARG was built from |
 | `parameters.json`, `log.txt` | parameters and log of the run |
+
+## Resolving trees
+
+`--resolve` chooses how trees are resolved. The default is the same for any number of trees.
+
+| Mode | What happens |
+|---|---|
+| `matched` (default) | Resolve during inference and with the inferred MCCs. Then resolve all trees so that, for every pair and MCC, the two trees restricted to the MCC's leaves have the same topology. |
+| `strict` | Resolve during inference and with the inferred MCCs, unambiguous splits only. |
+| `liberal` | As `strict`, also adding ambiguous splits (the placement of other MCCs is chosen arbitrarily). |
+| `none` | No resolution with MCCs; MCCs then require identical topologies. |
+
+`--pre-resolve` adds to each tree, before inference, the splits of other trees that are
+compatible with *all* trees. One tree that reassorted in a region therefore blocks resolution
+there for everyone. It is mostly useful with `--resolve none`.
+
+With `strict` or `liberal` and more than two trees, the MCCs are re-inferred without resolution
+in a final extra round, since resolving later pairs can invalidate earlier pairs' MCCs
+(`--no-final-round` skips it). `matched` doesn't need that round, because matching enforces
+consistency itself.
+
+**How matching works**
+- The splits each tree has inside an MCC are inserted into the other tree of the pair.
+  Only the MCC's leaves are considered, so branches of other MCCs may attach anywhere.
+- Pairs are processed in argument order, repeatedly until nothing changes, so splits pass
+  along chains of shared regions.
+- A split is inserted only if compatible with what the tree already has, so splits of trees
+  given earlier win conflicts. No input split is ever removed.
+- Conflicting splits from different trees in the same shared region mean the pairwise MCCs are
+  not mutually consistent. Such an MCC is replaced by the maximal clades on which its two trees
+  agree, i.e. more reassortments, and this is logged.
+
+**Former options** are still accepted, with a deprecation warning and their TreeKnit.jl
+meaning, and reproduce its results. With them:
+- the method preset depends on the number of trees (`--better-MCCs` for two, `--better-trees`
+  for more);
+- `--rounds` counts all rounds; with `--better-MCCs` and more than two trees the default 2 means
+  one resolving round and a final one without;
+- `--resolve-all-rounds` makes the final round resolve too.
+
+They cannot be mixed with `--resolve`, `--pre-resolve` or `--no-final-round`. Closest current
+equivalents:
+
+| Former | Now |
+|---|---|
+| `--better-trees` | `--resolve none --pre-resolve` |
+| `--better-MCCs` | `--resolve strict --pre-resolve` |
+| `--liberal-resolve` | `--resolve liberal` (in the `--better-MCCs` preset) |
+| `--no-resolve` | `--resolve none` |
+| `--no-pre-resolve` | the default |
+| `--resolve-all-rounds` | resolve in the final round too |
 
 ## Layout
 
@@ -65,6 +116,7 @@ Output in the results directory:
 
 These differ from the released TreeKnit.jl 0.5.8. The first two are also fixed on the Julia branch `fix/issues-from-rust-port`, against which the fixtures are generated.
 
+- **Different defaults.** The defaults are `--resolve matched` without pre-resolution, for any number of trees. TreeKnit.jl's defaults are `--better-MCCs` (two trees) and `--better-trees` (more), which remain available.
 - **Strict resolution adds certain splits that 0.5.8 rejects.** A polytomy sister holding leaves of an MCC that also has leaves outside the polytomy must attach at the polytomy node, since MCCs are connected. 0.5.8 decides this only from the node→MCC map, which often assigns no MCC at such polytomies. Splits stay rejected when a sister consists only of MCCs inside the polytomy, which may be nested in the new clade.
 
 - **Missing branch lengths contribute 0 to the likelihood tie-break.** In Julia a single missing length makes the likelihood `missing`. Julia then prefers those configurations, because `maximum` over a vector containing `missing` is `missing`. This happens whenever resolved nodes, which get length 0, meet input trees without lengths.

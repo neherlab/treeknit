@@ -7,24 +7,57 @@ use simplelog::{ColorChoice, CombinedLogger, ConfigBuilder, LevelFilter, TermLog
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
-use treeknit_core::{Method, Options, Taxa, Tree};
+use treeknit_core::{Options, Resolution, Taxa, Tree};
 use treeknit_io::{arg, auspice, mccs, newick};
 
-const DEFAULTS_HELP: &str = "\
---better-trees (default for more than two trees):
-  * resolve all trees compatibly before inferring MCCs;
-  * run one round of TreeKnit on all tree pairs independently, without resolving.
-  Produces better resolved trees; MCCs are homogeneous but more numerous than needed.
-  Equivalent to `treeknit t1 t2 --no-resolve`.
+const RESOLVE_HELP: &str = "\
+Resolution of the trees (--resolve):
+  matched  (default) resolve during inference and with the inferred MCCs, then resolve all
+           trees so that their topologies match within every MCC. Where splits from
+           different trees conflict, trees given earlier take precedence, and MCCs that
+           cannot be matched are split.
+  strict   resolve during inference and with the inferred MCCs, unambiguous splits only.
+  liberal  as strict, also adding ambiguous splits.
+  none     no resolution with MCCs; MCCs then require identical topologies.
+With strict or liberal and more than two trees, MCCs are re-inferred without resolution in a
+final extra round, since resolving later pairs can invalidate earlier pairs' MCCs
+(--no-final-round skips it).
 
---better-MCCs (default for two trees):
-  * resolve all trees compatibly before inferring MCCs;
-  * run one round of TreeKnit on all pairs sequentially, resolving trees on the way
-    (the order of trees matters);
-  * for more than two trees, run a second round without resolving.
-  Produces the most accurate MCCs; output trees may contain more wrong splits.
-  Equivalent to `treeknit t1 t2 --resolve-all-rounds` (two trees) or
-  `treeknit t1 t2 t3 --rounds 2` (more trees).";
+--pre-resolve adds to each tree, before inference, the splits of other trees that are
+compatible with all trees. It is mostly useful with --resolve none.
+
+Former options are still accepted with their TreeKnit.jl meaning, and reproduce its
+results: the method preset depends on the number of trees (--better-MCCs for two,
+--better-trees for more), and --rounds counts all rounds (with --better-MCCs and more than
+two trees, the default 2 means one resolving round and a final one without). They cannot be
+mixed with --resolve, --pre-resolve or --no-final-round. Closest current equivalents:
+  --better-trees         --resolve none --pre-resolve
+  --better-MCCs          --resolve strict --pre-resolve
+  --liberal-resolve      --resolve liberal (in the --better-MCCs preset)
+  --no-resolve           --resolve none
+  --match-topologies     --resolve matched
+  --no-pre-resolve       the default
+  --resolve-all-rounds   resolve in the final round too";
+
+/// How trees are resolved (see --help-resolve).
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+enum ResolveMode {
+    None,
+    Strict,
+    Liberal,
+    Matched,
+}
+
+impl From<ResolveMode> for Resolution {
+    fn from(m: ResolveMode) -> Resolution {
+        match m {
+            ResolveMode::None => Resolution::None,
+            ResolveMode::Strict => Resolution::Strict,
+            ResolveMode::Liberal => Resolution::Liberal,
+            ResolveMode::Matched => Resolution::Matched,
+        }
+    }
+}
 
 /// Infer reassortment between segment trees: maximally compatible clades (MCCs) for every
 /// pair of trees, resolved trees, and for two trees an ancestral reassortment graph (ARG).
@@ -32,11 +65,11 @@ const DEFAULTS_HELP: &str = "\
 #[command(
     name = "treeknit",
     version,
-    after_help = "Use --help-defaults for details on --better-trees and --better-MCCs."
+    after_help = "Use --help-resolve for details on how trees are resolved."
 )]
 struct Cli {
     /// Newick files, one tree per segment (at least two).
-    #[arg(required_unless_present = "help_defaults")]
+    #[arg(required_unless_present_any = ["help_resolve", "help_defaults"])]
     trees: Vec<PathBuf>,
 
     /// Output directory.
@@ -55,9 +88,22 @@ struct Cli {
     #[arg(long, default_value_t = 50)]
     n_mcmc_it: usize,
 
-    /// Rounds of pair inference (default given by the method).
+    /// How trees are resolved: matched, strict, liberal or none (see --help-resolve).
+    #[arg(long, value_enum, value_name = "MODE")]
+    resolve: Option<ResolveMode>,
+
+    /// Before inference, add to each tree the splits of other trees compatible with all trees.
+    #[arg(long)]
+    pre_resolve: bool,
+
+    /// Rounds of pair inference [default: 1].
     #[arg(long)]
     rounds: Option<usize>,
+
+    /// With strict or liberal resolution and more than two trees, skip the final round that
+    /// re-infers MCCs without resolution.
+    #[arg(long)]
+    no_final_round: bool,
 
     /// Seed of the random number generator.
     #[arg(long, default_value_t = 1)]
@@ -75,37 +121,13 @@ struct Cli {
     #[arg(short, long)]
     verbose: bool,
 
-    /// Explain --better-trees and --better-MCCs.
+    /// Explain the --resolve modes and the former method options.
     #[arg(long)]
-    help_defaults: bool,
-
-    /// Use the --better-trees method.
-    #[arg(long, conflicts_with = "better_mccs")]
-    better_trees: bool,
-
-    /// Use the --better-MCCs method.
-    #[arg(long = "better-MCCs")]
-    better_mccs: bool,
+    help_resolve: bool,
 
     /// Naive MCCs (γ → ∞).
     #[arg(long)]
     naive: bool,
-
-    /// Do not resolve all trees with each other before inference.
-    #[arg(long)]
-    no_pre_resolve: bool,
-
-    /// Do not resolve trees during pair inference.
-    #[arg(long)]
-    no_resolve: bool,
-
-    /// Resolve ambiguous splits too, choosing the most parsimonious placement.
-    #[arg(long)]
-    liberal_resolve: bool,
-
-    /// Resolve in all rounds, including the last.
-    #[arg(long)]
-    resolve_all_rounds: bool,
 
     /// Do not break ties between configurations with branch lengths.
     #[arg(long)]
@@ -122,12 +144,30 @@ struct Cli {
     /// Accepted for compatibility; independent pairs always run in parallel (see --threads).
     #[arg(long, hide = true)]
     parallel: bool,
+
+    // Former options, still accepted (see --help-resolve).
+    #[arg(long, hide = true)]
+    help_defaults: bool,
+    #[arg(long, hide = true, conflicts_with = "better_mccs")]
+    better_trees: bool,
+    #[arg(long = "better-MCCs", hide = true)]
+    better_mccs: bool,
+    #[arg(long, hide = true)]
+    no_pre_resolve: bool,
+    #[arg(long, hide = true)]
+    no_resolve: bool,
+    #[arg(long, hide = true)]
+    liberal_resolve: bool,
+    #[arg(long, hide = true)]
+    match_topologies: bool,
+    #[arg(long, hide = true)]
+    resolve_all_rounds: bool,
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    if cli.help_defaults {
-        println!("{DEFAULTS_HELP}");
+    if cli.help_resolve || cli.help_defaults {
+        println!("{RESOLVE_HELP}");
         return Ok(());
     }
     if cli.trees.len() < 2 {
@@ -241,21 +281,28 @@ fn write_arg(cli: &Cli, trees: &[Tree], pair: &treeknit_core::PairResult, taxa: 
 }
 
 fn options(cli: &Cli, k: usize) -> Result<Options> {
-    let method = if cli.better_trees {
-        Some(Method::BetterTrees)
-    } else if cli.better_mccs {
-        Some(Method::BetterMccs)
-    } else {
-        None
-    };
-    let mut o = Options::for_trees(k, method);
-    log::info!(
-        "method: {}",
-        match method.unwrap_or(if k > 2 { Method::BetterTrees } else { Method::BetterMccs }) {
-            Method::BetterTrees => "--better-trees",
-            Method::BetterMccs => "--better-MCCs",
+    let mut o = if uses_former_options(cli) {
+        if cli.resolve.is_some() || cli.pre_resolve || cli.no_final_round {
+            bail!(
+                "former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, \
+                 --resolve-all-rounds, --no-pre-resolve, --match-topologies) cannot be combined with \
+                 --resolve, --pre-resolve or --no-final-round; see --help-resolve"
+            );
         }
-    );
+        former_options(cli, k)?
+    } else {
+        let mut o = Options::for_trees(k);
+        if let Some(m) = cli.resolve {
+            o.resolution = m.into();
+        }
+        o.pre_resolve = cli.pre_resolve;
+        o.final_unresolved_round = !cli.no_final_round;
+        o.rounds = cli.rounds.unwrap_or(1);
+        o
+    };
+    if o.rounds == 0 {
+        bail!("--rounds must be at least 1");
+    }
     o.gamma = cli.gamma;
     o.n_mcmc = cli.n_mcmc_it;
     o.likelihood_sort = !cli.no_likelihood;
@@ -271,35 +318,109 @@ fn options(cli: &Cli, k: usize) -> Result<Options> {
         }
         o.seq_lengths = v;
     }
+    let extra = matches!(o.resolution, Resolution::Strict | Resolution::Liberal) && k > 2 && o.final_unresolved_round;
+    log::info!(
+        "γ = {}, resolution: {}, pre-resolve: {}, {} round(s){}",
+        o.gamma,
+        format!("{:?}", o.resolution).to_lowercase(),
+        o.pre_resolve,
+        o.rounds,
+        if extra { " + final round without resolution" } else { "" }
+    );
+    Ok(o)
+}
+
+fn uses_former_options(cli: &Cli) -> bool {
+    cli.better_trees
+        || cli.better_mccs
+        || cli.no_resolve
+        || cli.liberal_resolve
+        || cli.resolve_all_rounds
+        || cli.no_pre_resolve
+        || cli.match_topologies
+}
+
+/// Options for the former command line (TreeKnit.jl semantics), which reproduce its results:
+/// method presets depending on the number of trees, `--rounds` counting all rounds, and
+/// `--resolve-all-rounds` resolving in the final round too.
+fn former_options(cli: &Cli, k: usize) -> Result<Options> {
+    for (used, flag) in [
+        (cli.better_trees, "--better-trees"),
+        (cli.better_mccs, "--better-MCCs"),
+        (cli.no_resolve, "--no-resolve"),
+        (cli.liberal_resolve, "--liberal-resolve"),
+        (cli.resolve_all_rounds, "--resolve-all-rounds"),
+        (cli.no_pre_resolve, "--no-pre-resolve"),
+        (cli.match_topologies, "--match-topologies"),
+    ] {
+        if used {
+            log::warn!("{flag} is deprecated; see --help-resolve for the --resolve options");
+        }
+    }
+    // The former configuration: method preset, then individual flags.
+    let better_trees = cli.better_trees || (!cli.better_mccs && k > 2);
+    let (mut resolve, mut final_no_resolve, mut rounds) = if better_trees {
+        (false, true, 1)
+    } else if k > 2 {
+        (true, true, 2)
+    } else {
+        (true, false, 1)
+    };
+    if final_no_resolve && rounds == 1 && resolve {
+        resolve = false;
+        final_no_resolve = false;
+    }
+    let mut strict = true;
+    let mut pre_resolve = true;
+    let mut matched = false;
     if cli.no_pre_resolve {
-        o.pre_resolve = false;
+        pre_resolve = false;
     }
     if cli.no_resolve {
-        o.resolve = false;
+        resolve = false;
     }
     if cli.liberal_resolve {
-        o.strict = false;
+        strict = false;
     }
     if cli.resolve_all_rounds {
-        o.final_no_resolve = false;
+        final_no_resolve = false;
     }
     if let Some(r) = cli.rounds {
-        if r == 0 {
-            bail!("--rounds must be at least 1");
+        rounds = r;
+    }
+    if cli.match_topologies {
+        matched = true;
+        final_no_resolve = false;
+        if !cli.no_resolve {
+            resolve = true;
         }
-        o.rounds = r;
     }
-    if k > 2 && o.resolve && !o.final_no_resolve {
-        log::warn!("for more than two trees, resolving in the final round is not recommended (--resolve-all-rounds)");
+    // The same in terms of the current options. In the former pipeline, a round resolved
+    // unless it was the final one with `final_no_resolve`.
+    let mut o = Options::for_trees(k);
+    o.pre_resolve = pre_resolve;
+    o.sort_strict = Some(strict && !final_no_resolve);
+    let mode = if strict {
+        Resolution::Strict
+    } else {
+        Resolution::Liberal
+    };
+    if matched && !resolve {
+        // matching after unresolved inference changes nothing, but sorted liberally
+        o.sort_strict = Some(false);
     }
-    log::info!(
-        "γ = {}, {} round(s), pre-resolve: {}, resolve: {} ({})",
-        o.gamma,
-        o.rounds,
-        o.pre_resolve,
-        o.resolve,
-        if o.strict { "strict" } else { "liberal" }
-    );
+    (o.resolution, o.rounds, o.final_unresolved_round) = if matched && resolve {
+        if !strict {
+            log::warn!("--liberal-resolve has no effect with --match-topologies");
+        }
+        (Resolution::Matched, rounds, false)
+    } else if !resolve || (final_no_resolve && rounds == 1) {
+        (Resolution::None, rounds, false)
+    } else if final_no_resolve {
+        (mode, rounds - 1, true)
+    } else {
+        (mode, rounds, false)
+    };
     Ok(o)
 }
 
@@ -308,12 +429,11 @@ fn params_json(o: &Options, seed: u64) -> serde_json::Value {
         "gamma": o.gamma,
         "itmax": o.itmax,
         "likelihood_sort": o.likelihood_sort,
-        "resolve": o.resolve,
-        "strict": o.strict,
+        "resolution": format!("{:?}", o.resolution).to_lowercase(),
         "seq_lengths": o.seq_lengths,
         "pre_resolve": o.pre_resolve,
         "rounds": o.rounds,
-        "final_no_resolve": o.final_no_resolve,
+        "final_unresolved_round": o.final_unresolved_round,
         "nMCMC": o.n_mcmc,
         "sa_rep": o.sa_rep,
         "Tmin": o.t_min,
