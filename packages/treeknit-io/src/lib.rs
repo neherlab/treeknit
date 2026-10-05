@@ -3,6 +3,7 @@
 pub mod analysis;
 pub mod arg;
 pub mod auspice;
+pub mod display;
 pub mod inspect;
 pub mod mccs;
 pub mod newick;
