@@ -40,7 +40,7 @@ fn load(f: &Value) -> (Vec<Tree>, Taxa) {
     .map(|(i, s)| newick::parse(s.as_str().unwrap(), &format!("t{}", i + 1)).unwrap())
     .collect();
   let taxa = Taxa::from_trees(&ts);
-  for t in ts.iter_mut() {
+  for t in &mut ts {
     t.assign_taxa(&taxa).unwrap();
   }
   (ts, taxa)
@@ -48,7 +48,7 @@ fn load(f: &Value) -> (Vec<Tree>, Taxa) {
 
 fn clades_json(v: &Value) -> Clades {
   let mut c: Clades = serde_json::from_value(v.clone()).unwrap();
-  for x in c.iter_mut() {
+  for x in &mut c {
     x.sort();
   }
   c.sort();

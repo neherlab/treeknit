@@ -294,7 +294,7 @@ fn infer(
 
 /// Per-pair seed, independent of execution order.
 fn mix(seed: u64, round: usize, i: usize, j: usize) -> u64 {
-  let mut z = seed ^ ((round as u64) << 40 | (i as u64) << 20 | j as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+  let mut z = seed ^ (((round as u64) << 40) | ((i as u64) << 20) | j as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
   z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
   z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
   z ^ (z >> 31)
@@ -357,7 +357,7 @@ fn attach_pair(trees: &[Tree], i: usize, j: usize, mut mccs: Vec<Mcc>, n: usize)
   let base = mccs.clone();
   let mccs = sort_mccs(mccs);
   // Re-index attachments to the sorted MCC list.
-  for a in attached.iter_mut() {
+  for a in &mut attached {
     let first = base[a.mcc].iter().min().copied().unwrap();
     a.mcc = mccs.iter().position(|m| m.binary_search(&first).is_ok()).unwrap();
   }
@@ -475,8 +475,8 @@ mod tests {
     // (A,B,C) is consistent with all trees: within t1/t2's MCC {B,C,D}, t2's (B,C) has to
     // exist in t1, and A, outside that MCC, goes along with B.
     let s0 = splits(&ts[0], &taxa);
-    assert!(s0.contains(&vec!["A".to_string(), "B".into()]));
-    assert!(!s0.contains(&vec!["B".to_string(), "C".into()]));
+    assert!(s0.contains(&vec!["A".to_owned(), "B".into()]));
+    assert!(!s0.contains(&vec!["B".to_owned(), "C".into()]));
     // Only t0/t2 still conflict ((A,B) vs (B,C)); their MCC is split.
     assert_eq!(split, 1);
     assert_eq!(mccs[0], ids(&taxa, &[all]));
@@ -518,6 +518,6 @@ mod tests {
     let imp = imputed_trees(&b, &rb, tb.len());
     assert_eq!(imp[0].n_leaves(), 7);
     assert!(imp[0].check());
-    assert!(splits(&imp[0], &tb).contains(&vec!["D".to_string(), "P".to_string()]));
+    assert!(splits(&imp[0], &tb).contains(&vec!["D".to_owned(), "P".to_owned()]));
   }
 }

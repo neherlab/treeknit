@@ -103,7 +103,7 @@ impl Graph {
       return 0.0;
     }
     let k = self.k();
-    let (mut l, mut z) = (0.0f64, 0.0f64);
+    let (mut l, mut z) = (0.0_f64, 0.0_f64);
     for i in 0..self.n {
       if conf.contains(i) {
         let anc: Vec<usize> = (0..k).map(|kk| self.climb(kk, i, conf)).collect();

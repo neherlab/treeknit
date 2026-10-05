@@ -198,7 +198,7 @@ fn main() -> Result<()> {
     trees.push(newick::parse_first(&s, label).with_context(|| format!("parsing {}", path.display()))?);
   }
   let taxa = Taxa::from_trees(&trees);
-  for t in trees.iter_mut() {
+  for t in &mut trees {
     t.assign_taxa(&taxa).map_err(anyhow::Error::msg)?;
   }
   report_overlap(&trees, &taxa);
@@ -228,7 +228,7 @@ fn main() -> Result<()> {
   // `MCCs_<a>_<b>.dat` per pair otherwise.
   for p in &pairs {
     let name = if trees.len() == 2 {
-      "MCCs.dat".to_string()
+      "MCCs.dat".to_owned()
     } else {
       format!("MCCs_{}_{}.dat", trees[p.i].label, trees[p.j].label)
     };

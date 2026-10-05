@@ -93,7 +93,7 @@ fn main() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|r| HashMap::from([("0-1".to_string(), serde_json::from_value(r.clone()).unwrap())]))
+        .map(|r| HashMap::from([("0-1".to_owned(), serde_json::from_value(r.clone()).unwrap())]))
         .collect()
     } else {
       serde_json::from_value(f["multi_runs"].clone()).unwrap()
@@ -117,7 +117,7 @@ fn main() {
     // Partial overlap: drop a random subset of leaves from each tree independently.
     let mut rng = rand_xoshiro::Xoshiro256PlusPlus::seed_from_u64(1);
     let mut partial = ts.clone();
-    for t in partial.iter_mut() {
+    for t in &mut partial {
       let mut leaves: Vec<usize> = t.leaves().into_iter().map(|n| t.taxon(n)).collect();
       leaves.shuffle(&mut rng);
       let keep = treeknit_core::bits::from_iter(

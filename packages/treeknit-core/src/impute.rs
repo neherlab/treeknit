@@ -145,10 +145,10 @@ mod tests {
     assert_eq!(a[0].anchor, vec![id("D")]);
 
     let mut t2 = ts[1].clone();
-    let all = ts.clone();
+    let all = ts;
     graft_attachments(&mut t2, &all, &[&a[0]], taxa.len());
     assert!(t2.check());
-    assert!(t2.leaf_names().contains(&"P".to_string()));
+    assert!(t2.leaf_names().contains(&"P".to_owned()));
   }
 
   #[test]

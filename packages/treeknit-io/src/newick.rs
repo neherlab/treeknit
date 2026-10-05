@@ -98,12 +98,11 @@ impl Parser<'_> {
       self.i += 1;
     }
     let txt = String::from_utf8_lossy(&self.s[start..self.i]);
-    match txt.parse::<f64>() {
-      Ok(x) => Ok(Some(x)),
-      Err(_) => {
-        log::warn!("ignoring invalid branch length '{txt}'");
-        Ok(None)
-      },
+    if let Ok(x) = txt.parse::<f64>() {
+      Ok(Some(x))
+    } else {
+      log::warn!("ignoring invalid branch length '{txt}'");
+      Ok(None)
     }
   }
 
@@ -193,7 +192,7 @@ fn quote(name: &str) -> String {
   if name.bytes().any(|c| b"(),:;[]' \t\n".contains(&c)) {
     format!("'{}'", name.replace('\'', "''"))
   } else {
-    name.to_string()
+    name.to_owned()
   }
 }
 
@@ -276,7 +275,7 @@ mod tests {
 
   #[test]
   fn duplicate_leaves_rejected() {
-    assert!(parse("(A,A);", "t").is_err());
-    assert!(parse("(A,B", "t").is_err());
+    parse("(A,A);", "t").unwrap_err();
+    parse("(A,B", "t").unwrap_err();
   }
 }

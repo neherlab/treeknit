@@ -51,7 +51,7 @@ pub fn infer_pair(t1: &Tree, t2: &Tree, n_taxa: usize, p: &PairParams, rng: &mut
     if new.iter().map(|m| m.len()).sum::<usize>() == n_leaves {
       break;
     }
-    for t in trees.iter_mut() {
+    for t in &mut trees {
       prune_mccs(t, &new, n_taxa);
     }
     if p.resolve {

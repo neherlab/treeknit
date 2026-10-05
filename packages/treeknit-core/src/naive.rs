@@ -7,7 +7,7 @@ pub type Mcc = Vec<usize>;
 
 /// Sort MCC members ascending and MCCs by (size, first member).
 pub fn sort_mccs(mut mccs: Vec<Mcc>) -> Vec<Mcc> {
-  for m in mccs.iter_mut() {
+  for m in &mut mccs {
     m.sort_unstable();
   }
   mccs.sort_by(|a, b| a.len().cmp(&b.len()).then(a[0].cmp(&b[0])));

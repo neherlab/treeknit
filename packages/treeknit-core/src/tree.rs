@@ -418,7 +418,7 @@ impl Tree {
 
   /// Sort children by (number of leaves, name), smallest first, recursively.
   pub fn ladderize(&mut self) {
-    let mut size = vec![0usize; self.nodes.len()];
+    let mut size = vec![0_usize; self.nodes.len()];
     for n in self.postorder() {
       if self.is_leaf(n) {
         size[n] = 1;
@@ -450,7 +450,7 @@ pub(crate) mod test_util {
   use super::*;
 
   /// Minimal Newick reader for tests (no quoting, no comments).
-  pub fn nwk(s: &str) -> Tree {
+  pub(crate) fn nwk(s: &str) -> Tree {
     fn rec(t: &mut Tree, s: &[u8], i: &mut usize, parent: Option<NodeId>) -> NodeId {
       let n = if parent.is_none() { 0 } else { t.add_node("", None) };
       if s[*i] == b'(' {
@@ -494,17 +494,17 @@ pub(crate) mod test_util {
   }
 
   /// Parse trees and assign a shared taxon table.
-  pub fn trees(s: &[&str]) -> (Vec<Tree>, Taxa) {
+  pub(crate) fn trees(s: &[&str]) -> (Vec<Tree>, Taxa) {
     let mut ts: Vec<Tree> = s.iter().map(|x| nwk(x)).collect();
     let taxa = Taxa::from_trees(&ts);
-    for t in ts.iter_mut() {
+    for t in &mut ts {
       t.assign_taxa(&taxa).unwrap();
     }
     (ts, taxa)
   }
 
   /// Sorted list of non-root internal clades as sorted name lists.
-  pub fn splits(t: &Tree, taxa: &Taxa) -> Vec<Vec<String>> {
+  pub(crate) fn splits(t: &Tree, taxa: &Taxa) -> Vec<Vec<String>> {
     let c = t.clades(taxa.len());
     let mut v: Vec<Vec<String>> = t
       .internals()

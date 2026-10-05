@@ -22,7 +22,7 @@ pub fn schedule(cooling: Cooling, t_min: f64, t_max: f64, n_t: usize) -> Vec<f64
     Cooling::Acos => {
       let k: f64 = 1.5;
       let f = |x: f64| {
-        let d = 2f64.powf(k - 1.0) * ((2.0 * x - 1.0).acos() / 3.14 - 0.5).abs().powf(k);
+        let d = 2_f64.powf(k - 1.0) * ((2.0 * x - 1.0).acos() / 3.14 - 0.5).abs().powf(k);
         if x < 0.5 {
           0.5 + d
         } else if x == 0.5 {

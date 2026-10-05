@@ -147,10 +147,10 @@ pub fn arg_from_trees(t1: &Tree, t2: &Tree, mccs: &[Mcc], n_taxa: usize) -> Resu
   let (root2, lm2) = b.add_tree(&t2, &x2, &lm1)?;
   let mut tree_nodes = vec![[None, None]; b.nodes.len()];
   for (tn, &a) in &lm1 {
-    tree_nodes[a][0] = Some(t1.name(*tn).to_string());
+    tree_nodes[a][0] = Some(t1.name(*tn).to_owned());
   }
   for (tn, &a) in &lm2 {
-    tree_nodes[a][1] = Some(t2.name(*tn).to_string());
+    tree_nodes[a][1] = Some(t2.name(*tn).to_owned());
   }
   let mut arg = Arg {
     nodes: b.nodes,
@@ -384,7 +384,7 @@ impl Builder {
 
   fn label_leaf(&mut self, a: usize, t: &Tree, tn: NodeId) {
     if t.is_leaf(tn) {
-      self.nodes[a].label = t.name(tn).to_string();
+      self.nodes[a].label = t.name(tn).to_owned();
       self.nodes[a].is_leaf = true;
     }
   }
@@ -515,7 +515,7 @@ fn set_branch_lengths(arg: &mut Arg, lm1: &HashMap<NodeId, usize>, lm2: &HashMap
           (None, _) => (b2, b2),
           (_, None) if n2 == t2.root => (b1, None),
           (_, None) => (b1, b1),
-          (Some(x), Some(y)) => (Some((x + y) / 2.0), Some((x + y) / 2.0)),
+          (Some(x), Some(y)) => (Some(f64::midpoint(x, y)), Some(f64::midpoint(x, y))),
         };
         set.extend([(a, 0, x), (a, 1, y)]);
       },
@@ -550,7 +550,7 @@ mod tests {
       let mut seg = arg.segment_tree(c);
       let mut ids = Vec::new();
       for l in seg.leaves() {
-        ids.push(seg.name(l).to_string());
+        ids.push(seg.name(l).to_owned());
       }
       seg.assign_taxa(&taxa).unwrap();
       let mut orig = ts[c].clone();

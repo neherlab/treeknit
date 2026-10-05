@@ -60,6 +60,6 @@ pub fn to_lines(mccs: &[Vec<String>]) -> String {
 pub fn from_lines(s: &str) -> Vec<Vec<String>> {
   s.lines()
     .filter(|l| !l.trim().is_empty())
-    .map(|l| l.split(',').map(|x| x.trim().to_string()).collect())
+    .map(|l| l.split(',').map(|x| x.trim().to_owned()).collect())
     .collect()
 }

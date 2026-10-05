@@ -36,7 +36,7 @@ pub fn auspice_json(i: usize, trees: &[Tree], pairs: &[PairResult], taxa: &Taxa)
     let mut attrs = Map::new();
     attrs.insert("div".into(), json!(div[n]));
     for (k, m) in &maps {
-      let v = m[n].map_or("null".to_string(), |x| (x + 1).to_string());
+      let v = m[n].map_or("null".to_owned(), |x| (x + 1).to_string());
       attrs.insert(k.clone(), json!({ "value": v }));
     }
     let mut node = json!({"name": t.name(n), "node_attrs": attrs, "branch_attrs": {}});

@@ -38,7 +38,7 @@ pub fn disjoint_on(a: &Bits, b: &Bits, m: &Bits) -> bool {
 /// `|a ∩ m| < 2`, i.e. `a` is a leaf or empty split on `m`.
 #[inline]
 pub fn trivial_on(a: &Bits, m: &Bits) -> bool {
-  let mut n = 0u32;
+  let mut n = 0_u32;
   for (x, z) in a.as_slice().iter().zip(m.as_slice()) {
     n += (x & z).count_ones();
     if n > 1 {
