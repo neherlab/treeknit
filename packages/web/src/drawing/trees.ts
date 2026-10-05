@@ -1,0 +1,111 @@
+import type { ArgView, DrawTree, Elbow, Point } from "@neherlab/treeknit-wasm";
+
+import type { RowRange } from "../canvas/viewState";
+
+export type TreeSide = "left" | "right";
+
+export const TREE_SIDES: readonly TreeSide[] = ["left", "right"];
+
+export function treeNodePoints(tree: DrawTree, elbows: readonly Elbow[]): (Point | undefined)[] {
+  const points: (Point | undefined)[] = tree.nodes.map(() => undefined);
+
+  for (const { node, points: path } of elbows) {
+    const parent = tree.nodes[node]?.parent;
+
+    points[node] = path[2];
+
+    if (parent !== null && parent !== undefined) {
+      points[parent] ??= path[0];
+    }
+  }
+
+  return points;
+}
+
+export function argNodePoints(view: ArgView): (Point | undefined)[] {
+  const points: (Point | undefined)[] = view.nodes.map(() => undefined);
+
+  for (const { edge, path } of view.shapes.edges) {
+    const ends = view.edges[edge];
+
+    if (ends === undefined) {
+      continue;
+    }
+
+    const [from, to] = path.kind === "elbow" ? [path.points[0], path.points[2]] : [path.curve.from, path.curve.to];
+
+    points[ends.child] = to;
+    points[ends.parent] ??= from;
+  }
+
+  return points;
+}
+
+export function leafRows(
+  nodes: readonly { children: readonly number[]; leaf: boolean; y: number }[],
+  node: number,
+): RowRange | null {
+  const rows = descendantLeaves(nodes, node).map((index) => nodes[index]?.y ?? 0);
+
+  return rows.length === 0 ? null : { first: Math.min(...rows), last: Math.max(...rows) };
+}
+
+export function cladeSize(nodes: readonly { children: readonly number[]; leaf: boolean }[], node: number): number {
+  return descendantLeaves(nodes, node).length;
+}
+
+export function leafIndex(tree: DrawTree, name: string): number | undefined {
+  const index = tree.nodes.findIndex((node) => node.leaf && node.name === name);
+
+  return index === -1 ? undefined : index;
+}
+
+export function leafRow(left: DrawTree, right: DrawTree, name: string): number | undefined {
+  const inLeft = leafIndex(left, name);
+
+  if (inLeft !== undefined) {
+    return left.nodes[inLeft]?.y;
+  }
+
+  const inRight = leafIndex(right, name);
+
+  return inRight === undefined ? undefined : right.nodes[inRight]?.y;
+}
+
+export function nodeIndex(tree: DrawTree, name: string): number | undefined {
+  const index = tree.nodes.findIndex((node) => node.name === name);
+
+  return index === -1 ? undefined : index;
+}
+
+export function leafNames(tree: DrawTree): string[] {
+  return tree.nodes.filter((node) => node.leaf).map((node) => node.name);
+}
+
+export function rowCount(...trees: readonly { nodes: readonly { leaf: boolean }[] }[]): number {
+  return Math.max(1, ...trees.map((tree) => tree.nodes.filter((node) => node.leaf).length));
+}
+
+function descendantLeaves(nodes: readonly { children: readonly number[]; leaf: boolean }[], root: number): number[] {
+  const leaves: number[] = [];
+  const seen = new Set<number>();
+  const stack = [root];
+
+  for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
+    const node = nodes[next];
+
+    if (node === undefined || seen.has(next)) {
+      continue;
+    }
+
+    seen.add(next);
+
+    if (node.leaf) {
+      leaves.push(next);
+    }
+
+    stack.push(...node.children);
+  }
+
+  return leaves;
+}
