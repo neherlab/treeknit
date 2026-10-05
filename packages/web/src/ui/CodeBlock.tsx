@@ -1,5 +1,15 @@
 import { cn } from "cn";
-import { type ComponentType, type SVGProps, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type ComponentType,
+  type RefObject,
+  type SVGProps,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import CopiedIcon from "~icons/lucide/check";
 import FailedIcon from "~icons/lucide/circle-alert";
 import CopyIcon from "~icons/lucide/copy";
@@ -7,7 +17,7 @@ import CopyIcon from "~icons/lucide/copy";
 import { Button } from "./Button";
 import { type CodeLine, codeLines, type TextRange } from "./codeLines";
 import { copyFeedback, type CopyState } from "./copyFeedback";
-import { revealScroll } from "./revealScroll";
+import { revealOffset } from "./revealScroll";
 import { nativeFocusRing } from "./styles";
 
 const COPY_BUTTON: Record<CopyState, { label: string; icon: ComponentType<SVGProps<SVGSVGElement>> }> = {
@@ -19,12 +29,29 @@ const COPY_BUTTON: Record<CopyState, { label: string; icon: ComponentType<SVGPro
 export function CodeBlock({ code, label, errorRange, lineNumbers, className }: CodeBlockProps) {
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const [feedback] = useState(() => copyFeedback(writeClipboard, setCopyState));
-  const lines = useMemo(() => codeLines(code, errorRange), [code, errorRange]);
+  const startLine = errorRange?.start.line;
+  const startColumn = errorRange?.start.column;
+  const endLine = errorRange?.end.line;
+  const endColumn = errorRange?.end.column;
+
+  const lines = useMemo(
+    () => codeLines(code, textRange(startLine, startColumn, endLine, endColumn)),
+    [code, startLine, startColumn, endLine, endColumn],
+  );
+
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const markRef = useRef<HTMLElement>(null);
   const showLineNumbers = lineNumbers ?? lines.length > 1;
   const button = COPY_BUTTON[copyState];
   const copy = useCallback(() => void feedback.copy(code), [feedback, code]);
 
   useEffect(() => feedback.attach(), [feedback]);
+
+  useLayoutEffect(() => {
+    if (lines.some((line) => line.marked !== undefined)) {
+      revealMark(markRef.current, scrollerRef.current);
+    }
+  }, [lines]);
 
   return (
     <figure className={cn("rounded-control border-rule bg-pane flex min-w-0 flex-col border", className)}>
@@ -42,7 +69,7 @@ export function CodeBlock({ code, label, errorRange, lineNumbers, className }: C
         <output className="sr-only">{copyState === "idle" ? "" : button.label}</output>
       </div>
       {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the scroller must take focus so keyboard users can scroll long code, and WebKit does not make scroll containers focusable by itself; a landmark role would name the code a second time after the caption */}
-      <div tabIndex={0} className={cn("rounded-b-control max-h-96 overflow-auto", nativeFocusRing)}>
+      <div ref={scrollerRef} tabIndex={0} className={cn("rounded-b-control max-h-96 overflow-auto", nativeFocusRing)}>
         <pre className="text-ink px-3 py-2.5 font-mono text-sm">
           <code
             className={cn("grid", showLineNumbers ? "grid-cols-[auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")}
@@ -52,11 +79,7 @@ export function CodeBlock({ code, label, errorRange, lineNumbers, className }: C
                 key={line.number}
                 line={line}
                 lineNumber={showLineNumbers}
-                revealKey={
-                  line.number === errorRange?.start.line
-                    ? `${errorRange.start.line}:${errorRange.start.column}`
-                    : undefined
-                }
+                markRef={line.number === startLine ? markRef : undefined}
               />
             ))}
           </code>
@@ -83,7 +106,7 @@ async function writeClipboard(text: string): Promise<void> {
   }
 }
 
-function CodeLineRow({ line, lineNumber, revealKey }: CodeLineRowProps) {
+function CodeLineRow({ line, lineNumber, markRef }: CodeLineRowProps) {
   const isErrorLine = line.marked !== undefined;
 
   return (
@@ -103,8 +126,7 @@ function CodeLineRow({ line, lineNumber, revealKey }: CodeLineRowProps) {
         {line.before}
         {line.marked === undefined ? null : (
           <mark
-            key={revealKey}
-            ref={revealKey === undefined ? undefined : revealMark}
+            ref={markRef}
             className={cn(
               "bg-danger/25 text-ink decoration-danger rounded-inner underline decoration-2 underline-offset-2",
               line.marked === "" && "inline-block h-lh w-2 align-top",
@@ -122,23 +144,26 @@ function CodeLineRow({ line, lineNumber, revealKey }: CodeLineRowProps) {
 interface CodeLineRowProps {
   line: CodeLine;
   lineNumber: boolean;
-  revealKey: string | undefined;
+  markRef: RefObject<HTMLElement | null> | undefined;
 }
 
-function revealMark(mark: HTMLElement | null) {
-  const container = mark?.closest("div[tabindex]");
+function textRange(
+  startLine: number | undefined,
+  startColumn: number | undefined,
+  endLine: number | undefined,
+  endColumn: number | undefined,
+): TextRange | undefined {
+  if (startLine === undefined || startColumn === undefined || endLine === undefined || endColumn === undefined) {
+    return undefined;
+  }
 
-  if (mark === null || container === null || container === undefined) {
+  return { start: { line: startLine, column: startColumn }, end: { line: endLine, column: endColumn } };
+}
+
+function revealMark(mark: HTMLElement | null, scroller: HTMLElement | null) {
+  if (mark === null || scroller === null) {
     return;
   }
 
-  const view = container.getBoundingClientRect();
-  const item = mark.getBoundingClientRect();
-  const top = view.top + container.clientTop;
-  const left = view.left + container.clientLeft;
-
-  container.scrollBy({
-    top: revealScroll({ start: item.top, end: item.bottom }, { start: top, end: top + container.clientHeight }),
-    left: revealScroll({ start: item.left, end: item.right }, { start: left, end: left + container.clientWidth }),
-  });
+  scroller.scrollBy(revealOffset(mark.getBoundingClientRect(), scroller.getBoundingClientRect(), scroller));
 }

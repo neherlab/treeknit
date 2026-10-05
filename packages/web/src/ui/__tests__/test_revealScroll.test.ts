@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { revealScroll } from "../revealScroll";
+import { revealOffset, revealScroll } from "../revealScroll";
 
 const VIEW = { start: 100, end: 300 };
 
@@ -23,5 +23,37 @@ describe("revealScroll", () => {
 
   test("scrolls forward only until the start of an item longer than the view", () => {
     expect(revealScroll({ start: 150, end: 600 }, VIEW)).toBe(50);
+  });
+});
+
+describe("revealOffset", () => {
+  const SCROLLER = {
+    offsetWidth: 402,
+    offsetHeight: 202,
+    clientTop: 1,
+    clientLeft: 1,
+    clientWidth: 400,
+    clientHeight: 200,
+  };
+
+  test("scrolls a mark below the scroller up to its bottom edge, in layout pixels", () => {
+    const view = { top: 50, left: 10, width: 402, height: 202 };
+    const mark = { top: 291, left: 31, width: 8, height: 20 };
+
+    expect(revealOffset(mark, view, SCROLLER)).toStrictEqual({ top: 60, left: 0 });
+  });
+
+  test("divides screen distances by the scale of a CSS transform", () => {
+    const view = { top: 50, left: 10, width: 804, height: 404 };
+    const mark = { top: 532, left: 32, width: 16, height: 40 };
+
+    expect(revealOffset(mark, view, SCROLLER)).toStrictEqual({ top: 60, left: 0 });
+  });
+
+  test("scrolls left to a mark before the visible columns", () => {
+    const view = { top: 0, left: 100, width: 402, height: 202 };
+    const mark = { top: 21, left: 61, width: 8, height: 20 };
+
+    expect(revealOffset(mark, view, SCROLLER)).toStrictEqual({ top: 0, left: -40 });
   });
 });
