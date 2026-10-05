@@ -342,18 +342,13 @@ impl SessionFile {
 
   fn entry(&self) -> FileEntry {
     match self {
-      SessionFile::Text(f) => FileEntry {
-        path: f.path.clone(),
-        media_type: f.media_type.clone(),
-        size: Some(f.text.len()),
-        figure: None,
-      },
-      SessionFile::Figure { file, svg } => FileEntry {
-        path: file.path.clone(),
-        media_type: FIGURE_MEDIA_TYPE.to_owned(),
-        size: svg.get().map(String::len),
-        figure: Some(file.figure),
-      },
+      SessionFile::Text(f) => FileEntry::new(f.path.clone(), f.media_type.clone(), Some(f.text.len()), None),
+      SessionFile::Figure { file, svg } => FileEntry::new(
+        file.path.clone(),
+        FIGURE_MEDIA_TYPE.to_owned(),
+        svg.get().map(String::len),
+        Some(file.figure),
+      ),
     }
   }
 }

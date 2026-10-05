@@ -315,7 +315,7 @@ mod tests {
       });
     assert!(sizes_match, "{files}");
     assert_eq!(
-      json!({"path": "MCCs.dat", "mediaType": "text/plain", "size": 9, "figure": null}),
+      json!({"path": "MCCs.dat", "fileName": "MCCs.dat", "mediaType": "text/plain", "size": 9, "figure": null}),
       files[2]
     );
   }
@@ -333,8 +333,14 @@ mod tests {
         .collect()
     };
     let expected = vec![
-      json!({"path": "tanglegram_ha_na.svg", "mediaType": "image/svg+xml", "size": null, "figure": {"kind": "pair", "pair": 0}}),
-      json!({"path": "ARG/arg.svg", "mediaType": "image/svg+xml", "size": null, "figure": {"kind": "arg"}}),
+      json!({
+        "path": "tanglegram_ha_na.svg", "fileName": "tanglegram_ha_na.svg", "mediaType": "image/svg+xml", "size": null,
+        "figure": {"kind": "pair", "pair": 0},
+      }),
+      json!({
+        "path": "ARG/arg.svg", "fileName": "arg.svg", "mediaType": "image/svg+xml", "size": null,
+        "figure": {"kind": "arg"},
+      }),
     ];
     assert_eq!(expected, figures(&session));
     let text = session.file_text("tanglegram_ha_na.svg").unwrap();

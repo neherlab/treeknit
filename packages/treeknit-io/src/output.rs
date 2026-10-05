@@ -59,6 +59,9 @@ pub struct OutputFile {
 pub struct FileEntry {
   /// Path relative to the results directory, as in `OutputFile`.
   pub path: String,
+  /// The last segment of `path`, the name of the file as a download: `arg.nwk` for
+  /// `ARG/arg.nwk`.
+  pub file_name: String,
   pub media_type: String,
   /// Size in bytes; `None` for a figure not rendered yet.
   pub size: Option<usize>,
@@ -135,6 +138,20 @@ impl OutputOptions {
   /// The extension of the files of tree `i`, with its dot, or empty for none.
   fn extension(&self, i: usize) -> &str {
     self.extensions.get(i).map_or("", String::as_str)
+  }
+}
+
+impl FileEntry {
+  /// The entry of the file at `path`, with its `file_name`.
+  pub fn new(path: String, media_type: String, size: Option<usize>, figure: Option<Figure>) -> Self {
+    let file_name = path.rsplit_once('/').map_or(path.as_str(), |(_, name)| name).to_owned();
+    FileEntry {
+      path,
+      file_name,
+      media_type,
+      size,
+      figure,
+    }
   }
 }
 
@@ -1079,15 +1096,26 @@ mod tests {
 
   #[test]
   fn file_entry_serializes_camel_case_with_null_size() {
-    let entry = FileEntry {
-      path: "tanglegram_ha_na.svg".into(),
-      media_type: "image/svg+xml".into(),
-      size: None,
-      figure: Some(Figure::Pair { pair: 2 }),
-    };
+    let entry = FileEntry::new(
+      "tanglegram_ha_na.svg".into(),
+      "image/svg+xml".into(),
+      None,
+      Some(Figure::Pair { pair: 2 }),
+    );
     let expected = json!({
-      "path": "tanglegram_ha_na.svg", "mediaType": "image/svg+xml", "size": null, "figure": {"kind": "pair", "pair": 2},
+      "path": "tanglegram_ha_na.svg", "fileName": "tanglegram_ha_na.svg", "mediaType": "image/svg+xml", "size": null,
+      "figure": {"kind": "pair", "pair": 2},
     });
     assert_eq!(expected, serde_json::to_value(&entry).unwrap());
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::top(      "MCCs.json",                   "MCCs.json")]
+  #[case::directory("ARG/ha_liberal_resolved.nwk", "ha_liberal_resolved.nwk")]
+  #[trace]
+  fn file_entry_names_the_file_by_the_last_segment_of_its_path(#[case] path: &str, #[case] expected: &str) {
+    let entry = FileEntry::new(path.to_owned(), "text/plain".to_owned(), Some(0), None);
+    assert_eq!(expected, entry.file_name);
   }
 }

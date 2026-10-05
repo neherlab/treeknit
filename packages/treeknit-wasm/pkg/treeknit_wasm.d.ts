@@ -350,6 +350,11 @@ export interface FileEntry {
      * Path relative to the results directory, as in `OutputFile`.
      */
     path: string;
+    /**
+     * The last segment of `path`, the name of the file as a download: `arg.nwk` for
+     * `ARG/arg.nwk`.
+     */
+    fileName: string;
     mediaType: string;
     /**
      * Size in bytes; `None` for a figure not rendered yet.
