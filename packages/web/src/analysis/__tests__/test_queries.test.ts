@@ -50,23 +50,27 @@ describe("analysis query keys", () => {
 
 describe("view placeholders", () => {
   test("keep the previous pair view only within the same session and pair", () => {
-    const next = analysisKeys.pairView(1, 0, "resolved", "depth");
+    const scope = analysisKeys.pairViewScope(1, 0);
 
     expect([
-      sharesScope(analysisKeys.pairView(1, 0, "input", "div"), next, 4),
-      sharesScope(analysisKeys.pairView(1, 1, "resolved", "depth"), next, 4),
-      sharesScope(analysisKeys.pairView(2, 0, "resolved", "depth"), next, 4),
-      sharesScope(undefined, next, 4),
-    ]).toStrictEqual([true, false, false, false]);
+      sharesScope(analysisKeys.pairView(1, 0, "input", "div"), scope),
+      sharesScope(analysisKeys.pairView(1, 0, "resolved", "depth"), scope),
+      sharesScope(analysisKeys.pairView(1, 1, "resolved", "depth"), scope),
+      sharesScope(analysisKeys.pairView(2, 0, "resolved", "depth"), scope),
+      sharesScope(analysisKeys.argView(1, "div"), scope),
+      sharesScope(undefined, scope),
+    ]).toStrictEqual([true, true, false, false, false, false]);
   });
 
   test("keep the previous ARG view only within the same session", () => {
-    const next = analysisKeys.argView(1, "depth");
+    const scope = analysisKeys.argViewScope(1);
 
     expect([
-      sharesScope(analysisKeys.argView(1, "div"), next, 3),
-      sharesScope(analysisKeys.argView(2, "div"), next, 3),
-    ]).toStrictEqual([true, false]);
+      sharesScope(analysisKeys.argView(1, "div"), scope),
+      sharesScope(analysisKeys.argView(1, "depth"), scope),
+      sharesScope(analysisKeys.argView(2, "div"), scope),
+      sharesScope(analysisKeys.pairView(1, 0, "resolved", "div"), scope),
+    ]).toStrictEqual([true, true, false, false]);
   });
 });
 

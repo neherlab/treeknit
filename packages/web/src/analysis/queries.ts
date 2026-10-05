@@ -26,13 +26,17 @@ export interface IdentifiedText {
 
 const INPUT_QUERY_GC_MS = 5000;
 
-const PAIR_SCOPE = 4;
-
-const SESSION_SCOPE = 3;
-
 const NO_SESSION = ["session", null] as const;
 
 const UNLABELLED = "";
+
+function pairViewScope(sessionId: number, pair: SessionArgs<"pairView">[0]) {
+  return ["session", sessionId, "pairView", pair] as const;
+}
+
+function argViewScope(sessionId: number) {
+  return ["session", sessionId, "argView"] as const;
+}
 
 export const analysisKeys = {
   defaultSettings: () => ["defaultSettings"] as const,
@@ -47,9 +51,11 @@ export const analysisKeys = {
   session: (sessionId: number) => ["session", sessionId] as const,
   files: (sessionId: number) => ["session", sessionId, "files"] as const,
   commandLine: (sessionId: number) => ["session", sessionId, "commandLine"] as const,
-  pairView: (sessionId: number, ...args: SessionArgs<"pairView">) =>
-    ["session", sessionId, "pairView", ...args] as const,
-  argView: (sessionId: number, ...args: SessionArgs<"argView">) => ["session", sessionId, "argView", ...args] as const,
+  pairViewScope,
+  pairView: (sessionId: number, ...[pair, ...rest]: SessionArgs<"pairView">) =>
+    [...pairViewScope(sessionId, pair), ...rest] as const,
+  argViewScope,
+  argView: (sessionId: number, ...args: SessionArgs<"argView">) => [...argViewScope(sessionId), ...args] as const,
   constellation: (sessionId: number) => ["session", sessionId, "constellation"] as const,
 };
 
@@ -170,7 +176,12 @@ export function usePairView(
     queryKey,
     queryFn: sessionQuery(sessionId, async (id) => client.pairView(id, ...args)),
     placeholderData: (previous, previousQuery) =>
-      sharesScope(previousQuery?.queryKey, queryKey, PAIR_SCOPE) ? previous : undefined,
+      sharesScope(
+        previousQuery?.queryKey,
+        sessionKey(sessionId, (id) => analysisKeys.pairViewScope(id, args[0])),
+      )
+        ? previous
+        : undefined,
   });
 }
 
@@ -182,7 +193,7 @@ export function useArgView(sessionId: number | null, ...args: SessionArgs<"argVi
     queryKey,
     queryFn: sessionQuery(sessionId, async (id) => (await client.argView(id, ...args)) ?? null),
     placeholderData: (previous, previousQuery) =>
-      sharesScope(previousQuery?.queryKey, queryKey, SESSION_SCOPE) ? previous : undefined,
+      sharesScope(previousQuery?.queryKey, sessionKey(sessionId, analysisKeys.argViewScope)) ? previous : undefined,
   });
 }
 
@@ -195,8 +206,8 @@ export function useConstellation(sessionId: number | null): Answer<SessionResult
   });
 }
 
-export function sharesScope(previous: QueryKey | undefined, next: QueryKey, depth: number): boolean {
-  return previous !== undefined && isDeepEqual(previous.slice(0, depth), next.slice(0, depth));
+export function sharesScope(previous: QueryKey | undefined, scope: QueryKey): boolean {
+  return previous !== undefined && isDeepEqual(previous.slice(0, scope.length), scope);
 }
 
 function sessionKey<Key extends QueryKey>(
