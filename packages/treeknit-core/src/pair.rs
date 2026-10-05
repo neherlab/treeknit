@@ -9,6 +9,7 @@
 use crate::anneal;
 use crate::bits::Bits;
 use crate::naive::{Mcc, naive_mccs, sort_mccs};
+use crate::progress::iterations_done;
 use crate::resolve::resolve_trees;
 use crate::splitgraph::Graph;
 use crate::tree::{NodeId, Tree};
@@ -29,7 +30,16 @@ pub struct PairParams {
 }
 
 /// Infer MCCs of `t1` and `t2`, which must have the same leaf set. Taxa are in `0..n_taxa`.
-pub fn infer_pair(t1: &Tree, t2: &Tree, n_taxa: usize, p: &PairParams, rng: &mut impl Rng) -> Vec<Mcc> {
+/// Calls `on_progress` with the completed fraction of the inference (0 to 1, never decreasing)
+/// after each temperature step of the annealing; it consumes no random numbers.
+pub fn infer_pair(
+  t1: &Tree,
+  t2: &Tree,
+  n_taxa: usize,
+  p: &PairParams,
+  rng: &mut impl Rng,
+  on_progress: &dyn Fn(f64),
+) -> Vec<Mcc> {
   let mut trees = [t1.clone(), t2.clone()];
   if p.resolve {
     resolve_trees(&mut trees, n_taxa);
@@ -46,7 +56,9 @@ pub fn infer_pair(t1: &Tree, t2: &Tree, n_taxa: usize, p: &PairParams, rng: &mut
       "iteration {it} (max. {}): {n_leaves} leaves, {m} steps per temperature",
       p.itmax
     );
-    let new = remove_mccs(&trees[0], &trees[1], n_taxa, p, m, rng);
+    // At most `itmax + 1` iterations run: the loop stops after iteration `it > itmax`.
+    let on_anneal = |step: f64| on_progress(iterations_done(it - 1, step, p.itmax + 1));
+    let new = remove_mccs(&trees[0], &trees[1], n_taxa, p, m, rng, &on_anneal);
     log::debug!("found {} new MCCs", new.len());
     found.extend(new.iter().cloned());
 
@@ -72,8 +84,17 @@ pub fn infer_pair(t1: &Tree, t2: &Tree, n_taxa: usize, p: &PairParams, rng: &mut
   sort_mccs(found)
 }
 
-/// One annealing step: the naive MCCs that should be removed from the trees.
-fn remove_mccs(t1: &Tree, t2: &Tree, n_taxa: usize, p: &PairParams, m: usize, rng: &mut impl Rng) -> Vec<Mcc> {
+/// One annealing step: the naive MCCs that should be removed from the trees. Calls `on_anneal`
+/// with the completed fraction of the annealing after each temperature.
+fn remove_mccs(
+  t1: &Tree,
+  t2: &Tree,
+  n_taxa: usize,
+  p: &PairParams,
+  m: usize,
+  rng: &mut impl Rng,
+  on_anneal: &dyn Fn(f64),
+) -> Vec<Mcc> {
   let mccs = naive_mccs(&[t1, t2], n_taxa);
   if mccs.len() == 1 {
     return mccs;
@@ -81,7 +102,7 @@ fn remove_mccs(t1: &Tree, t2: &Tree, n_taxa: usize, p: &PairParams, m: usize, rn
   let r1 = reduce_to_mccs(t1, &mccs, n_taxa);
   let r2 = reduce_to_mccs(t2, &mccs, n_taxa);
   let g = Graph::new(&[&r1, &r2], mccs.len());
-  let confs = anneal::optimize(&g, p.gamma, &p.temperatures, m, p.sa_rep, p.resolve, rng);
+  let confs = anneal::optimize(&g, p.gamma, &p.temperatures, m, p.sa_rep, p.resolve, rng, on_anneal);
   let conf = if confs.len() == 1 {
     confs.into_iter().next().unwrap()
   } else {
@@ -183,7 +204,7 @@ mod tests {
   fn run(nwk: [&str; 2], o: &Options, seed: u64) -> Vec<Vec<String>> {
     let (ts, taxa) = trees(&nwk);
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(seed);
-    let m = infer_pair(&ts[0], &ts[1], taxa.len(), &params(o), &mut rng);
+    let m = infer_pair(&ts[0], &ts[1], taxa.len(), &params(o), &mut rng, &|_| {});
     m.iter().map(|x| taxa.names_of(x)).collect()
   }
 

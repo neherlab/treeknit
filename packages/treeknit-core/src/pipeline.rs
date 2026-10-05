@@ -15,6 +15,7 @@ use crate::mcc_map::{leaf_order, sort_by_leaf_order, sort_polytomies_by_mccs};
 use crate::naive::{Mcc, naive_mccs, sort_mccs};
 use crate::options::{Options, Resolution};
 use crate::pair::{PairParams, infer_pair};
+use crate::progress::Progress;
 use crate::resolve::{Insert, insert_all_on, insert_split, resolve_trees, resolve_with_mccs};
 use crate::tree::{Taxa, Tree};
 use rand::SeedableRng;
@@ -43,6 +44,21 @@ impl PairResult {
 /// Run TreeKnit on `trees` (leaves must have taxa assigned from `taxa`).
 /// Trees are resolved and sorted in place. Pairs are returned in order (0,1), (0,2), …
 pub fn run(trees: &mut [Tree], taxa: &Taxa, opts: &Options, seed: u64) -> Vec<PairResult> {
+  run_observed(trees, taxa, opts, seed, &|_| {})
+}
+
+/// As [`run`], calling `observe` with the progress of the run: at the start of each pair, after
+/// each temperature step of its annealing, and once with fraction 1 at the end. Pre-resolution
+/// and the matching of `Matched` resolution report nothing until the end. In a parallel round,
+/// `observe` is called on the calling thread only: before the round and after all its pairs.
+/// The observer consumes no random numbers, so the result equals that of `run`.
+pub fn run_observed(
+  trees: &mut [Tree],
+  taxa: &Taxa,
+  opts: &Options,
+  seed: u64,
+  observe: &dyn Fn(Progress),
+) -> Vec<PairResult> {
   let k = trees.len();
   let n = taxa.len();
   assert!(k >= 2, "need at least two trees");
@@ -68,9 +84,11 @@ pub fn run(trees: &mut [Tree], taxa: &Taxa, opts: &Options, seed: u64) -> Vec<Pa
     // Splits added with MCCs: unambiguous ones only, except in liberal mode.
     let strict = opts.resolution != Resolution::Liberal && resolve;
     log::info!("round {round}/{rounds}{}", if resolve { " (resolving)" } else { "" });
+    let at = |pair: usize, within: f64| observe(Progress::at(round - 1, rounds, pair, pairs.len(), within));
     if resolve || !opts.parallel {
       for (p, &(i, j)) in pairs.iter().enumerate() {
-        mccs[p] = infer(trees, i, j, n, opts, resolve, seed, round);
+        at(p, 0.0);
+        mccs[p] = infer(trees, i, j, n, opts, resolve, seed, round, &|within| at(p, within));
         if resolve {
           resolve_pair(trees, i, j, &mccs[p], n, strict);
         }
@@ -80,10 +98,12 @@ pub fn run(trees: &mut [Tree], taxa: &Taxa, opts: &Options, seed: u64) -> Vec<Pa
       }
     } else {
       let shared: &[Tree] = trees;
+      at(0, 0.0);
       mccs = pairs
         .par_iter()
-        .map(|&(i, j)| infer(shared, i, j, n, opts, false, seed, round))
+        .map(|&(i, j)| infer(shared, i, j, n, opts, false, seed, round, &|_| {}))
         .collect();
+      at(pairs.len() - 1, 1.0);
       if last && !matched {
         for (p, &(i, j)) in pairs.iter().enumerate() {
           sort_pair(trees, i, j, &mccs[p], n, opts.sort_strict.unwrap_or(strict));
@@ -97,11 +117,13 @@ pub fn run(trees: &mut [Tree], taxa: &Taxa, opts: &Options, seed: u64) -> Vec<Pa
       sort_pair(trees, i, j, &mccs[p], n, false);
     }
   }
-  pairs
+  let results = pairs
     .iter()
     .zip(mccs)
     .map(|(&(i, j), m)| attach_pair(trees, i, j, m, n))
-    .collect()
+    .collect();
+  observe(Progress::done(rounds, pairs.len()));
+  results
 }
 
 /// Resolve `trees` so that, within every MCC of every pair, the two trees restricted to the
@@ -266,6 +288,7 @@ fn infer(
   resolve: bool,
   seed: u64,
   round: usize,
+  on_progress: &dyn Fn(f64),
 ) -> Vec<Mcc> {
   let Some(shared) = shared_leaves(trees, i, j, n) else {
     log::warn!(
@@ -296,7 +319,7 @@ fn infer(
       temperatures: opts.temperatures(),
     };
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(mix(seed, round, i, j));
-    infer_pair(&ti, &tj, n, &p, &mut rng)
+    infer_pair(&ti, &tj, n, &p, &mut rng, on_progress)
   };
   log::info!("found {} MCCs for {} and {}", m.len(), trees[i].label, trees[j].label);
   m

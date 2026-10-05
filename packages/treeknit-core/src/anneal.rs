@@ -8,6 +8,7 @@
 
 use crate::bits::{self, Bits};
 use crate::options::Cooling;
+use crate::progress::ratio;
 use crate::splitgraph::{EnergyState, Graph};
 use rand::Rng;
 use std::collections::HashSet;
@@ -114,17 +115,19 @@ impl<R: Rng> Chain<'_, R> {
     (best, fmin)
   }
 
-  /// One annealing run starting from all leaves kept.
+  /// One annealing run starting from all leaves kept. Calls `after_step` with the number of
+  /// completed temperatures after each temperature.
   #[expect(
     clippy::float_cmp,
     reason = "free energies are compared for exact ties, so every configuration of minimal energy is kept"
   )]
-  fn anneal(&mut self, trange: &[f64], m: usize) -> (ConfSet, f64) {
+  fn anneal(&mut self, trange: &[f64], m: usize, after_step: &dyn Fn(usize)) -> (ConfSet, f64) {
     let mut st = EnergyState::new(self.g, bits::full(self.g.n), self.resolve);
     let mut best = ConfSet::single(st.conf().clone());
     let mut fmin = f64::INFINITY;
-    for &t in trange {
+    for (step, &t) in trange.iter().enumerate() {
       let (b, f) = self.mcmc(&mut st, m, t);
+      after_step(step + 1);
       if f < fmin {
         best = b;
         fmin = f;
@@ -137,6 +140,7 @@ impl<R: Rng> Chain<'_, R> {
 }
 
 /// Run `reps` annealing runs; return all distinct configurations of minimal free energy.
+/// Calls `on_step` with the completed fraction of all runs after each temperature.
 #[expect(
   clippy::float_cmp,
   reason = "free energies are compared for exact ties, so every configuration of minimal energy is kept"
@@ -149,12 +153,15 @@ pub fn optimize(
   reps: usize,
   resolve: bool,
   rng: &mut impl Rng,
+  on_step: &dyn Fn(f64),
 ) -> Vec<Bits> {
   let mut chain = Chain { g, gamma, resolve, rng };
   let mut best = ConfSet::default();
   let mut fmin = f64::INFINITY;
-  for _ in 0..reps.max(1) {
-    let (b, f) = chain.anneal(trange, m);
+  let reps = reps.max(1);
+  let steps = reps * trange.len();
+  for rep in 0..reps {
+    let (b, f) = chain.anneal(trange, m, &|step| on_step(ratio(rep * trange.len() + step, steps)));
     if f < fmin {
       best = b;
       fmin = f;
