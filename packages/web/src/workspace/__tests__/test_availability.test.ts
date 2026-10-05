@@ -143,8 +143,8 @@ function pairViewWith(left: string[], right: string[]): PairView {
     mccs: [],
     // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated PairView type
     shapes: {
-      left: { elbows: [], marks: [] },
-      right: { elbows: [], marks: [] },
+      left: { elbows: [], marks: [], leaders: [] },
+      right: { elbows: [], marks: [], leaders: [] },
       links: [],
       ribbons: [],
     },
@@ -186,6 +186,6 @@ function argViewWith(labels: string[]): ArgView {
     root: 0,
     rootCase: "synthetic",
     // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated ArgView type
-    shapes: { edges: [], marks: [] },
+    shapes: { edges: [], marks: [], leaders: [] },
   };
 }
