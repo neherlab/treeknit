@@ -179,15 +179,11 @@ pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationErro
     errors.push(ValidationError::at("trees", "need at least two trees"));
   }
   let label_errors = check_labels(trees);
-  // Pair names repeat label errors (two equal labels give equal pair names), so they are
-  // checked only for valid labels.
-  let stem_errors = if label_errors.is_empty() {
-    check_pair_stems(trees)
-  } else {
-    Vec::new()
-  };
-  errors.extend(label_errors);
-  errors.extend(stem_errors);
+  // A pair with an invalid or repeated label is left out of the pair-name check: its label
+  // error already covers it, and two equal labels would repeat it as equal pair names.
+  let valid: Vec<bool> = label_errors.iter().map(Option::is_none).collect();
+  errors.extend(label_errors.into_iter().flatten());
+  errors.extend(check_pair_stems(trees, &valid));
   let mut parsed = Vec::with_capacity(trees.len());
   for (i, t) in trees.iter().enumerate() {
     match newick::parse_first(&t.newick, &t.label) {
@@ -318,7 +314,9 @@ const RESERVED_CHARS: [char; 7] = ['<', '>', ':', '"', '|', '?', '*'];
 /// directory on every release target: no path separator, no character reserved on Windows, no
 /// control character, and neither `.` nor `..`. Labels that differ only in case are repeated
 /// labels, because the file systems of macOS and Windows ignore case.
-fn check_labels(trees: &[TreeText]) -> Vec<ValidationError> {
+///
+/// Return the error of each label, in the order of `trees`.
+fn check_labels(trees: &[TreeText]) -> Vec<Option<ValidationError>> {
   let mut errors = Vec::new();
   let mut seen: BTreeMap<String, &str> = BTreeMap::new();
   for (i, t) in trees.iter().enumerate() {
@@ -347,19 +345,22 @@ fn check_labels(trees: &[TreeText]) -> Vec<ValidationError> {
         )),
       }
     };
-    errors.extend(message.map(|m| ValidationError::at(field, m)));
+    errors.push(message.map(|m| ValidationError::at(field, m)));
   }
   errors
 }
 
 /// Pairs whose output files would get the same name, ignoring case as `check_labels` does:
 /// `MCCs_<a>_<b>.dat` joins two labels with `_`, so the labels `a_b`, `c`, `a`, `b_c` give the
-/// pairs (0,1) and (2,3) one name.
-fn check_pair_stems(trees: &[TreeText]) -> Vec<ValidationError> {
+/// pairs (0,1) and (2,3) one name. Only pairs of two `valid` labels are checked.
+fn check_pair_stems(trees: &[TreeText], valid: &[bool]) -> Vec<ValidationError> {
   let mut first: BTreeMap<String, (usize, usize)> = BTreeMap::new();
   let mut errors = Vec::new();
   for i in 0..trees.len() {
     for j in i + 1..trees.len() {
+      if !(valid[i] && valid[j]) {
+        continue;
+      }
       let stem = pair_stem(&trees[i].label, &trees[j].label);
       match first.entry(stem.to_lowercase()) {
         Entry::Occupied(e) => {
@@ -640,6 +641,26 @@ mod tests {
   #[trace]
   fn usable_labels_are_accepted(#[case] labels: &[&str]) {
     assert_eq!(Vec::<ValidationError>::new(), check_trees(&labeled(labels)));
+  }
+
+  #[test]
+  fn invalid_label_does_not_hide_pair_name_collisions() {
+    let expected = vec![
+      error("trees[4].label", "tree label \"bad/label\" must not contain / or \\"),
+      error(
+        "trees",
+        "tree pairs (\"a_b\", \"c\") and (\"a\", \"b_c\") give the same output file names (\"a_b_c\"); rename a tree",
+      ),
+    ];
+    assert_eq!(expected, check_trees(&labeled(&["a_b", "c", "a", "b_c", "bad/label"])));
+  }
+
+  #[test]
+  fn repeated_label_gives_no_pair_name_error() {
+    assert_eq!(
+      vec![error("trees[2].label", "tree label \"ha\" is used twice")],
+      check_trees(&labeled(&["ha", "na", "ha"]))
+    );
   }
 
   #[test]
