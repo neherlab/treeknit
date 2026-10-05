@@ -34,7 +34,7 @@ export function TabList<T extends object>({ className, ...props }: TabListProps<
         cn(
           "border-rule flex shrink-0 gap-1",
           "data-[orientation=horizontal]:border-b data-[orientation=vertical]:flex-col data-[orientation=vertical]:border-r",
-          "[scrollbar-width:none] data-[orientation=horizontal]:overflow-x-auto data-[orientation=horizontal]:overflow-y-hidden",
+          "[scrollbar-width:thin] data-[orientation=horizontal]:overflow-x-auto data-[orientation=horizontal]:overflow-y-hidden",
           custom,
         ),
       )}
