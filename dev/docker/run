@@ -12,6 +12,8 @@
 # runs on the host.
 #
 # Environment:
+#   CROSS_COMPILE           Image: `native` (default, development image) or one
+#                           of the release targets in dev/cross/targets
 #   TREEKNIT_DOCKER_PUSH=1  Push the built image and its layer cache to the
 #                           registry (CI on the base branch only)
 #   KACHE_STORE             Host directory of the optional kache compiler cache;
@@ -25,6 +27,7 @@
 # Examples:
 #   dev/docker/run just check
 #   dev/docker/run just test-rs
+#   CROSS_COMPILE=aarch64-apple-darwin dev/docker/run dev/cross/build treeknit
 #
 set -euo pipefail
 
@@ -35,11 +38,52 @@ load_env_file "${root}/.env"
 
 registry="neherlab/treeknit_builder"
 platform="linux/amd64"
-kind="native"
-dockerfile="dev/docker/native.dockerfile"
+kind="${CROSS_COMPILE:-native}"
 
-# The image tag is a hash of the build inputs, their paths included, so any
-# change to them builds a new image and an unchanged set reuses the tag.
+# Cross images: the Dockerfile and the toolchain names of a release target.
+cross_image() {
+  local upper
+  upper="$(printf '%s' "${kind//-/_}" | tr '[:lower:]' '[:upper:]')"
+  dockerfile="dev/docker/${1}.dockerfile"
+  build_args=(
+    --build-arg="CROSS_COMPILE=${kind}"
+    --build-arg="CROSS_COMPILE_UPPER=${upper}"
+    --build-arg="CROSS_COMPILE_SAFE=${kind//-/_}"
+  )
+}
+
+build_args=()
+case "${kind}" in
+native) dockerfile="dev/docker/native.dockerfile" ;;
+x86_64-unknown-linux-gnu | x86_64-unknown-linux-musl)
+  cross_image cross-linux
+  build_args+=(--build-arg="CROSS_GCC_TRIPLET=${kind}" --build-arg="CROSS_RUNNER=")
+  ;;
+aarch64-unknown-linux-gnu | aarch64-unknown-linux-musl)
+  cross_image cross-linux
+  build_args+=(--build-arg="CROSS_GCC_TRIPLET=${kind}" --build-arg="CROSS_RUNNER=qemu-aarch64")
+  ;;
+x86_64-pc-windows-gnu)
+  cross_image cross-linux
+  build_args+=(--build-arg="CROSS_GCC_TRIPLET=x86_64-w64-mingw32" --build-arg="CROSS_RUNNER=/usr/lib/wine/wine64")
+  ;;
+x86_64-apple-darwin)
+  cross_image cross-darwin
+  build_args+=(--build-arg="CROSS_APPLE_TRIPLET=x86_64-apple-darwin20.2")
+  ;;
+aarch64-apple-darwin)
+  cross_image cross-darwin
+  build_args+=(--build-arg="CROSS_APPLE_TRIPLET=aarch64-apple-darwin20.2")
+  ;;
+*)
+  printf 'Unsupported CROSS_COMPILE: %s. Supported: native and the targets in dev/cross/targets\n' "${kind}" >&2
+  exit 1
+  ;;
+esac
+
+# The image tag is a hash of the build inputs, their paths included, and of the
+# build arguments, so any change to them builds a new image and an unchanged
+# set reuses the tag.
 build_inputs=(
   "${dockerfile}"
   "${dockerfile}.dockerignore"
@@ -48,7 +92,7 @@ build_inputs=(
   .config/mise.toml
   .config/mise.lock
 )
-image_hash="$(cd "${root}" && hash_files "${build_inputs[@]}" "${platform}")"
+image_hash="$(cd "${root}" && hash_files "${build_inputs[@]}" "${build_args[@]+"${build_args[@]}"}" "${platform}")"
 image="${registry}:${kind}-${image_hash}"
 
 build_image() {
@@ -69,6 +113,7 @@ build_image() {
     --platform="${platform}" \
     --file="${root}/${dockerfile}" \
     --tag="${image}" \
+    "${build_args[@]+"${build_args[@]}"}" \
     "${flags[@]}" \
     --progress=plain \
     "${root}" >&2

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+#
+# Usage: $0 <triplet> <prefix>
+#
+# Install a GCC 14 cross toolchain for a target triplet into a prefix.
+#
+set -euxo pipefail
+
+triplet="${1:?triplet}"
+dest="${2:?prefix}"
+release="2024-11-08_06-06-34"
+archive="/tmp/gcc-cross.tar.xz"
+mkdir -p "${dest}"
+
+/fetch "https://github.com/binarylandia/build_crosstool-ng/releases/download/${release}/gcc-14.2.0-${triplet}-${release}.tar.xz" "${archive}"
+pixz -dp "$(nproc)" <"${archive}" | tar -C "${dest}" -x
+rm "${archive}"
+
+if [[ "${triplet}" =~ (mingw|windows) ]]; then
+  # The MinGW toolchain has no libgcc_eh.a, which rustc links; libgcc.a provides the symbols.
+  # https://github.com/r-windows/rtools-packages/issues/185
+  ln -s "libgcc.a" "${dest}/lib/gcc/x86_64-w64-mingw32/14.2.0/libgcc_eh.a"
+  # The MinGW sysroot nests under an extra mingw/ directory; flatten it so Linux
+  # and Windows targets share the sysroot variables.
+  cp -r "${dest}/x86_64-w64-mingw32/sysroot/mingw/"* "${dest}/x86_64-w64-mingw32/sysroot/"
+fi
+
+test "$("${dest}/bin/${triplet}-gcc" -dumpmachine)" = "${triplet}"
