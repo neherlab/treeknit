@@ -1,0 +1,26 @@
+min_version = "2026.9.10"
+
+[settings]
+lockfile = true
+locked = true
+minimum_release_age = "7d"
+
+[tools]
+actionlint = "1.7.12"
+cargo-deny = "0.20.2"
+hadolint = "2.15.1"
+hyperfine = "1.20.0"
+jq = "1.8.2"
+just = "1.58.0"
+mold = { version = "2.42.1", os = ["linux"] }
+ripgrep = "15.2.0"
+shellcheck = "0.11.0"
+shfmt = "3.14.1"
+taplo = "0.10.0"
+yq = "4.53.6"
+"aqua:nextest-rs/nextest/cargo-nextest" = "0.9.145"
+"aqua:taiki-e/cargo-llvm-cov" = "0.9.1"
+"cargo:cargo-edit" = "0.13.13"
+"github:Boshen/cargo-shear" = "1.13.4"
+"github:kunobi-ninja/kache" = "0.26.3"
+"github:sourcefrog/cargo-mutants" = "27.1.0"
