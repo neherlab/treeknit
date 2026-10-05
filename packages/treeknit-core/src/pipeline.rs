@@ -43,8 +43,10 @@ impl PairResult {
   }
 
   /// MCCs restricted to the leaves that trees `i` and `j` of `trees` share; sorted. These are
-  /// the MCCs that the run inferred, resolved with, and sorted the pair by, before the leaves
-  /// of one tree only were attached. Empty when the pair shares fewer than two leaves.
+  /// the MCCs the run sorted the pair by, before the leaves of one tree only were attached.
+  /// After `Matched` resolution they hold the parts of every MCC that matching split, so they
+  /// can differ from the MCCs inferred for the pair. Empty when the pair shares fewer than two
+  /// leaves.
   pub fn shared_mccs(&self, trees: &[Tree], n: usize) -> Vec<Mcc> {
     let Some(shared) = shared_leaves(&trees[self.i], &trees[self.j], n) else {
       return Vec::new();
@@ -855,6 +857,67 @@ mod tests {
     assert_eq!(ids(&taxa, &[&["X"], &["A", "B", "C", "D"]]), shared);
     let attached: Vec<usize> = res[0].mccs.iter().map(Vec::len).collect();
     assert_eq!(vec![1, 6], attached);
+  }
+
+  /// Number in the log line of `lines` that starts with `before` and has `after` right after
+  /// the number.
+  fn logged_count(lines: &[String], before: &str, after: &str) -> Vec<usize> {
+    lines
+      .iter()
+      .filter_map(|l| l.strip_prefix(before)?.strip_suffix(after)?.parse().ok())
+      .collect()
+  }
+
+  #[test]
+  fn shared_mccs_are_the_parts_after_matching_splits_an_mcc() {
+    // With seed 1, matching finds conflicting topologies inside an MCC of this run and splits
+    // it, and the run sorts the pair by the parts. The run's log gives the expected number of
+    // MCCs per pair: the MCCs it inferred, plus one per part beyond the first of each split.
+    let (mut ts, taxa) = trees(&["((D,A),(B,E),C);", "(E,(B,C),(D,A));", "((B,C),D,(E,A));"]);
+    for (t, label) in ts.iter_mut().zip(["t0", "t1", "t2"]) {
+      label.clone_into(&mut t.label);
+    }
+    let n = taxa.len();
+    let o = Options {
+      n_t: 10,
+      ..Options::for_trees(3)
+    };
+    assert_eq!(Resolution::Matched, o.resolution);
+    let mut res = Vec::new();
+    let lines = logged(|| res = run(&mut ts, &taxa, &o, 1));
+    let counts = |r: &PairResult| {
+      let pair = format!("{} and {}", ts[r.i].label, ts[r.j].label);
+      let inferred = logged_count(&lines, "INFO found ", &format!(" MCCs for {pair}"));
+      let conflict = format!("conflicting topologies in {pair}: split into ");
+      let parts: Vec<usize> = lines
+        .iter()
+        .filter_map(|l| l.split_once(&conflict)?.1.strip_suffix(" MCCs")?.parse().ok())
+        .collect();
+      (inferred, parts)
+    };
+    let logged_counts: Vec<_> = res.iter().map(counts).collect();
+    assert!(
+      logged_counts.iter().any(|(_, parts)| !parts.is_empty()),
+      "no MCC was split: {lines:?}"
+    );
+    let expected: Vec<usize> = logged_counts
+      .iter()
+      .map(|(inferred, parts)| inferred.iter().sum::<usize>() + parts.iter().map(|p| p - 1).sum::<usize>())
+      .collect();
+    let shared: Vec<Vec<Mcc>> = res.iter().map(|r| r.shared_mccs(&ts, n)).collect();
+    assert_eq!(expected, shared.iter().map(Vec::len).collect::<Vec<_>>());
+    // The MCC that matching split still has conflicting topologies in the final trees, so only
+    // its parts agree within every MCC.
+    let conflicting: Vec<(usize, usize, Mcc)> = res
+      .iter()
+      .zip(&shared)
+      .flat_map(|(r, ms)| {
+        ms.iter()
+          .filter(|m| mismatched_restrictions(&ts[r.i], &ts[r.j], m, n).is_some())
+          .map(|m| (r.i, r.j, m.clone()))
+      })
+      .collect();
+    assert_eq!(Vec::<(usize, usize, Mcc)>::new(), conflicting);
   }
 
   #[test]
