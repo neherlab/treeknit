@@ -313,35 +313,61 @@ pub fn output_paths(labels: &[String], options: &OutputOptions) -> Vec<String> {
   paths
 }
 
-/// Output files of different trees or kinds that would get the same name, ignoring case as the
-/// label check does: the resolved tree of `MCCs_a` from `MCCs_a.dat` and the MCCs of the pair
-/// (`a`, `resolved`) are both `MCCs_a_resolved.dat`. The command line would overwrite one with the
-/// other, and the ZIP archive of the web app cannot hold both. `labels` must have passed the
-/// checks of `analysis::parse_trees`, which reports repeated labels and pair names.
+/// Longest file name of the file systems of the release targets, in bytes: 255 bytes in ext4,
+/// APFS, and NTFS (where it is 255 UTF-16 units, which UTF-8 bytes bound from above).
+pub const MAX_FILE_NAME_BYTES: usize = 255;
+
+/// Output file names that a file system cannot hold: names longer than `MAX_FILE_NAME_BYTES`,
+/// such as `tanglegram_<a>_<b>.svg` of two long labels, and files of different trees or kinds
+/// that would get the same name, ignoring case as the label check does: the resolved tree of
+/// `MCCs_a` from `MCCs_a.dat` and the MCCs of the pair (`a`, `resolved`) are both
+/// `MCCs_a_resolved.dat`. The command line would fail after the inference or overwrite one file
+/// with the other, and the ZIP archive of the web app cannot hold both. A clash needs a tree
+/// extension of the command line, such as `.dat`: the file set of the web app gives each kind of
+/// file its own prefix, suffix, extension, or folder. `labels` must have passed the checks of
+/// `analysis::parse_trees`, which reports repeated labels and pair names.
 pub fn check_output_paths(labels: &[String], options: &OutputOptions) -> Vec<ValidationError> {
-  let mut first: BTreeMap<String, String> = BTreeMap::new();
+  let error = |message: String| ValidationError {
+    field: Some("trees".to_owned()),
+    message,
+    line: None,
+    column: None,
+  };
+  let paths = output_paths(labels, options);
   let mut errors = Vec::new();
-  for path in output_paths(labels, options) {
-    match first.entry(analysis::label_key(&path)) {
+  let too_long: Vec<&str> = paths
+    .iter()
+    .flat_map(|p| p.split('/'))
+    .filter(|name| name.len() > MAX_FILE_NAME_BYTES)
+    .collect();
+  if let Some(longest) = too_long.iter().max_by_key(|name| name.len()) {
+    let (count, bytes) = (too_long.len(), longest.len());
+    errors.push(error(if count == 1 {
+      format!(
+        "the output file name {longest:?} has {bytes} bytes, more than the {MAX_FILE_NAME_BYTES} of a file name; \
+         shorten the tree labels"
+      )
+    } else {
+      format!(
+        "{count} output file names have more than the {MAX_FILE_NAME_BYTES} bytes of a file name, such as \
+         {longest:?} with {bytes} bytes; shorten the tree labels"
+      )
+    }));
+  }
+  let mut first: BTreeMap<String, &str> = BTreeMap::new();
+  for path in &paths {
+    match first.entry(analysis::label_key(path)) {
       Entry::Vacant(e) => {
         e.insert(path);
       },
-      Entry::Occupied(e) => {
-        let message = if *e.get() == path {
-          format!("two output files are named {path:?}; rename a tree")
-        } else {
-          format!(
-            "the output files {:?} and {path:?} differ only in case; rename a tree",
-            e.get()
-          )
-        };
-        errors.push(ValidationError {
-          field: Some("trees".to_owned()),
-          message,
-          line: None,
-          column: None,
-        });
-      },
+      Entry::Occupied(e) => errors.push(error(if *e.get() == path {
+        format!("two output files are named {path:?}; rename a tree")
+      } else {
+        format!(
+          "the output files {:?} and {path:?} differ only in case; rename a tree",
+          e.get()
+        )
+      })),
     }
   }
   errors
@@ -794,6 +820,39 @@ mod tests {
       column: None,
     }];
     assert_eq!(expected, check_output_paths(&labels(names), &options));
+  }
+
+  #[test]
+  fn check_output_paths_reports_file_names_longer_than_a_file_system_holds() {
+    let (a, b) = ("a".repeat(125), "b".repeat(125));
+    let error = |message: String| ValidationError {
+      field: Some("trees".to_owned()),
+      message,
+      line: None,
+      column: None,
+    };
+    // Oracle: `tanglegram_` (11 bytes), 125 + 1 + 125 bytes of labels, and `.svg` (4) make 266
+    // bytes; the other names of two such labels stay below 255.
+    let one = format!(
+      "the output file name \"tanglegram_{a}_{b}.svg\" has 266 bytes, more than the 255 of a file name; shorten \
+       the tree labels"
+    );
+    assert_eq!(
+      vec![error(one)],
+      check_output_paths(&labels(&[&a, &b]), &OutputOptions::web(2))
+    );
+    // Without figures, a label of 250 bytes gives four long names: the resolved (263 bytes),
+    // imputed (262), and Auspice (263) files, and the ARG tree file (271).
+    let c = "c".repeat(250);
+    let many = format!(
+      "4 output file names have more than the 255 bytes of a file name, such as \"{c}_liberal_resolved.nwk\" with \
+       271 bytes; shorten the tree labels"
+    );
+    let options = OutputOptions {
+      figures: false,
+      ..OutputOptions::web(2)
+    };
+    assert_eq!(vec![error(many)], check_output_paths(&labels(&[&c, "na"]), &options));
   }
 
   #[test]
