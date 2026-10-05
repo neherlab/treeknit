@@ -30,3 +30,7 @@ export function shellLayout(viewportWidthPx: number): ShellLayout {
 export const SHELL_MEDIA_QUERIES = [RAIL_PANE_MIN_WIDTH_PX, INSPECTOR_PANE_MIN_WIDTH_PX].map(
   (widthPx) => `(min-width: ${widthPx}px)`,
 );
+
+export const RAIL_TITLE = "Trees and settings";
+
+export const INSPECTOR_TITLE = "Details";
