@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   ADD_ANOTHER_TREE,
+  CHECKING_INPUT,
   FIX_THE_ERRORS,
   isRunShortcut,
   MATCHING_TOPOLOGIES,
@@ -20,17 +21,25 @@ const PROGRESS: Progress = { phase: "pairs", fraction: 0.425, round: 1, rounds: 
 describe("run control", () => {
   test("asks for another tree before anything else", () => {
     expect({
-      none: runBlockedReason({ treeCount: 0, hasDraft: false, errors: [] }),
-      one: runBlockedReason({ treeCount: 1, hasDraft: true, errors: [ERROR] }),
+      none: runBlockedReason({ treeCount: 0, hasDraft: false, checking: false, errors: [] }),
+      one: runBlockedReason({ treeCount: 1, hasDraft: true, checking: false, errors: [ERROR] }),
     }).toStrictEqual({ none: ADD_ANOTHER_TREE, one: ADD_ANOTHER_TREE });
   });
 
   test("blocks a run on an invalid draft or a validation error", () => {
     expect({
-      draft: runBlockedReason({ treeCount: 2, hasDraft: true, errors: [] }),
-      error: runBlockedReason({ treeCount: 3, hasDraft: false, errors: [ERROR] }),
-      ready: runBlockedReason({ treeCount: 2, hasDraft: false, errors: [] }),
+      draft: runBlockedReason({ treeCount: 2, hasDraft: true, checking: false, errors: [] }),
+      error: runBlockedReason({ treeCount: 3, hasDraft: false, checking: false, errors: [ERROR] }),
+      ready: runBlockedReason({ treeCount: 2, hasDraft: false, checking: false, errors: [] }),
     }).toStrictEqual({ draft: FIX_THE_ERRORS, error: FIX_THE_ERRORS, ready: null });
+  });
+
+  test("blocks a run while the current trees and settings are checked, even when the last check found no errors", () => {
+    expect({
+      checking: runBlockedReason({ treeCount: 2, hasDraft: false, checking: true, errors: [] }),
+      draft: runBlockedReason({ treeCount: 2, hasDraft: true, checking: true, errors: [] }),
+      oneTree: runBlockedReason({ treeCount: 1, hasDraft: false, checking: true, errors: [] }),
+    }).toStrictEqual({ checking: CHECKING_INPUT, draft: FIX_THE_ERRORS, oneTree: ADD_ANOTHER_TREE });
   });
 
   test("hides the general errors while the reason asks for another tree", () => {

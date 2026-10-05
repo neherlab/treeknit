@@ -1,7 +1,8 @@
-import type { ArgView, DrawingRules, TreeInspection, TreeText } from "@neherlab/treeknit-wasm";
+import type { AnalysisRequest, ArgView, DrawingRules, TreeInspection, TreeText } from "@neherlab/treeknit-wasm";
 import {
   keepPreviousData,
   type QueryKey,
+  queryOptions,
   skipToken,
   type SkipToken,
   useQueries,
@@ -12,6 +13,7 @@ import {
 import { useMemo } from "react";
 import { isDeepEqual } from "remeda";
 
+import type { AnalysisClient } from "./client";
 import { useAnalysisClient } from "./context";
 import type { SessionArgs, SessionResult, StatelessArgs, StatelessResult } from "./protocol";
 
@@ -93,15 +95,24 @@ export function useOverlap(trees: readonly TreeText[]): Answer<StatelessResult<"
   });
 }
 
-export function useValidation(...args: StatelessArgs<"validate">): Answer<StatelessResult<"validate">> {
-  const client = useAnalysisClient();
-
-  return useQuery({
-    queryKey: analysisKeys.validate(...args),
-    queryFn: async () => client.validate(...args),
-    placeholderData: keepPreviousData,
+export function validationQuery(client: AnalysisClient, request: AnalysisRequest) {
+  return queryOptions({
+    queryKey: analysisKeys.validate(request),
+    queryFn: async () => client.validate(request),
+    placeholderData: (previous, previousQuery) =>
+      previousQuery !== undefined && sameTreeTexts(previousQuery.queryKey[1].trees, request.trees)
+        ? previous
+        : undefined,
     gcTime: INPUT_QUERY_GC_MS,
   });
+}
+
+export function useValidation(request: AnalysisRequest): Answer<StatelessResult<"validate">> {
+  return useQuery(validationQuery(useAnalysisClient(), request));
+}
+
+export function sameTreeTexts(previous: readonly TreeText[], next: readonly TreeText[]): boolean {
+  return previous.length === next.length && previous.every(({ newick }, index) => newick === next[index]?.newick);
 }
 
 export function useSettingsSchema(...args: StatelessArgs<"settingsSchema">): Answer<StatelessResult<"settingsSchema">> {

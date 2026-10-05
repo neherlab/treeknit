@@ -5,7 +5,7 @@ import StopIcon from "~icons/lucide/square";
 
 import { formatElapsed } from "../format/elapsed";
 import { useDelayedIndicator } from "../indicator/useDelayedIndicator";
-import { progressLabel, progressPercent } from "../run/runControl";
+import { CHECKING_INPUT, progressLabel, progressPercent } from "../run/runControl";
 import { RunFailureNotice } from "../run/RunFailureNotice";
 import { useNow } from "../run/useNow";
 import { useRunReadiness } from "../run/useRunReadiness";
@@ -25,6 +25,8 @@ export function RunBar() {
   const { blockedReason, generalErrors } = useRunReadiness();
   const running = run.status === "running";
   const showProgress = useDelayedIndicator(running);
+  const showChecking = useDelayedIndicator(blockedReason === CHECKING_INPUT);
+  const shownReason = blockedReason === CHECKING_INPUT && !showChecking ? null : blockedReason;
   const [shownRun, setShownRun] = useState<RunningState | null>(null);
 
   if (run.status === "running" && run !== shownRun) {
@@ -69,7 +71,7 @@ export function RunBar() {
           >
             Run TreeKnit
           </Button>
-          {blockedReason === null || running ? null : <p className="text-ink-muted text-xs">{blockedReason}</p>}
+          {shownReason === null || running ? null : <p className="text-ink-muted text-xs">{shownReason}</p>}
         </div>
       )}
     </div>

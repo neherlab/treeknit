@@ -4,6 +4,12 @@ import { useValidation } from "../analysis/queries";
 import { useCurrentRequest } from "./context";
 import { type FieldErrors, groupFieldErrors, shownFields } from "./fieldErrors";
 
+export function useValidationChecking(): boolean {
+  const { isPending, isPlaceholderData } = useValidation(useCurrentRequest());
+
+  return isPending || isPlaceholderData;
+}
+
 export function useFieldErrors(): FieldErrors {
   const request = useCurrentRequest();
   const { data } = useValidation(request);

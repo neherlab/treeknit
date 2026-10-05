@@ -5,6 +5,8 @@ export const ADD_ANOTHER_TREE = "Add at least one more tree";
 
 export const FIX_THE_ERRORS = "Fix the errors above";
 
+export const CHECKING_INPUT = "Checking the trees and settings";
+
 export const MATCHING_TOPOLOGIES = "Matching topologies";
 
 export const STARTING_RUN = "Starting";
@@ -14,15 +16,24 @@ const MIN_TREES = 2;
 export interface RunReadiness {
   treeCount: number;
   hasDraft: boolean;
+  checking: boolean;
   errors: readonly ValidationError[];
 }
 
-export function runBlockedReason({ treeCount, hasDraft, errors }: RunReadiness): string | null {
+export function runBlockedReason({ treeCount, hasDraft, checking, errors }: RunReadiness): string | null {
   if (treeCount < MIN_TREES) {
     return ADD_ANOTHER_TREE;
   }
 
-  return hasDraft || errors.length > 0 ? FIX_THE_ERRORS : null;
+  if (hasDraft) {
+    return FIX_THE_ERRORS;
+  }
+
+  if (checking) {
+    return CHECKING_INPUT;
+  }
+
+  return errors.length > 0 ? FIX_THE_ERRORS : null;
 }
 
 export function visibleGeneralErrors(

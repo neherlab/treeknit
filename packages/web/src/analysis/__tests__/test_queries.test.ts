@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { analysisKeys, sharesScope } from "../queries";
+import { analysisKeys, sameTreeTexts, sharesScope } from "../queries";
 
 describe("analysis query keys", () => {
   test("nest every session query under the key of its session", () => {
@@ -65,5 +65,20 @@ describe("view placeholders", () => {
       sharesScope(analysisKeys.argView(1, "div"), next, 3),
       sharesScope(analysisKeys.argView(2, "div"), next, 3),
     ]).toStrictEqual([true, false]);
+  });
+});
+
+describe("validation placeholders", () => {
+  const HA = { label: "ha", newick: "(A,B);" };
+  const NA = { label: "na", newick: "(A,C);" };
+
+  test("keep the previous errors only while each index holds the same tree text", () => {
+    expect({
+      renamed: sameTreeTexts([HA, NA], [{ ...HA, label: "segment 4" }, NA]),
+      same: sameTreeTexts([HA, NA], [HA, NA]),
+      reordered: sameTreeTexts([HA, NA], [NA, HA]),
+      removed: sameTreeTexts([HA, NA], [HA]),
+      edited: sameTreeTexts([HA, NA], [HA, { ...NA, newick: "(A,D);" }]),
+    }).toStrictEqual({ renamed: true, same: true, reordered: false, removed: false, edited: false });
   });
 });
