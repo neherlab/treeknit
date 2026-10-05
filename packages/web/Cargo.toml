@@ -14,10 +14,13 @@ license.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+console_error_panic_hook.workspace = true
 serde.workspace = true
+serde-wasm-bindgen.workspace = true
 serde_json.workspace = true
 treeknit-core.workspace = true
 treeknit-io.workspace = true
+wasm-bindgen.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true
