@@ -54,13 +54,15 @@ const integerSchema = z.union([
     .transform(Number),
 ]);
 
+const nonNegativeIntegerSchema = integerSchema.pipe(z.int().min(0));
+
 export const workspaceSearchSchema = z.object({
   view: choice(WORKSPACE_VIEWS, WORKSPACE_SEARCH_DEFAULTS.view),
   pair: nonNegativeInteger(WORKSPACE_SEARCH_DEFAULTS.pair),
   version: choice(TREE_VERSIONS, WORKSPACE_SEARCH_DEFAULTS.version),
   x: choice(X_SCALES, WORKSPACE_SEARCH_DEFAULTS.x),
   labels: choice(LABEL_MODES, WORKSPACE_SEARCH_DEFAULTS.labels),
-  mcc: optional(integerSchema),
+  mcc: optional(nonNegativeIntegerSchema),
   leaf: optional(z.string().min(1)),
   node: optional(z.union([nodeRefSchema, nodeRefTextSchema])),
 });
@@ -159,7 +161,7 @@ function choice<const V extends string>(values: readonly [V, ...V[]], fallback: 
 }
 
 function nonNegativeInteger(fallback: number) {
-  return integerSchema.pipe(z.int().min(0)).default(fallback).catch(fallback);
+  return nonNegativeIntegerSchema.default(fallback).catch(fallback);
 }
 
 function optional<T extends z.ZodType>(schema: T) {

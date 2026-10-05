@@ -76,6 +76,7 @@ describe("workspaceSearchSchema", () => {
   test.each([
     { name: "an mcc that is not an integer", query: "mcc=two", key: "mcc" },
     { name: "an empty mcc", query: "mcc=", key: "mcc" },
+    { name: "a negative mcc", query: "mcc=-1", key: "mcc" },
     { name: "an empty leaf", query: "leaf=", key: "leaf" },
     { name: "a node without a side", query: "node=NODE_3", key: "node" },
     { name: "a node with an unknown side", query: "node=top%3ANODE_3", key: "node" },
