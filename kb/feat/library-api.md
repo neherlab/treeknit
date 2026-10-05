@@ -21,7 +21,7 @@ Counterpart: [`v0/julia-api.md`](v0/julia-api.md). The Rust crates `treeknit-cor
 
 - [/] **`runopt`**: `pair::infer_pair`, without `output = :all`
 - [x] **`run_standard_treeknit!`, `run_parallel_treeknit!`**: both inside `run`, selected by the round and `Options::parallel`
-- [/] **`sort_polytomies!`**: `mcc_map::sort_polytomies_by_mccs` is public and does the non-strict sort of one tree along another. `sort_for_pair` sorts two trees as the run sorts a pair, strictly or not (see [`pipeline.md`](pipeline.md#display-sort-new))
+- [/] **`sort_polytomies!`**: `mcc_map::sort_polytomies_by_mccs` is public and does the non-strict sort of one tree along another. `sort_for_pair` sorts two trees for display with the run's sort of a pair, strictly or not, and always ladderizes the left tree (see [`pipeline.md`](pipeline.md#display-sort-new))
 - [x] **`write_auspice_json`, `get_auspice_json`**: `auspice::auspice_json` returns the content for one tree
 - [x] **`name_mcc_clades!`, `reduce_to_mcc`, `pruneconf!`**: `pair::reduce_to_mccs` and `pair::prune_mccs`
 - [x] **`new_splits`, `splits_in_mcc`, `splits_in_mccs`, `map_splits_to_tree!`**: private functions behind `resolve_with_mccs`
@@ -45,4 +45,4 @@ Counterpart: [`v0/julia-api.md`](v0/julia-api.md). The Rust crates `treeknit-cor
 - [x] **Trees and taxa**: arena trees with traversals, restriction to a leaf set, pruning, and ladderizing; clades as bit sets (`fixedbitset`) over one taxon table [[src](../../packages/treeknit-core/src/tree.rs#L1-L454)]
 - [x] **`match_topologies`, `unmatched_mccs`**: the `matched` resolution and its check
 - [x] **`imputed_trees`, `arg_inputs`**: trees with missing leaves placed, and the inputs of the ARG (see [`partial-overlap.md`](partial-overlap.md))
-- [x] **`sort_for_pair`, `sort_strictness`, `last_sorting_pair`, `keeps_run_order`**: the order of a pair of trees for display, as the run sorts it (see [`pipeline.md`](pipeline.md#display-sort-new))
+- [x] **`sort_for_pair`, `sort_strictness`, `last_sorting_pair`, `keeps_run_order`**: the order of a pair of trees for display, from the run's sort of a pair (see [`pipeline.md`](pipeline.md#display-sort-new))

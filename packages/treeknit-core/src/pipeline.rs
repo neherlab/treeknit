@@ -119,11 +119,13 @@ pub fn keeps_run_order(trees: &[Tree], opts: &Options, n: usize, i: usize, j: us
       .all(|&t| last_sorting_pair(trees, opts, n, t).is_some_and(|last| last <= (i, j)))
 }
 
-/// Sort `left` and `right` for display as a pair, as the run sorts a pair: ladderize `left`,
-/// then order the polytomies of both so that MCCs face each other. `mccs` are the MCCs over the
-/// leaves the two trees share (see [`PairResult::shared_mccs`]), and `strict` is the
-/// strictness of the run's sort (see [`sort_strictness`]). Logs nothing. A pair that shares
-/// fewer than two leaves is left unchanged.
+/// Sort `left` and `right` for display as a pair: ladderize `left`, then order the polytomies
+/// of both so that MCCs face each other with the run's sort of a pair. The run ladderizes only
+/// tree 0; this display sort always ladderizes `left`, so that every pair view has the same
+/// layout rule, and its order can differ from the run's for a pair `(i, j)` with `i > 0`.
+/// `mccs` are the MCCs over the leaves the two trees share (see [`PairResult::shared_mccs`]),
+/// and `strict` is the strictness of the run's sort (see [`sort_strictness`]). Logs nothing. A
+/// pair that shares fewer than two leaves is left unchanged.
 pub fn sort_for_pair(left: &mut Tree, right: &mut Tree, mccs: &[Mcc], n: usize, strict: bool) {
   sort_two(left, right, true, mccs, n, strict);
 }
