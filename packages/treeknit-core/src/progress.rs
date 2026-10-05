@@ -1,8 +1,14 @@
 //! Progress of a TreeKnit run, reported to an observer of `pipeline::run_observed`.
 //!
 //! Every counter below is zero-based and counts completed work. The completed fraction of a run
-//! is `(round + (pair + within) / pairs) / rounds`, where `within` is the completed fraction of
-//! the current pair (see `iterations_done`).
+//! is `PAIRS_SHARE * (round + (pair + within) / pairs) / rounds`, where `within` is the completed
+//! fraction of the current pair (see `iterations_done`). The work after the last round (topology
+//! matching, sorting, attachment) reports no intermediate progress, so it gets the rest up to 1,
+//! which only the end of the run reports.
+
+/// Share of a run's fraction that pair inference and resolution cover: the fraction at the end
+/// of the last pair. It is below 1 so that a fraction of 1 always means that the run is done.
+pub const PAIRS_SHARE: f64 = 0.95;
 
 /// Part of a run that is in progress.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -21,7 +27,8 @@ pub enum Phase {
 pub struct Progress {
   /// Part of the run in progress.
   pub phase: Phase,
-  /// Completed fraction of the run, from 0 to 1, never decreasing during a run.
+  /// Completed fraction of the run, from 0 to 1, never decreasing during a run. It is at most
+  /// [`PAIRS_SHARE`] before [`Phase::Done`], and 1 at `Done`.
   pub fraction: f64,
   /// Round in progress, 1-based.
   pub round: usize,
@@ -41,7 +48,7 @@ impl Progress {
     reason = "round and pair counts are far below 2^53, so their conversion to f64 is exact"
   )]
   pub(crate) fn at(round: usize, rounds: usize, pair: usize, pairs: usize, within: f64) -> Progress {
-    let fraction = (round as f64 + (pair as f64 + within) / pairs as f64) / rounds as f64;
+    let fraction = PAIRS_SHARE * ((round as f64 + (pair as f64 + within) / pairs as f64) / rounds as f64);
     Progress {
       phase: Phase::Pairs,
       fraction,
@@ -103,10 +110,10 @@ mod tests {
 
   #[test]
   fn progress_at_counts_completed_rounds_pairs_and_work_within_the_pair() {
-    // (round + (pair + within) / pairs) / rounds = (1 + (1 + 0.5) / 3) / 2 = 0.75.
+    // (round + (pair + within) / pairs) / rounds = (1 + (1 + 0.5) / 3) / 2 = 0.75 of the pairs.
     let expected = Progress {
       phase: Phase::Pairs,
-      fraction: 0.75,
+      fraction: PAIRS_SHARE * 0.75,
       round: 2,
       rounds: 2,
       pair: 2,
@@ -116,9 +123,15 @@ mod tests {
   }
 
   #[test]
-  fn progress_at_end_of_last_pair_is_one() {
+  fn progress_at_end_of_last_pair_is_the_pairs_share() {
     // (1 + (2 + 1) / 3) / 2 = 1, exactly in floating point.
-    assert_eq!(1.0_f64.to_bits(), Progress::at(1, 2, 2, 3, 1.0).fraction.to_bits());
+    assert_eq!(PAIRS_SHARE.to_bits(), Progress::at(1, 2, 2, 3, 1.0).fraction.to_bits());
+  }
+
+  #[test]
+  fn progress_pairs_share_leaves_room_below_done() {
+    assert!(PAIRS_SHARE < Progress::done(2, 3).fraction);
+    assert_eq!(1.0_f64.to_bits(), Progress::done(2, 3).fraction.to_bits());
   }
 
   #[test]

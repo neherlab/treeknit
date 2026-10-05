@@ -136,7 +136,8 @@ pub fn run(trees: &mut [Tree], taxa: &Taxa, opts: &Options, seed: u64) -> Vec<Pa
 
 /// As [`run`], calling `observe` with the progress of the run: at the start of each pair, after
 /// each temperature step of its annealing, once when the matching of `Matched` resolution
-/// starts, and once with fraction 1 at the end. Pre-resolution reports nothing. In a parallel
+/// starts, and once with fraction 1 at the end; every earlier event has a fraction of at most
+/// [`PAIRS_SHARE`](crate::progress::PAIRS_SHARE). Pre-resolution reports nothing. In a parallel
 /// round, `observe` is called on the calling thread only: before the round and after all its
 /// pairs. The observer consumes no random numbers, so the result equals that of `run`.
 pub fn run_observed(
@@ -608,7 +609,7 @@ pub fn arg_inputs(trees: &[Tree], pair: &PairResult, n: usize) -> (Tree, Tree, V
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::progress::Phase;
+  use crate::progress::{PAIRS_SHARE, Phase};
   use crate::tree::test_util::{splits, trees};
 
   fn ids(taxa: &Taxa, m: &[&[&str]]) -> Vec<Mcc> {
@@ -1098,32 +1099,38 @@ mod tests {
   }
 
   #[test]
-  fn progress_of_a_pair_that_runs_all_iterations_rises_to_one() {
+  fn progress_of_a_pair_that_runs_all_iterations_rises_to_the_pairs_share() {
     assert_two_iterations();
     // With itmax = 1, pair inference runs both of its itmax + 1 = 2 iterations.
     let events = observed(&TWO_ITERATIONS, &one_pair(1));
     assert_eq!(Some(&Progress::at(0, 1, 0, 1, 0.0)), events.first());
     assert_eq!(Some(&Progress::done(1, 1)), events.last());
     assert!(never_decreasing(&events), "{events:?}");
-    assert!(events.iter().all(|p| p.fraction <= 1.0), "{events:?}");
-    // With one round and one pair, the fraction is the completed fraction of the pair: the
-    // last temperature step of iteration 1 completes 1/2, that of iteration 2 completes 1.
+    // With one round and one pair, the fraction is the pairs' share of the completed fraction of
+    // the pair: the last temperature step of iteration 1 completes 1/2, that of iteration 2
+    // completes all of it.
     let before_end = &events[..events.len() - 1];
+    assert!(before_end.iter().all(|p| p.fraction <= PAIRS_SHARE), "{events:?}");
+    let half = PAIRS_SHARE * 0.5;
     assert!(
-      before_end.iter().any(|p| p.fraction.to_bits() == 0.5_f64.to_bits()),
+      before_end.iter().any(|p| p.fraction.to_bits() == half.to_bits()),
       "{events:?}"
     );
-    assert_eq!(Some(1.0), before_end.last().map(|p| p.fraction), "{events:?}");
+    assert_eq!(Some(PAIRS_SHARE), before_end.last().map(|p| p.fraction), "{events:?}");
   }
 
   #[test]
-  fn progress_of_a_pair_that_stops_early_jumps_to_one_at_the_end() {
+  fn progress_of_a_pair_that_stops_early_jumps_to_done_at_the_end() {
     assert_two_iterations();
     // With itmax = 2 the same pair stops after two of its three iterations, at 2/3.
     let events = observed(&TWO_ITERATIONS, &one_pair(2));
     let before_end = &events[..events.len() - 1];
     assert!(never_decreasing(&events), "{events:?}");
-    assert_eq!(Some(2.0 / 3.0), before_end.last().map(|p| p.fraction), "{events:?}");
+    assert_eq!(
+      Some(PAIRS_SHARE * (2.0 / 3.0)),
+      before_end.last().map(|p| p.fraction),
+      "{events:?}"
+    );
     assert_eq!(Some(&Progress::done(1, 1)), events.last());
   }
 
@@ -1151,7 +1158,8 @@ mod tests {
     ];
     assert_eq!(expected.as_slice(), visited);
     assert!(never_decreasing(&events), "{events:?}");
-    assert!(events.iter().all(|p| p.fraction <= 1.0), "{events:?}");
+    let before_end = &events[..events.len() - 1];
+    assert!(before_end.iter().all(|p| p.fraction <= PAIRS_SHARE), "{events:?}");
     assert_eq!(Some(&Progress::done(2, 3)), events.last());
   }
 
@@ -1164,7 +1172,8 @@ mod tests {
       ..Options::for_trees(3)
     };
     let events = observed(&["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", "((A,X),(B,(C,D)));"], &o);
-    // Fractions (round + (pair + within) / 3) / 2: 0, (0 + 3 / 3) / 2, (1 + 0) / 2, 1, and the end.
+    // Fractions PAIRS_SHARE * (round + (pair + within) / 3) / 2: 0, (0 + 3 / 3) / 2 = 0.5,
+    // (1 + 0) / 2 = 0.5, (1 + 3 / 3) / 2 = 1 of the share, and 1 at the end.
     let expected = [
       Progress {
         phase: Phase::Pairs,
@@ -1176,7 +1185,7 @@ mod tests {
       },
       Progress {
         phase: Phase::Pairs,
-        fraction: 0.5,
+        fraction: PAIRS_SHARE * 0.5,
         round: 1,
         rounds: 2,
         pair: 3,
@@ -1184,7 +1193,7 @@ mod tests {
       },
       Progress {
         phase: Phase::Pairs,
-        fraction: 0.5,
+        fraction: PAIRS_SHARE * 0.5,
         round: 2,
         rounds: 2,
         pair: 1,
@@ -1192,7 +1201,7 @@ mod tests {
       },
       Progress {
         phase: Phase::Pairs,
-        fraction: 1.0,
+        fraction: PAIRS_SHARE,
         round: 2,
         rounds: 2,
         pair: 3,
