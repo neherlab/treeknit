@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { type SizedElement, type SizeObserver, watchSize } from "../useMeasuredSize";
+import { resizeHandler, type SizedElement, type SizeObserver, watchSize } from "../useMeasuredSize";
 import type { MeasuredSize } from "../viewState";
 
 interface FakeObserver extends SizeObserver<SizedElement> {
@@ -87,5 +87,43 @@ describe("watchSize", () => {
     created[0]?.resize();
 
     expect({ observed: created[0]?.observed.length, measured }).toStrictEqual({ observed: 1, measured: [] });
+  });
+});
+
+describe("resizeHandler", () => {
+  test("measures inside the flush before paint, so a resize renders in the same frame", () => {
+    const events: string[] = [];
+
+    const handle = resizeHandler(
+      () => {
+        events.push("measure");
+      },
+      true,
+      (update) => {
+        events.push("flush start");
+        update();
+        events.push("flush end");
+      },
+    );
+
+    handle();
+
+    expect(events).toStrictEqual(["flush start", "measure", "flush end"]);
+  });
+
+  test("measures without a flush otherwise", () => {
+    const events: string[] = [];
+
+    const measure = () => {
+      events.push("measure");
+    };
+
+    const handle = resizeHandler(measure, false, () => {
+      events.push("flush");
+    });
+
+    handle();
+
+    expect({ same: handle === measure, events }).toStrictEqual({ same: true, events: ["measure"] });
   });
 });

@@ -1,10 +1,15 @@
 import { type RefObject, useLayoutEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 
 import type { MeasuredSize } from "./viewState";
 
 export interface MeasuredElements {
   areaRef: RefObject<HTMLDivElement | null>;
   canvasRef: RefObject<HTMLDivElement | null>;
+}
+
+export interface MeasureOptions {
+  beforePaint?: boolean;
 }
 
 export interface SizedElement {
@@ -17,16 +22,37 @@ export interface SizeObserver<E> {
   disconnect(): void;
 }
 
-export function useMeasuredSize(onMeasure: (measured: MeasuredSize) => void): MeasuredElements {
+export function useMeasuredSize(
+  onMeasure: (measured: MeasuredSize) => void,
+  { beforePaint = false }: MeasureOptions = {},
+): MeasuredElements {
   const areaRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(
-    () => watchSize(areaRef.current, canvasRef.current, onMeasure, (measure) => new ResizeObserver(measure)),
-    [onMeasure],
+    () =>
+      watchSize(
+        areaRef.current,
+        canvasRef.current,
+        onMeasure,
+        (measure) => new ResizeObserver(resizeHandler(measure, beforePaint, flushBeforePaint)),
+      ),
+    [onMeasure, beforePaint],
   );
 
   return { areaRef, canvasRef };
+}
+
+export function resizeHandler(
+  measure: () => void,
+  beforePaint: boolean,
+  flush: (update: () => void) => void,
+): () => void {
+  return beforePaint
+    ? () => {
+        flush(measure);
+      }
+    : measure;
 }
 
 export function watchSize<E extends SizedElement>(
@@ -54,4 +80,8 @@ export function watchSize<E extends SizedElement>(
   return () => {
     observer.disconnect();
   };
+}
+
+function flushBeforePaint(update: () => void): void {
+  flushSync(update);
 }
