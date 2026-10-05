@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@6.38.0/schema.json",
+  "ignoreExportsUsedInFile": true,
+  "workspaces": {
+    ".": {
+      "entry": ["dev/lints/oxlint/__tests__/*.ts", "dev/lints/oxlint-anti-slop/**/*.test.ts"],
+      "project": ["*.ts", "dev/lints/oxlint/**/*.ts"]
+    },
+    "packages/treeknit-wasm": {
+      "entry": [],
+      "project": []
+    },
+    "packages/web": {
+      "entry": ["index.html!", "src/analysis/worker.ts!"],
+      "project": ["src/**/*.{ts,tsx,css}!", "build/**/*.ts"],
+      "ignoreDependencies": ["@svgr/plugin-jsx"]
+    }
+  }
+}

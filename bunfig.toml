@@ -1,0 +1,9 @@
+telemetry = false
+logLevel = "warn"
+env = false
+
+# Exact versions in package.json, and the seven-day supply-chain quarantine:
+# an npm release younger than 604800 seconds fails the install.
+[install]
+exact = true
+minimumReleaseAge = 604800

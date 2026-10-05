@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --radius-sm: 2px;
+  --radius-md: 4px;
+
+  --color-paper: oklch(97.5% 0.004 230);
+  --color-panel: oklch(99.5% 0.002 230);
+  --color-ink: oklch(24% 0.03 250);
+  --color-ink-muted: oklch(46% 0.025 250);
+  --color-rule: oklch(86% 0.01 240);
+  --color-accent: oklch(55% 0.15 38);
+  --color-accent-strong: oklch(48% 0.15 38);
+  --color-accent-ink: oklch(98% 0.01 60);
+  --color-clade: oklch(46% 0.07 200);
+  --color-danger: oklch(50% 0.17 25);
+}
+
+@layer base {
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-paper: oklch(20% 0.015 250);
+      --color-panel: oklch(24% 0.018 250);
+      --color-ink: oklch(92% 0.01 240);
+      --color-ink-muted: oklch(72% 0.015 240);
+      --color-rule: oklch(36% 0.02 250);
+      --color-accent: oklch(70% 0.14 45);
+      --color-accent-strong: oklch(76% 0.13 50);
+      --color-accent-ink: oklch(20% 0.02 40);
+      --color-clade: oklch(78% 0.07 200);
+      --color-danger: oklch(72% 0.15 25);
+    }
+  }
+
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+  }
+}
