@@ -13,7 +13,7 @@ The commands are the same in the main checkout and in a worktree; `run-web` prin
 
 ## Structure
 
-- `src/main.tsx`: the start-up: fonts, styles, the theme provider (`next-themes`, following the system theme until the user switches), and the router
+- `src/main.tsx`: the start-up: fonts, styles, the theme provider (`next-themes`, following the system theme until the user switches, with the settings `THEME_PROVIDER_PROPS` of `src/shell/theme.ts`), and the router
 - `src/router.tsx`: the routes `/` (workspace) and `/help`, on hash history so that the app works on any static host without rewrites; search params are plain `key=value` text, and default values stay out of the URL
 - `src/workspace/search.ts`: the workspace search params (`view`, `pair`, `version`, `x`, `labels`, `mcc`, `leaf`, `node`) as a zod schema whose invalid or missing values fall back to the defaults; `resolveWorkspaceSearch` replaces values that do not fit the workspace (an unavailable view shows the overview, a pair out of range becomes 0, an `mcc`, `leaf`, or `node` absent from the pair is dropped) from a `WorkspaceAvailability`; `selectPair` clears `mcc` and `node`, because they mean nothing in another pair. A node is written as its side and name, `left:NODE_3`
 - `src/workspace/useWorkspaceSearch.ts`: the resolved search params of the workspace and their update; the URL keeps the values as written, so a shared link still applies once the result exists
@@ -22,7 +22,7 @@ The commands are the same in the main checkout and in a worktree; `run-web` prin
 - `src/index.css`: the Tailwind CSS theme tokens: interface colors, type scale, control radius, and the MCC colors, which the app fills from the Rust palette; the dark values apply under the `dark` class on `html`
 - `src/download.ts`: `downloadFile`, the one way the app saves a file: a Blob of the content under an object URL, revoked a minute after the click
 - `src/analysis/example.ts`: the examples: a small pair of trees, the real H3N2 tree pairs of `data/`, and the simulated cases of `fixtures/sim/`, each tree as its file name and Newick text, one lazily loaded chunk per tree file
-- `build/content-security-policy.ts`: the Content Security Policy of the page; `'wasm-unsafe-eval'` lets the page compile WebAssembly
+- `build/content-security-policy.ts`: the Content Security Policy of the page, and the theme script in the head of `index.html`. `'wasm-unsafe-eval'` lets the page compile WebAssembly. The theme script is the script that `next-themes` renders for `THEME_PROVIDER_PROPS`; it sets the theme class before the first paint, because React does not run a script element that it creates on the client. The built page allows that one inline script by its SHA-256 hash
 
 ## UI controls
 
@@ -30,11 +30,11 @@ The commands are the same in the main checkout and in a worktree; `run-web` prin
 
 - `Button`: variants `primary`, `secondary` (default), and `quiet`; sizes `md` (32 px), `sm` (28 px), and `xs` (20 px); an optional leading `icon`
 - `IconButton`: an icon-only button; its required `label` is both its accessible name and its tooltip
-- `TooltipTrigger`: wraps one focusable trigger and shows `tooltip` after 600 ms
-- `InfoButton`: the info icon with the label and tooltip "About <topic>"; it opens a popover dialog with a short explanation. Every explanation in the app sits behind one, never as a paragraph in the workspace
-- `TextField` (single line, or `multiline`; `mono` for Newick text), `NumberField` (with step buttons), `Select` (typed option ids), `RadioGroup` with `Radio`, `Switch`, and `ToggleButtonGroup` with `ToggleButton` (single selection by default; `iconOnly` buttons get a tooltip)
-- `InlineNotice`: tones `info`, `warning`, and `danger`, each with its own icon, an optional title, and an optional action such as "Undo"; a danger notice is an alert
-- `ProgressBar`: determinate, or a static hatched bar when indeterminate
+- `TooltipTrigger`: wraps one focusable trigger and shows `tooltip` after 600 ms. With `repeatsName`, the tooltip text equals the accessible name of the trigger and stays out of its description, so that screen readers say it once; `IconButton`, icon-only toggle buttons, and the step buttons of `NumberField` set it
+- `InfoButton`: the info icon with the label and tooltip "About <topic>"; it opens a popover dialog with a short explanation
+- `TextField` (single line, or `multiline`; `mono` for Newick text, with spell checking, autocorrect, and autocapitalize off), `NumberField` (with step buttons that carry the localized labels of React Aria), `Select` (typed option ids), `RadioGroup` with `Radio`, `Switch`, and `ToggleButtonGroup` with `ToggleButton` (single selection by default; `iconOnly` buttons get a tooltip)
+- `InlineNotice`: tones `info`, `warning`, and `danger`, each with its own icon, an optional title, and an optional action such as "Undo"; a danger notice is an alert, which screen readers announce when it appears. `NoticeRegion` is a live region for info and warning notices: it stays mounted while notices come and go inside it, because screen readers usually do not announce a live region that mounts together with its content
+- `ProgressBar`: determinate, or a static hatched bar when indeterminate; `labelHidden` hides the label and keeps the value text
 - `Tabs` with `TabList`, `Tab`, and `TabPanel`: an underlined tab row on a rule
 - `Menu` (with its `trigger`), `MenuItem` (optional `icon`, `tone="danger"`), `MenuSection`, and `MenuSeparator`
 - `Dialog`: a modal with a title, a close button, and an optional footer; `placement` `center` (default), or `left` and `right` for a side sheet. Open it from a `DialogTrigger` or with `isOpen` and `onOpenChange`
@@ -43,16 +43,17 @@ The commands are the same in the main checkout and in a worktree; `run-web` prin
 - `Table` with `TableHeader`, `Column`, `TableBody`, `Row`, and `Cell`: a small table in Plex Sans Condensed with a sticky header, sort indicators, and `align="end"` for numbers
 - `Link`: a router link (TanStack Router `createLink` over the React Aria link), so links take `to` and `search`
 - `EmptyState`: a quiet, left-aligned message with an optional icon, details, and actions
-- `CodeBlock`: Plex Mono text with a caption, a copy button that shows "Copied" for 2 s, line numbers for more than one line, and an optional marked range (1-based line and column, columns in Unicode code points, end exclusive) that it scrolls into view
+- `CodeBlock`: Plex Mono text in a scrolling region named by its caption, a copy button that shows "Copied" or "Copy failed" for 2 s (the latest copy wins, and the cause of a failure goes to the console), line numbers for more than one line, and an optional `errorRange` in the danger colors (1-based line and column, columns in Unicode code points, end exclusive), which the region scrolls into view without scrolling the page. A line end at the end of the text adds no empty line, unless the range is on that line. `codeLines` follows `newick::line_column` of `treeknit-io`, and both test suites check the same cases
 
 Conventions for new controls:
 
 - **Styles**: `src/ui/styles.ts` owns the shared classes: the focus ring, the button variants, the field input, label, description, and error, and the popover, list box, and option styles. Variants use `class-variance-authority`, and classes merge with `cn`. Controls use only the theme tokens of `src/index.css`, so both themes follow from the tokens
-- **Focus**: a 2 px ring in the focus color with a 2 px offset, on keyboard focus only (`data-focus-visible`); text inputs also turn their border to the focus color on any focus
+- **Focus**: a 2 px ring in the focus color with a 2 px offset, on keyboard focus only (`data-focus-visible`, or `:focus-visible` through `nativeFocusRing` for an element without React Aria); text inputs also turn their border to the focus color on any focus
 - **States**: hover, pressed, disabled, and invalid come from the React Aria data attributes (`data-hovered`, `data-pressed`, `data-disabled`, `data-invalid`); disabled text uses `ink-muted`
 - **Color**: the primary button, a selected toggle, and an on switch are ink with ground text, so the interface stays quiet next to the colored drawings. Signal marks reassortment only and never appears in a control. Errors use danger with the `circle-alert` icon
-- **Shape**: 4 px radius (`rounded-control`) on controls; radio indicators stay round
-- **Fields**: a field takes `label`, optional `labelHidden`, `description`, `errorMessage`, and `info` (the text of its info button), through the shared parts in `src/ui/Field.tsx`
+- **Shape**: 4 px radius (`rounded-control`) on controls, and 2 px (`rounded-inner`) on parts inside a control, such as the thumb of a switch; radio indicators stay round
+- **Fields**: a field takes `label`, optional `labelHidden`, `description`, `errorMessage`, and `info`, through the shared parts in `src/ui/Field.tsx`. An `errorMessage` alone marks the field invalid. A field with `labelHidden` takes no `info`, because the info button would have no visible topic
+- **Description and info**: `description` is a few words under the field that the user needs while filling it, such as a unit or an input format. Every explanation, such as what a setting does, why it does not apply, or how to read a table, goes into `info`, the popover of the info button, and never into a paragraph in the workspace
 - **Icons**: Lucide through `unplugin-icons` (`import InfoIcon from "~icons/lucide/info"`), passed to controls as components (`icon={InfoIcon}`) and always `aria-hidden`
 - **Motion**: color changes on hover and the thumb of a switch move in 150 ms and stop under `prefers-reduced-motion`; nothing moves on its own
 
@@ -79,4 +80,4 @@ The request and result types are Rust types in `packages/treeknit-wasm/src/analy
 
 ## Tests
 
-`just test-ts` runs the vitest tests in Node over in-memory values: the examples, the download helper, the Content Security Policy, the marked range of the code block, its copy feedback timer, the reorder of list items, the workspace search params with their defaults and fallbacks, the view tabs, the breakpoints of the rail and the inspector, the theme toggle labels, and the canvas engine (view state against the deck.gl viewport projection, the view reducer, the minimap, column projection and Bézier sampling, color conversion, the label rule and shortening, the fade-in, WebGL 2 detection, and the layer builders). The analysis itself is tested in Rust (`just test-rs`, `just test-wasm`).
+`just test-ts` runs the vitest tests in Node over in-memory values: the examples, the download helper, the Content Security Policy with the theme script, the marked range of the code block and its scroll offset, its copy feedback, the reorder of list items, the workspace search params with their defaults and fallbacks, the view tabs, the breakpoints of the rail and the inspector, the theme toggle labels, and the canvas engine (view state against the deck.gl viewport projection, the view reducer, the minimap, column projection and Bézier sampling, color conversion, the label rule and shortening, the fade-in, WebGL 2 detection, and the layer builders). The analysis itself is tested in Rust (`just test-rs`, `just test-wasm`).
