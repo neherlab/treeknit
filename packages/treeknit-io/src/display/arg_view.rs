@@ -188,8 +188,9 @@ fn depth(children: &[Vec<usize>], order: &[usize], root: usize) -> Vec<f64> {
       height[n] = h + 1;
     }
   }
+  // Every node is below the top root, so no height exceeds the root's.
   let top = height[root];
-  height.into_iter().map(|h| row(top.saturating_sub(h))).collect()
+  height.into_iter().map(|h| row(top - h)).collect()
 }
 
 /// Leaf rank in the leaf order of the ARG's segment 0 tree, then of its segment 1 tree for the

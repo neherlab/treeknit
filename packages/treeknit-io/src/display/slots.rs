@@ -36,20 +36,18 @@ fn low(range: [f64; 2]) -> f64 {
 pub(super) fn color_slots(sizes: &[usize], neighbors: &[BTreeSet<usize>]) -> Vec<usize> {
   let mut order: Vec<usize> = (0..sizes.len()).collect();
   order.sort_by_key(|&m| (std::cmp::Reverse(sizes[m]), m));
-  let mut slot: Vec<Option<usize>> = vec![None; sizes.len()];
+  let mut slot = vec![0; sizes.len()];
+  let mut colored = vec![false; sizes.len()];
   for m in order {
     let mut uses = [0_usize; MCC_SLOTS];
-    for &b in &neighbors[m] {
-      if let Some(s) = slot[b] {
-        uses[s] += 1;
-      }
+    for &b in neighbors[m].iter().filter(|&&b| colored[b]) {
+      uses[slot[b]] += 1;
     }
-    // `min_by_key` keeps the first of equal keys, so ties go to the lowest slot; an unused
-    // slot has the least uses of all.
-    let least = (0..MCC_SLOTS).min_by_key(|&s| uses[s]).unwrap_or(0);
-    slot[m] = Some(least);
+    // The first slot with the fewest uses: an unused slot has the least uses of all.
+    slot[m] = (1..MCC_SLOTS).fold(0, |best, s| if uses[s] < uses[best] { s } else { best });
+    colored[m] = true;
   }
-  slot.into_iter().map(|s| s.unwrap_or(0)).collect()
+  slot
 }
 
 #[cfg(test)]
