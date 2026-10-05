@@ -46,6 +46,7 @@
     "@svgr/core": "catalog:",
     "@svgr/plugin-jsx": "catalog:",
     "@tailwindcss/vite": "catalog:",
+    "@types/luxon": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
