@@ -2,7 +2,7 @@ import { cn } from "cn";
 import type { ReactNode } from "react";
 import { type Key, ListBox, ListBoxItem, ListLayout, type ListLayoutOptions, Virtualizer } from "react-aria-components";
 
-import { optionStyle } from "../ui/styles";
+import { optionStyle } from "./styles";
 
 const ROW_PX = 32;
 
