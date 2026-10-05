@@ -80,6 +80,7 @@ export type WorkspaceStore = StoreApi<WorkspaceState>;
 export interface WorkspaceServices {
   treeLabels(fileNames: string[], existingLabels: string[]): Promise<string[]>;
   settingsSchema(k: number, settings: Settings): Promise<SettingsSchema>;
+  cancel(): void;
 }
 
 export interface RestoredWorkspace {
@@ -129,6 +130,12 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
 
           markEdited(state);
         });
+      };
+
+      const cancelReplacedRun = (running: boolean): void => {
+        if (running && !selectRunning(get())) {
+          services.cancel();
+        }
       };
 
       return {
@@ -219,6 +226,8 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
         },
 
         restoreUndo() {
+          const running = selectRunning(get());
+
           set((state) => {
             const entry = state.undo;
 
@@ -238,11 +247,13 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
                 state.trees = trees;
                 state.settings = settings;
                 state.result = result;
+                state.run = { status: "idle" };
               })
               .exhaustive();
             state.undo = null;
             state.resetRevision += 1;
           });
+          cancelReplacedRun(running);
         },
 
         setSettings(settings) {
@@ -272,18 +283,24 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
         },
 
         clear() {
+          const running = selectRunning(get());
+
           set((state) => {
             replaceWorkspace(state, "clear", [], defaults);
           });
+          cancelReplacedRun(running);
         },
 
         loadRequest(request) {
+          const running = selectRunning(get());
+
           set((state) => {
             const trees = sessionTrees(request, [], state.nextTreeNumber);
 
             state.nextTreeNumber += trees.length;
             replaceWorkspace(state, "session", trees, mergeSettings(defaults, request.settings));
           });
+          cancelReplacedRun(running);
         },
 
         runStarted(runId, request, startedAt) {
@@ -403,6 +420,7 @@ function replaceWorkspace(
   state.trees = trees;
   state.settings = settings;
   state.result = null;
+  state.run = { status: "idle" };
   state.restored = false;
   state.resetRevision += 1;
 }

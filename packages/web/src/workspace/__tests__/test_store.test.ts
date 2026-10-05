@@ -333,6 +333,56 @@ describe("workspace store", () => {
     });
   });
 
+  test("replacing the workspace during a run cancels it and ignores its late result", async () => {
+    const services = fakeServices();
+    const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
+    const request: AnalysisRequest = { trees: [{ label: "x", newick: HA }], settings: DEFAULTS };
+
+    await store.getState().addTrees([{ newick: HA, source: { kind: "file", name: "ha.nwk" } }]);
+
+    const replacements = [
+      () => {
+        store.getState().clear();
+      },
+      () => {
+        store.getState().loadRequest(request);
+      },
+      () => {
+        store.getState().restoreUndo();
+      },
+    ];
+
+    const after = replacements.map((replace, index) => {
+      const runId = index + 1;
+
+      store.getState().runStarted(runId, selectRequest(store.getState()), 0);
+      replace();
+      store.getState().runFinished(runId, { status: "succeeded", sessionId: runId, summary: SUMMARY });
+
+      return { run: store.getState().run.status, result: store.getState().result };
+    });
+
+    expect({ after, cancelled: services.cancelled }).toStrictEqual({
+      after: [
+        { run: "idle", result: null },
+        { run: "idle", result: null },
+        { run: "idle", result: null },
+      ],
+      cancelled: 3,
+    });
+  });
+
+  test("replacing the workspace without a run cancels nothing", async () => {
+    const services = fakeServices();
+    const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
+
+    await store.getState().addTrees([{ newick: HA, source: { kind: "file", name: "ha.nwk" } }]);
+    store.getState().clear();
+    store.getState().restoreUndo();
+
+    expect(services.cancelled).toBe(0);
+  });
+
   test("a failed run keeps the earlier result", async () => {
     const store = await storeWith(["ha.nwk", "na.nwk"]);
 
@@ -401,6 +451,11 @@ describe("workspace store", () => {
 
 class FakeServices implements WorkspaceServices {
   failNextLabels = false;
+  cancelled = 0;
+
+  cancel(): void {
+    this.cancelled += 1;
+  }
 
   async treeLabels(fileNames: string[], existingLabels: string[]): Promise<string[]> {
     await Promise.resolve();
