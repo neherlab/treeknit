@@ -1,26 +1,29 @@
-//! TreeKnit in the browser: [`analysis::analyze`] exported to JavaScript.
-
 pub mod analysis;
 
-use serde::Serialize;
-use serde_wasm_bindgen::Serializer;
+use js_sys::{Error, JSON};
 use wasm_bindgen::prelude::*;
 
-/// Show Rust panics in the browser console.
 #[wasm_bindgen(start)]
 pub fn start() {
     console_error_panic_hook::set_once();
 }
 
-/// Run TreeKnit on `{trees: [{label, newick}, ...], settings: {...}}` and return the results
-/// as plain JavaScript objects (see [`analysis::Request`] and [`analysis::Analysis`]).
+/// Takes and returns plain objects; see [`analysis::Request`] and [`analysis::Analysis`].
 #[wasm_bindgen]
 pub fn analyze(request: JsValue) -> Result<JsValue, JsError> {
+    // JSON text instead of serde-wasm-bindgen: serde_json errors say where the request is wrong.
+    let text = JSON::stringify(&request)
+        .map_err(|e| JsError::new(&format!("invalid request: {}", js_message(&e))))?
+        .as_string()
+        .ok_or_else(|| JsError::new("invalid request: expected an object"))?;
     let request: analysis::Request =
-        serde_wasm_bindgen::from_value(request).map_err(|e| JsError::new(&format!("invalid request: {e}")))?;
+        serde_json::from_str(&text).map_err(|e| JsError::new(&format!("invalid request: {e}")))?;
     let result = analysis::analyze(&request).map_err(|e| JsError::new(&e))?;
-    // JSON-compatible output: objects instead of `Map`s, numbers instead of `BigInt`s.
-    result
-        .serialize(&Serializer::json_compatible())
-        .map_err(|e| JsError::new(&e.to_string()))
+    let text = serde_json::to_string(&result).map_err(|e| JsError::new(&e.to_string()))?;
+    JSON::parse(&text).map_err(|e| JsError::new(&js_message(&e)))
+}
+
+fn js_message(e: &JsValue) -> String {
+    e.dyn_ref::<Error>()
+        .map_or_else(|| format!("{e:?}"), |e| e.message().into())
 }
