@@ -189,9 +189,10 @@ impl Session {
       extensions: vec![".nwk".to_owned(); k],
       imputed: true,
       auspice: true,
+      figures: false,
     };
     let mut files = vec![output::request_file(&request)];
-    files.extend(output::output_files(&result, &output_options));
+    files.extend(output::output_files(&result, &opts, &output_options));
     files.push(output::parameters_file(&opts, seed));
     files.push(output::log_file(&records));
     Ok(Session {
@@ -224,6 +225,7 @@ impl Session {
           path: f.path.clone(),
           media_type: f.media_type.clone(),
           size: Some(f.text.len()),
+          figure: None,
         })
       })
       .collect()

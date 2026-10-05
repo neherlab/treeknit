@@ -260,8 +260,10 @@ mod tests {
       extensions: vec![".nwk".to_owned(); r.trees.len()],
       imputed: true,
       auspice: false,
+      figures: false,
     };
-    let file = output::output_files(r, &options)
+    // Without figures, the files do not depend on the options of the run.
+    let file = output::output_files(r, &Options::for_trees(r.trees.len()), &options)
       .into_iter()
       .find(|f| f.path == path)
       .unwrap();

@@ -1,6 +1,8 @@
 //! Output files of a run, as the command line writes them and the web app lists them.
 
 use crate::analysis::AnalysisRequest;
+use crate::display::{self, Scale, TreeVersion};
+use crate::figure::{self, FigureOptions};
 use crate::run::RunResult;
 use crate::summary::Diagnostic;
 use crate::{analysis, arg, auspice, mccs, newick};
@@ -46,6 +48,26 @@ pub struct FileEntry {
   pub media_type: String,
   /// Size in bytes; `None` for a figure not rendered yet.
   pub size: Option<usize>,
+  /// The figure the file holds; `None` for the other files.
+  pub figure: Option<Figure>,
+}
+
+/// A figure of a run, by what it shows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum Figure {
+  /// The tanglegram of pair `pair`, in pipeline order.
+  Pair { pair: usize },
+  /// The ARG of two trees.
+  Arg,
+}
+
+/// A figure of a run at its path in the results directory.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FigureFile {
+  pub path: String,
+  pub figure: Figure,
 }
 
 /// Which output files a run writes besides the MCCs and the resolved trees.
@@ -59,15 +81,18 @@ pub struct OutputOptions {
   pub imputed: bool,
   /// Write an Auspice JSON file per tree (`auspice_<label>.json`, `--auspice-view`).
   pub auspice: bool,
+  /// Write the SVG figures of `figure_files` (`--plot`).
+  pub figures: bool,
 }
 
 impl OutputFile {
   /// A file at `path` with its media type taken from the extension.
   pub fn new(path: String, text: String) -> Self {
-    let json = Path::new(&path)
-      .extension()
-      .is_some_and(|e| e.eq_ignore_ascii_case("json"));
-    let media_type = if json { "application/json" } else { "text/plain" };
+    let media_type = match Path::new(&path).extension().and_then(|e| e.to_str()) {
+      Some(e) if e.eq_ignore_ascii_case("json") => "application/json",
+      Some(e) if e.eq_ignore_ascii_case("svg") => "image/svg+xml",
+      _ => "text/plain",
+    };
     OutputFile {
       path,
       media_type: media_type.to_owned(),
@@ -78,9 +103,10 @@ impl OutputFile {
 
 /// Every output file of `run` except `parameters.json` and `log.txt`, at its path in the results
 /// directory, with the bytes the command line writes: the MCCs as JSON and as lines, the
-/// resolved trees, the imputed trees and Auspice files when `options` asks for them, and for
-/// two trees the ARG files. File names follow the tree labels.
-pub fn output_files(run: &RunResult, options: &OutputOptions) -> Vec<OutputFile> {
+/// resolved trees, the imputed trees and Auspice files when `options` asks for them, for two
+/// trees the ARG files, and the figures when `options` asks for them. File names follow the tree
+/// labels. `opts` are the options of the run, by which the figures sort the trees of a pair.
+pub fn output_files(run: &RunResult, opts: &Options, options: &OutputOptions) -> Vec<OutputFile> {
   let RunResult {
     trees,
     taxa,
@@ -138,7 +164,76 @@ pub fn output_files(run: &RunResult, options: &OutputOptions) -> Vec<OutputFile>
         .map(|(i, t)| tree_file("ARG/", "_liberal_resolved", i, t)),
     );
   }
+  if options.figures {
+    // `figure_files` lists only figures that `run` has, so each has a text.
+    files.extend(
+      figure_files(run)
+        .into_iter()
+        .filter_map(|f| Some(OutputFile::new(f.path, figure_text(run, opts, f.figure)?))),
+    );
+  }
   files
+}
+
+/// The figures of `run`: the tanglegram of each pair, `tanglegram_<a>_<b>.svg`, then for two
+/// trees with a built ARG `ARG/arg.svg`.
+pub fn figure_files(run: &RunResult) -> Vec<FigureFile> {
+  let pairs = run.pairs.iter().enumerate().map(|(i, p)| FigureFile {
+    path: format!(
+      "tanglegram_{}.svg",
+      analysis::pair_stem(&run.trees[p.i].label, &run.trees[p.j].label)
+    ),
+    figure: Figure::Pair { pair: i },
+  });
+  let arg = run.built_arg().map(|_| FigureFile {
+    path: "ARG/arg.svg".to_owned(),
+    figure: Figure::Arg,
+  });
+  pairs.chain(arg).collect()
+}
+
+/// The SVG text of `figure` of `run` with the default `FigureOptions`, a tanglegram of the
+/// resolved trees; `None` when `run` lacks the pair or the ARG. `opts` are the options of the
+/// run. Trees without branch lengths are drawn as cladograms (scale `depth`), because their
+/// divergence is 0 everywhere and the `div` scale would draw every node at the root.
+pub fn figure_text(run: &RunResult, opts: &Options, figure: Figure) -> Option<String> {
+  let div = FigureOptions::default();
+  let depth = FigureOptions {
+    scale: Scale::Depth,
+    ..div
+  };
+  let svg = match figure {
+    Figure::Pair { pair } => {
+      let view = display::pair_view(run, opts, pair, TreeVersion::Resolved, div.scale)?;
+      let flat = view.left.nodes.iter().chain(&view.right.nodes).all(|n| n.x_div <= 0.0);
+      if flat {
+        let view = display::pair_view(run, opts, pair, TreeVersion::Resolved, depth.scale)?;
+        figure::tanglegram_svg(&view, &depth)
+      } else {
+        figure::tanglegram_svg(&view, &div)
+      }
+    },
+    Figure::Arg => {
+      let segments = segment_labels(run)?;
+      let view = display::arg_view(run, div.scale)?;
+      if view.nodes.iter().all(|n| n.x_div <= 0.0) {
+        figure::arg_svg(&display::arg_view(run, depth.scale)?, segments, &depth)
+      } else {
+        figure::arg_svg(&view, segments, &div)
+      }
+    },
+  };
+  #[expect(clippy::expect_used, reason = "the default figure options are valid")]
+  Some(svg.expect("default figure options"))
+}
+
+/// The labels of the two trees of an ARG, segment A and then B; `None` for another number of
+/// trees.
+pub fn segment_labels(run: &RunResult) -> Option<[&str; 2]> {
+  match run.trees.as_slice() {
+    [a, b] => Some([a.label.as_str(), b.label.as_str()]),
+    _ => None,
+  }
 }
 
 /// `parameters.json`: the core options of a run and its seed. The command line writes it before
@@ -185,10 +280,10 @@ pub fn request_file(request: &AnalysisRequest) -> OutputFile {
 }
 
 /// The command that writes the file set of the web app, run in the directory where its ZIP
-/// archive was extracted: the session file in `treeknit_results/`, with imputed trees and
-/// Auspice files.
+/// archive was extracted: the session file in `treeknit_results/`, with imputed trees, Auspice
+/// files, and figures.
 pub fn command_line() -> String {
-  format!("treeknit --request {RESULTS_DIR}/{REQUEST_FILE} --impute --auspice-view")
+  format!("treeknit --request {RESULTS_DIR}/{REQUEST_FILE} --impute --auspice-view --plot")
 }
 
 fn params_json(o: &Options, seed: u64) -> Value {
@@ -240,11 +335,22 @@ mod tests {
     run::run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {})
   }
 
+  /// The options of `run_trees` for `k` trees.
+  fn run_options(k: usize) -> Options {
+    analysis::options(&Settings::default(), k, false).unwrap()
+  }
+
+  /// The output files of the trees `trees` with `options`.
+  fn files_of(trees: &[(&str, &str)], options: &OutputOptions) -> Vec<OutputFile> {
+    output_files(&run_trees(trees), &run_options(trees.len()), options)
+  }
+
   fn all_files(k: usize) -> OutputOptions {
     OutputOptions {
       extensions: vec![".nwk".to_owned(); k],
       imputed: true,
       auspice: true,
+      figures: false,
     }
   }
 
@@ -267,7 +373,7 @@ mod tests {
 
   #[test]
   fn output_files_of_two_trees_are_those_of_the_command_line() {
-    let files = output_files(&run_trees(&[("ha", HA), ("na", NA)]), &all_files(2));
+    let files = files_of(&[("ha", HA), ("na", NA)], &all_files(2));
     let expected = vec![
       "MCCs.json",
       "MCCs.dat",
@@ -288,7 +394,7 @@ mod tests {
   #[test]
   fn output_files_of_three_trees_have_every_pair_and_no_arg() {
     let t = "((A,B),(C,D));";
-    let files = output_files(&run_trees(&[("ha", t), ("na", t), ("pb2", t)]), &all_files(3));
+    let files = files_of(&[("ha", t), ("na", t), ("pb2", t)], &all_files(3));
     let expected = vec![
       "MCCs.json",
       "MCCs_ha_na.dat",
@@ -314,7 +420,7 @@ mod tests {
       auspice: false,
       ..all_files(2)
     };
-    let files = output_files(&run_trees(&[("ha", HA), ("na", NA)]), &options);
+    let files = files_of(&[("ha", HA), ("na", NA)], &options);
     let expected = vec![
       "MCCs.json",
       "MCCs.dat",
@@ -334,7 +440,7 @@ mod tests {
       extensions: vec![".tree".to_owned(), String::new()],
       ..all_files(2)
     };
-    let files = output_files(&run_trees(&[("ha", HA), ("na", NA)]), &options);
+    let files = files_of(&[("ha", HA), ("na", NA)], &options);
     let trees: Vec<&str> = paths(&files)
       .into_iter()
       .filter(|p| p.contains("resolved") || p.contains("imputed"))
@@ -352,7 +458,7 @@ mod tests {
 
   #[test]
   fn output_files_hold_the_mccs_of_the_reference() {
-    let files = output_files(&run_trees(&[("ha", HA), ("na", NA)]), &all_files(2));
+    let files = files_of(&[("ha", HA), ("na", NA)], &all_files(2));
     // Oracle: fixtures/doc_mccs_1.json (TreeKnit.jl).
     let expected = json!({"MCC_dict": {"1": {"trees": ["ha", "na"], "mccs": [["X"], ["A", "B", "C", "D"]]}}});
     assert_eq!(
@@ -364,10 +470,7 @@ mod tests {
 
   #[test]
   fn output_files_place_a_leaf_missing_from_one_tree() {
-    let files = output_files(
-      &run_trees(&[("ha", "((A,B),(C,(D,P)));"), ("na", "((A,B),(C,D));")]),
-      &all_files(2),
-    );
+    let files = files_of(&[("ha", "((A,B),(C,(D,P)));"), ("na", "((A,B),(C,D));")], &all_files(2));
     let expected = json!({"MCC_dict": {"1": {
         "trees": ["ha", "na"],
         "mccs": [["A", "B", "C", "D", "P"]],
@@ -395,7 +498,7 @@ mod tests {
   #[trace]
   fn output_files_end_with_a_newline_as_the_command_line_writes_them(#[case] path: &str, #[case] newline: bool) {
     // Oracle: the newline rule of the command line before the shared output files.
-    let files = output_files(&run_trees(&[("ha", HA), ("na", NA)]), &all_files(2));
+    let files = files_of(&[("ha", HA), ("na", NA)], &all_files(2));
     assert_eq!(newline, text(&files, path).ends_with('\n'));
   }
 
@@ -454,7 +557,7 @@ mod tests {
   #[test]
   fn command_line_runs_the_session_file_of_the_extracted_archive() {
     assert_eq!(
-      "treeknit --request treeknit_results/treeknit_request.json --impute --auspice-view",
+      "treeknit --request treeknit_results/treeknit_request.json --impute --auspice-view --plot",
       command_line()
     );
   }
@@ -554,6 +657,7 @@ mod tests {
   #[case::newick("ha.nwk",      "text/plain")]
   #[case::table( "ARG/nodes.dat", "text/plain")]
   #[case::none(  "ha_resolved", "text/plain")]
+  #[case::svg(   "ARG/arg.svg", "image/svg+xml")]
   #[trace]
   fn output_file_media_type_follows_the_extension(#[case] path: &str, #[case] expected: &str) {
     assert_eq!(expected, OutputFile::new(path.to_owned(), String::new()).media_type);
@@ -565,8 +669,11 @@ mod tests {
       path: "tanglegram_ha_na.svg".into(),
       media_type: "image/svg+xml".into(),
       size: None,
+      figure: Some(Figure::Pair { pair: 2 }),
     };
-    let expected = json!({"path": "tanglegram_ha_na.svg", "mediaType": "image/svg+xml", "size": null});
+    let expected = json!({
+      "path": "tanglegram_ha_na.svg", "mediaType": "image/svg+xml", "size": null, "figure": {"kind": "pair", "pair": 2},
+    });
     assert_eq!(expected, serde_json::to_value(&entry).unwrap());
   }
 }

@@ -181,6 +181,11 @@ struct Cli {
   #[arg(long)]
   auspice_view: bool,
 
+  /// Write SVG figures: a tanglegram of the resolved trees of each pair
+  /// (`tanglegram_<a>_<b>.svg`) and, for two trees, the ARG (`ARG/arg.svg`).
+  #[arg(long)]
+  plot: bool,
+
   /// Accepted for compatibility; independent pairs always run in parallel (see --threads).
   #[arg(long, hide = true)]
   parallel: bool,
@@ -266,8 +271,9 @@ fn main() -> Result<()> {
     extensions: input.extensions,
     imputed: cli.impute,
     auspice: cli.auspice_view,
+    figures: cli.plot,
   };
-  for file in output::output_files(&result, &output_options) {
+  for file in output::output_files(&result, &opts, &output_options) {
     write_file(&cli.outdir, &file)?;
   }
   Ok(())
