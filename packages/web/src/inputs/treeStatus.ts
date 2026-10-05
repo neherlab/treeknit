@@ -23,6 +23,12 @@ export const BRANCH_LENGTH_LABELS: Record<BranchLengths, string> = {
   none: "No branch lengths",
 };
 
+export const BRANCH_LENGTH_VALUES: Record<BranchLengths, string> = {
+  all: "All",
+  some: "Some",
+  none: "None",
+};
+
 export function treeStatus(
   inspection: TreeInspection | undefined,
   newickErrors: readonly ValidationError[],

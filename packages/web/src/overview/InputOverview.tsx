@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import BlockedIcon from "~icons/lucide/circle-alert";
 
 import { useInspectTrees, useOverlap } from "../analysis/queries";
-import { BRANCH_LENGTH_LABELS } from "../inputs/treeStatus";
+import { BRANCH_LENGTH_VALUES } from "../inputs/treeStatus";
 import { InfoButton } from "../ui/InfoButton";
 import { Cell, Column, Row, Table, TableBody, TableHeader } from "../ui/Table";
 import { useCurrentRequest } from "../workspace/context";
@@ -89,7 +89,7 @@ export function InputOverview() {
                   <Cell align="end">{failed ? null : format(missing.get(index))}</Cell>
                   <Cell align="end">{failed ? null : format(inspection?.polytomies)}</Cell>
                   <Cell>
-                    {failed || inspection === undefined ? null : BRANCH_LENGTH_LABELS[inspection.branchLengths]}
+                    {failed || inspection === undefined ? null : BRANCH_LENGTH_VALUES[inspection.branchLengths]}
                   </Cell>
                 </Row>
               );
