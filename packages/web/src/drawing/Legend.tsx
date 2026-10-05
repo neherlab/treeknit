@@ -1,10 +1,4 @@
-import { cn } from "cn";
-import { useCallback, useState } from "react";
-import HideIcon from "~icons/lucide/chevron-up";
-
 import { cssColor, type Rgba } from "../canvas/color";
-import { Button } from "../ui/Button";
-import { IconButton } from "../ui/IconButton";
 
 export const SYMBOL_WIDTH_PX = 24;
 
@@ -20,38 +14,12 @@ export interface LegendEntry {
   marks: readonly SymbolMark[];
 }
 
-export function Legend({ entries, className }: LegendProps) {
-  const [open, setOpen] = useState(true);
-
-  const show = useCallback(() => {
-    setOpen(true);
-  }, []);
-
-  const hide = useCallback(() => {
-    setOpen(false);
-  }, []);
-
-  if (!open) {
-    return (
-      <div className={cn("absolute top-2 left-2", className)}>
-        <Button variant="secondary" size="xs" onPress={show}>
-          Show legend
-        </Button>
-      </div>
-    );
-  }
-
+export function Legend({ entries }: LegendProps) {
   return (
-    <section
-      aria-label="Legend"
-      className={cn(
-        "rounded-control border-rule bg-ground/90 absolute top-2 left-2 flex items-start gap-2 border py-1.5 pr-1 pl-2.5 text-xs shadow-sm",
-        className,
-      )}
-    >
-      <ul className="flex flex-col gap-1">
+    <section aria-label="Legend" className="border-rule shrink-0 border-b px-3 py-1 text-xs">
+      <ul className="flex flex-wrap items-center gap-x-5 gap-y-1">
         {entries.map(({ label, marks }) => (
-          <li key={label} className="text-ink flex items-center gap-2">
+          <li key={label} className="text-ink-muted flex items-center gap-1.5">
             <svg
               aria-hidden
               width={SYMBOL_WIDTH_PX}
@@ -68,14 +36,12 @@ export function Legend({ entries, className }: LegendProps) {
           </li>
         ))}
       </ul>
-      <IconButton label="Hide legend" icon={HideIcon} size="xs" onPress={hide} />
     </section>
   );
 }
 
 export interface LegendProps {
   entries: readonly LegendEntry[];
-  className?: string;
 }
 
 function Mark({ mark }: { mark: SymbolMark }) {
