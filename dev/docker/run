@@ -15,7 +15,7 @@
 #   CROSS_COMPILE           Image: `native` (default, development image) or one
 #                           of the release targets in dev/cross/targets
 #   TREEKNIT_DOCKER_PUSH=1  Push the built image and its layer cache to the
-#                           registry (CI on the base branch only)
+#                           registry (the nightly workflow)
 #   KACHE_STORE             Host directory of the optional kache compiler cache;
 #                           mounted at the same path when set (see .env.example)
 #   CARGO_PROFILE_*, NEXTEST_*, RUST_LOG, ...

@@ -35,7 +35,7 @@ lint_target_dir := build_dir / "lint"
 # kache. KACHE_PRESERVE_INCREMENTAL keeps incremental compiles out of the cache:
 # the workspace crates of dev, test, release, and clippy builds keep their
 # incremental state, so an edit rebuilds as fast as without kache, while kache
-# serves the dependencies and every build without incremental state (CI, dist,
+# serves the dependencies and every build without incremental state (dist,
 # profiling, and bench builds). Coverage always compiles without kache, because
 # a cache hit skips its instrumentation.
 #
@@ -71,13 +71,8 @@ cargo_profile_dir(mode) := if mode == "dev" { "debug" } else { cargo_profile(mod
 wasm_pkg := "packages/treeknit-wasm/pkg"
 wasm_types := wasm_pkg / "treeknit_wasm.d.ts"
 
-# Groups of the full gate, one CI job each (`just check-group <group>`).
-checks_format := "fmt-check-rs fmt-check-ts fmt-check-other lint-shell lint-docker lint-workflows deny shear"
-checks_clippy := "lint-rs lint-wasm"
-checks_tests := "test-rs test-wasm build-web:prod"
-checks_typescript := "typecheck lint-ts knip test-ts generated-check"
 check_fast := "fmt-check-rs fmt-check-ts fmt-check-other lint-rs lint-wasm lint-ts typecheck"
-check_full := checks_format + " " + checks_clippy + " " + checks_tests + " " + checks_typescript
+check_full := "fmt-check-rs fmt-check-ts fmt-check-other lint-shell lint-docker lint-workflows deny shear lint-rs lint-wasm test-rs test-wasm build-web:prod typecheck lint-ts knip test-ts generated-check"
 
 alias b := build
 alias r := run
@@ -94,15 +89,10 @@ alias fc := fmt-check
 check: _js
     TREEKNIT_JS_READY=1 dev/run-checks {{ check_fast }}
 
-# Every check, in parallel, as CI runs them on pull requests; slow
+# Every check, in parallel; slow
 [group("check")]
 check-all: _js
     TREEKNIT_JS_READY=1 dev/run-checks {{ check_full }}
-
-# One group of check-all, serially with streamed output, as its CI job runs it: just check-group <format|clippy|tests|typescript>
-[group("check")]
-check-group group: _js
-    recipes="$(just --evaluate "checks_$1")"; TREEKNIT_JS_READY=1 dev/run-checks --serial ${recipes}
 
 # Apply the automatic lint fixes (clippy, oxlint), then format; stage your changes first
 [group("check")]

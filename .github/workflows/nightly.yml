@@ -24,6 +24,11 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
 
+env:
+  # With the Docker Hub token, dev/docker/run pushes the images it builds, so
+  # later runs pull them instead of building them again.
+  TREEKNIT_DOCKER_PUSH: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN != '' && '1' || '' }}
+
 jobs:
   version:
     name: "Version"
@@ -85,13 +90,12 @@ jobs:
       - name: "Check out"
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: "Prepare the build container"
-        uses: ./.github/actions/prepare
+      - name: "Log in to Docker Hub"
+        if: env.TREEKNIT_DOCKER_PUSH == '1'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
-          image: ${{ matrix.target }}
-          cache: "cross"
-          dockerhub-username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
-          dockerhub-token: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN }}
+          username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN }}
 
       - name: "Build"
         run: dev/docker/run dev/cross/build --profile=dist treeknit
@@ -153,12 +157,12 @@ jobs:
       - name: "Check out"
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: "Prepare the build container"
-        uses: ./.github/actions/prepare
+      - name: "Log in to Docker Hub"
+        if: env.TREEKNIT_DOCKER_PUSH == '1'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
-          cache: "web"
-          dockerhub-username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
-          dockerhub-token: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN }}
+          username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN }}
 
       - name: "Build"
         run: dev/docker/run just build-web prod
