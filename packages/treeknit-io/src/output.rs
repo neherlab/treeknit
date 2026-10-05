@@ -153,7 +153,8 @@ pub fn log_file(records: &[Diagnostic]) -> OutputFile {
   let text = records
     .iter()
     .map(|r| format!("{} [{}] {}\n", r.time, r.level, r.message))
-    .collect();
+    .collect::<Vec<_>>()
+    .concat();
   OutputFile::new("log.txt".to_owned(), text)
 }
 
