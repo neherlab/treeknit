@@ -89,7 +89,7 @@ describe("workspace availability", () => {
     }).toStrictEqual({ mccs: [true, true, false, false], leaves: [true, true, false, false] });
   });
 
-  test("keeps a node until the view of its pair is loaded, then checks its name on its side", () => {
+  test("keeps a node until the view of its pair is loaded, then checks its name among the internal nodes of its side", () => {
     const loaded: LoadedViews = {
       pairView: () => pairViewWith(["NODE_1", "A"], ["NODE_2", "A"]),
       argView: () => undefined,
@@ -104,7 +104,8 @@ describe("workspace availability", () => {
       wrongSide: known.nodeExists(0, { side: "right", name: "NODE_1" }),
       right: known.nodeExists(0, { side: "right", name: "NODE_2" }),
       outOfRange: known.nodeExists(1, { side: "left", name: "NODE_1" }),
-    }).toStrictEqual({ unknown: true, left: true, wrongSide: false, right: true, outOfRange: false });
+      leaf: known.nodeExists(0, { side: "left", name: "A" }),
+    }).toStrictEqual({ unknown: true, left: true, wrongSide: false, right: true, outOfRange: false, leaf: false });
   });
 
   test("checks ARG nodes against the loaded ARG view, and none exist without an ARG", () => {
@@ -171,8 +172,8 @@ describe("query cache subscription", () => {
 
 function pairViewWith(left: string[], right: string[]): PairView {
   return {
-    left: { label: "ha", nodes: left.map(drawNode) },
-    right: { label: "na", nodes: right.map(drawNode) },
+    left: { label: "ha", nodes: drawNodes(left) },
+    right: { label: "na", nodes: drawNodes(right) },
     links: [],
     blocks: [],
     mccs: [],
@@ -186,18 +187,32 @@ function pairViewWith(left: string[], right: string[]): PairView {
   };
 }
 
-function drawNode(name: string): PairView["left"]["nodes"][number] {
+function drawNodes([root, ...leaves]: string[]): PairView["left"]["nodes"] {
+  const children = leaves.map((_, leaf) => leaf + 1);
+
+  return [
+    root === undefined ? [] : [drawNode(root, null, children, Math.max(0, leaves.length - 1) / 2)],
+    leaves.map((name, leaf) => drawNode(name, 0, [], leaf)),
+  ].flat();
+}
+
+function drawNode(
+  name: string,
+  parent: number | null,
+  children: number[],
+  y: number,
+): PairView["left"]["nodes"][number] {
   return {
     name,
     shortName: name,
-    parent: null,
-    children: [],
+    parent,
+    children,
     branchLength: null,
     xDiv: 0,
     xDepth: 0,
-    y: 0,
-    leaf: false,
-    cladeSize: 1,
+    y,
+    leaf: children.length === 0,
+    cladeSize: Math.max(1, children.length),
     added: false,
     imputed: false,
     mcc: null,

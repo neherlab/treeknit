@@ -68,8 +68,8 @@ export function pairLeafRows(left: DrawTree, right: DrawTree, name: string): Row
   );
 }
 
-export function nodeIndex(tree: DrawTree, name: string): number | undefined {
-  const index = tree.nodes.findIndex((node) => node.name === name);
+export function internalNodeIndex(tree: DrawTree, name: string): number | undefined {
+  const index = tree.nodes.findIndex((node) => !node.leaf && node.name === name);
 
   return index === -1 ? undefined : index;
 }

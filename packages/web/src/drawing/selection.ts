@@ -4,7 +4,7 @@ import { omit } from "remeda";
 import type { RowRange } from "../canvas/viewState";
 import type { NodeRef, WorkspaceSearch } from "../workspace/search";
 import { mccRows } from "./focus";
-import { leafIndex, leafRows, nodeIndex, pairLeafRows, type TreeSide } from "./trees";
+import { internalNodeIndex, leafIndex, leafRows, pairLeafRows, type TreeSide } from "./trees";
 
 export const UNSELECTED_OPACITY = 0.25;
 
@@ -103,7 +103,7 @@ export function pairEmphasis(view: PairView, selection: Selection): PairEmphasis
   const right = leaf === undefined ? undefined : leafIndex(view.right, leaf);
   const link = left === undefined ? -1 : view.links.findIndex((candidate) => candidate.left === left);
   const side = node?.side === "left" || node?.side === "right" ? node.side : undefined;
-  const selectedNode = side === undefined || node === undefined ? undefined : nodeIndex(view[side], node.name);
+  const selectedNode = side === undefined || node === undefined ? undefined : internalNodeIndex(view[side], node.name);
 
   return {
     mcc: selection.mcc,

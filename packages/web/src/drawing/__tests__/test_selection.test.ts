@@ -92,6 +92,10 @@ describe("pairEmphasis", () => {
     });
   });
 
+  test("ignores a node selection whose name is a leaf of the tree", () => {
+    expect(pairEmphasis(VIEW, { node: { side: "right", name: "X" } }).node).toBeUndefined();
+  });
+
   test("ignores an ARG node", () => {
     expect(pairEmphasis(VIEW, { node: { side: "arg", name: "NODE_3" } }).node).toBeUndefined();
   });

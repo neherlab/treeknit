@@ -4,6 +4,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 
 import { analysisKeys } from "../analysis/queries";
+import { internalNodeIndex } from "../drawing/trees";
 import { useWorkspace } from "./context";
 import { NO_WORKSPACE, type NodeRef, resolvePair, type WorkspaceAvailability } from "./search";
 import type { RunResult } from "./store";
@@ -97,7 +98,7 @@ function nodeInLoadedView(pair: number, node: NodeRef, views: LoadedViews): bool
 
   const view = views.pairView(pair);
 
-  return view === undefined || view[node.side].nodes.some(({ name }) => name === node.name);
+  return view === undefined || internalNodeIndex(view[node.side], node.name) !== undefined;
 }
 
 export function subscribeToQueryCache(queryClient: QueryClient, onChange: () => void): () => void {

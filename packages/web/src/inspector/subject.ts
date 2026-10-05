@@ -9,7 +9,7 @@ import type {
 } from "@neherlab/treeknit-wasm";
 
 import type { Selection } from "../drawing/selection";
-import { leafIndex, nodeIndex, TREE_SIDES, type TreeSide } from "../drawing/trees";
+import { internalNodeIndex, leafIndex, TREE_SIDES, type TreeSide } from "../drawing/trees";
 
 export interface InspectorData {
   pair: PairView | undefined;
@@ -48,7 +48,7 @@ export function inspectorSubject(selection: Selection, data: InspectorData): Ins
     }
   } else if (node !== undefined && pair !== undefined) {
     const tree = pair[node.side];
-    const index = nodeIndex(tree, node.name);
+    const index = internalNodeIndex(tree, node.name);
     const drawn = index === undefined ? undefined : tree.nodes[index];
 
     if (index !== undefined && drawn !== undefined) {
