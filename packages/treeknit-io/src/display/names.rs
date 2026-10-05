@@ -1,7 +1,7 @@
 //! Node names as the drawings show them: unique within a drawing, and shortened to the label
 //! length of the drawing rules.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Replaces the middle of a shortened label (U+2026).
 const ELLIPSIS: char = '\u{2026}';
@@ -44,6 +44,8 @@ pub(super) fn unique_labels(labels: Vec<String>, leaf: &[bool]) -> Vec<String> {
     .filter(|(_, l)| **l)
     .map(|(s, _)| s.clone())
     .collect();
+  // The next k to try for each base, so that renaming n nodes of one base tries each k once.
+  let mut next: BTreeMap<String, usize> = BTreeMap::new();
   labels
     .into_iter()
     .zip(leaf)
@@ -51,13 +53,15 @@ pub(super) fn unique_labels(labels: Vec<String>, leaf: &[bool]) -> Vec<String> {
       if is_leaf || (!label.is_empty() && taken.insert(label.clone())) {
         return label;
       }
-      let base = if label.is_empty() { "NODE" } else { label.as_str() };
-      // At most `all.len() + taken.len()` candidates are in use, so one of these is free.
-      #[expect(clippy::expect_used, reason = "the range has more candidates than labels are in use")]
-      let free = (2..=all.len() + taken.len() + 2)
-        .map(|k| format!("{base}_{k}"))
-        .find(|c| !all.contains(c) && !taken.contains(c))
-        .expect("a free label");
+      let base = if label.is_empty() { "NODE".to_owned() } else { label };
+      let k = next.entry(base.clone()).or_insert(2);
+      let free = loop {
+        let candidate = format!("{base}_{k}");
+        *k += 1;
+        if !all.contains(&candidate) && !taken.contains(&candidate) {
+          break candidate;
+        }
+      };
       taken.insert(free.clone());
       free
     })
@@ -101,6 +105,16 @@ mod tests {
     let labels = ["x", "a", "x", "", "a_2", "a"].map(String::from).to_vec();
     let leaf = [false, true, false, false, false, false];
     let expected = ["x", "a", "x_2", "NODE_2", "a_2", "a_3"].map(String::from).to_vec();
+    assert_eq!(expected, unique_labels(labels, &leaf));
+  }
+
+  #[test]
+  fn unique_labels_give_repeated_labels_the_next_free_numbers() {
+    // Oracle: the leaf x_3 takes its number, so the five internal nodes named x get x, x_2, x_4,
+    // x_5, and x_6.
+    let labels = ["x", "x", "x_3", "x", "x", "x"].map(String::from).to_vec();
+    let leaf = [false, false, true, false, false, false];
+    let expected = ["x", "x_2", "x_3", "x_4", "x_5", "x_6"].map(String::from).to_vec();
     assert_eq!(expected, unique_labels(labels, &leaf));
   }
 }
