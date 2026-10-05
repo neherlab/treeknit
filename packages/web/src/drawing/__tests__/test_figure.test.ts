@@ -1,9 +1,13 @@
 import type { Figure, FileEntry } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
-import { FIGURE_LISTING, FIGURE_MISSING, FIGURE_UNLISTED, figureFile, figureOptions } from "../figure";
+import { FIGURE_LISTING, FIGURE_MISSING, FIGURE_UNLISTED, figureFile, figureMutation } from "../figure";
 
 const SVG = "image/svg+xml";
+
+const PAIR_0: Figure = { kind: "pair", pair: 0 };
+
+const PAIR_1: Figure = { kind: "pair", pair: 1 };
 
 const TWO_TREES: FileEntry[] = [
   { path: "MCCs.json", fileName: "MCCs.json", mediaType: "application/json", size: 120, figure: null },
@@ -43,18 +47,6 @@ const THREE_TREES: FileEntry[] = [
 ];
 
 describe("figure downloads", () => {
-  test("pass the branch scale and the label mode of the URL unchanged", () => {
-    expect([
-      figureOptions({ x: "div", labels: "auto" }),
-      figureOptions({ x: "depth", labels: "off" }),
-      figureOptions({ x: "div", labels: "on" }),
-    ]).toStrictEqual([
-      { scale: "div", labels: "auto" },
-      { scale: "depth", labels: "off" },
-      { scale: "div", labels: "on" },
-    ]);
-  });
-
   test("find the tanglegram and the ARG figure of two trees", () => {
     expect([pathOf(TWO_TREES, { kind: "pair", pair: 0 }), pathOf(TWO_TREES, { kind: "arg" })]).toStrictEqual([
       "tanglegram_ha_na.svg",
@@ -81,6 +73,35 @@ describe("figure downloads", () => {
       figureFile({ data: undefined, error: null }, { kind: "arg" }),
       figureFile({ data: undefined, error: new Error("worker stopped") }, { kind: "arg" }),
     ]).toStrictEqual([{ disabledReason: FIGURE_LISTING }, { disabledReason: FIGURE_UNLISTED }]);
+  });
+});
+
+describe("figure download state", () => {
+  const FAILED = new Error("worker stopped");
+
+  test("belongs to the figure whose download started", () => {
+    expect(
+      figureMutation({ variables: { figure: { kind: "pair", pair: 0 } }, isPending: true, error: null }, PAIR_0),
+    ).toStrictEqual({ isPending: true, error: null });
+  });
+
+  test("does not show the pending download or the failure of another figure", () => {
+    expect([
+      figureMutation({ variables: { figure: PAIR_0 }, isPending: true, error: null }, PAIR_1),
+      figureMutation({ variables: { figure: PAIR_0 }, isPending: false, error: FAILED }, PAIR_1),
+      figureMutation({ variables: { figure: PAIR_0 }, isPending: false, error: FAILED }, { kind: "arg" }),
+    ]).toStrictEqual([
+      { isPending: false, error: null },
+      { isPending: false, error: null },
+      { isPending: false, error: null },
+    ]);
+  });
+
+  test("is idle before any download", () => {
+    expect(figureMutation({ variables: undefined, isPending: false, error: null }, PAIR_0)).toStrictEqual({
+      isPending: false,
+      error: null,
+    });
   });
 });
 

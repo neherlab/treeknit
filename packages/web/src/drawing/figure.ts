@@ -15,6 +15,21 @@ export function figureOptions({ x, labels }: Pick<WorkspaceSearch, "x" | "labels
   return { scale: x, labels };
 }
 
+export interface FigureMutation {
+  variables: Pick<FileEntry, "figure"> | undefined;
+  isPending: boolean;
+  error: Error | null;
+}
+
+export function figureMutation(
+  { variables, isPending, error }: FigureMutation,
+  figure: Figure,
+): Pick<FigureMutation, "isPending" | "error"> {
+  const current = variables !== undefined && isDeepEqual(variables.figure, figure);
+
+  return { isPending: current && isPending, error: current ? error : null };
+}
+
 export interface ListedFiles {
   data: readonly FileEntry[] | undefined;
   error: Error | null;

@@ -8,13 +8,18 @@ import { useSessionFiles } from "../analysis/queries";
 import { downloadFile } from "../download";
 import type { FigureButtonProps } from "./DrawingControls";
 import type { DrawingFailure } from "./DrawingPanel";
-import { figureFile } from "./figure";
+import { figureFile, figureMutation } from "./figure";
 
 const FIGURE_FAILED = "The figure could not be made.";
 
 export interface FigureDownload {
   button: FigureButtonProps;
   failure: DrawingFailure | undefined;
+}
+
+interface RenderedFigure {
+  entry: FileEntry;
+  text: string;
 }
 
 export function useFigureDownload(
@@ -27,10 +32,7 @@ export function useFigureDownload(
   const file = figureFile(files, figure);
 
   const mutation = useMutation({
-    mutationFn: async (entry: FileEntry) => ({ entry, text: await render(client, sessionId) }),
-    onSuccess: ({ entry, text }) => {
-      downloadFile({ name: entry.fileName, mediaType: entry.mediaType, content: text });
-    },
+    mutationFn: async (entry: FileEntry): Promise<RenderedFigure> => ({ entry, text: await render(client, sessionId) }),
   });
 
   const { mutate, reset } = mutation;
@@ -38,15 +40,20 @@ export function useFigureDownload(
 
   const download = useCallback(() => {
     if (entry !== undefined) {
-      mutate(entry);
+      mutate(entry, { onSuccess: saveFigure });
     }
   }, [entry, mutate]);
 
-  const button: FigureButtonProps =
-    "entry" in file ? { onDownload: download, isPending: mutation.isPending } : { disabledReason: file.disabledReason };
+  const { isPending, error } = figureMutation(mutation, figure);
 
-  const failure =
-    mutation.error === null ? undefined : { title: FIGURE_FAILED, message: mutation.error.message, onDismiss: reset };
+  const button: FigureButtonProps =
+    "entry" in file ? { onDownload: download, isPending } : { disabledReason: file.disabledReason };
+
+  const failure = error === null ? undefined : { title: FIGURE_FAILED, message: error.message, onDismiss: reset };
 
   return { button, failure };
+}
+
+function saveFigure({ entry, text }: RenderedFigure): void {
+  downloadFile({ name: entry.fileName, mediaType: entry.mediaType, content: text });
 }
