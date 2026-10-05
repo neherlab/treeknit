@@ -6,7 +6,7 @@ mod tests {
   use js_sys::{Date, Error, Function, JSON};
   use pretty_assertions::assert_eq;
   use serde_json::{Value, json};
-  use std::cell::RefCell;
+  use std::cell::{Cell, RefCell};
   use std::collections::BTreeSet;
   use std::rc::Rc;
   use treeknit_core::{Options, Resolution, Taxa, Tree};
@@ -186,16 +186,20 @@ mod tests {
 
   #[wasm_bindgen_test]
   fn session_run_throws_the_error_of_the_progress_callback() {
-    let error = match Session::run(
-      &ts(&two_trees()),
-      &Function::new_no_args("throw new RangeError('stop')"),
-    ) {
+    let calls = Rc::new(Cell::new(0));
+    let counted = Rc::clone(&calls);
+    let on_progress = Closure::<dyn FnMut(JsValue) -> Result<(), JsValue>>::new(move |_progress: JsValue| {
+      counted.set(counted.get() + 1);
+      Err(js_sys::RangeError::new("stop").into())
+    });
+    let error = match Session::run(&ts(&two_trees()), on_progress.as_ref().unchecked_ref()) {
       Ok(_) => panic!("expected the error of the callback"),
       Err(e) => Error::from(e),
     };
+    // Oracle: the doc of `Session.run`: the run completes without further progress calls.
     assert_eq!(
-      ("RangeError".to_owned(), "stop".to_owned()),
-      (String::from(error.name()), String::from(error.message()))
+      ("RangeError".to_owned(), "stop".to_owned(), 1),
+      (String::from(error.name()), String::from(error.message()), calls.get())
     );
   }
 
