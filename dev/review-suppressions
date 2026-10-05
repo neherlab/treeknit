@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#
+# Usage: $0
+#
+# Print the inventory of lint suppressions and other review-sensitive settings:
+# suppression attributes, allowed lints, lint configuration files, ignored
+# tests, mutation exclusions, and test tolerances. Changes to these deserve a
+# separate review from ordinary code changes.
+#
+set -euo pipefail
+shopt -s inherit_errexit
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+section() {
+  printf '\n=== %s ===\n' "${1}"
+  shift
+  "$@" || [[ $? -eq 1 ]]
+}
+
+section "Rust #[allow]/#[expect] attributes" \
+  rg -n -g '*.rs' '#!?\[(allow|expect)\(|cfg_attr\([^)]*(allow|expect)\(' packages
+section "Lints allowed in manifests" \
+  rg -n -g 'Cargo.toml' -e '= "allow"' -e 'level *= *"allow"' Cargo.toml packages
+section "Ignored Rust tests" \
+  rg -n -g '*.rs' '#\[ignore' packages
+section "Test tolerances" \
+  rg -n -g '*.rs' 'epsilon *=|max_relative *=|max_ulps *=|f64::EPSILON|f32::EPSILON' packages
+section "Mutation exclusions" \
+  rg -n 'exclude' .cargo/mutants.toml
+section "Lint configuration files" \
+  git ls-files -- Cargo.toml clippy.toml .config/deny.toml .cargo/mutants.toml

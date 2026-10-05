@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+#
+# Usage: $0
+#
+# Print the tracked bash scripts of the repository, NUL-separated, for the
+# lint and format recipes.
+#
+set -euo pipefail
+shopt -s inherit_errexit
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+git ls-files -z -- dev |
+  xargs -0 grep --null -lIE '^#!(/usr/bin/env bash|/bin/bash)' |
+  LC_ALL=C sort -z
