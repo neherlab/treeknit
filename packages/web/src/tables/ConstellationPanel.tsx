@@ -57,7 +57,7 @@ function Constellation({ data }: { data: ConstellationTable }) {
   const open = useCallback(
     (pair: number, leaf: string) => {
       update((written) => leafInPair(written, pair, leaf));
-      requestFocus({ kind: "leaf", name: leaf });
+      requestFocus({ kind: "leaf", name: leaf }, pair);
     },
     [update],
   );

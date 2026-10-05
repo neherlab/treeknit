@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { RowRange } from "../../canvas/viewState";
-import { focusRows, mccRows, revealLeafRows } from "../focus";
+import { focusApplies, focusRows, mccRows, revealLeafRows } from "../focus";
 import { examplePairView } from "./fixtures";
 
 const VIEW = examplePairView();
@@ -52,5 +52,13 @@ describe("revealLeafRows", () => {
 
   test("fits both copies of a leaf in rows 10 and 5,000, so neither copy is left off screen", () => {
     expect(recorded({ first: 10, last: 5000 })).toStrictEqual([["fitRows", { first: 10, last: 5000 }]]);
+  });
+});
+
+describe("focusApplies", () => {
+  test("applies a request for any pair at once, and a request for one pair only once that pair is shown", () => {
+    expect([focusApplies({ pair: null }, 0), focusApplies({ pair: 2 }, 0), focusApplies({ pair: 2 }, 2)]).toStrictEqual(
+      [true, false, true],
+    );
   });
 });

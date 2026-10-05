@@ -11,18 +11,19 @@ export type FocusTarget = { kind: "leaf"; name: string } | { kind: "mcc"; mcc: n
 export interface FocusRequest {
   id: number;
   target: FocusTarget;
+  pair: number | null;
 }
 
 interface FocusState {
   request: FocusRequest | null;
-  focus(target: FocusTarget): void;
+  focus(target: FocusTarget, pair: number | null): void;
   done(id: number): void;
 }
 
 const focusStore = createStore<FocusState>()((set, get) => ({
   request: null,
-  focus(target) {
-    set({ request: { id: (get().request?.id ?? 0) + 1, target } });
+  focus(target, pair) {
+    set({ request: { id: (get().request?.id ?? 0) + 1, target, pair } });
   },
   done(id) {
     if (get().request?.id === id) {
@@ -35,8 +36,12 @@ export function useFocusRequest(): FocusRequest | null {
   return useStore(focusStore, (state) => state.request);
 }
 
-export function requestFocus(target: FocusTarget): void {
-  focusStore.getState().focus(target);
+export function requestFocus(target: FocusTarget, pair: number | null = null): void {
+  focusStore.getState().focus(target, pair);
+}
+
+export function focusApplies(request: Pick<FocusRequest, "pair">, shownPair: number): boolean {
+  return request.pair === null || request.pair === shownPair;
 }
 
 export function focusDone(id: number): void {

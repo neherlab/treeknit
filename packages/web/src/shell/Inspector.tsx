@@ -1,6 +1,6 @@
 import type { ArgNodeView, DrawNode, MccInfo } from "@neherlab/treeknit-wasm";
 import { type ReactNode, useCallback, useMemo } from "react";
-import type { Key } from "react-aria-components";
+import type { Key, PressEvent } from "react-aria-components";
 import { match } from "ts-pattern";
 import ZoomIcon from "~icons/lucide/scan-search";
 
@@ -165,12 +165,6 @@ function LeafDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "
 }
 
 function LeafPairs({ name, pairs }: { name: string; pairs: readonly LeafPair[] }) {
-  const { search } = useWorkspaceSearch();
-
-  const focusLeaf = useCallback(() => {
-    requestFocus({ kind: "leaf", name });
-  }, [name]);
-
   return (
     <section aria-label="MCC in each pair" className="flex flex-col gap-1.5">
       <h3 className="text-ink text-sm font-semibold">MCC in each pair</h3>
@@ -180,7 +174,7 @@ function LeafPairs({ name, pairs }: { name: string; pairs: readonly LeafPair[] }
             {cell === null ? (
               <span className="text-ink-muted">{`${a} and ${b}`}</span>
             ) : (
-              <Link to="/" search={leafInPair(search, pair, name)} onPress={focusLeaf}>{`${a} and ${b}`}</Link>
+              <LeafPairLink name={name} pair={pair} label={`${a} and ${b}`} />
             )}
             {cell === null ? (
               <span className="text-ink-muted">Not in this pair</span>
@@ -191,6 +185,25 @@ function LeafPairs({ name, pairs }: { name: string; pairs: readonly LeafPair[] }
         ))}
       </ul>
     </section>
+  );
+}
+
+function LeafPairLink({ name, pair, label }: { name: string; pair: number; label: string }) {
+  const { search } = useWorkspaceSearch();
+
+  const focusLeaf = useCallback(
+    ({ ctrlKey, metaKey, shiftKey }: PressEvent) => {
+      if (!ctrlKey && !metaKey && !shiftKey) {
+        requestFocus({ kind: "leaf", name }, pair);
+      }
+    },
+    [name, pair],
+  );
+
+  return (
+    <Link to="/" search={leafInPair(search, pair, name)} onPress={focusLeaf}>
+      {label}
+    </Link>
   );
 }
 

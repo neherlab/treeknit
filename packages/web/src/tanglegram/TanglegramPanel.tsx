@@ -10,7 +10,14 @@ import { ZoomControls } from "../canvas/ZoomControls";
 import { FigureButton, LabelModeSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
 import { figureOptions } from "../drawing/figure";
-import { focusDone, type FocusTarget, focusRows, revealLeafRows, useFocusRequest } from "../drawing/focus";
+import {
+  focusApplies,
+  focusDone,
+  type FocusTarget,
+  focusRows,
+  revealLeafRows,
+  useFocusRequest,
+} from "../drawing/focus";
 import { counted } from "../drawing/format";
 import { LeafSearch } from "../drawing/LeafSearch";
 import { pairLeafNames, pairLeafRows, rowCount } from "../drawing/trees";
@@ -50,7 +57,7 @@ function Tanglegram({ result }: { result: RunResult }) {
     client.figure(sessionId, pair, version, figureOptions(search)),
   );
 
-  useFocusedRows(data, view);
+  useFocusedRows(data, pair, view);
 
   const pairOptions = useMemo<SelectOption<string>[]>(
     () => pairs.map(({ index, labels: [a, b] }) => ({ id: String(index), label: `${a} and ${b}` })),
@@ -124,20 +131,20 @@ function leafRowsOf(data: PairView, name: string): RowRange | null {
   return pairLeafRows(data.left, data.right, name);
 }
 
-function useFocusedRows(data: PairView | undefined, view: TreeViewHandle) {
+function useFocusedRows(data: PairView | undefined, pair: number, view: TreeViewHandle) {
   const request = useFocusRequest();
   const ready = useTreeViewReady(view);
   const { actions } = view;
 
   useEffect(() => {
     // oxlint-disable-next-line react-you-might-not-need-an-effect/no-event-handler -- a focus request from another view waits in the focus store until the pair view has loaded and the canvas has a size; applying it writes the view store, which must not change during render
-    if (request === null || data === undefined || !ready) {
+    if (request === null || data === undefined || !ready || !focusApplies(request, pair)) {
       return;
     }
 
     applyFocus(actions, request.target, focusRows(data, request.target));
     focusDone(request.id);
-  }, [request, data, ready, actions]);
+  }, [request, data, pair, ready, actions]);
 }
 
 function applyFocus(actions: TreeViewActions, target: FocusTarget, range: RowRange | null) {
