@@ -4,7 +4,7 @@ import BlockedIcon from "~icons/lucide/circle-alert";
 import { useInspectTrees, useOverlap } from "../analysis/queries";
 import { formatCount } from "../format/count";
 import { useDelayedIndicator } from "../indicator/useDelayedIndicator";
-import { BRANCH_LENGTH_VALUES } from "../inputs/treeStatus";
+import { BRANCH_LENGTH_VALUES } from "../inputs/treeFacts";
 import { InfoButton } from "../ui/InfoButton";
 import { Cell, Column, Row, Table, TableBody, TableHeader } from "../ui/Table";
 import { useWorkspace } from "../workspace/context";

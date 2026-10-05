@@ -10,6 +10,7 @@ import { formatBranchLength, leafCount, mccSummary, mccTitle } from "../drawing/
 import { leafInPair, mccInTanglegram } from "../drawing/navigation";
 import { selectionOf, type Selection, withSelection } from "../drawing/selection";
 import { segmentLabels, segmentList, segmentName, type SegmentLabels } from "../drawing/tooltip";
+import { NONE, yesNo } from "../format/words";
 import { type InspectorSubject, inspectorSubject, type LeafPair } from "../inspector/subject";
 import { mccsBySize } from "../tables/mccTable";
 import { Button } from "../ui/Button";
@@ -124,7 +125,7 @@ function MccDetails({ mcc, onSelect }: { mcc: MccInfo; onSelect: (selection: Sel
       <Facts>
         <Fact term="Size">{leafCount(mcc.size)}</Fact>
         <Fact term="Imputed members">
-          {mcc.imputedLeaves.length === 0 ? "none" : <NameList names={mcc.imputedLeaves} />}
+          {mcc.imputedLeaves.length === 0 ? NONE : <NameList names={mcc.imputedLeaves} />}
         </Fact>
         <Fact term="Attachment">{mcc.ambiguousLeaves.length > 0 ? "ambiguous for some members" : "unambiguous"}</Fact>
       </Facts>
@@ -151,11 +152,11 @@ function LeafDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "
         ))}
         {copies.map(({ side, tree, node }) => (
           <Fact key={`imputed-${side}`} term={`Imputed in ${tree}`}>
-            {node.imputed ? "yes" : "no"}
+            {yesNo(node.imputed)}
           </Fact>
         ))}
         <Fact term="MCC">
-          {mcc === undefined ? "none" : <MccValue mcc={mcc.index} size={mcc.size} slot={mcc.slot} />}
+          {mcc === undefined ? NONE : <MccValue mcc={mcc.index} size={mcc.size} slot={mcc.slot} />}
         </Fact>
         <Fact term="Attachment">{ambiguous ? "ambiguous" : "unambiguous"}</Fact>
       </Facts>
@@ -215,10 +216,10 @@ function NodeDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "
       <Facts>
         <Fact term="Tree">{tree}</Fact>
         <Fact term="Clade size">{leafCount(cladeSize)}</Fact>
-        <Fact term="Added by resolution">{node.added ? "yes" : "no"}</Fact>
+        <Fact term="Added by resolution">{yesNo(node.added)}</Fact>
         <Fact term="Branch length">{formatBranchLength(node.branchLength)}</Fact>
         <Fact term="MCC">
-          {mcc === undefined ? "none" : <MccValue mcc={mcc.index} size={mcc.size} slot={mcc.slot} />}
+          {mcc === undefined ? NONE : <MccValue mcc={mcc.index} size={mcc.size} slot={mcc.slot} />}
         </Fact>
       </Facts>
     </Section>
@@ -235,7 +236,7 @@ function ArgNodeDetails({ node, segments }: { node: ArgNodeView; segments: Segme
             {formatBranchLength(node.tau[segment] ?? null)}
           </Fact>
         ))}
-        <Fact term="Hybrid node">{node.hybrid ? "yes" : "no"}</Fact>
+        <Fact term="Hybrid node">{yesNo(node.hybrid)}</Fact>
       </Facts>
     </Section>
   );

@@ -1,4 +1,4 @@
-import type { BranchLengths, TreeInspection, ValidationError } from "@neherlab/treeknit-wasm";
+import type { TreeInspection, ValidationError } from "@neherlab/treeknit-wasm";
 
 import { characterRange, type TextRange } from "../ui/codeLines";
 
@@ -20,18 +20,6 @@ export const TREE_STATUS_LABELS: Record<TreeStatusKind, string> = {
   ok: "The tree is ready",
   warning: "The tree has warnings",
   error: "The tree has errors",
-};
-
-export const BRANCH_LENGTH_LABELS: Record<BranchLengths, string> = {
-  all: "Branch lengths",
-  some: "Some branch lengths",
-  none: "No branch lengths",
-};
-
-export const BRANCH_LENGTH_VALUES: Record<BranchLengths, string> = {
-  all: "All",
-  some: "Some",
-  none: "None",
 };
 
 export function treeStatus(

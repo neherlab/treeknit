@@ -1,7 +1,19 @@
-import type { TreeInspection } from "@neherlab/treeknit-wasm";
+import type { BranchLengths, TreeInspection } from "@neherlab/treeknit-wasm";
 
 import { counted } from "../format/count";
-import { BRANCH_LENGTH_LABELS } from "./treeStatus";
+import { NONE } from "../format/words";
+
+export const BRANCH_LENGTH_LABELS: Record<BranchLengths, string> = {
+  all: "Branch lengths",
+  some: "Some branch lengths",
+  none: "No branch lengths",
+};
+
+export const BRANCH_LENGTH_VALUES: Record<BranchLengths, string> = {
+  all: "All",
+  some: "Some",
+  none: NONE,
+};
 
 export function treeFacts(inspection: TreeInspection | undefined, missing: number | undefined): string[] {
   if (inspection === undefined || inspection.error !== null) {

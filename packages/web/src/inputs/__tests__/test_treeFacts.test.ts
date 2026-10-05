@@ -2,7 +2,7 @@ import type { TreeInspection } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
 import { counted } from "../../format/count";
-import { treeFacts } from "../treeFacts";
+import { BRANCH_LENGTH_VALUES, treeFacts } from "../treeFacts";
 
 const INSPECTION: TreeInspection = {
   label: "ha",
@@ -40,5 +40,9 @@ describe("tree facts", () => {
       "1 polytomy",
       "2 polytomies",
     ]);
+  });
+
+  test("names how many branches of a tree have lengths in the overview table", () => {
+    expect(BRANCH_LENGTH_VALUES).toStrictEqual({ all: "All", some: "Some", none: "None" });
   });
 });

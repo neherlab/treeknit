@@ -1,5 +1,6 @@
 import { counted } from "../format/count";
 import { APP_LOCALE } from "../format/locale";
+import { NONE } from "../format/words";
 
 const BRANCH_LENGTH = new Intl.NumberFormat(APP_LOCALE, { maximumSignificantDigits: 4 });
 
@@ -20,5 +21,5 @@ export function mccSummary(index: number, size: number): string {
 }
 
 export function formatBranchLength(length: number | null): string {
-  return length === null ? "none" : BRANCH_LENGTH.format(length);
+  return length === null ? NONE : BRANCH_LENGTH.format(length);
 }

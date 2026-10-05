@@ -12,7 +12,7 @@ describe("pairTooltip", () => {
     expect(pairTooltip(VIEW, { kind: "node", side: "left", node: 8 })).toStrictEqual([
       "X",
       "MCC 2, 1 leaf",
-      "Branch length 1",
+      "Branch length: 1",
       "Reassortment branch",
     ]);
   });
@@ -23,7 +23,7 @@ describe("pairTooltip", () => {
       added: pairTooltip(VIEW, { kind: "node", side: "right", node: 3 }),
     }).toStrictEqual({
       imputed: "Imputed leaf",
-      added: ["RESOLVED_1", "No MCC", "Branch length 0", "Added by resolution"],
+      added: ["RESOLVED_1", "No MCC", "Branch length: 0", "Added by resolution"],
     });
   });
 

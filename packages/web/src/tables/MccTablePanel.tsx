@@ -11,6 +11,7 @@ import { leafCount, mccTitle } from "../drawing/format";
 import { mccInTanglegram } from "../drawing/navigation";
 import { withSelection } from "../drawing/selection";
 import { counted, formatCount } from "../format/count";
+import { NONE, yesNo } from "../format/words";
 import { IconButton } from "../ui/IconButton";
 import { InfoButton } from "../ui/InfoButton";
 import { MccSwatch } from "../ui/MccSwatch";
@@ -213,8 +214,8 @@ function MccRow({ cells, mcc, index, selected, measure, onSelect, onShow }: MccR
     ),
     [MCC_COLUMN.size]: leafCount(mcc.size),
     [MCC_COLUMN.leaves]: <span className="block max-w-[48ch] truncate">{leavesPreview(mcc.leaves)}</span>,
-    [MCC_COLUMN.imputed]: mcc.imputedLeaves.length === 0 ? "None" : formatCount(mcc.imputedLeaves.length),
-    [MCC_COLUMN.ambiguous]: mcc.ambiguousLeaves.length > 0 ? "yes" : "no",
+    [MCC_COLUMN.imputed]: mcc.imputedLeaves.length === 0 ? NONE : formatCount(mcc.imputedLeaves.length),
+    [MCC_COLUMN.ambiguous]: yesNo(mcc.ambiguousLeaves.length > 0),
   };
 
   return (
