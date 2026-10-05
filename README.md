@@ -49,7 +49,7 @@ Output in the results directory:
 | `ARG/nodes.dat` | ARG node ↔ tree node table |
 | `ARG/<tree>_liberal_resolved.nwk` | the trees the ARG was built from |
 | `tanglegram_<a>_<b>.svg` | with `--plot`: the tanglegram of the resolved trees of each pair, with MCC colors and reassortment branches marked |
-| `ARG/arg.svg` | with `--plot`, two trees only: the ARG, colored by segment, with reassortments as dashed curves |
+| `ARG/arg.svg` | with `--plot`, two trees with a built ARG: the ARG, colored by segment, with reassortments as dashed curves |
 | `parameters.json`, `log.txt` | parameters and log of the run |
 | `treeknit_request.json` | with `--request`: the trees and settings that ran |
 
