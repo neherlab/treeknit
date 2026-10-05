@@ -4,8 +4,7 @@
 
 @theme static {
   --font-*: initial;
-  --font-sans: "IBM Plex Sans", ui-sans-serif, sans-serif;
-  --font-condensed: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, sans-serif;
+  --font-sans: "Lato", "Noto Sans", ui-sans-serif, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
   --text-*: initial;

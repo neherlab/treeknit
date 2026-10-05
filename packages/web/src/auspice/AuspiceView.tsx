@@ -30,7 +30,7 @@ import { type AuspiceInput, useAuspiceStore } from "./useAuspiceStore";
 const SIDEBAR_THEME = {
   background: "var(--color-pane)",
   color: "var(--color-ink)",
-  "font-family": '"IBM Plex Sans", ui-sans-serif, sans-serif',
+  "font-family": "var(--font-sans)",
   sidebarBoxShadow: "rgba(0, 0, 0, 0.15)",
   selectedColor: "var(--color-focus)",
   unselectedColor: "var(--color-ink-muted)",

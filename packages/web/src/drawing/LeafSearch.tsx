@@ -74,7 +74,7 @@ export function LeafSearch({ names, onSelect, className }: LeafSearchProps) {
           className={listBoxStyle}
         >
           {(item) => (
-            <MenuItem id={item.id} textValue={item.id} className="font-condensed">
+            <MenuItem id={item.id} textValue={item.id}>
               {item.id}
             </MenuItem>
           )}

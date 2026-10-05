@@ -292,7 +292,7 @@ mod tests {
     // X is its own MCC (slot 1), and the branch above X in each tree is a reassortment branch
     // with a ring at its midpoint. The second legend entry starts 24 + 6 + 20 px after the
     // 114.708 px of "Reassortment branch" (9559/1000 em).
-    let expected = r##"<svg xmlns="http://www.w3.org/2000/svg" width="600" height="164" viewBox="0 0 600 164" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12">
+    let expected = r##"<svg xmlns="http://www.w3.org/2000/svg" width="600" height="164" viewBox="0 0 600 164" font-family="Lato, Noto Sans, Helvetica, Arial, sans-serif" font-size="12">
   <title>ha and na</title>
   <rect width="600" height="164" fill="#f3f5f4"/>
   <text x="16" y="32" font-size="16" font-weight="600" fill="#1f2b30">ha and na</text>
@@ -314,7 +314,7 @@ mod tests {
     <path d="M163.16 100 V106 H236.74" stroke="#b0265e" stroke-width="2"/>
   </g>
   <circle cx="199.95" cy="106" r="3.5" fill="#f3f5f4" stroke="#b0265e" stroke-width="1.5"/>
-  <g font-family="IBM Plex Sans Condensed, IBM Plex Sans, Helvetica, Arial, sans-serif" fill="#1f2b30" text-anchor="start">
+  <g fill="#1f2b30" text-anchor="start">
     <text x="242.74" y="62.2">A</text>
     <text x="242.74" y="74.2">B</text>
     <text x="242.74" y="86.2">C</text>
@@ -332,7 +332,7 @@ mod tests {
     <path d="M436.84 76 V82 H363.26" stroke="#b0265e" stroke-width="2"/>
   </g>
   <circle cx="400.05" cy="82" r="3.5" fill="#f3f5f4" stroke="#b0265e" stroke-width="1.5"/>
-  <g font-family="IBM Plex Sans Condensed, IBM Plex Sans, Helvetica, Arial, sans-serif" fill="#1f2b30" text-anchor="end">
+  <g fill="#1f2b30" text-anchor="end">
     <text x="357.26" y="62.2">A</text>
     <text x="357.26" y="74.2">B</text>
     <text x="357.26" y="86.2">X</text>

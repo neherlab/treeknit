@@ -94,7 +94,7 @@ function NothingSelected({ mccs, onSelect }: { mccs: readonly MccInfo[]; onSelec
                 <MccSwatch slot={mcc.slot} />
                 <span className="w-16 shrink-0">{mccTitle(mcc.index)}</span>
                 <span className="text-ink-muted w-20 shrink-0 text-right tabular-nums">{leafCount(mcc.size)}</span>
-                <span className="font-condensed text-ink-muted min-w-0 truncate">{mcc.leaves[0] ?? ""}</span>
+                <span className="text-ink-muted min-w-0 truncate">{mcc.leaves[0] ?? ""}</span>
               </>
             )}
           </VirtualList>
@@ -133,7 +133,7 @@ function MccDetails({ mcc, onSelect }: { mcc: MccInfo; onSelect: (selection: Sel
         Zoom to MCC
       </Button>
       <VirtualList label={`Leaves of ${mccTitle(mcc.index)}`} items={leaves} onAction={chooseLeaf}>
-        {({ text }) => <span className="font-condensed min-w-0 truncate">{text}</span>}
+        {({ text }) => <span className="min-w-0 truncate">{text}</span>}
       </VirtualList>
     </Section>
   );
@@ -143,7 +143,7 @@ function LeafDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "
   const { name, copies, mcc, ambiguous, pairs } = subject;
 
   return (
-    <Section title={name} condensed>
+    <Section title={name}>
       <Facts>
         {copies.map(({ side, tree, node }) => (
           <Fact key={side} term={`Branch length in ${tree}`}>
@@ -212,7 +212,7 @@ function NodeDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "
   const { tree, node, mcc } = subject;
 
   return (
-    <Section title={nodeName(node)} condensed>
+    <Section title={nodeName(node)}>
       <Facts>
         <Fact term="Tree">{tree}</Fact>
         <Fact term="Clade size">{leafCount(node.cladeSize)}</Fact>
@@ -228,7 +228,7 @@ function NodeDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "
 
 function ArgNodeDetails({ node, segments }: { node: ArgNodeView; segments: SegmentLabels }) {
   return (
-    <Section title={node.label === "" ? "Unnamed node" : node.label} condensed>
+    <Section title={node.label === "" ? "Unnamed node" : node.label}>
       <Facts>
         <Fact term="Segments">{segmentList(node.segments, segments)}</Fact>
         {node.segments.map((segment) => (
@@ -242,22 +242,12 @@ function ArgNodeDetails({ node, segments }: { node: ArgNodeView; segments: Segme
   );
 }
 
-function Section({
-  title,
-  swatch,
-  condensed = false,
-  children,
-}: {
-  title: string;
-  swatch?: number;
-  condensed?: boolean;
-  children: ReactNode;
-}) {
+function Section({ title, swatch, children }: { title: string; swatch?: number; children: ReactNode }) {
   return (
     <section aria-label={title} className="flex flex-col gap-3">
       <h2 className="text-ink flex items-center gap-2 text-base font-semibold wrap-anywhere">
         {swatch === undefined ? null : <MccSwatch slot={swatch} />}
-        <span className={condensed ? "font-condensed font-medium" : undefined}>{title}</span>
+        <span>{title}</span>
       </h2>
       {children}
     </section>
@@ -288,7 +278,7 @@ function MccValue({ mcc, size, slot }: { mcc: number; size: number; slot: number
 
 function NameList({ names }: { names: readonly string[] }) {
   return (
-    <ul className="font-condensed flex max-h-32 flex-col overflow-auto">
+    <ul className="flex max-h-32 flex-col overflow-auto">
       {names.map((name) => (
         <li key={name} className="truncate">
           {name}

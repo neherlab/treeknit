@@ -36,8 +36,8 @@
         "@deck.gl/layers": "catalog:",
         "@deck.gl/react": "catalog:",
         "@fontsource/ibm-plex-mono": "catalog:",
-        "@fontsource/ibm-plex-sans": "catalog:",
-        "@fontsource/ibm-plex-sans-condensed": "catalog:",
+        "@fontsource/lato": "catalog:",
+        "@fontsource/noto-sans": "catalog:",
         "@neherlab/treeknit-wasm": "workspace:*",
         "@tanstack/react-query": "catalog:",
         "@tanstack/react-router": "catalog:",
@@ -103,8 +103,8 @@
     "@deck.gl/layers": "9.4.0",
     "@deck.gl/react": "9.4.0",
     "@fontsource/ibm-plex-mono": "5.3.0",
-    "@fontsource/ibm-plex-sans": "5.3.0",
-    "@fontsource/ibm-plex-sans-condensed": "5.3.0",
+    "@fontsource/lato": "5.3.0",
+    "@fontsource/noto-sans": "5.3.0",
     "@iconify-json/lucide": "1.2.137",
     "@oxlint/plugins": "1.85.0",
     "@svgr/core": "8.1.0",
@@ -448,9 +448,9 @@
 
     "@fontsource/ibm-plex-mono": ["@fontsource/ibm-plex-mono@5.3.0", "", {}, "sha512-eTgnZjZEGk1QtD3ZstF+Vclo2HLAni8YMy34/DxllwZvyz1lR/1RF/xTiAquOBO7MvqBx8D2Ig2WCPMVfdZu7Q=="],
 
-    "@fontsource/ibm-plex-sans": ["@fontsource/ibm-plex-sans@5.3.0", "", {}, "sha512-CbE4CbbEEZJX860XyUiRpsksXIQR8Rp2XDva2VO53NJox9tVNtusrysd2x5YkUEY3ErQ66W1IiiQL8/wihhw5w=="],
+    "@fontsource/lato": ["@fontsource/lato@5.3.0", "", {}, "sha512-0WhF/4rhrw+ErIyneKvhHn2YAl+xf8GDtllgOgOzDmeaSlLQtjpChXaQOpWhG2BchQW0WJy2zLV12Hdg0ndOMw=="],
 
-    "@fontsource/ibm-plex-sans-condensed": ["@fontsource/ibm-plex-sans-condensed@5.3.0", "", {}, "sha512-fQyBpwbkguP4azjq7Cw8h/J3C/d8MFAzXOiSoFxyKCUK4x0XKrWEh3tGdTxhDM0HctVRQilQo1zGoyxDHLm5jQ=="],
+    "@fontsource/noto-sans": ["@fontsource/noto-sans@5.3.0", "", {}, "sha512-fBCog2PY7DiVVTEEqtI/Qdinx/knobHYfoGpjFXdfBX5RoJaBp1Prw2G75p0OIsdlMZg3cLo0c+YbIUYOxnQJw=="],
 
     "@hot-loader/react-dom": ["@hot-loader/react-dom@16.14.0", "", { "dependencies": { "loose-envify": "^1.1.0", "object-assign": "^4.1.1", "prop-types": "^15.6.2", "scheduler": "^0.19.1" }, "peerDependencies": { "react": "^16.14.0" } }, "sha512-EN9czvcLsMYmSDo5yRKZOAq3ZGRlDpad1gPtX0NdMMomJXcPE3yFSeFzE94X/NjOaiSVimB7LuqPYpkWVaIi4Q=="],
 

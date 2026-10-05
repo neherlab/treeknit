@@ -30,7 +30,7 @@ describe("labelCharacters", () => {
 });
 
 describe("labelFontStore", () => {
-  const PLEX_FACE = { family: '"IBM Plex Sans Condensed"' };
+  const LATO_FACE = { family: '"Lato"' };
 
   test("reports a failed font load with the font and keeps labels drawable with the fallback font", async () => {
     const failure = new Error("network error");
@@ -64,8 +64,26 @@ describe("labelFontStore", () => {
 
     await firstChange(store, "Ж");
 
-    expect(reports).toStrictEqual(["No IBM Plex Sans Condensed font face covers the label characters"]);
+    expect(reports).toStrictEqual(["No Lato or Noto Sans font face covers the label characters"]);
     expect(store.isReady("Ж")).toBe(true);
+  });
+
+  test.each([
+    ["Lato", "AB", [LATO_FACE]],
+    ["the Noto Sans fallback, for characters that Lato lacks", "Ж", [{ family: "Noto Sans" }]],
+  ])("reports nothing when a face of %s covers the label characters", async (_case, text, faces) => {
+    const reports: Error[] = [];
+
+    const store = labelFontStore({
+      load: () => Promise.resolve(faces),
+      reportFailure: (_font, error) => {
+        reports.push(error);
+      },
+    });
+
+    await firstChange(store, text);
+
+    expect(reports).toStrictEqual([]);
   });
 
   test("loads each character once, with only the characters that are not loaded yet, and reports nothing when it loads", async () => {
@@ -76,7 +94,7 @@ describe("labelFontStore", () => {
       load: (font, text) => {
         loaded.push([font, text]);
 
-        return Promise.resolve([PLEX_FACE]);
+        return Promise.resolve([LATO_FACE]);
       },
       reportFailure: (_font, error) => {
         reports.push(error);
@@ -108,7 +126,7 @@ describe("labelFontStore", () => {
       load: () => {
         loads += 1;
 
-        return Promise.resolve([PLEX_FACE]);
+        return Promise.resolve([LATO_FACE]);
       },
       reportFailure: () => undefined,
     });

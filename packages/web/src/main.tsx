@@ -1,8 +1,9 @@
 import "@fontsource/ibm-plex-mono/400.css";
-import "@fontsource/ibm-plex-sans-condensed/400.css";
-import "@fontsource/ibm-plex-sans-condensed/500.css";
-import "@fontsource/ibm-plex-sans/400.css";
-import "@fontsource/ibm-plex-sans/600.css";
+import "@fontsource/lato/400.css";
+import "@fontsource/lato/400-italic.css";
+import "@fontsource/lato/700.css";
+import "@fontsource/noto-sans/400.css";
+import "@fontsource/noto-sans/700.css";
 import "./index.css";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";

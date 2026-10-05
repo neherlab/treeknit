@@ -29,8 +29,8 @@ const ENTRY_GAP: f64 = 20.0;
 /// Advance widths of the printable ASCII characters, U+0020 to U+007E, in 1/1000 em: those of
 /// Helvetica (Adobe font metrics of the standard PostScript fonts), which Arial shares. SVG text
 /// has no width before a viewer lays it out, so the figures estimate widths from these metrics.
-/// They are an estimate, not a bound: the condensed cut of the labels is narrower, and a viewer
-/// that falls back to a wider font can draw a label past its column.
+/// They are an estimate, not a bound: a viewer that falls back to a wider font can draw a label
+/// past its column.
 #[rustfmt::skip]
 const ASCII_ADVANCE: [u32; 95] = [
   // space to /
@@ -102,9 +102,7 @@ const ZERO_WIDTH: [(char, char); 8] = [
 const OTHER_ADVANCE: u32 = 1000;
 
 /// Fonts of the figure text.
-const FONT_FAMILY: &str = "IBM Plex Sans, Helvetica, Arial, sans-serif";
-/// Fonts of the leaf labels: the condensed cut first, as in the interactive views.
-const LABEL_FONT_FAMILY: &str = "IBM Plex Sans Condensed, IBM Plex Sans, Helvetica, Arial, sans-serif";
+const FONT_FAMILY: &str = "Lato, Noto Sans, Helvetica, Arial, sans-serif";
 
 /// Strokes and marks of the drawing rules.
 pub(super) const BRANCH_WIDTH: f64 = DRAWING_RULES.branch_width_px;
@@ -133,8 +131,7 @@ const SYMBOL_CURVE_RISE: f64 = 8.0;
 const SYMBOL_RIBBON_HEIGHT: f64 = 6.0;
 const SYMBOL_RIBBON_RISE: f64 = 4.0;
 /// Shift from the middle of a text line to its baseline, in em: half the cap height of the label
-/// fonts (about 0.7 em in IBM Plex Sans, Helvetica, and Arial), so capitals are centered on
-/// their row.
+/// fonts (about 0.7 em in Lato, Helvetica, and Arial), so capitals are centered on their row.
 const BASELINE_SHIFT_EM: f64 = 0.35;
 
 /// An SVG document under construction, written with indentation.
@@ -341,7 +338,7 @@ impl Svg {
     anchor: Option<&str>,
     ink: &str,
   ) {
-    let mut attributes = vec![("font-family", LABEL_FONT_FAMILY.to_owned()), ("fill", ink.to_owned())];
+    let mut attributes = vec![("fill", ink.to_owned())];
     attributes.extend(anchor.map(|a| ("text-anchor", a.to_owned())));
     self.open("g", &attributes);
     for (name, row) in labels {

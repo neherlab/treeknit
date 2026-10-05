@@ -20,7 +20,7 @@ import ArrowUpIcon from "~icons/lucide/arrow-up";
 
 const cellFocus = "-outline-offset-2 outline-hidden data-focus-visible:outline-2 data-focus-visible:outline-focus";
 
-export const tableStyle = "text-ink font-condensed w-full border-separate border-spacing-0 text-sm";
+export const tableStyle = "text-ink w-full border-separate border-spacing-0 text-sm";
 
 export const tableHeaderStyle = "bg-ground sticky top-0 z-10";
 

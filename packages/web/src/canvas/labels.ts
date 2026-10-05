@@ -1,7 +1,7 @@
 import type { DrawingRules, LabelMode } from "@neherlab/treeknit-wasm";
 import { useCallback, useSyncExternalStore } from "react";
 
-export const LABEL_FONT_FAMILY = '"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif';
+export const LABEL_FONT_FAMILY = '"Lato", "Noto Sans", sans-serif';
 
 export const LABEL_FONT_WEIGHT = 400;
 
@@ -13,7 +13,7 @@ export function labelsVisible(mode: LabelMode, rowPx: number, rules: DrawingRule
 
 export const LABEL_FONT = `${String(LABEL_FONT_WEIGHT)} ${String(LABEL_FONT_SIZE_PX)}px ${LABEL_FONT_FAMILY}`;
 
-const LABEL_FACE_FAMILY = "IBM Plex Sans Condensed";
+const LABEL_FACE_FAMILIES: ReadonlySet<string> = new Set(["Lato", "Noto Sans"]);
 
 export interface LoadedFace {
   family: string;
@@ -50,8 +50,8 @@ export function labelFontStore(loader: FontLoader): FontStore {
     try {
       const faces = await loader.load(LABEL_FONT, characters.join(""));
 
-      if (!faces.some((face) => face.family.replaceAll(/^["']|["']$/gu, "") === LABEL_FACE_FAMILY)) {
-        loader.reportFailure(LABEL_FONT, new Error(`No ${LABEL_FACE_FAMILY} font face covers the label characters`));
+      if (!faces.some((face) => LABEL_FACE_FAMILIES.has(face.family.replaceAll(/^["']|["']$/gu, "")))) {
+        loader.reportFailure(LABEL_FONT, new Error("No Lato or Noto Sans font face covers the label characters"));
       }
     } catch (error) {
       loader.reportFailure(LABEL_FONT, error instanceof Error ? error : new Error(String(error)));
