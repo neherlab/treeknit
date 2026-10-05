@@ -2,7 +2,7 @@
 //! segment trees.
 
 use anyhow::{Context, Result, bail};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use simplelog::{ColorChoice, CombinedLogger, ConfigBuilder, LevelFilter, TermLogger, TerminalMode, WriteLogger};
 use std::collections::BTreeSet;
 use std::fs;
@@ -33,7 +33,7 @@ fn resolve_help() -> String {
   let modes = schema::modes()
     .iter()
     .map(|m| {
-      let name = m.name.to_lowercase();
+      let name = resolve_value(m.mode);
       let default = if m.mode == analysis::ResolveMode::default() {
         "(default) "
       } else {
@@ -50,8 +50,23 @@ fn resolve_help() -> String {
   )
 }
 
+/// The value of `--resolve` that selects `mode`.
+fn resolve_value(mode: analysis::ResolveMode) -> String {
+  #[expect(
+    clippy::expect_used,
+    reason = "`From<ResolveMode>` maps the variants one to one, and none is skipped"
+  )]
+  ResolveMode::value_variants()
+    .iter()
+    .filter(|&&v| analysis::ResolveMode::from(v) == mode)
+    .find_map(ValueEnum::to_possible_value)
+    .expect("every resolution mode of the settings has a --resolve value")
+    .get_name()
+    .to_owned()
+}
+
 /// How trees are resolved (see --help-resolve).
-#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+#[derive(ValueEnum, Clone, Copy, Debug)]
 enum ResolveMode {
   None,
   Strict,

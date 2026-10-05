@@ -210,7 +210,9 @@ mod tests {
     let mut texts: Vec<String> = treeknit_io::schema::modes().into_iter().map(|m| m.effect).collect();
     texts.push(treeknit_io::schema::FINAL_ROUND_HELP.to_owned());
     texts.push(treeknit_io::schema::PRE_RESOLVE_HELP.to_owned());
-    texts.push("  matched  (default) ".to_owned());
+    // Oracle: the values that `--resolve` accepts, each at the start of its line.
+    texts.push("\n  matched  (default) ".to_owned());
+    texts.extend(["\n  strict   ", "\n  liberal  ", "\n  none     "].map(str::to_owned));
     texts.push("Former options are still accepted".to_owned());
     let missing: Vec<&String> = texts.iter().filter(|t| !help.contains(t.as_str())).collect();
     assert_eq!(Vec::<&String>::new(), missing, "{help}");
