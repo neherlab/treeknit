@@ -89,7 +89,6 @@ export function useOverlap(trees: readonly TreeText[]): Answer<StatelessResult<"
   return useQuery({
     queryKey: analysisKeys.overlap(newicks),
     queryFn: async () => client.overlap(newicks.map((newick) => ({ label: UNLABELLED, newick }))),
-    placeholderData: keepPreviousData,
     gcTime: INPUT_QUERY_GC_MS,
   });
 }

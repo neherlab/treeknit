@@ -3,6 +3,7 @@ import BlockedIcon from "~icons/lucide/circle-alert";
 
 import { useInspectTrees, useOverlap } from "../analysis/queries";
 import { formatCount } from "../drawing/format";
+import { useDelayedIndicator } from "../indicator/useDelayedIndicator";
 import { BRANCH_LENGTH_VALUES } from "../inputs/treeStatus";
 import { InfoButton } from "../ui/InfoButton";
 import { Cell, Column, Row, Table, TableBody, TableHeader } from "../ui/Table";
@@ -12,11 +13,14 @@ import { type MatrixCell, type OverlapCell, overlapMatrix } from "./overviewMode
 
 export const BLOCKED_PAIR = "shares fewer than two leaves";
 
+const COUNTING_SHARED_LEAVES = "Counting shared leaves";
+
 export function InputOverview() {
   const request = useCurrentRequest();
   const inspections = useInspectTrees(request.trees);
-  const { data: overlap } = useOverlap(request.trees);
+  const { data: overlap, isPending: overlapPending } = useOverlap(request.trees);
   const labels = useMemo(() => request.trees.map(({ label }) => label), [request.trees]);
+  const counting = useDelayedIndicator(overlapPending && labels.length >= 2);
   const matrix = useMemo(() => (overlap === undefined ? null : overlapMatrix(overlap, labels)), [labels, overlap]);
   const anyBlocked = overlap?.pairs.some(({ blocked }) => blocked) ?? false;
 
@@ -96,6 +100,9 @@ export function InputOverview() {
           </TableBody>
         </Table>
       </div>
+      {matrix === null && counting ? (
+        <output className="text-ink-muted text-sm">{COUNTING_SHARED_LEAVES}</output>
+      ) : null}
       {matrix === null || labels.length < 2 ? null : (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-1">
