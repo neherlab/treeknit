@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import Icons from "unplugin-icons/vite";
 import { defineConfig } from "vite";
 
+import { auspice } from "./build/auspice.ts";
 import { contentSecurityPolicyMeta } from "./build/content-security-policy.ts";
 
 const webPort = Number(process.env["TREEKNIT_WEB_PORT"] ?? "6180");
@@ -13,6 +14,7 @@ const ICON_SIZE = "1.25em";
 
 export default defineConfig(({ mode }) => ({
   plugins: [
+    auspice(),
     contentSecurityPolicyMeta(),
     Icons({
       compiler: "jsx",
