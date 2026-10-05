@@ -1,4 +1,4 @@
-import type { LabelMode, Scale, Version } from "@neherlab/treeknit-wasm";
+import type { LabelMode, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
 import { stringifySearchWith } from "@tanstack/react-router";
 import { omit } from "remeda";
 import * as z from "zod";
@@ -15,7 +15,7 @@ export const WORKSPACE_VIEWS = [
 
 export type WorkspaceView = (typeof WORKSPACE_VIEWS)[number];
 
-export const TREE_VERSIONS = everyVariantOf<Version>()(["input", "resolved", "imputed"]);
+export const TREE_VERSIONS = everyVariantOf<TreeVersion>()(["input", "resolved", "imputed"]);
 
 export const X_SCALES = everyVariantOf<Scale>()(["div", "depth"]);
 
