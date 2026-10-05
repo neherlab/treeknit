@@ -13,7 +13,7 @@ mod tests {
 
   impl TempDir {
     fn new(name: &str) -> Self {
-      let path = std::env::temp_dir().join(format!("treeknit-cli-test-{name}-{}", std::process::id()));
+      let path = Self::path_of(name);
       if path.exists() {
         std::fs::remove_dir_all(&path).unwrap();
       }
@@ -23,6 +23,11 @@ mod tests {
 
     fn path(&self) -> &Path {
       &self.0
+    }
+
+    /// The path of the directory of `new(name)`.
+    fn path_of(name: &str) -> PathBuf {
+      std::env::temp_dir().join(format!("treeknit-cli-test-{name}-{}", std::process::id()))
     }
   }
 
@@ -58,12 +63,12 @@ mod tests {
   }
 
   /// A failed run: its directory with the input files and the output directory `out`, the exit
-  /// code, the error output, and whether any result file was written.
+  /// code, the error output, and whether the output directory was created.
   struct Failure {
     dir: TempDir,
     code: Option<i32>,
     stderr: String,
-    results: bool,
+    created: bool,
   }
 
   /// Run `treeknit` on Newick `trees` written to files `t0.nwk`, `t1.nwk`, ..., expecting a
@@ -87,21 +92,20 @@ mod tests {
       .args(["--verbosity-level", "-1"])
       .output()
       .unwrap();
-    // The log is written from the start; result files only after validation.
-    let results = std::fs::read_dir(&out).is_ok_and(|d| d.filter_map(Result::ok).any(|e| e.file_name() != "log.txt"));
     Failure {
       dir,
       code: output.status.code(),
       stderr: String::from_utf8(output.stderr).unwrap(),
-      results,
+      created: out.exists(),
     }
   }
 
-  /// Assert that `f` exited with 1, printed exactly `message` as the error, and wrote no result.
+  /// Assert that `f` exited with 1, printed exactly `message` as the error, and created no output
+  /// directory.
   fn assert_failed(f: &Failure, message: &str, case: &str) {
     assert_eq!(
       (Some(1), format!("Error: {message}\n").as_str(), false),
-      (f.code, f.stderr.as_str(), f.results),
+      (f.code, f.stderr.as_str(), f.created),
       "{case}"
     );
   }
@@ -157,12 +161,58 @@ mod tests {
   }
 
   #[test]
-  fn unreadable_tree_files_are_reported_with_the_flag_errors() {
+  fn unreadable_tree_files_are_reported_with_the_tree_and_flag_errors() {
     // The relative path names no file in the directory of the test.
-    let f = fail("unreadable", &[HA, NA], &["missing-tree-file.nwk", "--gamma=-1"]);
-    let expected = "missing-tree-file.nwk: cannot read the file: No such file or directory (os error 2)\n\
-      gamma must be a non-negative number, got -1";
-    assert_failed(&f, expected, "unreadable");
+    let f = fail("unreadable", &[HA, "(A,B"], &["missing-tree-file.nwk", "--gamma=-1"]);
+    let (code, lines) = (f.code, f.stderr.lines().collect::<Vec<_>>());
+    // The text of the operating system error differs between systems; the rest is fixed.
+    let read_error = "Error: missing-tree-file.nwk: cannot read the file: ";
+    assert_eq!(
+      (Some(1), true, false),
+      (code, lines[0].starts_with(read_error), f.created),
+      "{}",
+      f.stderr
+    );
+    let expected = vec![
+      format!(
+        "{}:1:5: tree \"t1\": Newick parse error: expected ',' or ')' at byte 4",
+        f.dir.path().join("t1.nwk").display()
+      ),
+      "gamma must be a non-negative number, got -1".to_owned(),
+    ];
+    assert_eq!(expected, lines[1..]);
+  }
+
+  #[test]
+  fn output_files_of_different_kinds_with_one_name_exit_before_writing_results() {
+    // The resolved tree of `MCCs_a.dat` and the MCCs of the pair (`a`, `resolved`) are both
+    // `MCCs_a_resolved.dat`.
+    let dir = TempDir::new("output-names");
+    let t = "((A,B),(C,D));";
+    let mut paths = write_trees(dir.path(), &[("a", t), ("resolved", t)]);
+    let dat = dir.path().join("MCCs_a.dat");
+    std::fs::write(&dat, t).unwrap();
+    paths.push(dat);
+    let out = dir.path().join("out");
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .args(&paths)
+      .arg("-o")
+      .arg(&out)
+      .args(["--verbosity-level", "-1"])
+      .output()
+      .unwrap();
+    assert_eq!(
+      (
+        Some(1),
+        "Error: two output files are named \"MCCs_a_resolved.dat\"; rename a tree\n",
+        false
+      ),
+      (
+        output.status.code(),
+        String::from_utf8(output.stderr).unwrap().as_str(),
+        out.exists()
+      )
+    );
   }
 
   #[test]
@@ -465,6 +515,11 @@ mod tests {
     assert_eq!(vec![true, true, true], present);
   }
 
+  /// Path of the session file of `run_request` for the test `name`.
+  fn request_path(name: &str) -> PathBuf {
+    TempDir::path_of(name).join("treeknit_request.json")
+  }
+
   /// Run `treeknit` with `args` in the directory of a session file, returning the exit code and
   /// the error output.
   fn run_request(name: &str, settings: &serde_json::Value, args: &[&str]) -> (Option<i32>, String) {
@@ -498,11 +553,45 @@ mod tests {
   }
 
   #[test]
-  fn request_with_invalid_settings_exits_with_their_message() {
+  fn request_with_invalid_settings_exits_with_their_message_and_field() {
     let (code, stderr) = run_request("request-invalid", &serde_json::json!({"gamma": -1}), &[]);
+    let request = request_path("request-invalid");
+    let expected = format!(
+      "Error: {}: settings.gamma: gamma must be a non-negative number, got -1\n",
+      request.display()
+    );
+    assert_eq!((Some(1), expected), (code, stderr));
+  }
+
+  #[test]
+  fn request_with_an_invalid_tree_names_the_file_the_field_and_the_position() {
+    let name = "request-tree-error";
+    let dir = TempDir::new(name);
+    let request = serde_json::json!({
+      "trees": [{"label": "ha", "newick": HA}, {"label": "na", "newick": "((A,B),\n(C,D)x y);"}],
+    });
+    let path = dir.path().join("treeknit_request.json");
+    std::fs::write(&path, request.to_string()).unwrap();
+    let out = dir.path().join("out");
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .arg("--request")
+      .arg(&path)
+      .arg("-o")
+      .arg(&out)
+      .args(["--verbosity-level", "-1"])
+      .output()
+      .unwrap();
+    let expected = format!(
+      "Error: {}: trees[1].newick: line 2, column 8: tree \"na\": Newick parse error: expected ',' or ')' at byte 15\n",
+      path.display()
+    );
     assert_eq!(
-      (Some(1), "Error: gamma must be a non-negative number, got -1\n"),
-      (code, stderr.as_str())
+      (Some(1), expected, false),
+      (
+        output.status.code(),
+        String::from_utf8(output.stderr).unwrap(),
+        out.exists()
+      )
     );
   }
 

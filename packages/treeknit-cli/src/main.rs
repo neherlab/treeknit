@@ -6,7 +6,9 @@ use clap::{Parser, ValueEnum};
 use simplelog::{ColorChoice, CombinedLogger, ConfigBuilder, LevelFilter, TermLogger, TerminalMode, WriteLogger};
 use std::collections::BTreeSet;
 use std::fs;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 use treeknit_core::{Options, Resolution};
 use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
@@ -215,8 +217,10 @@ fn main() -> Result<()> {
     println!("{}", resolve_help());
     return Ok(());
   }
-  fs::create_dir_all(&cli.outdir).with_context(|| format!("creating {}", cli.outdir.display()))?;
-  setup_logging(&cli)?;
+  // The log stays in memory until the input passes validation, so that a run with invalid input
+  // leaves no results directory behind.
+  let log_file = LogFile::default();
+  setup_logging(&cli, &log_file)?;
   if cli.threads > 0 {
     rayon_threads(cli.threads)?;
   }
@@ -227,14 +231,34 @@ fn main() -> Result<()> {
     None => tree_file_input(&cli),
   };
   log::info!("results directory: {}", cli.outdir.display());
-
-  // The checks of the trees need every tree; files that cannot be read are reported with the
-  // errors of the flags instead.
-  let parsed = if input.read_errors.is_empty() {
-    analysis::parse_trees(&input.texts)
-  } else {
-    Err(input.read_errors.clone())
+  let output_options = OutputOptions {
+    extensions: input.extensions.clone(),
+    imputed: cli.impute,
+    auspice: cli.auspice_view,
+    figures: cli.plot,
   };
+
+  // A file that cannot be read has an empty text, which fails to parse; its read error replaces
+  // that parse error, and the checks of the other trees still run.
+  let parsed = analysis::parse_trees(&input.texts)
+    .and_then(|p| {
+      let errors = output::check_output_paths(&analysis::labels(&input.texts), &output_options);
+      if errors.is_empty() { Ok(p) } else { Err(errors) }
+    })
+    .map_err(|errors| {
+      let unread: Vec<String> = input
+        .read_errors
+        .iter()
+        .filter_map(|e| e.field.as_ref().map(|f| format!("{f}.newick")))
+        .collect();
+      let mut all = input.read_errors.clone();
+      all.extend(
+        errors
+          .into_iter()
+          .filter(|e| !e.field.as_ref().is_some_and(|f| unread.contains(f))),
+      );
+      all
+    });
   if let Ok(p) = &parsed {
     run::report_overlap(&p.trees, &p.taxa);
   }
@@ -248,9 +272,14 @@ fn main() -> Result<()> {
     (parsed, opts) => {
       let mut errors = parsed.err().unwrap_or_default();
       errors.extend(opts.err().unwrap_or_default());
-      fail(&errors, &input.paths)?
+      fail(&errors, &input.source)?
     },
   };
+  fs::create_dir_all(&cli.outdir).with_context(|| format!("creating {}", cli.outdir.display()))?;
+  let log_path = cli.outdir.join(output::LOG_FILE);
+  log_file
+    .open(&log_path)
+    .with_context(|| format!("writing {}", log_path.display()))?;
   log_options(&opts, parsed.trees.len());
   log::debug!("parameters: {opts:?}");
   write_file(&cli.outdir, &output::parameters_file(&opts, input.seed))?;
@@ -267,12 +296,6 @@ fn main() -> Result<()> {
   );
 
   log::info!("writing results in {}", cli.outdir.display());
-  let output_options = OutputOptions {
-    extensions: input.extensions,
-    imputed: cli.impute,
-    auspice: cli.auspice_view,
-    figures: cli.plot,
-  };
   for file in output::output_files(&result, &opts, &output_options) {
     write_file(&cli.outdir, &file)?;
   }
@@ -283,8 +306,8 @@ fn main() -> Result<()> {
 /// output files.
 struct Input {
   texts: Vec<TreeText>,
-  /// Input file of each tree, for error messages; empty for a session file.
-  paths: Vec<PathBuf>,
+  /// Where the trees and settings come from, for error messages.
+  source: Source,
   /// Extension of each tree's output files.
   extensions: Vec<String>,
   seed: u64,
@@ -327,7 +350,7 @@ fn tree_file_input(cli: &Cli) -> Input {
     .collect();
   Input {
     texts,
-    paths: cli.trees.clone(),
+    source: Source::TreeFiles(cli.trees.clone()),
     extensions: cli.trees.iter().map(|p| extension(p)).collect(),
     seed: cli.seed,
     request: None,
@@ -349,12 +372,20 @@ fn request_input(path: &Path) -> Result<Input> {
   };
   Ok(Input {
     texts: request.trees.clone(),
-    paths: Vec::new(),
+    source: Source::Request(path.to_path_buf()),
     extensions: vec![".nwk".to_owned(); request.trees.len()],
     seed: request.settings.seed,
     request: Some(request),
     read_errors: Vec::new(),
   })
+}
+
+/// Where the trees and the settings of a run come from.
+enum Source {
+  /// The input file of each tree; the settings come from the flags.
+  TreeFiles(Vec<PathBuf>),
+  /// The session file that holds the trees and the settings.
+  Request(PathBuf),
 }
 
 /// Write `file` at its path below `dir`, creating its parent directories.
@@ -366,18 +397,29 @@ fn write_file(dir: &Path, file: &OutputFile) -> Result<()> {
   fs::write(&path, &file.text).with_context(|| format!("writing {}", path.display()))
 }
 
-/// Stop with every validation error, one per line. An error of a tree starts with the path of
-/// its input file in `paths`, and with the line and column in the file when it has them.
-fn fail<T>(errors: &[ValidationError], paths: &[PathBuf]) -> Result<T> {
+/// Stop with every validation error, one per line. For tree files, an error of a tree starts
+/// with the path of its input file, and with the line and column in the file when it has them.
+/// For a session file, every error starts with the path of the session file and the field of the
+/// error, and an error in a tree's Newick text gives the line and column in that text.
+fn fail<T>(errors: &[ValidationError], source: &Source) -> Result<T> {
   let lines: Vec<String> = errors
     .iter()
-    .map(|e| {
-      let path = e.field.as_deref().and_then(tree_index).and_then(|i| paths.get(i));
-      match (path, e.line, e.column) {
-        (Some(p), Some(line), Some(column)) => format!("{}:{line}:{column}: {e}", p.display()),
-        (Some(p), ..) => format!("{}: {e}", p.display()),
-        (None, ..) => e.to_string(),
-      }
+    .map(|e| match source {
+      Source::TreeFiles(paths) => {
+        let path = e.field.as_deref().and_then(tree_index).and_then(|i| paths.get(i));
+        match (path, e.line, e.column) {
+          (Some(p), Some(line), Some(column)) => format!("{}:{line}:{column}: {e}", p.display()),
+          (Some(p), ..) => format!("{}: {e}", p.display()),
+          (None, ..) => e.to_string(),
+        }
+      },
+      Source::Request(path) => match (&e.field, e.line, e.column) {
+        (Some(field), Some(line), Some(column)) => {
+          format!("{}: {field}: line {line}, column {column}: {e}", path.display())
+        },
+        (Some(field), ..) => format!("{}: {field}: {e}", path.display()),
+        (None, ..) => format!("{}: {e}", path.display()),
+      },
     })
     .collect();
   bail!("{}", lines.join("\n"))
@@ -615,7 +657,8 @@ fn extension(path: &Path) -> String {
     .unwrap_or_default()
 }
 
-fn setup_logging(cli: &Cli) -> Result<()> {
+/// Configure the log: the terminal at the verbosity of `cli`, and `file` with debug records too.
+fn setup_logging(cli: &Cli, file: &LogFile) -> Result<()> {
   let v = if cli.verbose && cli.verbosity_level == 0 {
     1
   } else {
@@ -631,12 +674,59 @@ fn setup_logging(cli: &Cli) -> Result<()> {
     .set_time_format_rfc3339()
     .set_target_level(LevelFilter::Off)
     .build();
-  let file = fs::File::create(cli.outdir.join("log.txt"))?;
   CombinedLogger::init(vec![
     TermLogger::new(term_level, config.clone(), TerminalMode::Stderr, ColorChoice::Auto),
-    WriteLogger::new(LevelFilter::Debug.max(term_level), config, file),
+    WriteLogger::new(LevelFilter::Debug.max(term_level), config, file.writer()),
   ])?;
   Ok(())
+}
+
+/// The file `log.txt`, named once the input has passed validation.
+#[derive(Default)]
+struct LogFile(Arc<OnceLock<fs::File>>);
+
+impl LogFile {
+  /// Create the file at `path`. The records so far reach it before the next record.
+  fn open(&self, path: &Path) -> io::Result<()> {
+    let file = fs::File::create(path)?;
+    self
+      .0
+      .set(file)
+      .map_err(|_unused_file| io::Error::other("the log file is already open"))
+  }
+
+  /// The writer of the logger: it keeps the records in memory until the file is open.
+  fn writer(&self) -> LogWriter {
+    LogWriter {
+      file: Arc::clone(&self.0),
+      memory: Vec::new(),
+    }
+  }
+}
+
+/// Writer of `log.txt` for the logger; see `LogFile`.
+struct LogWriter {
+  file: Arc<OnceLock<fs::File>>,
+  /// The records written before the file was open.
+  memory: Vec<u8>,
+}
+
+impl Write for LogWriter {
+  fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    match self.file.get() {
+      Some(mut file) => {
+        if !self.memory.is_empty() {
+          file.write_all(&std::mem::take(&mut self.memory))?;
+        }
+        file.write(buf)
+      },
+      None => self.memory.write(buf),
+    }
+  }
+
+  fn flush(&mut self) -> io::Result<()> {
+    self.file.get().map_or(Ok(()), |mut file| file.flush())
+  }
 }
 
 fn rayon_threads(n: usize) -> Result<()> {
