@@ -221,3 +221,205 @@ fn texts(trees: &[Tree]) -> Vec<TreeText> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+    use serde_json::json;
+
+    macro_rules! assert_err {
+        ($result:expr, $expected:expr) => {
+            match $result {
+                Ok(_) => panic!("expected error {:?}, got Ok", $expected),
+                Err(e) => assert_eq!($expected, e.to_string()),
+            }
+        };
+    }
+
+    fn request(trees: &[(&str, &str)], settings: Settings) -> Request {
+        Request {
+            trees: trees
+                .iter()
+                .map(|(label, newick)| TreeText {
+                    label: (*label).to_owned(),
+                    newick: (*newick).to_owned(),
+                })
+                .collect(),
+            settings,
+        }
+    }
+
+    /// Non-root clades of a Newick tree, as sets of leaf names.
+    fn clades(newick: &str) -> BTreeSet<BTreeSet<String>> {
+        let t = newick::parse(newick, "t").unwrap();
+        t.internals()
+            .into_iter()
+            .filter(|&n| n != t.root)
+            .map(|n| t.leaves_below(n).into_iter().map(|l| t.name(l).to_owned()).collect())
+            .collect()
+    }
+
+    fn built(arg: Option<ArgOutcome>) -> ArgText {
+        match arg {
+            Some(ArgOutcome::Built(a)) => a,
+            other => panic!("expected an ARG, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn identical_trees_form_one_mcc_without_reassortment() {
+        let r = request(
+            &[("ha", "((A,B),(C,D));"), ("na", "((A,B),(C,D));")],
+            Settings::default(),
+        );
+        let a = analyze(&r).unwrap();
+        assert_eq!(
+            json!({"MCC_dict": {"1": {"trees": ["ha", "na"], "mccs": [["A", "B", "C", "D"]]}}}),
+            a.mccs
+        );
+        assert_eq!(0, built(a.arg).reassortments);
+    }
+
+    #[test]
+    fn moved_leaf_matches_reference() {
+        // `fixtures/doc_mccs_1.json`: TreeKnit.jl finds X in its own MCC in all seeded runs,
+        // with one reassortment in the ARG.
+        let r = request(
+            &[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")],
+            Settings::default(),
+        );
+        let a = analyze(&r).unwrap();
+        assert_eq!(
+            json!({"MCC_dict": {"1": {"trees": ["ha", "na"], "mccs": [["X"], ["A", "B", "C", "D"]]}}}),
+            a.mccs
+        );
+        let arg = built(a.arg);
+        assert_eq!(1, arg.reassortments);
+        assert_eq!(
+            vec!["ha", "na"],
+            arg.trees.iter().map(|t| t.label.as_str()).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn three_trees_give_all_pairs_and_no_arg() {
+        let t = "((A,B),(C,D));";
+        let r = request(&[("ha", t), ("na", t), ("pb2", t)], Settings::default());
+        let a = analyze(&r).unwrap();
+        let all = json!([["A", "B", "C", "D"]]);
+        assert_eq!(
+            json!({"MCC_dict": {
+                "1": {"trees": ["ha", "na"], "mccs": all},
+                "2": {"trees": ["ha", "pb2"], "mccs": all},
+                "3": {"trees": ["na", "pb2"], "mccs": all},
+            }}),
+            a.mccs
+        );
+        assert!(a.arg.is_none());
+    }
+
+    #[test]
+    fn leaf_missing_from_one_tree_is_imputed() {
+        let r = request(
+            &[("ha", "((A,B),(C,(D,P)));"), ("na", "((A,B),(C,D));")],
+            Settings::default(),
+        );
+        let a = analyze(&r).unwrap();
+        assert_eq!(
+            json!({"MCC_dict": {"1": {
+                "trees": ["ha", "na"],
+                "mccs": [["A", "B", "C", "D", "P"]],
+                "imputed": [{"leaf": "P", "tree": "ha", "mcc": 0, "ambiguous": false}],
+            }}}),
+            a.mccs
+        );
+        // P joins na as sister of D, where ha has it.
+        assert_eq!(clades("((A,B),(C,(D,P)));"), clades(&a.imputed[1].newick));
+        assert_eq!(clades("((A,B),(C,D));"), clades(&a.resolved[1].newick));
+    }
+
+    #[rstest]
+    #[case::matched(ResolveMode::Matched, clades("((A,B),(C,D));"))]
+    #[case::none(ResolveMode::None, BTreeSet::new())]
+    #[trace]
+    fn resolve_mode_controls_resolution(#[case] resolve: ResolveMode, #[case] expected: BTreeSet<BTreeSet<String>>) {
+        // The polytomy of ha is compatible with na: one MCC, within which matched resolution
+        // copies na's splits into ha.
+        let r = request(
+            &[("ha", "(A,B,C,D);"), ("na", "((A,B),(C,D));")],
+            Settings {
+                resolve,
+                ..Settings::default()
+            },
+        );
+        let a = analyze(&r).unwrap();
+        assert_eq!(expected, clades(&a.resolved[0].newick));
+    }
+
+    #[test]
+    fn settings_default_to_command_line_defaults() {
+        let expected = Settings {
+            gamma: 2.0,
+            seq_lengths: None,
+            n_mcmc_it: 50,
+            resolve: ResolveMode::Matched,
+            pre_resolve: false,
+            rounds: 1,
+            final_round: true,
+            likelihood: true,
+            naive: false,
+            seed: 1,
+        };
+        assert_eq!(expected, serde_json::from_value::<Settings>(json!({})).unwrap());
+    }
+
+    #[test]
+    fn settings_read_camel_case_fields() {
+        let s: Settings = serde_json::from_value(json!({
+            "gamma": 3.5, "seqLengths": [1700.0, 1400.0], "nMcmcIt": 10, "resolve": "liberal",
+            "preResolve": true, "rounds": 2, "finalRound": false, "likelihood": false,
+            "naive": true, "seed": 7,
+        }))
+        .unwrap();
+        let expected = Settings {
+            gamma: 3.5,
+            seq_lengths: Some(vec![1700.0, 1400.0]),
+            n_mcmc_it: 10,
+            resolve: ResolveMode::Liberal,
+            pre_resolve: true,
+            rounds: 2,
+            final_round: false,
+            likelihood: false,
+            naive: true,
+            seed: 7,
+        };
+        assert_eq!(expected, s);
+    }
+
+    #[test]
+    fn settings_reject_unknown_fields() {
+        assert_err!(
+            serde_json::from_value::<Settings>(json!({"gama": 1.0})),
+            "unknown field `gama`, expected one of `gamma`, `seqLengths`, `nMcmcIt`, `resolve`, \
+             `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed`"
+        );
+    }
+
+    #[rustfmt::skip]
+    #[rstest]
+    #[case::one_tree(        &[("ha", "(A,B);")],                     Settings::default(),                                                         "need at least two trees")]
+    #[case::empty_label(     &[("ha", "(A,B);"), (" ", "(A,B);")],    Settings::default(),                                                         "every tree needs a label")]
+    #[case::duplicate_label( &[("ha", "(A,B);"), ("ha", "(A,B);")],   Settings::default(),                                                         "tree label ha is used twice")]
+    #[case::bad_newick(      &[("ha", "(A,B);"), ("na", "(A,B")],     Settings::default(),                                                         "tree na: Newick parse error: no ';' found")]
+    #[case::negative_gamma(  &[("ha", "(A,B);"), ("na", "(A,B);")],   Settings { gamma: -1.0, ..Settings::default() },                             "gamma must be a non-negative number, got -1")]
+    #[case::nan_gamma(       &[("ha", "(A,B);"), ("na", "(A,B);")],   Settings { gamma: f64::NAN, ..Settings::default() },                         "gamma must be a non-negative number, got NaN")]
+    #[case::zero_rounds(     &[("ha", "(A,B);"), ("na", "(A,B);")],   Settings { rounds: 0, ..Settings::default() },                               "rounds must be at least 1")]
+    #[case::length_count(    &[("ha", "(A,B);"), ("na", "(A,B);")],   Settings { seq_lengths: Some(vec![1.0]), ..Settings::default() },            "got 1 sequence lengths for 2 trees")]
+    #[case::zero_length(     &[("ha", "(A,B);"), ("na", "(A,B);")],   Settings { seq_lengths: Some(vec![1.0, 0.0]), ..Settings::default() },       "sequence lengths must be positive numbers")]
+    #[trace]
+    fn invalid_requests_are_rejected(#[case] trees: &[(&str, &str)], #[case] settings: Settings, #[case] expected: &str) {
+        assert_err!(analyze(&request(trees, settings)), expected);
+    }
+}

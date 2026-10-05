@@ -64,9 +64,11 @@ anyhow = "=1.0.104"
 clap = { version = "=4.6.7", features = ["derive"] }
 fixedbitset = "=0.5.7"
 log = "=0.4.34"
+pretty_assertions = "=1.4.1"
 rand = { version = "=0.8.8", default-features = false }
 rand_xoshiro = "=0.6.0"
 rayon = "=1.12.0"
+rstest = "=0.27.0"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["preserve_order"] }
 simplelog = "=0.12.2"
