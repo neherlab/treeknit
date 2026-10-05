@@ -8,6 +8,7 @@ import { useFadeIn } from "../canvas/motion";
 import { TreeCanvas } from "../canvas/TreeCanvas";
 import type { TreeView } from "../canvas/useTreeView";
 import { crossExtent, type RowRange } from "../canvas/viewState";
+import { drawingCursor } from "../drawing/cursor";
 import { canvasTextMeasure, longestLabelPx } from "../drawing/labelWidth";
 import { pairClickSelection, pairEmphasis, type PairTarget, type Selection } from "../drawing/selection";
 import { pairTooltip } from "../drawing/tooltip";
@@ -124,7 +125,7 @@ export default function TanglegramCanvas({
       getTooltip={getTooltip}
       onClick={onClick}
       onCladeZoom={onCladeZoom}
-      getCursor={cursor}
+      getCursor={drawingCursor}
       className="h-full"
     >
       <TanglegramLegend />
@@ -157,12 +158,4 @@ function targetRows(data: PairView, target: PairTarget): RowRange | null {
   }
 
   return leafRows(data[target.side].nodes, target.node);
-}
-
-function cursor({ isDragging, isHovering }: { isDragging: boolean; isHovering: boolean }): string {
-  if (isDragging) {
-    return "grabbing";
-  }
-
-  return isHovering ? "pointer" : "grab";
 }
