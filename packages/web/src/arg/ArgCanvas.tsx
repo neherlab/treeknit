@@ -3,7 +3,7 @@ import type { ArgView, LabelMode } from "@neherlab/treeknit-wasm";
 import { useCallback, useMemo } from "react";
 
 import { useDrawingColors } from "../canvas/drawingColors";
-import { labelsVisible, useLabelFontReady } from "../canvas/labels";
+import { labelCharacters, labelsVisible, useLabelFontReady } from "../canvas/labels";
 import { curveRowPx } from "../canvas/projection";
 import { TreeCanvas } from "../canvas/TreeCanvas";
 import type { TreeView } from "../canvas/useTreeView";
@@ -20,7 +20,9 @@ import { argLayers } from "./layers";
 
 export default function ArgCanvas({ data, view, labels, selection, onSelect, segments, label }: ArgCanvasProps) {
   const colors = useDrawingColors();
-  const fontReady = useLabelFontReady();
+  const names = useMemo(() => data.nodes.flatMap((node) => (node.leaf ? [node.label] : [])), [data]);
+  const labelText = useMemo(() => labelCharacters(names), [names]);
+  const fontReady = useLabelFontReady(labelText);
   const { frame, rowPx } = view;
   const leafAxis = frame?.leafAxis ?? "y";
   const crossPx = frame === undefined ? 0 : crossExtent(frame);
@@ -31,10 +33,8 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
       return 0;
     }
 
-    const names = data.nodes.flatMap((node) => (node.leaf ? [node.label] : []));
-
     return longestLabelPx(names, canvasTextMeasure());
-  }, [data, labelled, fontReady]);
+  }, [names, labelled, fontReady]);
 
   const column = useMemo(() => argColumn(crossPx, longestLabel), [crossPx, longestLabel]);
   const sampledRowPx = curveRowPx(rowPx);

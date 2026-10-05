@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 export type LabelMode = "auto" | "on" | "off";
 
@@ -41,29 +41,51 @@ export function shortenLabel(name: string, maxLength = LABEL_MAX_LENGTH): string
 
 export const LABEL_FONT = `${String(LABEL_FONT_WEIGHT)} ${String(LABEL_FONT_SIZE_PX)}px ${LABEL_FONT_FAMILY}`;
 
+const LABEL_FACE_FAMILY = "IBM Plex Sans Condensed";
+
+export interface LoadedFace {
+  family: string;
+}
+
 export interface FontLoader {
-  load(font: string): Promise<void>;
+  load(font: string, text: string): Promise<readonly LoadedFace[]>;
   reportFailure(font: string, error: Error): void;
 }
 
 export interface FontStore {
-  subscribe(onChange: () => void): () => void;
-  isReady(): boolean;
+  subscribe(text: string, onChange: () => void): () => void;
+  isReady(text: string): boolean;
+}
+
+export function labelCharacters(names: Iterable<string>): string {
+  const characters = new Set<string>([ELLIPSIS]);
+
+  for (const name of names) {
+    for (const character of name) {
+      characters.add(character);
+    }
+  }
+
+  return [...characters].toSorted().join("");
 }
 
 export function labelFontStore(loader: FontLoader): FontStore {
-  let ready = false;
-  let loading: Promise<void> | undefined;
+  const ready = new Set<string>();
+  const loading = new Set<string>();
   const listeners = new Set<() => void>();
 
-  async function waitForFont(): Promise<void> {
+  async function waitForFont(text: string): Promise<void> {
     try {
-      await loader.load(LABEL_FONT);
+      const faces = await loader.load(LABEL_FONT, text);
+
+      if (!faces.some((face) => face.family.replaceAll(/^["']|["']$/gu, "") === LABEL_FACE_FAMILY)) {
+        loader.reportFailure(LABEL_FONT, new Error(`No ${LABEL_FACE_FAMILY} font face covers the label characters`));
+      }
     } catch (error) {
       loader.reportFailure(LABEL_FONT, error instanceof Error ? error : new Error(String(error)));
     }
 
-    ready = true;
+    ready.add(text);
 
     for (const listener of listeners) {
       listener();
@@ -71,41 +93,38 @@ export function labelFontStore(loader: FontLoader): FontStore {
   }
 
   return {
-    subscribe(onChange) {
+    subscribe(text, onChange) {
       listeners.add(onChange);
-      loading ??= waitForFont();
+
+      if (!loading.has(text)) {
+        loading.add(text);
+        void waitForFont(text);
+      }
 
       return () => {
         listeners.delete(onChange);
       };
     },
-    isReady() {
-      return ready;
+    isReady(text) {
+      return ready.has(text);
     },
   };
 }
 
 const fontStore = labelFontStore({
-  load: async (font) => {
-    await document.fonts.load(font);
-  },
+  load: async (font, text) => document.fonts.load(font, text),
   reportFailure: (font, error) => {
     console.error(`The label font "${font}" did not load, so labels use a fallback font`, error);
   },
 });
 
-function subscribeFont(onChange: () => void): () => void {
-  return fontStore.subscribe(onChange);
-}
-
-function fontReady(): boolean {
-  return fontStore.isReady();
-}
-
 function fontNotReadyOnServer(): boolean {
   return false;
 }
 
-export function useLabelFontReady(): boolean {
-  return useSyncExternalStore(subscribeFont, fontReady, fontNotReadyOnServer);
+export function useLabelFontReady(text: string): boolean {
+  const subscribe = useCallback((onChange: () => void) => fontStore.subscribe(text, onChange), [text]);
+  const isReady = useCallback(() => fontStore.isReady(text), [text]);
+
+  return useSyncExternalStore(subscribe, isReady, fontNotReadyOnServer);
 }

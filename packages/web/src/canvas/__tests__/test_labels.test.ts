@@ -5,6 +5,7 @@ import {
   LABEL_AUTO_MIN_ROW_PX,
   LABEL_FONT,
   LABEL_MAX_LENGTH,
+  labelCharacters,
   labelFontStore,
   labelsVisible,
   RIBBON_MAX_ROW_PX,
@@ -68,7 +69,19 @@ describe("shortenLabel", () => {
   });
 });
 
+describe("labelCharacters", () => {
+  test("lists each character of the names once in code unit order, with the ellipsis of shortened labels", () => {
+    expect(labelCharacters(["A/Texas", "A/Kyiv/Київ"])).toBe("/AKTaeisvxyКвиї…");
+  });
+
+  test("keeps a letter outside the basic plane whole", () => {
+    expect(labelCharacters(["𝔸𝔸"])).toBe("…𝔸");
+  });
+});
+
 describe("labelFontStore", () => {
+  const PLEX_FACE = { family: '"IBM Plex Sans Condensed"' };
+
   test("reports a failed font load with the font and keeps labels drawable with the fallback font", async () => {
     const failure = new Error("network error");
     const reports: [string, Error][] = [];
@@ -80,40 +93,67 @@ describe("labelFontStore", () => {
       },
     });
 
-    await firstChange(store);
+    await firstChange(store, "AB");
 
     expect(reports).toStrictEqual([[LABEL_FONT, failure]]);
-    expect(store.isReady()).toBe(true);
+    expect(store.isReady("AB")).toBe(true);
   });
 
-  test("loads the label font once and reports nothing when it loads", async () => {
-    const loaded: string[] = [];
+  test.each([
+    ["no font face", []],
+    ["only a face of another family", [{ family: "IBM Plex Sans" }]],
+  ])("reports a load that finds %s for the label characters", async (_case, faces) => {
+    const reports: string[] = [];
+
+    const store = labelFontStore({
+      load: () => Promise.resolve(faces),
+      reportFailure: (_font, error) => {
+        reports.push(error.message);
+      },
+    });
+
+    await firstChange(store, "Ж");
+
+    expect(reports).toStrictEqual(["No IBM Plex Sans Condensed font face covers the label characters"]);
+    expect(store.isReady("Ж")).toBe(true);
+  });
+
+  test("loads the label font once per text, with that text, and reports nothing when it loads", async () => {
+    const loaded: [string, string][] = [];
     const reports: Error[] = [];
 
     const store = labelFontStore({
-      load: (font) => {
-        loaded.push(font);
+      load: (font, text) => {
+        loaded.push([font, text]);
 
-        return Promise.resolve();
+        return Promise.resolve([PLEX_FACE]);
       },
       reportFailure: (_font, error) => {
         reports.push(error);
       },
     });
 
-    expect(store.isReady()).toBe(false);
+    expect(store.isReady("AB")).toBe(false);
 
-    await Promise.all([firstChange(store), firstChange(store)]);
+    await Promise.all([firstChange(store, "AB"), firstChange(store, "AB")]);
 
-    expect(loaded).toStrictEqual([LABEL_FONT]);
+    expect(store.isReady("AB")).toBe(true);
+    expect(store.isReady("Ж")).toBe(false);
+
+    await firstChange(store, "Ж");
+
+    expect(loaded).toStrictEqual([
+      [LABEL_FONT, "AB"],
+      [LABEL_FONT, "Ж"],
+    ]);
     expect(reports).toStrictEqual([]);
-    expect(store.isReady()).toBe(true);
+    expect(store.isReady("Ж")).toBe(true);
   });
 });
 
-function firstChange(store: FontStore): Promise<void> {
+function firstChange(store: FontStore, text: string): Promise<void> {
   return new Promise((resolve) => {
-    store.subscribe(() => {
+    store.subscribe(text, () => {
       resolve();
     });
   });

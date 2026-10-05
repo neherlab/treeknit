@@ -3,7 +3,7 @@ import type { LabelMode, PairView } from "@neherlab/treeknit-wasm";
 import { useCallback, useMemo } from "react";
 
 import { useDrawingColors } from "../canvas/drawingColors";
-import { labelsVisible, ribbonsShown, useLabelFontReady } from "../canvas/labels";
+import { labelCharacters, labelsVisible, ribbonsShown, useLabelFontReady } from "../canvas/labels";
 import { useFadeIn } from "../canvas/motion";
 import { curveRowPx } from "../canvas/projection";
 import { TreeCanvas } from "../canvas/TreeCanvas";
@@ -31,7 +31,8 @@ export default function TanglegramCanvas({
   label,
 }: TanglegramCanvasProps) {
   const colors = useDrawingColors();
-  const fontReady = useLabelFontReady();
+  const labelText = useMemo(() => labelCharacters([...leafNames(data.left), ...leafNames(data.right)]), [data]);
+  const fontReady = useLabelFontReady(labelText);
   const fade = useFadeIn(resultKey);
   const { frame, rowPx } = view;
   const leafAxis = frame?.leafAxis ?? "y";
