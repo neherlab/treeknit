@@ -1,27 +1,7 @@
-import type {
-  AnalysisRequest,
-  AppVersion,
-  ArgView,
-  ConstellationTable,
-  FigureOptions,
-  FileEntry,
-  OutputFile,
-  Overlap,
-  PairView,
-  Palette,
-  Progress,
-  Scale,
-  Settings,
-  SettingsSchema,
-  Summary,
-  TreeInspection,
-  TreeText,
-  ValidationError,
-  TreeVersion,
-} from "@neherlab/treeknit-wasm";
+import type { AnalysisRequest, Progress, Summary } from "@neherlab/treeknit-wasm";
 import { type Endpoint, proxy, type Remote, wrap } from "comlink";
 
-import type { WorkerApi } from "./protocol";
+import type { SessionArgs, SessionResult, StatelessArgs, StatelessResult, WorkerApi } from "./protocol";
 
 export const RESULTS_LOST_MESSAGE = "The results were lost because of an internal error. Run again.";
 
@@ -39,28 +19,28 @@ export interface RunHandle {
 }
 
 export interface AnalysisClient {
-  defaultSettings(): Promise<Settings>;
-  settingsSchema(k: number, settings: Settings): Promise<SettingsSchema>;
-  inspectTree(label: string, text: string): Promise<TreeInspection>;
-  overlap(trees: TreeText[]): Promise<Overlap>;
-  validate(request: AnalysisRequest): Promise<ValidationError[]>;
-  readRequest(text: string): Promise<AnalysisRequest>;
-  requestFile(request: AnalysisRequest): Promise<OutputFile>;
-  treeLabels(fileNames: string[], existingLabels: string[]): Promise<string[]>;
-  version(): Promise<AppVersion>;
-  palette(): Promise<Palette>;
+  defaultSettings(): StatelessResult<"defaultSettings">;
+  settingsSchema(...args: StatelessArgs<"settingsSchema">): StatelessResult<"settingsSchema">;
+  inspectTree(...args: StatelessArgs<"inspectTree">): StatelessResult<"inspectTree">;
+  overlap(...args: StatelessArgs<"overlap">): StatelessResult<"overlap">;
+  validate(...args: StatelessArgs<"validate">): StatelessResult<"validate">;
+  readRequest(...args: StatelessArgs<"readRequest">): StatelessResult<"readRequest">;
+  requestFile(...args: StatelessArgs<"requestFile">): StatelessResult<"requestFile">;
+  treeLabels(...args: StatelessArgs<"treeLabels">): StatelessResult<"treeLabels">;
+  version(): StatelessResult<"version">;
+  palette(): StatelessResult<"palette">;
   startRun(request: AnalysisRequest, onProgress: (progress: Progress) => void): RunHandle;
   cancel(): void;
-  summary(sessionId: number): Promise<Summary>;
-  files(sessionId: number): Promise<FileEntry[]>;
-  fileText(sessionId: number, path: string): Promise<string>;
-  zip(sessionId: number): Promise<Uint8Array>;
-  commandLine(sessionId: number): Promise<string>;
-  pairView(sessionId: number, pair: number, version: TreeVersion, scale: Scale): Promise<PairView>;
-  argView(sessionId: number, scale: Scale): Promise<ArgView | undefined>;
-  constellation(sessionId: number): Promise<ConstellationTable>;
-  figure(sessionId: number, pair: number, version: TreeVersion, options: FigureOptions): Promise<string>;
-  argFigure(sessionId: number, options: FigureOptions): Promise<string>;
+  summary(sessionId: number): SessionResult<"summary">;
+  files(sessionId: number): SessionResult<"files">;
+  fileText(sessionId: number, ...args: SessionArgs<"fileText">): SessionResult<"fileText">;
+  zip(sessionId: number): SessionResult<"zip">;
+  commandLine(sessionId: number): SessionResult<"commandLine">;
+  pairView(sessionId: number, ...args: SessionArgs<"pairView">): SessionResult<"pairView">;
+  argView(sessionId: number, ...args: SessionArgs<"argView">): SessionResult<"argView">;
+  constellation(sessionId: number): SessionResult<"constellation">;
+  figure(sessionId: number, ...args: SessionArgs<"figure">): SessionResult<"figure">;
+  argFigure(sessionId: number, ...args: SessionArgs<"argFigure">): SessionResult<"argFigure">;
   onSessionLost(listener: (sessionId: number) => void): () => void;
   dispose(): void;
 }
@@ -109,43 +89,43 @@ export class WorkerAnalysisClient implements AnalysisClient {
     this.#utility = this.#connect("treeknit-utility");
   }
 
-  async defaultSettings(): Promise<Settings> {
+  async defaultSettings(): StatelessResult<"defaultSettings"> {
     return this.#stateless((remote) => remote.defaultSettings());
   }
 
-  async settingsSchema(k: number, settings: Settings): Promise<SettingsSchema> {
-    return this.#stateless((remote) => remote.settingsSchema(k, settings));
+  async settingsSchema(...args: StatelessArgs<"settingsSchema">): StatelessResult<"settingsSchema"> {
+    return this.#stateless((remote) => remote.settingsSchema(...args));
   }
 
-  async inspectTree(label: string, text: string): Promise<TreeInspection> {
-    return this.#stateless((remote) => remote.inspectTree(label, text));
+  async inspectTree(...args: StatelessArgs<"inspectTree">): StatelessResult<"inspectTree"> {
+    return this.#stateless((remote) => remote.inspectTree(...args));
   }
 
-  async overlap(trees: TreeText[]): Promise<Overlap> {
-    return this.#stateless((remote) => remote.overlap(trees));
+  async overlap(...args: StatelessArgs<"overlap">): StatelessResult<"overlap"> {
+    return this.#stateless((remote) => remote.overlap(...args));
   }
 
-  async validate(request: AnalysisRequest): Promise<ValidationError[]> {
-    return this.#stateless((remote) => remote.validate(request));
+  async validate(...args: StatelessArgs<"validate">): StatelessResult<"validate"> {
+    return this.#stateless((remote) => remote.validate(...args));
   }
 
-  async readRequest(text: string): Promise<AnalysisRequest> {
-    return this.#stateless((remote) => remote.readRequest(text));
+  async readRequest(...args: StatelessArgs<"readRequest">): StatelessResult<"readRequest"> {
+    return this.#stateless((remote) => remote.readRequest(...args));
   }
 
-  async requestFile(request: AnalysisRequest): Promise<OutputFile> {
-    return this.#stateless((remote) => remote.requestFile(request));
+  async requestFile(...args: StatelessArgs<"requestFile">): StatelessResult<"requestFile"> {
+    return this.#stateless((remote) => remote.requestFile(...args));
   }
 
-  async treeLabels(fileNames: string[], existingLabels: string[]): Promise<string[]> {
-    return this.#stateless((remote) => remote.treeLabels(fileNames, existingLabels));
+  async treeLabels(...args: StatelessArgs<"treeLabels">): StatelessResult<"treeLabels"> {
+    return this.#stateless((remote) => remote.treeLabels(...args));
   }
 
-  async version(): Promise<AppVersion> {
+  async version(): StatelessResult<"version"> {
     return this.#stateless((remote) => remote.version());
   }
 
-  async palette(): Promise<Palette> {
+  async palette(): StatelessResult<"palette"> {
     return this.#stateless((remote) => remote.palette());
   }
 
@@ -174,44 +154,44 @@ export class WorkerAnalysisClient implements AnalysisClient {
     run.settle({ status: "failed", kind: "cancelled", message: CANCELLED_MESSAGE });
   }
 
-  async summary(sessionId: number): Promise<Summary> {
+  async summary(sessionId: number): SessionResult<"summary"> {
     return this.#inSession(sessionId, (remote) => remote.summary());
   }
 
-  async files(sessionId: number): Promise<FileEntry[]> {
+  async files(sessionId: number): SessionResult<"files"> {
     return this.#inSession(sessionId, (remote) => remote.files());
   }
 
-  async fileText(sessionId: number, path: string): Promise<string> {
-    return this.#inSession(sessionId, (remote) => remote.fileText(path));
+  async fileText(sessionId: number, ...args: SessionArgs<"fileText">): SessionResult<"fileText"> {
+    return this.#inSession(sessionId, (remote) => remote.fileText(...args));
   }
 
-  async zip(sessionId: number): Promise<Uint8Array> {
+  async zip(sessionId: number): SessionResult<"zip"> {
     return this.#inSession(sessionId, (remote) => remote.zip());
   }
 
-  async commandLine(sessionId: number): Promise<string> {
+  async commandLine(sessionId: number): SessionResult<"commandLine"> {
     return this.#inSession(sessionId, (remote) => remote.commandLine());
   }
 
-  async pairView(sessionId: number, pair: number, version: TreeVersion, scale: Scale): Promise<PairView> {
-    return this.#inSession(sessionId, (remote) => remote.pairView(pair, version, scale));
+  async pairView(sessionId: number, ...args: SessionArgs<"pairView">): SessionResult<"pairView"> {
+    return this.#inSession(sessionId, (remote) => remote.pairView(...args));
   }
 
-  async argView(sessionId: number, scale: Scale): Promise<ArgView | undefined> {
-    return this.#inSession(sessionId, (remote) => remote.argView(scale));
+  async argView(sessionId: number, ...args: SessionArgs<"argView">): SessionResult<"argView"> {
+    return this.#inSession(sessionId, (remote) => remote.argView(...args));
   }
 
-  async constellation(sessionId: number): Promise<ConstellationTable> {
+  async constellation(sessionId: number): SessionResult<"constellation"> {
     return this.#inSession(sessionId, (remote) => remote.constellation());
   }
 
-  async figure(sessionId: number, pair: number, version: TreeVersion, options: FigureOptions): Promise<string> {
-    return this.#inSession(sessionId, (remote) => remote.figure(pair, version, options));
+  async figure(sessionId: number, ...args: SessionArgs<"figure">): SessionResult<"figure"> {
+    return this.#inSession(sessionId, (remote) => remote.figure(...args));
   }
 
-  async argFigure(sessionId: number, options: FigureOptions): Promise<string> {
-    return this.#inSession(sessionId, (remote) => remote.argFigure(options));
+  async argFigure(sessionId: number, ...args: SessionArgs<"argFigure">): SessionResult<"argFigure"> {
+    return this.#inSession(sessionId, (remote) => remote.argFigure(...args));
   }
 
   onSessionLost(listener: (sessionId: number) => void): () => void {

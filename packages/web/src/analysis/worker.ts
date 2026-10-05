@@ -1,64 +1,38 @@
-import { initSync, Session } from "@neherlab/treeknit-wasm";
-import * as wasm from "@neherlab/treeknit-wasm";
-import type {
-  AnalysisRequest,
-  FigureOptions,
-  Progress,
-  Scale,
-  Settings,
-  TreeText,
-  TreeVersion,
+import {
+  defaultSettings,
+  initSync,
+  inspectTree,
+  overlap,
+  palette,
+  readRequest,
+  requestFile,
+  Session,
+  settingsSchema,
+  treeLabels,
+  validate,
+  version,
 } from "@neherlab/treeknit-wasm";
+import type { AnalysisRequest, Progress } from "@neherlab/treeknit-wasm";
 import { expose, transfer } from "comlink";
 
 import { ProgressThrottle } from "./progressThrottle";
-import type { WorkerApi } from "./protocol";
+import type { SessionArgs, WorkerApi } from "./protocol";
 
 class AnalysisWorker implements WorkerApi {
+  readonly defaultSettings = defaultSettings;
+  readonly settingsSchema = settingsSchema;
+  readonly inspectTree = inspectTree;
+  readonly overlap = overlap;
+  readonly validate = validate;
+  readonly readRequest = readRequest;
+  readonly requestFile = requestFile;
+  readonly treeLabels = treeLabels;
+  readonly version = version;
+  readonly palette = palette;
   #session: Session | undefined;
 
   init(module: WebAssembly.Module): void {
     initSync({ module });
-  }
-
-  defaultSettings() {
-    return wasm.defaultSettings();
-  }
-
-  settingsSchema(k: number, settings: Settings) {
-    return wasm.settingsSchema(k, settings);
-  }
-
-  inspectTree(label: string, text: string) {
-    return wasm.inspectTree(label, text);
-  }
-
-  overlap(trees: TreeText[]) {
-    return wasm.overlap(trees);
-  }
-
-  validate(request: AnalysisRequest) {
-    return wasm.validate(request);
-  }
-
-  readRequest(text: string) {
-    return wasm.readRequest(text);
-  }
-
-  requestFile(request: AnalysisRequest) {
-    return wasm.requestFile(request);
-  }
-
-  treeLabels(fileNames: string[], existingLabels: string[]) {
-    return wasm.treeLabels(fileNames, existingLabels);
-  }
-
-  version() {
-    return wasm.version();
-  }
-
-  palette() {
-    return wasm.palette();
   }
 
   run(request: AnalysisRequest, onProgress: (progress: Progress) => Promise<void>) {
@@ -88,8 +62,8 @@ class AnalysisWorker implements WorkerApi {
     return this.#current().files();
   }
 
-  fileText(path: string) {
-    return this.#current().fileText(path);
+  fileText(...args: SessionArgs<"fileText">) {
+    return this.#current().fileText(...args);
   }
 
   zip() {
@@ -102,24 +76,24 @@ class AnalysisWorker implements WorkerApi {
     return this.#current().commandLine();
   }
 
-  pairView(pair: number, version: TreeVersion, scale: Scale) {
-    return this.#current().pairView(pair, version, scale);
+  pairView(...args: SessionArgs<"pairView">) {
+    return this.#current().pairView(...args);
   }
 
-  argView(scale: Scale) {
-    return this.#current().argView(scale);
+  argView(...args: SessionArgs<"argView">) {
+    return this.#current().argView(...args);
   }
 
   constellation() {
     return this.#current().constellation();
   }
 
-  figure(pair: number, version: TreeVersion, options: FigureOptions) {
-    return this.#current().figure(pair, version, options);
+  figure(...args: SessionArgs<"figure">) {
+    return this.#current().figure(...args);
   }
 
-  argFigure(options: FigureOptions) {
-    return this.#current().argFigure(options);
+  argFigure(...args: SessionArgs<"argFigure">) {
+    return this.#current().argFigure(...args);
   }
 
   #current(): Session {

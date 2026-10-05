@@ -1,50 +1,29 @@
-import type {
-  AnalysisRequest,
-  AppVersion,
-  ArgView,
-  ConstellationTable,
-  FigureOptions,
-  FileEntry,
-  OutputFile,
-  Overlap,
-  PairView,
-  Palette,
-  Progress,
-  Scale,
-  Settings,
-  SettingsSchema,
-  Summary,
-  TreeInspection,
-  TreeText,
-  ValidationError,
-  TreeVersion,
-} from "@neherlab/treeknit-wasm";
+import type * as wasm from "@neherlab/treeknit-wasm";
+import type { AnalysisRequest, Progress, Session, Summary } from "@neherlab/treeknit-wasm";
 
-export interface StatelessApi {
-  defaultSettings(): Settings;
-  settingsSchema(k: number, settings: Settings): SettingsSchema;
-  inspectTree(label: string, text: string): TreeInspection;
-  overlap(trees: TreeText[]): Overlap;
-  validate(request: AnalysisRequest): ValidationError[];
-  readRequest(text: string): AnalysisRequest;
-  requestFile(request: AnalysisRequest): OutputFile;
-  treeLabels(fileNames: string[], existingLabels: string[]): string[];
-  version(): AppVersion;
-  palette(): Palette;
-}
+export type StatelessApi = Pick<
+  typeof wasm,
+  | "defaultSettings"
+  | "settingsSchema"
+  | "inspectTree"
+  | "overlap"
+  | "validate"
+  | "readRequest"
+  | "requestFile"
+  | "treeLabels"
+  | "version"
+  | "palette"
+>;
 
-export interface SessionApi {
-  summary(): Summary;
-  files(): FileEntry[];
-  fileText(path: string): string;
-  zip(): Uint8Array;
-  commandLine(): string;
-  pairView(pair: number, version: TreeVersion, scale: Scale): PairView;
-  argView(scale: Scale): ArgView | undefined;
-  constellation(): ConstellationTable;
-  figure(pair: number, version: TreeVersion, options: FigureOptions): string;
-  argFigure(options: FigureOptions): string;
-}
+export type SessionApi = Omit<Session, "free" | typeof Symbol.dispose>;
+
+export type StatelessArgs<Name extends keyof StatelessApi> = Parameters<StatelessApi[Name]>;
+
+export type StatelessResult<Name extends keyof StatelessApi> = Promise<ReturnType<StatelessApi[Name]>>;
+
+export type SessionArgs<Name extends keyof SessionApi> = Parameters<SessionApi[Name]>;
+
+export type SessionResult<Name extends keyof SessionApi> = Promise<ReturnType<SessionApi[Name]>>;
 
 export interface WorkerApi extends StatelessApi, SessionApi {
   init(module: WebAssembly.Module): void;

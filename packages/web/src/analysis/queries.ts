@@ -1,65 +1,52 @@
-import type {
-  AnalysisRequest,
-  AppVersion,
-  ArgView,
-  ConstellationTable,
-  FileEntry,
-  Overlap,
-  PairView,
-  Palette,
-  Scale,
-  Settings,
-  SettingsSchema,
-  TreeInspection,
-  TreeText,
-  ValidationError,
-  TreeVersion,
-} from "@neherlab/treeknit-wasm";
+import type { ArgView, TreeInspection, TreeText } from "@neherlab/treeknit-wasm";
 import { keepPreviousData, useQueries, useQuery, type UseQueryResult } from "@tanstack/react-query";
 
 import { useAnalysisClient } from "./context";
+import type { SessionArgs, SessionResult, StatelessArgs, StatelessResult } from "./protocol";
+
+type Answer<Result> = UseQueryResult<Awaited<Result>>;
 
 export const analysisKeys = {
   defaultSettings: () => ["defaultSettings"] as const,
   palette: () => ["palette"] as const,
   version: () => ["version"] as const,
-  inspectTree: (label: string, text: string) => ["inspectTree", label, text] as const,
+  inspectTree: (...args: StatelessArgs<"inspectTree">) => ["inspectTree", ...args] as const,
   overlap: (trees: readonly TreeText[]) => ["overlap", trees] as const,
-  validate: (request: AnalysisRequest) => ["validate", request] as const,
-  settingsSchema: (k: number, settings: Settings) => ["settingsSchema", k, settings] as const,
+  validate: (...args: StatelessArgs<"validate">) => ["validate", ...args] as const,
+  settingsSchema: (...args: StatelessArgs<"settingsSchema">) => ["settingsSchema", ...args] as const,
   session: (sessionId: number) => ["session", sessionId] as const,
   files: (sessionId: number) => ["session", sessionId, "files"] as const,
   commandLine: (sessionId: number) => ["session", sessionId, "commandLine"] as const,
-  pairView: (sessionId: number, pair: number, version: TreeVersion, scale: Scale) =>
-    ["session", sessionId, "pairView", pair, version, scale] as const,
-  argView: (sessionId: number, scale: Scale) => ["session", sessionId, "argView", scale] as const,
+  pairView: (sessionId: number, ...args: SessionArgs<"pairView">) =>
+    ["session", sessionId, "pairView", ...args] as const,
+  argView: (sessionId: number, ...args: SessionArgs<"argView">) => ["session", sessionId, "argView", ...args] as const,
   constellation: (sessionId: number) => ["session", sessionId, "constellation"] as const,
 };
 
-export function useDefaultSettings(): UseQueryResult<Settings> {
+export function useDefaultSettings(): Answer<StatelessResult<"defaultSettings">> {
   const client = useAnalysisClient();
 
   return useQuery({ queryKey: analysisKeys.defaultSettings(), queryFn: async () => client.defaultSettings() });
 }
 
-export function usePalette(): UseQueryResult<Palette> {
+export function usePalette(): Answer<StatelessResult<"palette">> {
   const client = useAnalysisClient();
 
   return useQuery({ queryKey: analysisKeys.palette(), queryFn: async () => client.palette() });
 }
 
-export function useVersion(): UseQueryResult<AppVersion> {
+export function useVersion(): Answer<StatelessResult<"version">> {
   const client = useAnalysisClient();
 
   return useQuery({ queryKey: analysisKeys.version(), queryFn: async () => client.version() });
 }
 
-export function useInspectTree(label: string, text: string): UseQueryResult<TreeInspection> {
+export function useInspectTree(...args: StatelessArgs<"inspectTree">): Answer<StatelessResult<"inspectTree">> {
   const client = useAnalysisClient();
 
   return useQuery({
-    queryKey: analysisKeys.inspectTree(label, text),
-    queryFn: async () => client.inspectTree(label, text),
+    queryKey: analysisKeys.inspectTree(...args),
+    queryFn: async () => client.inspectTree(...args),
     placeholderData: keepPreviousData,
   });
 }
@@ -76,7 +63,7 @@ export function useInspectTrees(trees: readonly TreeText[]): (TreeInspection | u
   });
 }
 
-export function useOverlap(trees: readonly TreeText[]): UseQueryResult<Overlap> {
+export function useOverlap(trees: readonly TreeText[]): Answer<StatelessResult<"overlap">> {
   const client = useAnalysisClient();
 
   return useQuery({
@@ -86,33 +73,33 @@ export function useOverlap(trees: readonly TreeText[]): UseQueryResult<Overlap> 
   });
 }
 
-export function useValidation(request: AnalysisRequest): UseQueryResult<ValidationError[]> {
+export function useValidation(...args: StatelessArgs<"validate">): Answer<StatelessResult<"validate">> {
   const client = useAnalysisClient();
 
   return useQuery({
-    queryKey: analysisKeys.validate(request),
-    queryFn: async () => client.validate(request),
+    queryKey: analysisKeys.validate(...args),
+    queryFn: async () => client.validate(...args),
     placeholderData: keepPreviousData,
   });
 }
 
-export function useSettingsSchema(k: number, settings: Settings): UseQueryResult<SettingsSchema> {
+export function useSettingsSchema(...args: StatelessArgs<"settingsSchema">): Answer<StatelessResult<"settingsSchema">> {
   const client = useAnalysisClient();
 
   return useQuery({
-    queryKey: analysisKeys.settingsSchema(k, settings),
-    queryFn: async () => client.settingsSchema(k, settings),
+    queryKey: analysisKeys.settingsSchema(...args),
+    queryFn: async () => client.settingsSchema(...args),
     placeholderData: keepPreviousData,
   });
 }
 
-export function useSessionFiles(sessionId: number): UseQueryResult<FileEntry[]> {
+export function useSessionFiles(sessionId: number): Answer<SessionResult<"files">> {
   const client = useAnalysisClient();
 
   return useQuery({ queryKey: analysisKeys.files(sessionId), queryFn: async () => client.files(sessionId) });
 }
 
-export function useCommandLine(sessionId: number): UseQueryResult<string> {
+export function useCommandLine(sessionId: number): Answer<SessionResult<"commandLine">> {
   const client = useAnalysisClient();
 
   return useQuery({
@@ -121,30 +108,25 @@ export function useCommandLine(sessionId: number): UseQueryResult<string> {
   });
 }
 
-export function usePairView(
-  sessionId: number,
-  pair: number,
-  version: TreeVersion,
-  scale: Scale,
-): UseQueryResult<PairView> {
+export function usePairView(sessionId: number, ...args: SessionArgs<"pairView">): Answer<SessionResult<"pairView">> {
   const client = useAnalysisClient();
 
   return useQuery({
-    queryKey: analysisKeys.pairView(sessionId, pair, version, scale),
-    queryFn: async () => client.pairView(sessionId, pair, version, scale),
+    queryKey: analysisKeys.pairView(sessionId, ...args),
+    queryFn: async () => client.pairView(sessionId, ...args),
   });
 }
 
-export function useArgView(sessionId: number, scale: Scale): UseQueryResult<ArgView | null> {
+export function useArgView(sessionId: number, ...args: SessionArgs<"argView">): UseQueryResult<ArgView | null> {
   const client = useAnalysisClient();
 
   return useQuery({
-    queryKey: analysisKeys.argView(sessionId, scale),
-    queryFn: async () => (await client.argView(sessionId, scale)) ?? null,
+    queryKey: analysisKeys.argView(sessionId, ...args),
+    queryFn: async () => (await client.argView(sessionId, ...args)) ?? null,
   });
 }
 
-export function useConstellation(sessionId: number): UseQueryResult<ConstellationTable> {
+export function useConstellation(sessionId: number): Answer<SessionResult<"constellation">> {
   const client = useAnalysisClient();
 
   return useQuery({
