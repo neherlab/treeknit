@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::BTreeSet;
+use std::path::Path;
 use treeknit_core::arg::arg_from_trees;
 use treeknit_core::{Options, PairResult, Resolution, Taxa, Tree};
 use treeknit_io::{arg, mccs, newick};
+use tsify::Tsify;
 
-pub fn analyze(request: &Request) -> Result<Analysis, String> {
+pub fn analyze(request: &AnalysisRequest) -> Result<Analysis, String> {
   let k = request.trees.len();
   if k < 2 {
     return Err("need at least two trees".to_owned());
@@ -23,42 +24,73 @@ pub fn analyze(request: &Request) -> Result<Analysis, String> {
   }
 
   let pairs = treeknit_core::run(&mut trees, &taxa, &opts, request.settings.seed);
-  let arg = (k == 2 && !pairs[0].mccs.is_empty()).then(|| arg_outcome(&trees, &pairs[0], &taxa));
+  let mut files = mcc_files(&pairs, &trees, &taxa)?;
+  files.extend(tree_files(&trees, "_resolved"));
+  files.extend(tree_files(
+    &treeknit_core::imputed_trees(&trees, &pairs, taxa.len()),
+    "_imputed",
+  ));
+  let (arg, arg_files) = (k == 2 && !pairs[0].mccs.is_empty())
+    .then(|| arg_outcome(&trees, &pairs[0], &taxa))
+    .map_or((None, vec![]), |(outcome, files)| (Some(outcome), files));
+  files.extend(arg_files);
   Ok(Analysis {
-    mccs: mccs::to_json(&pairs, &trees, &taxa),
-    resolved: texts(&trees),
-    imputed: texts(&treeknit_core::imputed_trees(&trees, &pairs, taxa.len())),
+    pairs: pairs
+      .iter()
+      .map(|p| PairMccs {
+        trees: [trees[p.i].label.clone(), trees[p.j].label.clone()],
+        mccs: p.mccs.iter().map(|m| taxa.names_of(m)).collect(),
+      })
+      .collect(),
     arg,
+    files,
   })
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+/// Trees to compare, and the settings of the analysis.
+#[derive(Clone, Debug, Deserialize, Serialize, Tsify)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct Request {
+pub struct AnalysisRequest {
   pub trees: Vec<TreeText>,
   #[serde(default)]
   pub settings: Settings,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+/// A labeled tree in Newick format.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Tsify)]
 #[serde(deny_unknown_fields)]
 pub struct TreeText {
   pub label: String,
   pub newick: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+/// Settings of the command line; a missing field takes the command-line default.
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize, Tsify)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct Settings {
+  /// Cost γ of a reassortment, removing an MCC (`--gamma`).
   pub gamma: f64,
+  /// Sequence lengths of the segments, in the order of the trees, used by the likelihood
+  /// tie-break (`--seq-lengths`).
   pub seq_lengths: Option<Vec<f64>>,
+  /// MCMC steps per leaf (`--n-mcmc-it`).
   pub n_mcmc_it: usize,
+  /// How trees are resolved (`--resolve`).
   pub resolve: ResolveMode,
+  /// Before inference, add to each tree the splits of other trees compatible with all trees
+  /// (`--pre-resolve`).
   pub pre_resolve: bool,
+  /// Rounds of pair inference (`--rounds`).
   pub rounds: usize,
+  /// With strict or liberal resolution and more than two trees, run a final round that
+  /// re-infers MCCs without resolution (the opposite of `--no-final-round`).
   pub final_round: bool,
+  /// Break ties between configurations with branch lengths (the opposite of
+  /// `--no-likelihood`).
   pub likelihood: bool,
+  /// Naive MCCs, γ → ∞ (`--naive`).
   pub naive: bool,
+  /// Seed of the random number generator (`--seed`).
   pub seed: u64,
 }
 
@@ -80,7 +112,7 @@ impl Default for Settings {
   }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize, Tsify)]
 #[serde(rename_all = "lowercase")]
 pub enum ResolveMode {
   None,
@@ -101,29 +133,48 @@ impl From<ResolveMode> for Resolution {
   }
 }
 
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
+/// MCCs of every tree pair, the ARG of two trees, and the output files of the command line.
+#[derive(Clone, Debug, Serialize, Tsify)]
 pub struct Analysis {
-  pub mccs: Value,
-  pub resolved: Vec<TreeText>,
-  pub imputed: Vec<TreeText>,
+  pub pairs: Vec<PairMccs>,
+  /// `None` for more than two trees, or when the two trees share no MCC.
   pub arg: Option<ArgOutcome>,
+  pub files: Vec<OutputFile>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+/// MCCs of one tree pair, as leaf names.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Tsify)]
+pub struct PairMccs {
+  pub trees: [String; 2],
+  pub mccs: Vec<Vec<String>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Tsify)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ArgOutcome {
-  Built(ArgText),
+  Built { reassortments: usize },
   Failed { message: String },
 }
 
-#[derive(Clone, Debug, Serialize)]
+/// A result file, named as the command line names it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
-pub struct ArgText {
-  pub newick: String,
-  pub nodes: String,
-  pub reassortments: usize,
-  pub trees: Vec<TreeText>,
+pub struct OutputFile {
+  pub name: String,
+  pub media_type: String,
+  pub text: String,
+}
+
+impl OutputFile {
+  fn new(name: String, text: &str) -> Self {
+    let json = Path::new(&name).extension().is_some_and(|e| e == "json");
+    let media_type = if json { "application/json" } else { "text/plain" };
+    OutputFile {
+      name,
+      media_type: media_type.to_owned(),
+      text: format!("{text}\n"),
+    }
+  }
 }
 
 fn check_labels(trees: &[TreeText]) -> Result<(), String> {
@@ -170,27 +221,46 @@ fn options(s: &Settings, k: usize) -> Result<Options, String> {
   Ok(o)
 }
 
-fn arg_outcome(trees: &[Tree], pair: &PairResult, taxa: &Taxa) -> ArgOutcome {
-  let (t1, t2, m) = treeknit_core::arg_inputs(trees, pair, taxa.len());
-  match arg_from_trees(&t1, &t2, &m, taxa.len()) {
-    Ok(a) => ArgOutcome::Built(ArgText {
-      newick: arg::extended_newick(&a),
-      nodes: arg::node_table(&a),
-      reassortments: a.n_hybrids(),
-      trees: texts(&a.trees),
-    }),
-    Err(e) => ArgOutcome::Failed { message: e.to_string() },
-  }
+fn mcc_files(pairs: &[PairResult], trees: &[Tree], taxa: &Taxa) -> Result<Vec<OutputFile>, String> {
+  let json = serde_json::to_string_pretty(&mccs::to_json(pairs, trees, taxa)).map_err(|e| e.to_string())?;
+  let mut files = vec![OutputFile::new("MCCs.json".to_owned(), &json)];
+  // Legacy text format of TreeKnit.jl < 0.5, as the command line writes it.
+  files.extend(pairs.iter().map(|p| {
+    let name = if trees.len() == 2 {
+      "MCCs.dat".to_owned()
+    } else {
+      format!("MCCs_{}_{}.dat", trees[p.i].label, trees[p.j].label)
+    };
+    let names: Vec<Vec<String>> = p.mccs.iter().map(|m| taxa.names_of(m)).collect();
+    OutputFile::new(name, &mccs::to_lines(&names))
+  }));
+  Ok(files)
 }
 
-fn texts(trees: &[Tree]) -> Vec<TreeText> {
+fn tree_files<'a>(trees: &'a [Tree], suffix: &'a str) -> impl Iterator<Item = OutputFile> + 'a {
   trees
     .iter()
-    .map(|t| TreeText {
-      label: t.label.clone(),
-      newick: newick::write(t),
-    })
-    .collect()
+    .map(move |t| OutputFile::new(format!("{}{suffix}.nwk", t.label), &newick::write(t)))
+}
+
+/// The ARG of two trees, with its files: the extended Newick, the node table, and the
+/// liberally resolved trees it was built from.
+fn arg_outcome(trees: &[Tree], pair: &PairResult, taxa: &Taxa) -> (ArgOutcome, Vec<OutputFile>) {
+  let (t1, t2, m) = treeknit_core::arg_inputs(trees, pair, taxa.len());
+  match arg_from_trees(&t1, &t2, &m, taxa.len()) {
+    Ok(a) => {
+      let mut files = vec![
+        OutputFile::new("arg.nwk".to_owned(), &arg::extended_newick(&a)),
+        OutputFile::new("nodes.dat".to_owned(), &arg::node_table(&a)),
+      ];
+      files.extend(tree_files(&a.trees, "_liberal_resolved"));
+      let outcome = ArgOutcome::Built {
+        reassortments: a.n_hybrids(),
+      };
+      (outcome, files)
+    },
+    Err(e) => (ArgOutcome::Failed { message: e.to_string() }, vec![]),
+  }
 }
 
 #[cfg(test)]
@@ -198,7 +268,7 @@ mod tests {
   use super::*;
   use pretty_assertions::assert_eq;
   use rstest::rstest;
-  use serde_json::json;
+  use serde_json::{Value, json};
 
   macro_rules! assert_err {
     ($result:expr, $expected:expr) => {
@@ -209,8 +279,8 @@ mod tests {
     };
   }
 
-  fn request(trees: &[(&str, &str)], settings: Settings) -> Request {
-    Request {
+  fn request(trees: &[(&str, &str)], settings: Settings) -> AnalysisRequest {
+    AnalysisRequest {
       trees: trees
         .iter()
         .map(|(label, newick)| TreeText {
@@ -231,11 +301,19 @@ mod tests {
       .collect()
   }
 
-  fn built(arg: Option<ArgOutcome>) -> ArgText {
-    match arg {
-      Some(ArgOutcome::Built(a)) => a,
-      other => panic!("expected an ARG, got {other:?}"),
+  fn pair(trees: [&str; 2], mccs: &[&[&str]]) -> PairMccs {
+    PairMccs {
+      trees: trees.map(str::to_owned),
+      mccs: mccs.iter().map(|m| m.iter().map(|&x| x.to_owned()).collect()).collect(),
     }
+  }
+
+  fn file<'a>(a: &'a Analysis, name: &str) -> &'a str {
+    &a.files.iter().find(|f| f.name == name).unwrap().text
+  }
+
+  fn file_names(a: &Analysis) -> Vec<&str> {
+    a.files.iter().map(|f| f.name.as_str()).collect()
   }
 
   #[test]
@@ -245,11 +323,8 @@ mod tests {
       Settings::default(),
     );
     let a = analyze(&r).unwrap();
-    assert_eq!(
-      json!({"MCC_dict": {"1": {"trees": ["ha", "na"], "mccs": [["A", "B", "C", "D"]]}}}),
-      a.mccs
-    );
-    assert_eq!(0, built(a.arg).reassortments);
+    assert_eq!(vec![pair(["ha", "na"], &[&["A", "B", "C", "D"]])], a.pairs);
+    assert_eq!(Some(ArgOutcome::Built { reassortments: 0 }), a.arg);
   }
 
   #[test]
@@ -260,16 +335,35 @@ mod tests {
       Settings::default(),
     );
     let a = analyze(&r).unwrap();
+    assert_eq!(vec![pair(["ha", "na"], &[&["X"], &["A", "B", "C", "D"]])], a.pairs);
+    assert_eq!(Some(ArgOutcome::Built { reassortments: 1 }), a.arg);
     assert_eq!(
       json!({"MCC_dict": {"1": {"trees": ["ha", "na"], "mccs": [["X"], ["A", "B", "C", "D"]]}}}),
-      a.mccs
+      serde_json::from_str::<Value>(file(&a, "MCCs.json")).unwrap()
     );
-    let arg = built(a.arg);
-    assert_eq!(1, arg.reassortments);
-    assert_eq!(
-      vec!["ha", "na"],
-      arg.trees.iter().map(|t| t.label.as_str()).collect::<Vec<_>>()
+    assert_eq!("X\nA,B,C,D\n", file(&a, "MCCs.dat"));
+  }
+
+  #[test]
+  fn two_trees_give_the_files_of_the_command_line() {
+    let r = request(
+      &[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")],
+      Settings::default(),
     );
+    let a = analyze(&r).unwrap();
+    let expected = vec![
+      "MCCs.json",
+      "MCCs.dat",
+      "ha_resolved.nwk",
+      "na_resolved.nwk",
+      "ha_imputed.nwk",
+      "na_imputed.nwk",
+      "arg.nwk",
+      "nodes.dat",
+      "ha_liberal_resolved.nwk",
+      "na_liberal_resolved.nwk",
+    ];
+    assert_eq!(expected, file_names(&a));
   }
 
   #[test]
@@ -277,16 +371,27 @@ mod tests {
     let t = "((A,B),(C,D));";
     let r = request(&[("ha", t), ("na", t), ("pb2", t)], Settings::default());
     let a = analyze(&r).unwrap();
-    let all = json!([["A", "B", "C", "D"]]);
-    assert_eq!(
-      json!({"MCC_dict": {
-          "1": {"trees": ["ha", "na"], "mccs": all},
-          "2": {"trees": ["ha", "pb2"], "mccs": all},
-          "3": {"trees": ["na", "pb2"], "mccs": all},
-      }}),
-      a.mccs
-    );
-    assert!(a.arg.is_none());
+    let all: &[&[&str]] = &[&["A", "B", "C", "D"]];
+    let expected_pairs = vec![
+      pair(["ha", "na"], all),
+      pair(["ha", "pb2"], all),
+      pair(["na", "pb2"], all),
+    ];
+    assert_eq!(expected_pairs, a.pairs);
+    assert_eq!(None, a.arg);
+    let expected_files = vec![
+      "MCCs.json",
+      "MCCs_ha_na.dat",
+      "MCCs_ha_pb2.dat",
+      "MCCs_na_pb2.dat",
+      "ha_resolved.nwk",
+      "na_resolved.nwk",
+      "pb2_resolved.nwk",
+      "ha_imputed.nwk",
+      "na_imputed.nwk",
+      "pb2_imputed.nwk",
+    ];
+    assert_eq!(expected_files, file_names(&a));
   }
 
   #[test]
@@ -302,11 +407,11 @@ mod tests {
           "mccs": [["A", "B", "C", "D", "P"]],
           "imputed": [{"leaf": "P", "tree": "ha", "mcc": 0, "ambiguous": false}],
       }}}),
-      a.mccs
+      serde_json::from_str::<Value>(file(&a, "MCCs.json")).unwrap()
     );
     // Oracle: P is sister of D in ha.
-    assert_eq!(clades("((A,B),(C,(D,P)));"), clades(&a.imputed[1].newick));
-    assert_eq!(clades("((A,B),(C,D));"), clades(&a.resolved[1].newick));
+    assert_eq!(clades("((A,B),(C,(D,P)));"), clades(file(&a, "na_imputed.nwk")));
+    assert_eq!(clades("((A,B),(C,D));"), clades(file(&a, "na_resolved.nwk")));
   }
 
   #[rstest]
@@ -323,7 +428,17 @@ mod tests {
       },
     );
     let a = analyze(&r).unwrap();
-    assert_eq!(expected, clades(&a.resolved[0].newick));
+    assert_eq!(expected, clades(file(&a, "ha_resolved.nwk")));
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::json(  "MCCs.json", "application/json")]
+  #[case::newick("ha.nwk",    "text/plain")]
+  #[case::table( "nodes.dat", "text/plain")]
+  #[trace]
+  fn output_file_media_type_follows_the_extension(#[case] name: &str, #[case] expected: &str) {
+    assert_eq!(expected, OutputFile::new(name.to_owned(), "").media_type);
   }
 
   #[test]

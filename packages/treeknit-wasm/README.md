@@ -11,16 +11,19 @@ Then open http://localhost:8000. In the build container, prefix `just build-wasm
 
 ## Interface
 
-`analyze(request)` takes and returns plain objects:
+`analyze(request)` takes and returns plain objects, typed in the generated `treeknit_wasm.d.ts`:
 
 ```js
 analyze({
   trees: [{ label: 'ha', newick: '((A,B),(C,(D,X)));' }, { label: 'na', newick: '((A,(B,X)),(C,D));' }],
   settings: { gamma: 2, resolve: 'matched', seed: 1 }, // optional; missing fields take the CLI defaults
 });
-// { mccs: { MCC_dict: ... }, resolved: [{ label, newick }], imputed: [...],
-//   arg: { status: 'built', newick, nodes, reassortments, trees } | { status: 'failed', message } | null }
+// { pairs: [{ trees: ['ha', 'na'], mccs: [['X'], ['A', 'B', 'C', 'D']] }],
+//   arg: { status: 'built', reassortments: 1 } | { status: 'failed', message } | null,
+//   files: [{ name: 'MCCs.json', mediaType: 'application/json', text }, ...] }
 ```
+
+`files` holds the output files of the command line under its file names: `MCCs.json`, the legacy `MCCs.dat` (`MCCs_<a>_<b>.dat` per pair for more than two trees), `<label>_resolved.nwk`, `<label>_imputed.nwk`, and for two trees the ARG files `arg.nwk`, `nodes.dat`, and `<label>_liberal_resolved.nwk`. `defaultSettings()` returns the settings of a request without settings.
 
 Settings: `gamma`, `seqLengths`, `nMcmcIt`, `resolve` (`matched`, `strict`, `liberal`, `none`), `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed`. Invalid input throws an `Error` with a message.
 

@@ -8,6 +8,7 @@ mod tests {
   use serde_json::{Value, json};
   use treeknit_core::{Options, Resolution, Taxa, Tree};
   use treeknit_io::newick;
+  use tsify::{Ts, Tsify};
   use wasm_bindgen::{JsError, JsValue};
   use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -20,19 +21,31 @@ mod tests {
         ],
         "settings": {"seed": 1},
     });
-    let result = plain(&treeknit_wasm::analyze(&js(&request)).unwrap());
+    let result = plain(&treeknit_wasm::analyze(&ts(&request)).unwrap().js_value());
     // Oracle: fixtures/doc_mccs_1.json (TreeKnit.jl)
-    let expected_mccs = json!({"MCC_dict": {"1": {"trees": ["ha", "na"], "mccs": [["X"], ["A", "B", "C", "D"]]}}});
-    assert_eq!(expected_mccs, result["mccs"]);
-    assert_eq!(json!("built"), result["arg"]["status"]);
-    assert_eq!(json!(1), result["arg"]["reassortments"]);
+    let expected_pairs = json!([{"trees": ["ha", "na"], "mccs": [["X"], ["A", "B", "C", "D"]]}]);
+    assert_eq!(expected_pairs, result["pairs"]);
+    assert_eq!(json!({"status": "built", "reassortments": 1}), result["arg"]);
+    assert_eq!(
+      json!({"name": "MCCs.dat", "mediaType": "text/plain", "text": "X\nA,B,C,D\n"}),
+      result["files"][1]
+    );
+  }
+
+  #[wasm_bindgen_test]
+  fn default_settings_are_the_command_line_defaults() {
+    let expected = json!({
+        "gamma": 2, "seqLengths": null, "nMcmcIt": 50, "resolve": "matched", "preResolve": false,
+        "rounds": 1, "finalRound": true, "likelihood": true, "naive": false, "seed": 1,
+    });
+    assert_eq!(expected, plain(&treeknit_wasm::default_settings().unwrap().js_value()));
   }
 
   #[wasm_bindgen_test]
   fn analyze_reports_analysis_errors() {
     let one_tree = json!({"trees": [{"label": "ha", "newick": "(A,B);"}]});
     let expected = "need at least two trees";
-    match treeknit_wasm::analyze(&js(&one_tree)) {
+    match treeknit_wasm::analyze(&ts(&one_tree)) {
       Ok(_) => panic!("expected error {expected:?}"),
       Err(e) => assert_eq!(expected, message(e)),
     }
@@ -41,7 +54,7 @@ mod tests {
   #[wasm_bindgen_test]
   fn analyze_reports_where_a_request_is_malformed() {
     let expected = "invalid request: invalid type: integer `3`, expected a sequence at line 1 column 10";
-    match treeknit_wasm::analyze(&js(&json!({"trees": 3}))) {
+    match treeknit_wasm::analyze(&ts(&json!({"trees": 3}))) {
       Ok(_) => panic!("expected error {expected:?}"),
       Err(e) => assert_eq!(expected, message(e)),
     }
@@ -67,8 +80,8 @@ mod tests {
     assert_eq!(mccs(false), mccs(true));
   }
 
-  fn js(v: &Value) -> JsValue {
-    JSON::parse(&v.to_string()).unwrap()
+  fn ts<T: Tsify>(v: &Value) -> Ts<T> {
+    Ts::new_unchecked(JSON::parse(&v.to_string()).unwrap())
   }
 
   fn plain(v: &JsValue) -> Value {

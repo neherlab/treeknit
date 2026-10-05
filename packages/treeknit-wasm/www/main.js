@@ -31,7 +31,7 @@ function el(tag, text) {
   return e;
 }
 
-function download(name, text, type = 'text/plain') {
+function download(name, text, type) {
   const a = el('a', name);
   a.href = URL.createObjectURL(new Blob([text], { type }));
   urls.push(a.href);
@@ -55,7 +55,7 @@ function run(request) {
 }
 
 function show(result) {
-  const pairs = Object.values(result.mccs.MCC_dict).map(({ trees: [a, b], mccs }) => {
+  const pairs = result.pairs.map(({ trees: [a, b], mccs }) => {
     const table = el('table');
     table.append(el('caption', `${a} – ${b}: ${mccs.length} MCC${mccs.length === 1 ? '' : 's'}`));
     for (const [i, mcc] of mccs.entries()) {
@@ -75,12 +75,7 @@ function show(result) {
 
   urls.forEach((u) => URL.revokeObjectURL(u));
   urls = [];
-  const links = [download('MCCs.json', JSON.stringify(result.mccs, null, 2) + '\n', 'application/json')];
-  for (const t of result.resolved) links.push(download(`${t.label}_resolved.nwk`, t.newick + '\n'));
-  for (const t of result.imputed) links.push(download(`${t.label}_imputed.nwk`, t.newick + '\n'));
-  if (arg?.status === 'built') {
-    links.push(download('arg.nwk', arg.newick + '\n'), download('nodes.dat', arg.nodes + '\n'));
-  }
+  const links = result.files.map((f) => download(f.name, f.text, f.mediaType));
   $('downloads').replaceChildren(...links);
   $('results').hidden = false;
 }
