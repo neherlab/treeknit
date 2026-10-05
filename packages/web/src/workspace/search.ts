@@ -1,3 +1,4 @@
+import type { LabelMode, Scale, Version } from "@neherlab/treeknit-wasm";
 import { stringifySearchWith } from "@tanstack/react-router";
 import { omit } from "remeda";
 import * as z from "zod";
@@ -14,11 +15,11 @@ export const WORKSPACE_VIEWS = [
 
 export type WorkspaceView = (typeof WORKSPACE_VIEWS)[number];
 
-export const TREE_VERSIONS = ["input", "resolved", "imputed"] as const;
+export const TREE_VERSIONS = everyVariantOf<Version>()(["input", "resolved", "imputed"]);
 
-export const X_SCALES = ["div", "depth"] as const;
+export const X_SCALES = everyVariantOf<Scale>()(["div", "depth"]);
 
-export const LABEL_MODES = ["auto", "on", "off"] as const;
+export const LABEL_MODES = everyVariantOf<LabelMode>()(["auto", "on", "off"]);
 
 export const NODE_SIDES = ["left", "right", "arg"] as const;
 
@@ -139,6 +140,11 @@ export function resolveWorkspaceSearch(search: WorkspaceSearch, availability: Wo
 
 export function selectPair(search: WorkspaceSearch, pair: number): WorkspaceSearch {
   return { ...omit(search, ["mcc", "node"]), pair };
+}
+
+function everyVariantOf<T extends string>() {
+  return <const V extends readonly [T, ...T[]]>(values: V & ([Exclude<T, V[number]>] extends [never] ? unknown : never)) =>
+    values;
 }
 
 function choice<const V extends string>(values: readonly [V, ...V[]], fallback: NoInfer<V>) {
