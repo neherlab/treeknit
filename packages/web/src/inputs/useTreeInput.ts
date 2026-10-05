@@ -133,6 +133,8 @@ export function useTreeInput(): TreeInputState {
       addFiles,
       openSessionFile,
       async addPasted(newick, label) {
+        setError(null);
+
         const trimmed = label.trim();
 
         report(
@@ -174,6 +176,8 @@ export function useTreeInput(): TreeInputState {
         }
       },
       async replaceFile(treeId, file) {
+        setError(null);
+
         const { trees, failures } = await readTrees([file]);
         const [tree] = trees;
 
