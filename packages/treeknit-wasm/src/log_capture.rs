@@ -2,8 +2,9 @@
 
 use js_sys::Date;
 use log::{LevelFilter, Log, Metadata, Record};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use treeknit_io::summary::Diagnostic;
+use wasm_bindgen::prelude::*;
 
 /// The logger of the module: it keeps records of level Debug and above in `RECORDS`.
 struct Capture;
@@ -13,6 +14,14 @@ static CAPTURE: Capture = Capture;
 thread_local! {
   /// Records since the last `take`. Browsers run the module on one thread.
   static RECORDS: RefCell<Vec<Diagnostic>> = const { RefCell::new(Vec::new()) };
+  /// Whether a failed install was written to the console.
+  static REPORTED: Cell<bool> = const { Cell::new(false) };
+}
+
+#[wasm_bindgen]
+extern "C" {
+  #[wasm_bindgen(js_namespace = console, js_name = error)]
+  fn console_error(message: &str);
 }
 
 impl Log for Capture {
@@ -36,10 +45,17 @@ impl Log for Capture {
   fn flush(&self) {}
 }
 
-/// Install the logger; a second call keeps the installed one.
-pub(crate) fn install() {
+/// Install the logger; a second call keeps the installed one. Fails when another logger is
+/// installed, because runs would then have neither diagnostics nor `log.txt` records.
+pub(crate) fn install() -> Result<(), String> {
   if log::set_logger(&CAPTURE).is_ok() {
     log::set_max_level(LevelFilter::Debug);
+    return Ok(());
+  }
+  if std::ptr::addr_eq(log::logger(), &raw const CAPTURE) {
+    Ok(())
+  } else {
+    Err("another logger is installed, so runs record no diagnostics and no log.txt lines".to_owned())
   }
 }
 
@@ -54,9 +70,14 @@ pub(crate) struct Discard(());
 
 /// Discard the records of an export: clear the buffer now and when the guard drops, so they never
 /// mix into the log of a run. Installs the logger too, because the start function that installs
-/// it in the web app does not run under `wasm-bindgen-test`.
+/// it in the web app does not run under `wasm-bindgen-test`; a failed install is written to the
+/// console once, as the start function reports it.
 pub(crate) fn discard() -> Discard {
-  install();
+  if let Err(message) = install() {
+    if !REPORTED.replace(true) {
+      console_error(&message);
+    }
+  }
   take();
   Discard(())
 }

@@ -1189,6 +1189,10 @@ export function requestFile(request: AnalysisRequest): OutputFile;
  */
 export function settingsSchema(k: number, settings: Settings): SettingsSchema;
 
+/**
+ * Set up the module: panics go to the console, and the log of the Rust code is captured for the
+ * diagnostics and `log.txt` of each run. Throws when another logger is installed.
+ */
 export function start(): void;
 
 /**

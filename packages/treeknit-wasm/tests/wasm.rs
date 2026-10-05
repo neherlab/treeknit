@@ -23,6 +23,13 @@ mod tests {
   use wasm_bindgen_test::wasm_bindgen_test;
 
   #[wasm_bindgen_test]
+  fn start_installs_the_log_capture_and_accepts_its_own_logger_again() {
+    // Oracle: the doc of `start`: it fails only when another logger is installed.
+    treeknit_wasm::start().unwrap();
+    treeknit_wasm::start().unwrap();
+  }
+
+  #[wasm_bindgen_test]
   fn default_settings_are_the_command_line_defaults() {
     let expected = json!({
         "gamma": 2, "seqLengths": null, "nMcmcIt": 50, "resolve": "matched", "preResolve": false,

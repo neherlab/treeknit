@@ -19,10 +19,12 @@ use treeknit_io::version::AppVersion;
 use tsify::{Ts, Tsify};
 use wasm_bindgen::prelude::*;
 
+/// Set up the module: panics go to the console, and the log of the Rust code is captured for the
+/// diagnostics and `log.txt` of each run. Throws when another logger is installed.
 #[wasm_bindgen(start)]
-pub fn start() {
+pub fn start() -> Result<(), JsError> {
   console_error_panic_hook::set_once();
-  log_capture::install();
+  log_capture::install().map_err(|e| JsError::new(&e))
 }
 
 /// The settings that a request without settings uses: the defaults of the command line.
