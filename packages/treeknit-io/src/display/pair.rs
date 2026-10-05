@@ -201,6 +201,11 @@ fn mcc_infos(run: &RunResult, p: &PairResult, slots: &[usize]) -> Vec<MccInfo> {
         size: m.len(),
         leaves: run.taxa.names_of(m),
         imputed_leaves: attached.clone().flat_map(|a| run.taxa.names_of(&a.leaves)).collect(),
+        ambiguous_leaves: attached
+          .clone()
+          .filter(|a| a.ambiguous)
+          .flat_map(|a| run.taxa.names_of(&a.leaves))
+          .collect(),
         ambiguous: attached.clone().any(|a| a.ambiguous),
         slot: slots[i],
       }
@@ -475,6 +480,24 @@ mod tests {
         }
       }
     }
+  }
+
+  #[test]
+  fn pair_view_names_ambiguously_attached_leaves() {
+    // P hangs at ha's root, whose children belong to different MCCs: its attachment is
+    // ambiguous.
+    let (r, opts) = run_trees(&[("ha", "(P,((A,B),(C,D)),X);"), ("na", "((A,(B,X)),(C,D));")]);
+    let v = view(&r, &opts, 0, TreeVersion::Resolved);
+    let p_mcc = v.mccs.iter().find(|m| m.leaves.iter().any(|l| l == "P")).unwrap();
+    assert_eq!(vec!["P".to_owned()], p_mcc.imputed_leaves);
+    assert_eq!(vec!["P".to_owned()], p_mcc.ambiguous_leaves);
+    assert!(p_mcc.ambiguous);
+    assert!(
+      v.mccs
+        .iter()
+        .filter(|m| m.index != p_mcc.index)
+        .all(|m| m.ambiguous_leaves.is_empty())
+    );
   }
 
   #[test]
