@@ -64,7 +64,7 @@ impl From<ResolveMode> for Resolution {
 #[derive(Parser, Debug)]
 #[command(
   name = "treeknit",
-  version,
+  version = env!("TREEKNIT_LONG_VERSION"),
   after_help = "Use --help-resolve for details on how trees are resolved."
 )]
 struct Cli {
@@ -179,7 +179,7 @@ fn main() -> Result<()> {
     rayon_threads(cli.threads)?;
   }
 
-  log::info!("TreeKnit {}", env!("CARGO_PKG_VERSION"));
+  log::info!("TreeKnit {}", env!("TREEKNIT_LONG_VERSION"));
   log::info!(
     "input trees: {}",
     cli

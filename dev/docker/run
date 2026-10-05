@@ -23,6 +23,8 @@
 #                           container (full list in passthrough_env)
 #   MISE_GITHUB_TOKEN       GitHub token for mise, forwarded when set, to lift the
 #                           anonymous API rate limit of `just tools-lock`
+#   TREEKNIT_VERSION_SUFFIX Suffix of the version that the CLI reports, forwarded
+#                           when set (packages/treeknit-cli/build.rs)
 #
 # Examples:
 #   dev/docker/run just check
@@ -175,7 +177,7 @@ passthrough_env() {
     CI | GITHUB_ACTIONS | COLORTERM | NO_COLOR | FORCE_COLOR | \
       CARGO_PROFILE_* | CARGO_TERM_* | CARGO_BUILD_JOBS | CARGO_INCREMENTAL | NEXTEST_* | \
       RUST_LOG | RUST_LOG_STYLE | RUST_BACKTRACE | RUST_LIB_BACKTRACE | RAYON_NUM_THREADS | \
-      KACHE_DISABLED | KACHE_LOG | KACHE_MAX_SIZE | MISE_GITHUB_TOKEN)
+      KACHE_DISABLED | KACHE_LOG | KACHE_MAX_SIZE | MISE_GITHUB_TOKEN | TREEKNIT_VERSION_SUFFIX)
       run_flags+=(--env="${name}")
       ;;
     esac
