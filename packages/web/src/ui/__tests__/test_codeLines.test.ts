@@ -158,68 +158,74 @@ describe("codeLines with the positions of Rust newick::line_column", () => {
 
 describe("codeLines properties", () => {
   const position = fc.record({ line: fc.integer({ min: -1, max: 6 }), column: fc.integer({ min: -1, max: 12 }) });
-  const definedRange = fc.record({ start: position, end: position });
-  const range = fc.option(definedRange, { nil: undefined });
-
-  function expectedLastMarkedLine({ start, end: requestedEnd }: TextRange, lineCount: number) {
-    const endsBeforeStart =
-      requestedEnd.line < start.line || (requestedEnd.line === start.line && requestedEnd.column < start.column);
-
-    const end = endsBeforeStart ? start : requestedEnd;
-    const endLine = end.line > start.line && end.column <= 1 ? end.line - 1 : end.line;
-    const lastLine = Math.min(Math.max(start.line, endLine), lineCount);
-
-    return Math.max(start.line, 1) <= lastLine ? lastLine : undefined;
-  }
-
-  const lineText = fc.string({ unit: "grapheme", maxLength: 10 });
-  const lineEnd = fc.constantFrom("\n", "\r\n");
+  const range = fc.option(fc.record({ start: position, end: position }), { nil: undefined });
+  const lineText = fc.string({ unit: fc.constantFrom("a", "é", "𝔸", ",", " ", "\r"), maxLength: 8 });
+  const lineEnd = fc.constantFrom("\n", "\r\n", "\r\r\n");
 
   const code = fc
     .tuple(fc.array(fc.tuple(lineText, lineEnd), { maxLength: 4 }), lineText)
     .map(([lines, last]) => lines.map(([text, end]) => text + end).join("") + last);
 
-  function withoutCarriageReturn(line: string) {
-    return line.endsWith("\r") ? line.slice(0, -1) : line;
-  }
-
-  test("splits the code into its lines and preserves the text of each line without its carriage return", () => {
+  test("marks exactly the code points from the start up to the end of the range, as a cell model of the text", () => {
     fc.assert(
       fc.property(code, range, (text, highlight) => {
-        const rebuilt = codeLines(text, highlight).map(({ before, marked, after }) => before + (marked ?? "") + after);
-
-        const lines = text.split("\n").map(withoutCarriageReturn);
-        const lastLineMarked = codeLines(`${text}x`, highlight).at(-1)?.marked !== undefined;
-        const dropsLastLine = lines.length > 1 && lines.at(-1) === "" && !lastLineMarked;
-
-        expect(rebuilt).toStrictEqual(dropsLastLine ? lines.slice(0, -1) : lines);
-      }),
-    );
-  });
-
-  test("marks a contiguous block of lines that starts at the start line, clamped to the first line", () => {
-    fc.assert(
-      fc.property(code, range, (text, highlight) => {
-        const marked = codeLines(text, highlight)
-          .filter((line) => line.marked !== undefined)
-          .map((line) => line.number);
-
-        const expected = marked.length === 0 ? [] : [Math.max(highlight?.start.line ?? 1, 1)];
-
-        expect(marked.slice(0, 1)).toStrictEqual(expected);
-        expect(marked).toStrictEqual(marked.map((_, index) => (marked[0] ?? 0) + index));
-      }),
-    );
-  });
-
-  test("ends the marked block on the end line, or on the line before an end at its first column", () => {
-    fc.assert(
-      fc.property(code, definedRange, (text, highlight) => {
-        const lines = codeLines(text, highlight);
-        const marked = lines.filter((line) => line.marked !== undefined).map((line) => line.number);
-
-        expect(marked.at(-1)).toBe(expectedLastMarkedLine(highlight, lines.length));
+        expect(codeLines(text, highlight)).toStrictEqual(cellModel(text, highlight));
       }),
     );
   });
 });
+
+type Cell = readonly [line: number, column: number];
+
+function cellModel(text: string, range: TextRange | undefined) {
+  const lines = text.split("\n").map((line) => Array.from(line.endsWith("\r") ? line.slice(0, -1) : line));
+  const at = (line: number, column: number): Cell => clampCell(lines, line, column);
+  const from = range === undefined ? undefined : at(range.start.line, range.start.column);
+  const to = range === undefined ? undefined : at(range.end.line, range.end.column);
+
+  const model = lines.map((characters, index) => {
+    const number = index + 1;
+    const lineEndCell: Cell = [number, characters.length + 1];
+
+    const covered =
+      from !== undefined &&
+      to !== undefined &&
+      (number === range?.start.line || (!isBeforeCell(lineEndCell, from) && isBeforeCell([number, 1], to)));
+
+    if (!covered) {
+      return { number, before: characters.join(""), marked: undefined, after: "" };
+    }
+
+    const cells = characters.map((character, column): [string, Cell] => [character, [number, column + 1]]);
+
+    const pick = (keep: (cell: Cell) => boolean) =>
+      cells.flatMap(([character, cell]) => (keep(cell) ? [character] : []));
+
+    return {
+      number,
+      before: pick((cell) => isBeforeCell(cell, from)).join(""),
+      marked: pick((cell) => !isBeforeCell(cell, from) && isBeforeCell(cell, to)).join(""),
+      after: pick((cell) => !isBeforeCell(cell, from) && !isBeforeCell(cell, to)).join(""),
+    };
+  });
+
+  const last = model.at(-1);
+
+  return model.length > 1 && last?.before === "" && last.marked === undefined ? model.slice(0, -1) : model;
+}
+
+function clampCell(lines: readonly (readonly string[])[], line: number, column: number): Cell {
+  if (line < 1) {
+    return [0, 0];
+  }
+
+  const characters = lines[line - 1];
+
+  return characters === undefined
+    ? [lines.length + 1, 0]
+    : [line, Math.min(Math.max(column, 1), characters.length + 1)];
+}
+
+function isBeforeCell([line, column]: Cell, [otherLine, otherColumn]: Cell): boolean {
+  return line < otherLine || (line === otherLine && column < otherColumn);
+}
