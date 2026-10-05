@@ -1,9 +1,17 @@
+import { cn } from "cn";
 import { useCallback, useState } from "react";
 
 import { Dialog } from "../ui/Dialog";
 import { CenterViews } from "./CenterViews";
 import { Inspector } from "./Inspector";
-import { INSPECTOR_TITLE, keepSheetOpen, type PanePlacement, RAIL_TITLE } from "./layout";
+import {
+  INSPECTOR_TITLE,
+  INSPECTOR_WIDTH_CLASS,
+  keepSheetOpen,
+  type PanePlacement,
+  RAIL_TITLE,
+  RAIL_WIDTH_CLASS,
+} from "./layout";
 import { Rail } from "./Rail";
 import { RunBar } from "./RunBar";
 import { useShellLayout } from "./useShellLayout";
@@ -26,7 +34,10 @@ export function Workspace() {
   return (
     <div className="flex min-h-0 flex-1">
       {railSheet ? null : (
-        <aside aria-label={RAIL_TITLE} className="border-rule bg-pane flex w-84 shrink-0 flex-col border-r">
+        <aside
+          aria-label={RAIL_TITLE}
+          className={cn("border-rule bg-pane flex shrink-0 flex-col border-r", RAIL_WIDTH_CLASS)}
+        >
           <div className="min-h-0 flex-1 overflow-y-auto">
             <Rail />
           </div>
@@ -47,16 +58,26 @@ export function Workspace() {
         ) : null}
       </main>
       {inspectorSheet ? null : (
-        <aside aria-label={INSPECTOR_TITLE} className="border-rule bg-pane w-80 shrink-0 overflow-y-auto border-l">
+        <aside
+          aria-label={INSPECTOR_TITLE}
+          className={cn("border-rule bg-pane shrink-0 overflow-y-auto border-l", INSPECTOR_WIDTH_CLASS)}
+        >
           <Inspector />
         </aside>
       )}
-      <Dialog title={RAIL_TITLE} placement="left" isOpen={railOpen} onOpenChange={setRailOpen}>
+      <Dialog
+        title={RAIL_TITLE}
+        placement="left"
+        className={RAIL_WIDTH_CLASS}
+        isOpen={railOpen}
+        onOpenChange={setRailOpen}
+      >
         <Rail />
       </Dialog>
       <Dialog
         title={INSPECTOR_TITLE}
         placement="right"
+        className={INSPECTOR_WIDTH_CLASS}
         isOpen={inspectorOpen}
         onOpenChange={setInspectorOpen}
       >

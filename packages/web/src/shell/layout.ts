@@ -1,3 +1,13 @@
+export const RAIL_WIDTH_PX = 336;
+
+export const INSPECTOR_WIDTH_PX = 320;
+
+export const CENTER_MIN_WIDTH_PX = 640;
+
+export const RAIL_WIDTH_CLASS = "w-[min(336px,100vw-48px)]";
+
+export const INSPECTOR_WIDTH_CLASS = "w-[min(320px,100vw-48px)]";
+
 export const RAIL_PANE_MIN_WIDTH_PX = 1024;
 
 export const INSPECTOR_PANE_MIN_WIDTH_PX = 1320;

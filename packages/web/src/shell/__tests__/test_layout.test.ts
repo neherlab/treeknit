@@ -1,9 +1,14 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  CENTER_MIN_WIDTH_PX,
   INSPECTOR_PANE_MIN_WIDTH_PX,
+  INSPECTOR_WIDTH_CLASS,
+  INSPECTOR_WIDTH_PX,
   keepSheetOpen,
   RAIL_PANE_MIN_WIDTH_PX,
+  RAIL_WIDTH_CLASS,
+  RAIL_WIDTH_PX,
   SHELL_MEDIA_QUERIES,
   shellLayout,
 } from "../layout";
@@ -21,12 +26,22 @@ describe("shellLayout", () => {
     expect(shellLayout(width)).toStrictEqual({ rail, inspector });
   });
 
-  test("keeps the center at least 640 px wide plus padding when both panes show", () => {
-    const railWidthPx = 336;
-    const inspectorWidthPx = 320;
-    const centerMinWidthPx = 640;
+  test("keeps the center at its minimum width when both panes show", () => {
+    expect(INSPECTOR_PANE_MIN_WIDTH_PX - RAIL_WIDTH_PX - INSPECTOR_WIDTH_PX).toBeGreaterThanOrEqual(
+      CENTER_MIN_WIDTH_PX,
+    );
+  });
 
-    expect(INSPECTOR_PANE_MIN_WIDTH_PX - railWidthPx - inspectorWidthPx).toBeGreaterThan(centerMinWidthPx);
+  test.each([
+    { pane: "rail", widthClass: RAIL_WIDTH_CLASS, widthPx: RAIL_WIDTH_PX },
+    { pane: "inspector", widthClass: INSPECTOR_WIDTH_CLASS, widthPx: INSPECTOR_WIDTH_PX },
+  ])("sizes the $pane by its width in pixels", ({ widthClass, widthPx }) => {
+    expect(widthClass).toBe(`w-[min(${widthPx}px,100vw-48px)]`);
+  });
+
+  test("keeps the center at its minimum width when only the rail shows as a pane", () => {
+    expect(shellLayout(RAIL_PANE_MIN_WIDTH_PX)).toStrictEqual({ rail: "pane", inspector: "sheet" });
+    expect(RAIL_PANE_MIN_WIDTH_PX - RAIL_WIDTH_PX).toBeGreaterThanOrEqual(CENTER_MIN_WIDTH_PX);
   });
 
   test("returns the same object for widths with the same layout", () => {

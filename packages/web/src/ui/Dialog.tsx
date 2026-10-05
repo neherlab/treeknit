@@ -20,8 +20,8 @@ const panelStyle = cva("bg-ground text-ink flex max-h-full min-h-0 flex-col outl
   variants: {
     placement: {
       center: "rounded-control border-rule w-full max-w-lg border shadow-xl",
-      left: "border-rule h-full w-[min(336px,100vw-48px)] border-r shadow-xl",
-      right: "border-rule h-full w-[min(320px,100vw-48px)] border-l shadow-xl",
+      left: "border-rule h-full border-r shadow-xl",
+      right: "border-rule h-full border-l shadow-xl",
     },
   },
 });
