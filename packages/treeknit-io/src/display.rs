@@ -7,9 +7,12 @@
 //! the data; the consumer mirrors its column. The SVG figures and the interactive views draw the
 //! same shapes and only map these units to pixels.
 
+mod pair;
 mod shapes;
 mod slots;
 mod tree;
+
+pub use pair::pair_view;
 
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "tsify")]
@@ -119,7 +122,8 @@ pub struct DrawNode {
 pub struct PairView {
   pub left: DrawTree,
   pub right: DrawTree,
-  /// One link per leaf in both drawn trees, in the left display order.
+  /// One link per leaf in both drawn trees that has an MCC of the pair, in the left display
+  /// order.
   pub links: Vec<Link>,
   /// Runs of consecutive links of one MCC, in the left display order.
   pub blocks: Vec<Block>,
