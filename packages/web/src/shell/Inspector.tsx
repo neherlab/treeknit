@@ -164,6 +164,10 @@ function LeafDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "
 function LeafPairs({ name, pairs }: { name: string; pairs: readonly LeafPair[] }) {
   const { search } = useWorkspaceSearch();
 
+  const focusLeaf = useCallback(() => {
+    requestFocus({ kind: "leaf", name });
+  }, [name]);
+
   return (
     <section aria-label="MCC in each pair" className="flex flex-col gap-1.5">
       <h3 className="text-ink text-sm font-semibold">MCC in each pair</h3>
@@ -173,7 +177,7 @@ function LeafPairs({ name, pairs }: { name: string; pairs: readonly LeafPair[] }
             {cell === null ? (
               <span className="text-ink-muted">{`${a} and ${b}`}</span>
             ) : (
-              <Link to="/" search={leafInPair(search, pair, name)}>{`${a} and ${b}`}</Link>
+              <Link to="/" search={leafInPair(search, pair, name)} onPress={focusLeaf}>{`${a} and ${b}`}</Link>
             )}
             {cell === null ? (
               <span className="text-ink-muted">Not in this pair</span>

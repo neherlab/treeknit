@@ -1,3 +1,4 @@
+import { counted } from "../drawing/format";
 import { useWorkspace } from "../workspace/context";
 
 export function DiagnosticsTabLabel({ label }: DiagnosticsTabLabelProps) {
@@ -7,7 +8,12 @@ export function DiagnosticsTabLabel({ label }: DiagnosticsTabLabelProps) {
     <>
       {label}
       {count === 0 ? null : (
-        <span className="rounded-control bg-pane text-ink min-w-5 px-1 text-center text-xs tabular-nums">{count}</span>
+        <>
+          <span aria-hidden className="rounded-control bg-pane text-ink min-w-5 px-1 text-center text-xs tabular-nums">
+            {count}
+          </span>
+          <span className="sr-only">{`, ${counted(count, "message", "messages")}`}</span>
+        </>
       )}
     </>
   );
