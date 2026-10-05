@@ -1061,8 +1061,28 @@ mod tests {
     }
   }
 
+  /// Number of iterations that MCC inference of `TWO_ITERATIONS` runs with `one_pair(itmax)`,
+  /// counted from the log line that `infer_pair` writes at the start of each iteration.
+  fn iterations(itmax: usize) -> usize {
+    let lines = logged(|| {
+      observed(&TWO_ITERATIONS, &one_pair(itmax));
+    });
+    lines.iter().filter(|l| l.starts_with("DEBUG iteration ")).count()
+  }
+
+  /// Require that `TWO_ITERATIONS` stops by itself after two iterations, which the exact
+  /// fractions of the progress tests depend on.
+  fn assert_two_iterations() {
+    assert_eq!(
+      2,
+      iterations(10),
+      "TWO_ITERATIONS no longer stops after two iterations with seed 1"
+    );
+  }
+
   #[test]
   fn progress_of_a_pair_that_runs_all_iterations_rises_to_one() {
+    assert_two_iterations();
     // With itmax = 1, pair inference runs both of its itmax + 1 = 2 iterations.
     let events = observed(&TWO_ITERATIONS, &one_pair(1));
     assert_eq!(Some(&Progress::at(0, 1, 0, 1, 0.0)), events.first());
@@ -1081,6 +1101,7 @@ mod tests {
 
   #[test]
   fn progress_of_a_pair_that_stops_early_jumps_to_one_at_the_end() {
+    assert_two_iterations();
     // With itmax = 2 the same pair stops after two of its three iterations, at 2/3.
     let events = observed(&TWO_ITERATIONS, &one_pair(2));
     let before_end = &events[..events.len() - 1];
