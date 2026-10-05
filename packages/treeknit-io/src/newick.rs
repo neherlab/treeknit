@@ -14,15 +14,44 @@ use std::collections::HashSet;
 use std::fmt::Write;
 use treeknit_core::{NodeId, Tree};
 
-#[derive(Debug)]
-pub struct ParseError(pub String);
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ParseError {
+  pub message: String,
+  /// Byte offset in the text where parsing stopped; `None` for errors of the whole tree, such
+  /// as duplicate leaf names.
+  pub offset: Option<usize>,
+}
+
+impl ParseError {
+  fn new(message: impl Into<String>) -> Self {
+    ParseError {
+      message: message.into(),
+      offset: None,
+    }
+  }
+}
 
 impl std::fmt::Display for ParseError {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "Newick parse error: {}", self.0)
+    write!(f, "Newick parse error: {}", self.message)?;
+    if let Some(offset) = self.offset {
+      write!(f, " at byte {offset}")?;
+    }
+    Ok(())
   }
 }
 impl std::error::Error for ParseError {}
+
+/// 1-based line and column of byte `offset` in `text`, with the column counted in Unicode
+/// characters, as editors show positions. An offset past the end gives the end of the text.
+pub fn line_column(text: &str, offset: usize) -> (usize, usize) {
+  let before = &text.as_bytes()[..offset.min(text.len())];
+  let line_start = before.iter().rposition(|&b| b == b'\n').map_or(0, |i| i + 1);
+  let line = before.iter().filter(|&&b| b == b'\n').count() + 1;
+  // Count the bytes that start a character, so an offset inside a character counts it.
+  let column = before[line_start..].iter().filter(|&&b| b & 0xC0 != 0x80).count() + 1;
+  (line, column)
+}
 
 struct Parser<'a> {
   s: &'a [u8],
@@ -31,7 +60,10 @@ struct Parser<'a> {
 
 impl Parser<'_> {
   fn err<T>(&self, msg: &str) -> Result<T, ParseError> {
-    Err(ParseError(format!("{msg} at byte {}", self.i)))
+    Err(ParseError {
+      message: msg.to_owned(),
+      offset: Some(self.i),
+    })
   }
 
   /// Skip whitespace and `[...]` comments.
@@ -77,7 +109,7 @@ impl Parser<'_> {
           },
         }
       }
-      return String::from_utf8(out).map_err(|e| ParseError(e.to_string()));
+      return String::from_utf8(out).map_err(|e| ParseError::new(e.to_string()));
     }
     let start = self.i;
     while let Some(c) = self.peek() {
@@ -154,7 +186,7 @@ pub fn parse(s: &str, label: &str) -> Result<Tree, ParseError> {
 
 /// Parse the first tree of a Newick file's content.
 pub fn parse_first(content: &str, label: &str) -> Result<Tree, ParseError> {
-  let end = content.find(';').ok_or_else(|| ParseError("no ';' found".into()))?;
+  let end = content.find(';').ok_or_else(|| ParseError::new("no ';' found"))?;
   let (first, rest) = content.split_at(end + 1);
   if rest.contains(';') {
     log::warn!("{label}: more than one tree in file, using the first");
@@ -167,10 +199,10 @@ fn fix_names(t: &mut Tree) -> Result<(), ParseError> {
   for n in t.leaves() {
     let name = &t.nodes[n].name;
     if name.is_empty() {
-      return Err(ParseError(format!("tree {}: unnamed leaf", t.label)));
+      return Err(ParseError::new(format!("tree {}: unnamed leaf", t.label)));
     }
     if !leaves.insert(name.clone()) {
-      return Err(ParseError(format!("tree {}: duplicate leaf name {name}", t.label)));
+      return Err(ParseError::new(format!("tree {}: duplicate leaf name {name}", t.label)));
     }
   }
   let mut seen = leaves;
@@ -284,5 +316,42 @@ mod tests {
   fn duplicate_leaves_rejected() {
     parse("(A,A);", "t").unwrap_err();
     parse("(A,B", "t").unwrap_err();
+  }
+
+  #[test]
+  fn syntax_error_has_its_byte_offset() {
+    let e = parse("((A,B)C;", "t").unwrap_err();
+    assert_eq!(Some(7), e.offset);
+    assert_eq!("Newick parse error: expected ',' or ')' at byte 7", e.to_string());
+  }
+
+  #[test]
+  fn tree_error_has_no_offset() {
+    let e = parse("(A,A);", "t").unwrap_err();
+    assert_eq!(None, e.offset);
+    assert_eq!("Newick parse error: tree t: duplicate leaf name A", e.to_string());
+  }
+
+  #[test]
+  fn line_column_counts_lines_and_characters() {
+    assert_eq!((1, 1), line_column("(A,B);", 0));
+    assert_eq!((1, 4), line_column("(A,B);", 3));
+    assert_eq!((2, 1), line_column("(A,\nB);", 4));
+    assert_eq!((2, 3), line_column("(A,\r\nB);", 7));
+    // "é" and "ü" are two bytes each but one column each.
+    assert_eq!((1, 4), line_column("(é,ü);", 4));
+    assert_eq!((1, 6), line_column("(é,ü);", 7));
+  }
+
+  #[test]
+  fn line_column_clamps_to_the_end() {
+    assert_eq!((2, 3), line_column("(A,\nB)", 100));
+  }
+
+  #[test]
+  fn error_offset_maps_to_line_and_column() {
+    let text = "(A,\n(B,C)D\n;";
+    let e = parse_first(text, "t").unwrap_err();
+    assert_eq!((3, 1), line_column(text, e.offset.unwrap()));
   }
 }
