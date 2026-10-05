@@ -4,9 +4,23 @@
 //! is `(round + (pair + within) / pairs) / rounds`, where `within` is the completed fraction of
 //! the current pair (see `iterations_done`).
 
+/// Part of a run that is in progress.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Phase {
+  /// Pair inference and resolution with MCCs, in rounds over all pairs.
+  Pairs,
+  /// Matching of topologies within MCCs (`Resolution::Matched`), after the last round. Its
+  /// duration is not known in advance, so the fraction does not change during it.
+  Matching,
+  /// The run is complete.
+  Done,
+}
+
 /// Progress of a run: the completed fraction of the work, and the round and pair in progress.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Progress {
+  /// Part of the run in progress.
+  pub phase: Phase,
   /// Completed fraction of the run, from 0 to 1, never decreasing during a run.
   pub fraction: f64,
   /// Round in progress, 1-based.
@@ -29,6 +43,7 @@ impl Progress {
   pub(crate) fn at(round: usize, rounds: usize, pair: usize, pairs: usize, within: f64) -> Progress {
     let fraction = (round as f64 + (pair as f64 + within) / pairs as f64) / rounds as f64;
     Progress {
+      phase: Phase::Pairs,
       fraction,
       round: round + 1,
       rounds,
@@ -37,9 +52,22 @@ impl Progress {
     }
   }
 
+  /// Progress at the start of topology matching, after all rounds, with the `fraction` reached.
+  pub(crate) fn matching(fraction: f64, rounds: usize, pairs: usize) -> Progress {
+    Progress {
+      phase: Phase::Matching,
+      fraction,
+      round: rounds,
+      rounds,
+      pair: pairs,
+      pairs,
+    }
+  }
+
   /// Progress of a finished run.
   pub(crate) fn done(rounds: usize, pairs: usize) -> Progress {
     Progress {
+      phase: Phase::Done,
       fraction: 1.0,
       round: rounds,
       rounds,
@@ -77,6 +105,7 @@ mod tests {
   fn progress_at_counts_completed_rounds_pairs_and_work_within_the_pair() {
     // (round + (pair + within) / pairs) / rounds = (1 + (1 + 0.5) / 3) / 2 = 0.75.
     let expected = Progress {
+      phase: Phase::Pairs,
       fraction: 0.75,
       round: 2,
       rounds: 2,

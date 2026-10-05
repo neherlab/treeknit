@@ -48,10 +48,10 @@ pub fn run(trees: &mut [Tree], taxa: &Taxa, opts: &Options, seed: u64) -> Vec<Pa
 }
 
 /// As [`run`], calling `observe` with the progress of the run: at the start of each pair, after
-/// each temperature step of its annealing, and once with fraction 1 at the end. Pre-resolution
-/// and the matching of `Matched` resolution report nothing until the end. In a parallel round,
-/// `observe` is called on the calling thread only: before the round and after all its pairs.
-/// The observer consumes no random numbers, so the result equals that of `run`.
+/// each temperature step of its annealing, once when the matching of `Matched` resolution
+/// starts, and once with fraction 1 at the end. Pre-resolution reports nothing. In a parallel
+/// round, `observe` is called on the calling thread only: before the round and after all its
+/// pairs. The observer consumes no random numbers, so the result equals that of `run`.
 pub fn run_observed(
   trees: &mut [Tree],
   taxa: &Taxa,
@@ -77,6 +77,11 @@ pub fn run_observed(
   let extra_round =
     matches!(opts.resolution, Resolution::Strict | Resolution::Liberal) && k > 2 && opts.final_unresolved_round;
   let rounds = opts.rounds + extra_round as usize;
+  let reached = std::cell::Cell::new(0.0);
+  let report = |p: Progress| {
+    reached.set(p.fraction);
+    observe(p);
+  };
   for round in 1..=rounds {
     let last = round == rounds;
     let unresolved_round = extra_round && last;
@@ -84,7 +89,7 @@ pub fn run_observed(
     // Splits added with MCCs: unambiguous ones only, except in liberal mode.
     let strict = opts.resolution != Resolution::Liberal && resolve;
     log::info!("round {round}/{rounds}{}", if resolve { " (resolving)" } else { "" });
-    let at = |pair: usize, within: f64| observe(Progress::at(round - 1, rounds, pair, pairs.len(), within));
+    let at = |pair: usize, within: f64| report(Progress::at(round - 1, rounds, pair, pairs.len(), within));
     if resolve || !opts.parallel {
       for (p, &(i, j)) in pairs.iter().enumerate() {
         at(p, 0.0);
@@ -112,6 +117,7 @@ pub fn run_observed(
     }
   }
   if matched {
+    report(Progress::matching(reached.get(), rounds, pairs.len()));
     match_topologies(trees, &pairs, &mut mccs, n);
     for (p, &(i, j)) in pairs.iter().enumerate() {
       sort_pair(trees, i, j, &mccs[p], n, false);
@@ -122,7 +128,7 @@ pub fn run_observed(
     .zip(mccs)
     .map(|(&(i, j), m)| attach_pair(trees, i, j, m, n))
     .collect();
-  observe(Progress::done(rounds, pairs.len()));
+  report(Progress::done(rounds, pairs.len()));
   results
 }
 
@@ -472,6 +478,7 @@ pub fn arg_inputs(trees: &[Tree], pair: &PairResult, n: usize) -> (Tree, Tree, V
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::progress::Phase;
   use crate::tree::test_util::{splits, trees};
 
   fn ids(taxa: &Taxa, m: &[&[&str]]) -> Vec<Mcc> {
@@ -729,6 +736,7 @@ mod tests {
     // Fractions (round + (pair + within) / 3) / 2: 0, (0 + 3 / 3) / 2, (1 + 0) / 2, 1, and the end.
     let expected = [
       Progress {
+        phase: Phase::Pairs,
         fraction: 0.0,
         round: 1,
         rounds: 2,
@@ -736,6 +744,7 @@ mod tests {
         pairs: 3,
       },
       Progress {
+        phase: Phase::Pairs,
         fraction: 0.5,
         round: 1,
         rounds: 2,
@@ -743,6 +752,7 @@ mod tests {
         pairs: 3,
       },
       Progress {
+        phase: Phase::Pairs,
         fraction: 0.5,
         round: 2,
         rounds: 2,
@@ -750,6 +760,7 @@ mod tests {
         pairs: 3,
       },
       Progress {
+        phase: Phase::Pairs,
         fraction: 1.0,
         round: 2,
         rounds: 2,
@@ -757,6 +768,7 @@ mod tests {
         pairs: 3,
       },
       Progress {
+        phase: Phase::Done,
         fraction: 1.0,
         round: 2,
         rounds: 2,
@@ -767,17 +779,28 @@ mod tests {
     assert_eq!(expected.as_slice(), events);
   }
 
-  #[test]
-  fn progress_of_matched_resolution_ends_at_one_after_matching() {
+  /// Events of a run with `Matched` resolution (whose rounds resolve, so they run sequentially):
+  /// the pair events, the start of matching, and the end.
+  fn matched_events() -> (Vec<Progress>, Progress, Progress) {
     let o = Options {
       n_t: 5,
-      parallel: false,
       ..Options::for_trees(3)
     };
     assert_eq!(Resolution::Matched, o.resolution);
-    let events = observed(&["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", "((A,X),(B,(C,D)));"], &o);
-    assert!(never_decreasing(&events), "{events:?}");
-    assert_eq!(Some(&Progress::done(1, 3)), events.last());
+    let mut events = observed(&["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", "((A,X),(B,(C,D)));"], &o);
+    let done = events.pop().unwrap();
+    let matching = events.pop().unwrap();
+    (events, matching, done)
+  }
+
+  #[test]
+  fn progress_of_matched_resolution_reports_matching_at_the_fraction_reached() {
+    let (pairs, matching, done) = matched_events();
+    assert!(pairs.iter().all(|p| p.phase == Phase::Pairs), "{pairs:?}");
+    assert!(never_decreasing(&pairs), "{pairs:?}");
+    let reached = pairs.last().unwrap().fraction;
+    assert_eq!(Progress::matching(reached, 1, 3), matching);
+    assert_eq!(Progress::done(1, 3), done);
   }
 
   #[test]
