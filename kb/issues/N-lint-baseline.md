@@ -13,7 +13,7 @@ The workspace enables the Clippy `restriction` group, plus `unwrap_used`, `expec
 | `packages/treeknit-core/src/impute.rs`     | `expect_used`, `unwrap_used`                                          |
 | `packages/treeknit-core/src/mcc_map.rs`    | `as_conversions`, `disallowed_types`, `unwrap_used`                   |
 | `packages/treeknit-core/src/naive.rs`      | `expect_used`, `unwrap_used`                                          |
-| `packages/treeknit-core/src/pair.rs`       | `as_conversions`, `unwrap_used`                                       |
+| `packages/treeknit-core/src/pair.rs`       | `unwrap_used`                                                         |
 | `packages/treeknit-core/src/pipeline.rs`   | `as_conversions`, `disallowed_types`, `expect_used`, `unwrap_used`    |
 | `packages/treeknit-core/src/resolve.rs`    | `unwrap_used`                                                         |
 | `packages/treeknit-core/src/splitgraph.rs` | `as_conversions`, `expect_used`, `unwrap_used`                        |

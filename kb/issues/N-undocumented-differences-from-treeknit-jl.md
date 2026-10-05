@@ -1,12 +1,16 @@
 # Differences from TreeKnit.jl without a recorded decision
 
-The README section "Deliberate differences from TreeKnit.jl" and `kb/decisions/` record the approved differences. The port has more differences than these. The list below gives each one with the TreeKnit.jl behavior from `kb/feat/v0/`. The items change error handling, command-line behavior, and output files.
+The README section "Deliberate differences from TreeKnit.jl" and `kb/decisions/` record the approved differences. The port has more differences than these. The list below gives each one with the TreeKnit.jl behavior from `kb/feat/v0/`. The items change error handling, inference bounds, command-line behavior, and output files.
 
 ## Error handling
 
 - **Incompatible split in the MCC resolution**: TreeKnit.jl calls `resolve!` with `conflict = :fail` and stops the run. The port skips the split with the warning "skipping split incompatible with tree <label>" ([resolve.rs#L300-L305](../../packages/treeknit-core/src/resolve.rs#L300-L305))
 - **Failed ARG construction**: TreeKnit.jl stops the command. The port logs the error, writes no ARG, and exits with 0 ([run.rs#L83-L93](../../packages/treeknit-io/src/run.rs#L96-L106))
 - **`--verbosity-level -1`**: TreeKnit.jl still shows warnings. The port turns the terminal output off, warnings included ([main.rs#L618-L623](../../packages/treeknit-cli/src/main.rs#L667-L672))
+
+## Inference
+
+- **MCMC steps per temperature**: TreeKnit.jl computes `M = Int(ceil(length(ot1.lleaves) * oa.nMCMC / length(oa.Trange)))` as an unbounded `Int64` (`src/main.jl`). The port bounds the steps at 2^32 - 1, the largest `usize` of 32-bit WebAssembly, so the command line and the web app run the same steps; a pair reaches the bound only with more than 2^32 - 1 leaves times steps per leaf per temperature ([pair.rs#L85-L95](../../packages/treeknit-core/src/pair.rs#L85-L95))
 
 ## Command line
 

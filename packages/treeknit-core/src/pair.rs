@@ -1,7 +1,6 @@
 //! MCC inference for one pair of trees: repeated naive MCCs, annealing, and pruning.
 
 #![expect(
-  clippy::as_conversions,
   clippy::unwrap_used,
   reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
 )]
@@ -86,6 +85,10 @@ pub fn infer_pair(
 /// MCMC steps at each temperature of an annealing: `ceil(n_leaves * n_mcmc / n_temperatures)`,
 /// bounded by 2^32 - 1, the largest `usize` of 32-bit WebAssembly, so that every target runs the
 /// same number of steps.
+#[expect(
+  clippy::as_conversions,
+  reason = "the counts are far below 2^53, so they convert to f64 exactly, and the result is a whole number from 0 to 2^32 - 1"
+)]
 fn steps_per_temperature(n_leaves: usize, n_mcmc: usize, n_temperatures: usize) -> usize {
   let m = (n_leaves as f64 * n_mcmc as f64 / n_temperatures as f64).ceil();
   m.min(f64::from(u32::MAX)) as usize
@@ -203,12 +206,14 @@ mod tests {
 
   #[test]
   fn steps_per_temperature_round_up_and_stop_at_the_largest_32_bit_count() {
-    // Oracle: ceil(5 * 50 / 100) = 3, the debug line of the two-tree example; 10^6 leaves with
-    // 2^32 - 1 steps per leaf over one temperature exceed 2^32 - 1.
+    // Oracle: ceil(5 * 50 / 100) = 3, the debug line of the two-tree example; 2^32 - 1 steps are
+    // kept, and 2 * 2^31 = 2^32 and 10^6 * (2^32 - 1) steps stop at 2^32 - 1.
     assert_eq!(
-      (3, 0xFFFF_FFFF),
+      (3, 0xFFFF_FFFF, 0xFFFF_FFFF, 0xFFFF_FFFF),
       (
         steps_per_temperature(5, 50, 100),
+        steps_per_temperature(1, 0xFFFF_FFFF, 1),
+        steps_per_temperature(2, 0x8000_0000, 1),
         steps_per_temperature(1_000_000, 0xFFFF_FFFF, 1)
       )
     );
