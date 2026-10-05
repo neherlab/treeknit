@@ -4,8 +4,9 @@ import { useSettingsSchema, useVersion } from "../analysis/queries";
 import { KEEP_WORKSPACE } from "../persistence/PersistenceSwitch";
 import { ExternalLink } from "../ui/ExternalLink";
 import { useWorkspace } from "../workspace/context";
+import { TREEKNIT_PUBLICATION } from "./citation";
 
-const PAPER_DOI = "https://doi.org/10.1371/journal.pcbi.1010394";
+const PAPER_DOI = TREEKNIT_PUBLICATION.href;
 
 const GLOSSARY: readonly { term: string; definition: string }[] = [
   {
