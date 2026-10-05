@@ -1,11 +1,12 @@
 import { useCallback, useState } from "react";
 import ErrorIcon from "~icons/lucide/circle-alert";
 import PlayIcon from "~icons/lucide/play";
+import RetryIcon from "~icons/lucide/refresh-cw";
 import StopIcon from "~icons/lucide/square";
 
 import { formatElapsed } from "../format/elapsed";
 import { useDelayedIndicator } from "../indicator/useDelayedIndicator";
-import { CHECKING_INPUT, progressLabel, progressPercent } from "../run/runControl";
+import { CHECK_FAILED, CHECKING_INPUT, progressLabel, progressPercent } from "../run/runControl";
 import { RunFailureNotice } from "../run/RunFailureNotice";
 import { useNow } from "../run/useNow";
 import { useRunReadiness } from "../run/useRunReadiness";
@@ -22,7 +23,7 @@ type RunningState = Extract<RunState, { status: "running" }>;
 export function RunBar() {
   const run = useWorkspace((state) => state.run);
   const { run: start, cancel } = useRunAnalysis();
-  const { blockedReason, generalErrors } = useRunReadiness();
+  const { blockedReason, generalErrors, retryCheck } = useRunReadiness();
   const running = run.status === "running";
   const showProgress = useDelayedIndicator(running);
   const showChecking = useDelayedIndicator(blockedReason === CHECKING_INPUT);
@@ -41,11 +42,23 @@ export function RunBar() {
     <div className="flex flex-col gap-3 px-4 py-3">
       <NoticeRegion>
         {run.status === "failed" && run.kind === "cancelled" ? (
-          <RunFailureNotice kind={run.kind} message={run.message} request={run.request} onRunAgain={runAgain} />
+          <RunFailureNotice
+            kind={run.kind}
+            message={run.message}
+            request={run.request}
+            runBlocked={blockedReason !== null}
+            onRunAgain={runAgain}
+          />
         ) : null}
       </NoticeRegion>
       {run.status === "failed" && run.kind !== "cancelled" ? (
-        <RunFailureNotice kind={run.kind} message={run.message} request={run.request} onRunAgain={runAgain} />
+        <RunFailureNotice
+          kind={run.kind}
+          message={run.message}
+          request={run.request}
+          runBlocked={blockedReason !== null}
+          onRunAgain={runAgain}
+        />
       ) : null}
       {running || generalErrors.length === 0 ? null : (
         <ul className="flex flex-col gap-1">
@@ -72,6 +85,11 @@ export function RunBar() {
             Run TreeKnit
           </Button>
           {shownReason === null || running ? null : <p className="text-ink-muted text-xs">{shownReason}</p>}
+          {blockedReason === CHECK_FAILED && !running ? (
+            <Button size="sm" icon={RetryIcon} onPress={retryCheck} className="self-start">
+              Check again
+            </Button>
+          ) : null}
         </div>
       )}
     </div>

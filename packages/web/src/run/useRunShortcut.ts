@@ -33,7 +33,7 @@ export function useRunShortcut(workspace: RefObject<HTMLElement | null>): void {
     const reason = runBlockedReason({
       treeCount: request.trees.length,
       hasDraft: hasDraft(getValues()),
-      checking: false,
+      validation: "checked",
       errors,
     });
 

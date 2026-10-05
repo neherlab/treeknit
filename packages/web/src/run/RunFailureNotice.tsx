@@ -9,7 +9,7 @@ import { ExternalLink } from "../ui/ExternalLink";
 import { InlineNotice } from "../ui/InlineNotice";
 import { bugReportUrl, failureNotice } from "./failure";
 
-export function RunFailureNotice({ kind, message, request, onRunAgain }: RunFailureNoticeProps) {
+export function RunFailureNotice({ kind, message, request, runBlocked, onRunAgain }: RunFailureNoticeProps) {
   const notice = failureNotice(kind, message);
   const { data: version } = useVersion();
   const settings = request.settings;
@@ -40,7 +40,7 @@ export function RunFailureNotice({ kind, message, request, onRunAgain }: RunFail
         {notice.canRunAgain || notice.canReport ? (
           <div className="flex flex-wrap items-center gap-3">
             {notice.canRunAgain ? (
-              <Button size="sm" icon={RunIcon} onPress={onRunAgain}>
+              <Button size="sm" icon={RunIcon} isDisabled={runBlocked} onPress={onRunAgain}>
                 Run again
               </Button>
             ) : null}
@@ -60,5 +60,6 @@ export interface RunFailureNoticeProps {
   kind: FailureKind;
   message: string;
   request: AnalysisRequest;
+  runBlocked: boolean;
   onRunAgain: () => void;
 }

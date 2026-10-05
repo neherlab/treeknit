@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   ADD_ANOTHER_TREE,
+  CHECK_FAILED,
   CHECKING_INPUT,
   FIX_THE_ERRORS,
   isRunShortcut,
@@ -12,6 +13,7 @@ import {
   runBlockedReason,
   type ShortcutKey,
   STARTING_RUN,
+  validationState,
   visibleGeneralErrors,
 } from "../runControl";
 
@@ -22,25 +24,41 @@ const PROGRESS: Progress = { phase: "pairs", fraction: 0.425, round: 1, rounds: 
 describe("run control", () => {
   test("asks for another tree before anything else", () => {
     expect({
-      none: runBlockedReason({ treeCount: 0, hasDraft: false, checking: false, errors: [] }),
-      one: runBlockedReason({ treeCount: 1, hasDraft: true, checking: false, errors: [ERROR] }),
+      none: runBlockedReason({ treeCount: 0, hasDraft: false, validation: "checked", errors: [] }),
+      one: runBlockedReason({ treeCount: 1, hasDraft: true, validation: "checked", errors: [ERROR] }),
     }).toStrictEqual({ none: ADD_ANOTHER_TREE, one: ADD_ANOTHER_TREE });
   });
 
   test("blocks a run on an invalid draft or a validation error", () => {
     expect({
-      draft: runBlockedReason({ treeCount: 2, hasDraft: true, checking: false, errors: [] }),
-      error: runBlockedReason({ treeCount: 3, hasDraft: false, checking: false, errors: [ERROR] }),
-      ready: runBlockedReason({ treeCount: 2, hasDraft: false, checking: false, errors: [] }),
+      draft: runBlockedReason({ treeCount: 2, hasDraft: true, validation: "checked", errors: [] }),
+      error: runBlockedReason({ treeCount: 3, hasDraft: false, validation: "checked", errors: [ERROR] }),
+      ready: runBlockedReason({ treeCount: 2, hasDraft: false, validation: "checked", errors: [] }),
     }).toStrictEqual({ draft: FIX_THE_ERRORS, error: FIX_THE_ERRORS, ready: null });
   });
 
   test("blocks a run while the current trees and settings are checked, even when the last check found no errors", () => {
     expect({
-      checking: runBlockedReason({ treeCount: 2, hasDraft: false, checking: true, errors: [] }),
-      draft: runBlockedReason({ treeCount: 2, hasDraft: true, checking: true, errors: [] }),
-      oneTree: runBlockedReason({ treeCount: 1, hasDraft: false, checking: true, errors: [] }),
+      checking: runBlockedReason({ treeCount: 2, hasDraft: false, validation: "checking", errors: [] }),
+      draft: runBlockedReason({ treeCount: 2, hasDraft: true, validation: "checking", errors: [] }),
+      oneTree: runBlockedReason({ treeCount: 1, hasDraft: false, validation: "checking", errors: [] }),
     }).toStrictEqual({ checking: CHECKING_INPUT, draft: FIX_THE_ERRORS, oneTree: ADD_ANOTHER_TREE });
+  });
+
+  test("blocks a run when the check failed, so a worker failure never counts as a check without errors", () => {
+    expect({
+      failed: runBlockedReason({ treeCount: 2, hasDraft: false, validation: "failed", errors: [] }),
+      draft: runBlockedReason({ treeCount: 2, hasDraft: true, validation: "failed", errors: [] }),
+    }).toStrictEqual({ failed: CHECK_FAILED, draft: FIX_THE_ERRORS });
+  });
+
+  test("derives the check state from the validation query: pending and placeholder data check, an error fails", () => {
+    expect({
+      pending: validationState({ status: "pending", isPlaceholderData: false }),
+      placeholder: validationState({ status: "success", isPlaceholderData: true }),
+      error: validationState({ status: "error", isPlaceholderData: false }),
+      success: validationState({ status: "success", isPlaceholderData: false }),
+    }).toStrictEqual({ pending: "checking", placeholder: "checking", error: "failed", success: "checked" });
   });
 
   test("hides the general errors while the reason asks for another tree", () => {
