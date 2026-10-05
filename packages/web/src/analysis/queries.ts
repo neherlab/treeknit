@@ -6,6 +6,8 @@ import type { SessionArgs, SessionResult, StatelessArgs, StatelessResult } from 
 
 type Answer<Result> = UseQueryResult<Awaited<Result>>;
 
+const INPUT_QUERY_GC_MS = 5000;
+
 export const analysisKeys = {
   defaultSettings: () => ["defaultSettings"] as const,
   palette: () => ["palette"] as const,
@@ -48,6 +50,7 @@ export function useInspectTree(...args: StatelessArgs<"inspectTree">): Answer<St
     queryKey: analysisKeys.inspectTree(...args),
     queryFn: async () => client.inspectTree(...args),
     placeholderData: keepPreviousData,
+    gcTime: INPUT_QUERY_GC_MS,
   });
 }
 
@@ -70,6 +73,7 @@ export function useOverlap(trees: readonly TreeText[]): Answer<StatelessResult<"
     queryKey: analysisKeys.overlap(trees),
     queryFn: async () => client.overlap([...trees]),
     placeholderData: keepPreviousData,
+    gcTime: INPUT_QUERY_GC_MS,
   });
 }
 
@@ -80,6 +84,7 @@ export function useValidation(...args: StatelessArgs<"validate">): Answer<Statel
     queryKey: analysisKeys.validate(...args),
     queryFn: async () => client.validate(...args),
     placeholderData: keepPreviousData,
+    gcTime: INPUT_QUERY_GC_MS,
   });
 }
 
@@ -90,6 +95,7 @@ export function useSettingsSchema(...args: StatelessArgs<"settingsSchema">): Ans
     queryKey: analysisKeys.settingsSchema(...args),
     queryFn: async () => client.settingsSchema(...args),
     placeholderData: keepPreviousData,
+    gcTime: INPUT_QUERY_GC_MS,
   });
 }
 
