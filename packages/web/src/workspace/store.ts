@@ -1,5 +1,5 @@
 import type { AnalysisRequest, Progress, Settings, SettingsSchema, Summary, TreeText } from "@neherlab/treeknit-wasm";
-import { isDeepEqual } from "remeda";
+import { doNothing, isDeepEqual } from "remeda";
 import { match } from "ts-pattern";
 import { immer } from "zustand/middleware/immer";
 import { createStore, type StoreApi } from "zustand/vanilla";
@@ -232,7 +232,7 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
           const replacement = revisions.replacement;
           const task = pendingAdds.queue.then(async () => addNow(newTrees, replacement));
 
-          pendingAdds.queue = task.catch(ignore);
+          pendingAdds.queue = task.catch(doNothing());
 
           return task;
         },
@@ -541,8 +541,4 @@ function replaceWorkspace(
 function markEdited(state: WorkspaceData): void {
   state.undo = null;
   state.restored = false;
-}
-
-function ignore(): undefined {
-  return undefined;
 }

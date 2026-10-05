@@ -1,5 +1,6 @@
 import type { AnalysisRequest, Progress, Summary } from "@neherlab/treeknit-wasm";
 import { type Endpoint, proxy, type Remote, wrap } from "comlink";
+import { doNothing } from "remeda";
 
 import type { SessionArgs, SessionResult, StatelessArgs, StatelessResult, WorkerApi } from "./protocol";
 
@@ -353,7 +354,7 @@ class Connection {
 
     this.#failed = promise;
     this.#fail = reject;
-    promise.catch(ignore);
+    promise.catch(doNothing());
 
     const opened = openWorker(start);
 
@@ -362,7 +363,7 @@ class Connection {
       this.#onError();
     });
     this.#ready = this.#init(opened, module);
-    this.#ready.catch(ignore);
+    this.#ready.catch(doNothing());
   }
 
   async call<T>(operation: (remote: Remote<WorkerApi>) => Promise<T>): Promise<T> {
@@ -464,8 +465,4 @@ function isWorkerFailure(cause: unknown): boolean {
 
 function asError(cause: unknown): Error {
   return cause instanceof Error ? cause : new Error(String(cause));
-}
-
-function ignore(): undefined {
-  return undefined;
 }
