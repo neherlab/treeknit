@@ -65,7 +65,8 @@ pub struct Options {
   pub parallel: bool,
   /// Whether polytomies of the output trees are sorted using strictly or liberally resolved
   /// copies; by default as resolution in the final round. Only needed to reproduce the
-  /// output order of TreeKnit.jl option combinations exactly.
+  /// output order of TreeKnit.jl option combinations exactly. `Resolution::Matched` ignores it:
+  /// its trees already agree within MCCs, so their sort is never strict.
   pub sort_strict: Option<bool>,
 }
 
