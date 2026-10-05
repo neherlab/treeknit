@@ -2,7 +2,8 @@
 //!
 //! Tree A is a random binary tree with the topology and branch lengths (in coalescent units)
 //! of a Kingman coalescent. Tree B is a copy of A changed by random subtree moves (prune and
-//! regraft), the way a reassortment changes one segment tree against another. Leaf names look
+//! regraft) that keep the node times, the way a reassortment changes one segment tree against
+//! another, so both trees are ultrametric. Leaf names look
 //! like strain names (`A/Sim/17/2020`). The program only writes input: it computes nothing
 //! that TreeKnit reports.
 //!
@@ -159,41 +160,68 @@ fn lineage_pairs(k: usize) -> f64 {
   k * (k - 1.0) / 2.0
 }
 
-/// Prune a random subtree and regraft it onto the middle of a random branch elsewhere.
+/// Prune a random subtree and regraft it onto a random branch elsewhere, keeping node times so
+/// that the tree stays ultrametric, as a reassortment keeps the sampling times.
 ///
-/// The pruned subtree leaves at least two leaves behind, so a regraft branch other than the
-/// root always exists. The branch of the former sibling is excluded, because regrafting
-/// there restores the tree; every other branch changes the rooted topology.
+/// The new parent of the subtree lies on the target branch, older than both the subtree root
+/// and the lower end of the branch, so only branches whose upper end is older than the subtree
+/// root are targets. The pruned subtree leaves at least two leaves behind, and a leaf always has
+/// a target, so a move always exists. The branch of the former sibling is excluded, because
+/// regrafting there restores the tree; every other branch changes the rooted topology.
 fn move_subtree(t: &mut Tree, rng: &mut impl Rng) {
   let order = t.postorder();
   let mut below = vec![0_usize; t.nodes.len()];
+  // Time of each node before the present, the leaves being at time 0.
+  let mut time = vec![0.0_f64; t.nodes.len()];
   for &n in &order {
-    below[n] = if t.is_leaf(n) {
-      1
+    if t.is_leaf(n) {
+      below[n] = 1;
     } else {
-      t.children(n).iter().map(|&c| below[c]).sum()
-    };
+      below[n] = t.children(n).iter().map(|&c| below[c]).sum();
+      let c = t.children(n)[0];
+      time[n] = time[c] + t.node(c).branch_length.unwrap_or(0.0);
+    }
   }
   let total = below[t.root];
   let movable: Vec<NodeId> = order
     .into_iter()
     .filter(|&n| n != t.root && below[n] + 2 <= total)
     .collect();
-  let n = movable[rng.gen_range(0..movable.len())];
-  let sibling = t
-    .parent(n)
-    .and_then(|p| t.children(p).iter().copied().find(|&c| c != n));
+  let (n, targets) = loop {
+    let n = movable[rng.gen_range(0..movable.len())];
+    let targets = regraft_targets(t, n, &time);
+    if !targets.is_empty() {
+      break (n, targets);
+    }
+  };
+  let target = targets[rng.gen_range(0..targets.len())];
+  let upper = t.parent(target).map_or(time[target], |p| time[p]);
+  let joint = f64::midpoint(time[target].max(time[n]), upper);
   t.detach(n);
   t.remove_unary();
-  let targets: Vec<NodeId> = t
-    .preorder()
-    .into_iter()
-    .filter(|&c| c != t.root && Some(c) != sibling)
-    .collect();
-  let target = targets[rng.gen_range(0..targets.len())];
-  let half = t.node(target).branch_length.map(|l| l / 2.0);
-  let s = t.insert_above(target, String::new(), half);
+  let s = t.insert_above(target, String::new(), Some(joint - time[target]));
+  t.nodes[n].branch_length = Some(joint - time[n]);
   t.attach(s, n);
+}
+
+/// Branches, by their lower node, onto which the subtree of `n` can move with node `time`s
+/// kept: outside the subtree, not the branches that disappear or merge when `n` is pruned, and
+/// with an upper end older than `n`.
+fn regraft_targets(t: &Tree, n: NodeId, time: &[f64]) -> Vec<NodeId> {
+  let parent = t.parent(n);
+  let sibling = parent.and_then(|p| t.children(p).iter().copied().find(|&c| c != n));
+  let mut inside = vec![false; t.nodes.len()];
+  t.preorder()
+    .into_iter()
+    .filter(|&c| {
+      inside[c] = c == n || t.parent(c).is_some_and(|p| inside[p]);
+      !inside[c]
+        && c != t.root
+        && Some(c) != parent
+        && Some(c) != sibling
+        && t.parent(c).is_some_and(|p| time[p] > time[n])
+    })
+    .collect()
 }
 
 #[cfg(test)]
@@ -293,14 +321,27 @@ mod tests {
     assert!(is_binary(&a));
   }
 
+  /// Whether every leaf of `t` has the same positive distance to the root.
+  fn is_ultrametric(t: &Tree) -> bool {
+    let depths: Vec<f64> = t.leaves().into_iter().map(|n| t.divtime(n, t.root).unwrap()).collect();
+    let first = depths[0];
+    first > 0.0 && depths.iter().all(|d| (d - first).abs() < 1e-12)
+  }
+
   /// A coalescent tree is ultrametric: every leaf has the root time as its distance to the root.
   #[test]
   fn test_large_tree_pair_tree_a_ultrametric() {
     let (a, _) = tree_pair(200, 3, 0);
-    let depths: Vec<f64> = a.leaves().into_iter().map(|n| a.divtime(n, a.root).unwrap()).collect();
-    let first = depths[0];
-    assert!(first > 0.0);
-    assert!(depths.iter().all(|d| (d - first).abs() < 1e-12), "{depths:?}");
+    assert!(is_ultrametric(&a));
+  }
+
+  /// Moves keep the node times, so tree B stays ultrametric like tree A.
+  #[test]
+  fn test_large_tree_pair_tree_b_ultrametric() {
+    for (leaves, seed, moves) in [(MIN_LEAVES, 1, 5), (10, 2, 10), (200, 3, 50)] {
+      let (_, b) = tree_pair(leaves, seed, moves);
+      assert!(is_ultrametric(&b), "{leaves} leaves, seed {seed}");
+    }
   }
 
   #[test]
