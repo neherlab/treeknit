@@ -1,9 +1,9 @@
-import type { LabelMode, Scale } from "@neherlab/treeknit-wasm";
+import type { LabelMode, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
 import { useCallback, useMemo } from "react";
 
 import type { TreeViewActions } from "../canvas/useTreeView";
 import type { RowRange } from "../canvas/viewState";
-import type { WorkspaceSearch } from "../workspace/search";
+import { selectPair, type WorkspaceSearch } from "../workspace/search";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 import { revealLeafRows } from "./focus";
 import { selectionOf, type Selection, withSelection } from "./selection";
@@ -14,6 +14,8 @@ export interface DrawingSearch {
   selection: Selection;
   select: (next: Selection) => void;
   clear: () => void;
+  choosePair: (next: number) => void;
+  chooseVersion: (next: TreeVersion) => void;
   chooseScale: (next: Scale) => void;
   chooseLabels: (next: LabelMode) => void;
 }
@@ -33,6 +35,20 @@ export function useDrawingSearch(): DrawingSearch {
     select({});
   }, [select]);
 
+  const choosePair = useCallback(
+    (next: number) => {
+      update((written) => selectPair(written, next));
+    },
+    [update],
+  );
+
+  const chooseVersion = useCallback(
+    (next: TreeVersion) => {
+      update((written) => ({ ...written, version: next }));
+    },
+    [update],
+  );
+
   const chooseScale = useCallback(
     (next: Scale) => {
       update((written) => ({ ...written, x: next }));
@@ -47,7 +63,7 @@ export function useDrawingSearch(): DrawingSearch {
     [update],
   );
 
-  return { search, update, selection, select, clear, chooseScale, chooseLabels };
+  return { search, update, selection, select, clear, choosePair, chooseVersion, chooseScale, chooseLabels };
 }
 
 export function useFindLeaf<D>(

@@ -1,5 +1,5 @@
-import type { PairView, TreeVersion } from "@neherlab/treeknit-wasm";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import type { PairView } from "@neherlab/treeknit-wasm";
+import { useEffect, useMemo, useState } from "react";
 
 import { usePairView } from "../analysis/queries";
 import { CanvasBoundary } from "../canvas/CanvasBoundary";
@@ -7,7 +7,7 @@ import { lazyCanvas, useLazyCanvas } from "../canvas/lazyCanvas";
 import { type TreeViewActions, type TreeViewHandle, useTreeViewReady } from "../canvas/useTreeView";
 import type { RowRange } from "../canvas/viewState";
 import { ZoomControls } from "../canvas/ZoomControls";
-import { FigureButton, LabelModeSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
+import { FigureButton, LabelModeSelect, PairSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
 import { figureOptions } from "../drawing/figure";
 import {
@@ -24,10 +24,8 @@ import { useDrawingSearch, useFindLeaf } from "../drawing/useDrawingSearch";
 import { useDrawingView } from "../drawing/useDrawingView";
 import { useFigureDownload } from "../drawing/useFigureDownload";
 import { counted } from "../format/count";
-import { Select, type SelectOption } from "../ui/Select";
 import { Switch } from "../ui/Switch";
 import { useWorkspace } from "../workspace/context";
-import { selectPair } from "../workspace/search";
 import type { RunResult } from "../workspace/store";
 
 const TANGLEGRAM_CANVAS = lazyCanvas(async () => import("./TanglegramCanvas"));
@@ -40,7 +38,7 @@ export function TanglegramPanel() {
 
 function Tanglegram({ result }: { result: RunResult }) {
   const [TanglegramCanvas, reloadTanglegramCanvas] = useLazyCanvas(TANGLEGRAM_CANVAS);
-  const { search, update, selection, select, clear, chooseScale, chooseLabels } = useDrawingSearch();
+  const { search, selection, select, clear, choosePair, chooseVersion, chooseScale, chooseLabels } = useDrawingSearch();
   const { pair, version, x, labels } = search;
   const query = usePairView(result.sessionId, pair, version, x);
   const data = query.data;
@@ -59,37 +57,9 @@ function Tanglegram({ result }: { result: RunResult }) {
 
   useFocusedRows(data, pair, view);
 
-  const pairOptions = useMemo<SelectOption<string>[]>(
-    () => pairs.map(({ index, labels: [a, b] }) => ({ id: String(index), label: `${a} and ${b}` })),
-    [pairs],
-  );
-
-  const choosePair = useCallback(
-    (id: string) => {
-      update((written) => selectPair(written, Number(id)));
-    },
-    [update],
-  );
-
-  const chooseVersion = useCallback(
-    (next: TreeVersion) => {
-      update((written) => ({ ...written, version: next }));
-    },
-    [update],
-  );
-
   const toolbar = (
     <>
-      {pairs.length > 1 ? (
-        <Select
-          label="Pair"
-          labelHidden
-          options={pairOptions}
-          value={String(pair)}
-          onChange={choosePair}
-          className="w-48"
-        />
-      ) : null}
+      <PairSelect pairs={pairs} value={pair} onChange={choosePair} />
       <VersionToggle value={version} onChange={chooseVersion} />
       <ScaleToggle value={x} onChange={chooseScale} />
       <Switch label="Color branches by MCC" isSelected={colorByMcc} onChange={setColorByMcc} />

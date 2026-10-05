@@ -1,4 +1,4 @@
-import type { LabelMode, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
+import type { LabelMode, PairSummary, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
 import { useCallback, useMemo } from "react";
 import type { Key } from "react-aria-components";
 import DownloadIcon from "~icons/lucide/download";
@@ -54,6 +54,32 @@ export function LabelModeSelect({ value, onChange }: ChoiceProps<LabelMode>) {
       />
     </div>
   );
+}
+
+export function PairSelect({ pairs, value, onChange }: PairSelectProps) {
+  const options = useMemo<SelectOption<string>[]>(
+    () => pairs.map(({ index, labels: [a, b] }) => ({ id: String(index), label: `${a} and ${b}` })),
+    [pairs],
+  );
+
+  const choose = useCallback(
+    (id: string) => {
+      onChange(Number(id));
+    },
+    [onChange],
+  );
+
+  if (pairs.length < 2) {
+    return null;
+  }
+
+  return <Select label="Pair" labelHidden options={options} value={String(value)} onChange={choose} className="w-48" />;
+}
+
+export interface PairSelectProps {
+  pairs: readonly PairSummary[];
+  value: number;
+  onChange: (pair: number) => void;
 }
 
 export function FigureButton(props: FigureButtonProps) {
