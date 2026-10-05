@@ -179,8 +179,8 @@ fn divergence(g: &Graph<'_>, order: &[usize], chain: &[Option<(usize, usize)>]) 
   x
 }
 
-/// Cladogram position: leaves at the height of the top root, every other node one step left of
-/// its leftmost child.
+/// Cladogram position (see `ArgNodeView.x_depth`): the height of the top root minus the height of
+/// each node, the largest number of edges down to a leaf.
 fn depth(children: &[Vec<usize>], order: &[usize], root: usize) -> Vec<f64> {
   let mut height = vec![0_usize; children.len()];
   for &n in order.iter().rev() {

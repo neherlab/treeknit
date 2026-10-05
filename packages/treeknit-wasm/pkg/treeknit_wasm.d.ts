@@ -62,8 +62,9 @@ export interface DrawNode {
      */
     xDiv: number;
     /**
-     * Cladogram position: all leaves at the largest leaf depth, each internal node one step left
-     * of its closest child.
+     * Cladogram position in branch steps from the root: the height of the root minus the height
+     * of the node, where a height is the largest number of branches from a node down to a leaf.
+     * Every leaf is at the height of the root.
      */
     xDepth: number;
     /**
@@ -132,7 +133,9 @@ export interface ArgNodeView {
      */
     xDiv: number;
     /**
-     * Cladogram position along the same chain, with all leaves at the largest leaf depth.
+     * Cladogram position in branch steps from the top root, as `DrawNode.x_depth`: the height of
+     * the top root minus the height of the node, where a height is the largest number of edges
+     * from a node down to a leaf over the children of both segments.
      */
     xDepth: number;
     /**

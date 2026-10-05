@@ -182,7 +182,9 @@ mod tests {
     });
     let mut expected: Vec<String> = c.mcc.iter().map(|m| m.to_lowercase()).collect();
     expected.push(c.no_mcc.to_lowercase());
-    let mut actual: Vec<String> = (0..MCC_SLOTS).map(|i| tokens[format!("mcc-{i}").as_str()].clone()).collect();
+    let mut actual: Vec<String> = (0..MCC_SLOTS)
+      .map(|i| tokens[format!("mcc-{i}").as_str()].clone())
+      .collect();
     actual.push(tokens["mcc-none"].clone());
     assert_eq!(expected, actual);
   }

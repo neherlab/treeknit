@@ -14,7 +14,8 @@ use treeknit_core::{Options, PairResult, Progress, Taxa, Tree};
   reason = "the cache of color slots is filled only by the display data of this crate"
 )]
 pub struct RunResult {
-  /// The parsed trees, before resolution.
+  /// The parsed trees, before resolution: the `input` version of the display data, and the
+  /// reference by which every version flags added nodes and imputed leaves.
   pub input_trees: Vec<Tree>,
   /// The final trees of the run: resolved and sorted.
   pub trees: Vec<Tree>,
@@ -22,7 +23,9 @@ pub struct RunResult {
   pub taxa: Taxa,
   /// The MCCs of every pair, in pipeline order `(0,1), (0,2), ..., (1,2), ...`.
   pub pairs: Vec<PairResult>,
-  /// The final trees with the leaves that only other trees have, placed by imputation.
+  /// The final trees with the leaves that only other trees have, placed by imputation: the
+  /// `_imputed` output files and the `imputed` version of the display data. Every run computes
+  /// them, because the file set of the web app always holds them.
   pub imputed: Vec<Tree>,
   /// The ARG of two trees whose pair has MCCs, or the reason it could not be built; `None`
   /// otherwise.

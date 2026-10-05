@@ -1,11 +1,13 @@
 //! Display data: the drawable form of a pair of trees (tanglegram), of the ARG, and of the
 //! leaf-by-pair MCC table.
 //!
-//! Coordinates are in normalized units. x runs from 0 to 1 across the column of a shape: a tree
-//! column, or the link zone between the two label columns of a tanglegram. y counts leaf rows,
-//! from 0 for the first leaf in display order. The right tree of a tanglegram is not mirrored in
-//! the data; the consumer mirrors its column. The SVG figures and the interactive views draw the
-//! same shapes and only map these units to pixels.
+//! Node coordinates are in tree units: `x_div` in branch-length units from the root, `x_depth` in
+//! branch steps from the root, and `y` in leaf rows, from 0 for the first leaf in display order.
+//! The shapes (`PairShapes`, `ArgShapes`) are in normalized units: x runs from 0 to 1 across the
+//! column of a shape (a tree column, or the link zone between the two label columns of a
+//! tanglegram), and y counts leaf rows as the nodes do. The right tree of a tanglegram is not
+//! mirrored in the data; the consumer mirrors its column. The SVG figures and the interactive
+//! views draw the same shapes and only map these units to pixels.
 
 mod arg_view;
 mod constellation;
@@ -113,8 +115,9 @@ pub struct DrawNode {
   pub branch_length: Option<f64>,
   /// Divergence from the root; a missing or negative length counts as 0.
   pub x_div: f64,
-  /// Cladogram position: all leaves at the largest leaf depth, each internal node one step left
-  /// of its closest child.
+  /// Cladogram position in branch steps from the root: the height of the root minus the height
+  /// of the node, where a height is the largest number of branches from a node down to a leaf.
+  /// Every leaf is at the height of the root.
   pub x_depth: f64,
   /// Leaf rank 0 to n-1 in display order; an internal node sits at the midpoint of its first and
   /// last child.
@@ -369,7 +372,9 @@ pub struct ArgNodeView {
   /// Distance from the top root along the parent chain that leads to it; a missing or negative
   /// length counts as 0.
   pub x_div: f64,
-  /// Cladogram position along the same chain, with all leaves at the largest leaf depth.
+  /// Cladogram position in branch steps from the top root, as `DrawNode.x_depth`: the height of
+  /// the top root minus the height of the node, where a height is the largest number of edges
+  /// from a node down to a leaf over the children of both segments.
   pub x_depth: f64,
   /// Leaf rank in display order; an internal node sits at the midpoint of its children.
   pub y: f64,
