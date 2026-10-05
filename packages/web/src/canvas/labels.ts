@@ -12,12 +12,18 @@ export const LABEL_AUTO_MIN_ROW_PX = 10;
 
 export const LABEL_MAX_LENGTH = 40;
 
+export const RIBBON_MAX_ROW_PX = 6;
+
 const ELLIPSIS = "…";
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 export function labelsVisible(mode: LabelMode, rowPx: number): boolean {
   return mode === "on" || (mode === "auto" && rowPx >= LABEL_AUTO_MIN_ROW_PX);
+}
+
+export function ribbonsShown(rowPx: number): boolean {
+  return rowPx < RIBBON_MAX_ROW_PX;
 }
 
 export function shortenLabel(name: string, maxLength = LABEL_MAX_LENGTH): string {

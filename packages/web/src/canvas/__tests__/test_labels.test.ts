@@ -7,6 +7,8 @@ import {
   LABEL_MAX_LENGTH,
   labelFontStore,
   labelsVisible,
+  RIBBON_MAX_ROW_PX,
+  ribbonsShown,
   shortenLabel,
 } from "../labels";
 
@@ -25,6 +27,17 @@ describe("labelsVisible", () => {
     ["off", 30, false],
   ] as const)("mode %s at %f px per row shows labels: %s", (mode, rowPx, visible) => {
     expect(labelsVisible(mode, rowPx)).toBe(visible);
+  });
+});
+
+describe("ribbonsShown", () => {
+  test.each([
+    [0.1, true],
+    [5.99, true],
+    [RIBBON_MAX_ROW_PX, false],
+    [30, false],
+  ] as const)("at %f px per row draws ribbons: %s", (rowPx, ribbons) => {
+    expect(ribbonsShown(rowPx)).toBe(ribbons);
   });
 });
 
