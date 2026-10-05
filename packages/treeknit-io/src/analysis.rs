@@ -6,6 +6,7 @@
 //! traps the WebAssembly instance.
 
 use crate::newick;
+use crate::output::{self, OutputOptions};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
@@ -167,12 +168,22 @@ pub struct PairShared {
   pub shared: usize,
 }
 
-/// Check the trees and the settings of `request`: every error of `check_trees` and of
-/// `check_settings`. An empty list means the request runs.
+/// Check the trees and the settings of `request`: every error of `check_trees`, of
+/// `output::check_output_paths` for the file set of the web app, and of `check_settings`. An
+/// empty list means the request runs.
 pub fn validate(request: &AnalysisRequest) -> Vec<ValidationError> {
-  let mut errors = check_trees(&request.trees);
-  errors.extend(check_settings(&request.settings, request.trees.len()));
+  let k = request.trees.len();
+  let mut errors = match parse_trees(&request.trees) {
+    Ok(_) => output::check_output_paths(&labels(&request.trees), &OutputOptions::web(k)),
+    Err(errors) => errors,
+  };
+  errors.extend(check_settings(&request.settings, k));
   errors
+}
+
+/// The labels of `trees`, in their order.
+pub fn labels(trees: &[TreeText]) -> Vec<String> {
+  trees.iter().map(|t| t.label.clone()).collect()
 }
 
 /// Check the trees of a request: their number, their labels, their Newick text, the output file
@@ -1036,7 +1047,9 @@ mod tests {
   fn tree_labels_pass_the_label_check() {
     // Repeated file names and existing labels give labels that check_trees accepts.
     let existing = strings(&["HA", "na"]);
-    let files = ["ha.nwk", "ha.nwk", "NA.nwk", "ha:1.nwk", " .nwk", "..nwk", "a\tb", "...nwk"];
+    let files = [
+      "ha.nwk", "ha.nwk", "NA.nwk", "ha:1.nwk", " .nwk", "..nwk", "a\tb", "...nwk",
+    ];
     let new = tree_labels(&strings(&files), &existing);
     let all: Vec<&str> = existing.iter().chain(&new).map(String::as_str).collect();
     assert_eq!(Vec::<ValidationError>::new(), check_trees(&labeled(&all)));

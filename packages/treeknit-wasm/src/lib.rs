@@ -9,7 +9,7 @@ use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, Validatio
 use treeknit_io::display::{self, ArgView, ConstellationTable, DrawingRules, PairView, Scale, TreeVersion};
 use treeknit_io::figure::{self, FigureOptions};
 use treeknit_io::inspect::{self, Overlap, TreeInspection};
-use treeknit_io::output::{self, FigureFile, FileEntry, OutputFile, OutputOptions};
+use treeknit_io::output::{self, FigureFile, FileEntry, OutputFile, OutputOptions, WebFile};
 use treeknit_io::palette::{self, Palette};
 use treeknit_io::progress::Progress;
 use treeknit_io::run::{self, RunResult};
@@ -136,8 +136,7 @@ pub struct Session {
   options: Options,
   /// The Warn and Error records of the run, in the order they occurred.
   diagnostics: Vec<Diagnostic>,
-  /// The output files, in the order of `files()`: the session file, the files of the command
-  /// line, the figures, `parameters.json`, and `log.txt`.
+  /// The output files of `output::web_files`, in the order of `files()`.
   files: Vec<SessionFile>,
 }
 
@@ -156,10 +155,11 @@ impl Session {
     log::info!("TreeKnit {}", env!("TREEKNIT_LONG_VERSION"));
     let k = request.trees.len();
     // The checks of `analysis::validate`, in its order, keeping the parsed trees and the options.
-    let (parsed, opts) = match (
-      analysis::parse_trees(&request.trees),
-      analysis::options(&request.settings, k, false),
-    ) {
+    let parsed = analysis::parse_trees(&request.trees).and_then(|p| {
+      let errors = output::check_output_paths(&analysis::labels(&request.trees), &OutputOptions::web(k));
+      if errors.is_empty() { Ok(p) } else { Err(errors) }
+    });
+    let (parsed, opts) = match (parsed, analysis::options(&request.settings, k, false)) {
       (Ok(p), Ok(o)) => (p, o),
       (parsed, opts) => {
         let mut errors = parsed.err().unwrap_or_default();
@@ -186,30 +186,16 @@ impl Session {
       return Err(e);
     }
     let records = log_capture::take();
-    // Figures are listed here and rendered on first use, because a run of many large trees has
-    // figures of many megabytes that most sessions never read.
-    let output_options = OutputOptions {
-      extensions: vec![".nwk".to_owned(); k],
-      imputed: true,
-      auspice: true,
-      figures: false,
-    };
-    let mut files = vec![SessionFile::Text(output::request_file(&request))];
-    files.extend(
-      output::output_files(&result, &opts, &output_options)
-        .into_iter()
-        .map(SessionFile::Text),
-    );
-    files.extend(
-      output::figure_files(&result)
-        .into_iter()
-        .map(|file| SessionFile::Figure {
+    let files = output::web_files(&request, &result, &opts, seed, &records)
+      .into_iter()
+      .map(|f| match f {
+        WebFile::Text(file) => SessionFile::Text(file),
+        WebFile::Figure(file) => SessionFile::Figure {
           file,
           svg: OnceCell::new(),
-        }),
-    );
-    files.push(SessionFile::Text(output::parameters_file(&opts, seed)));
-    files.push(SessionFile::Text(output::log_file(&records)));
+        },
+      })
+      .collect();
     Ok(Session {
       run: result,
       options: opts,
