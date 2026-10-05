@@ -11,9 +11,9 @@ keywords.workspace = true
 license.workspace = true
 
 [dependencies]
-treeknit-core.workspace = true
-serde_json.workspace = true
 log.workspace = true
+serde_json.workspace = true
+treeknit-core.workspace = true
 
 [dev-dependencies]
 rand.workspace = true

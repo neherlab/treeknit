@@ -15,14 +15,14 @@ name = "treeknit"
 path = "src/main.rs"
 
 [dependencies]
+anyhow.workspace = true
+clap.workspace = true
+log.workspace = true
+rayon.workspace = true
+serde_json.workspace = true
+simplelog.workspace = true
 treeknit-core.workspace = true
 treeknit-io.workspace = true
-clap.workspace = true
-anyhow.workspace = true
-log.workspace = true
-simplelog.workspace = true
-serde_json.workspace = true
-rayon.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
