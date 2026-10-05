@@ -91,7 +91,8 @@ fn pipeline_pairs(k: usize) -> Vec<(usize, usize)> {
   (0..k).flat_map(|i| (i + 1..k).map(move |j| (i, j))).collect()
 }
 
-/// The last pair whose sort in the run reordered tree `tree`, or `None` if no pair sorted it. `trees` are the trees of the run (their leaf sets decide which pairs are skipped).
+/// The last pair whose sort in the run reordered tree `tree`, or `None` if no pair sorted it.
+/// `trees` are the trees of the run (their leaf sets decide which pairs are skipped).
 ///
 /// The run sorts every pair that shares at least two leaves, in pipeline order, once: in the
 /// last round, or after `Matched` resolution. A pair `(i, j)` reorders tree `j`, and tree `i`
