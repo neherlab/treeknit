@@ -82,6 +82,10 @@ class AnalysisWorker implements WorkerApi {
     return this.#current().pairView(...args);
   }
 
+  auspiceView(...args: SessionArgs<"auspiceView">) {
+    return this.#current().auspiceView(...args);
+  }
+
   argView(...args: SessionArgs<"argView">) {
     return this.#current().argView(...args);
   }
