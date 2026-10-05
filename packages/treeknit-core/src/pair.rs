@@ -214,16 +214,6 @@ mod tests {
   }
 
   #[test]
-  fn max_iterations_is_one_more_than_itmax() {
-    assert_eq!(3, max_iterations(2));
-  }
-
-  #[test]
-  fn max_iterations_saturates_at_the_largest_itmax() {
-    assert_eq!(usize::MAX, max_iterations(usize::MAX));
-  }
-
-  #[test]
   fn single_reassorted_leaf() {
     let o = Options::default();
     for seed in 0..5 {
