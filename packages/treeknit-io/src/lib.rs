@@ -11,6 +11,7 @@ pub mod newick;
 pub mod output;
 pub mod palette;
 pub mod progress;
+pub mod run;
 pub mod schema;
 pub mod summary;
 pub mod version;
