@@ -14,8 +14,8 @@ export function longestLabelPx(names: readonly string[], measure: (text: string)
   return names.reduce((longest, name) => Math.max(longest, measure(shortenLabel(name, maxChars))), 0);
 }
 
-export function labelColumnPx(treeSharePx: number, longestPx: number): number {
-  return longestPx <= 0 ? 0 : Math.min(longestPx + 2 * LABEL_GAP_PX, LABEL_COLUMN_MAX_SHARE * treeSharePx);
+export function labelColumnPx(capBasisPx: number, longestPx: number): number {
+  return longestPx <= 0 ? 0 : Math.min(longestPx + 2 * LABEL_GAP_PX, LABEL_COLUMN_MAX_SHARE * capBasisPx);
 }
 
 export function useLeafLabels(names: readonly string[], reserved: boolean, maxChars: number): LeafLabels {
