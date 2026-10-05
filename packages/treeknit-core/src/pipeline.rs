@@ -1496,9 +1496,24 @@ mod tests {
     assert_eq!(expected.as_slice(), events);
   }
 
-  /// Require that a run of three trees in `resolution`, `parallel`, and `pre_resolve` reports
+  /// Three trees with polytomies: pre-resolution adds the split (C,D), which the other two trees
+  /// have, to the first tree, and the placements of X differ, so the pairs have several MCCs.
+  const POLYTOMIES: [&str; 3] = ["((A,B),(C,D,X));", "((A,(B,X)),(C,D));", "((A,X),B,(C,D));"];
+
+  #[test]
+  fn pre_resolution_changes_the_trees_of_the_progress_bounds() {
+    // Oracle: (C,D) is a split of the second and third tree and fits the polytomy (C,D,X) of the
+    // first; no other split is compatible with all three trees and missing from one.
+    let (mut ts, taxa) = trees(&POLYTOMIES);
+    let new = resolve_trees(&mut ts, taxa.len());
+    let added: Vec<usize> = new.iter().map(Vec::len).collect();
+    assert_eq!(vec![1, 0, 0], added);
+  }
+
+  /// Require that a run of `POLYTOMIES` in `resolution`, `parallel`, and `pre_resolve` reports
   /// fractions that never decrease and stay at most `PAIRS_SHARE` before the last event, which is
-  /// `Done` with fraction 1.
+  /// `Done` with fraction 1, and the phases `Pairs`, then `Matching` for `Matched` resolution, then
+  /// `Done`.
   fn assert_progress_bounds(resolution: Resolution, parallel: bool, pre_resolve: bool) {
     let o = Options {
       itmax: 2,
@@ -1508,7 +1523,7 @@ mod tests {
       pre_resolve,
       ..Options::for_trees(3)
     };
-    let events = observed(&["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", "((A,X),(B,(C,D)));"], &o);
+    let events = observed(&POLYTOMIES, &o);
     assert!(never_decreasing(&events), "{events:?}");
     let (last, before_end) = events.split_last().unwrap();
     assert!(
@@ -1518,6 +1533,14 @@ mod tests {
       "{events:?}"
     );
     assert_eq!((Phase::Done, 1.0_f64.to_bits()), (last.phase, last.fraction.to_bits()));
+    let mut phases: Vec<Phase> = events.iter().map(|p| p.phase).collect();
+    phases.dedup();
+    let expected = if resolution == Resolution::Matched {
+      vec![Phase::Pairs, Phase::Matching, Phase::Done]
+    } else {
+      vec![Phase::Pairs, Phase::Done]
+    };
+    assert_eq!(expected, phases, "{events:?}");
   }
 
   /// One test per case of `assert_progress_bounds`.
@@ -1532,6 +1555,8 @@ mod tests {
     };
   }
 
+  // Matched resolution resolves in every round, so its rounds run sequentially with or without
+  // `parallel` and have no parallel cases.
   #[rustfmt::skip]
   progress_bounds! {
     progress_bounds_none_sequential:                 (None,     false, false),
@@ -1546,10 +1571,8 @@ mod tests {
     progress_bounds_liberal_sequential_pre_resolved: (Liberal,  false, true),
     progress_bounds_liberal_parallel:                (Liberal,  true,  false),
     progress_bounds_liberal_parallel_pre_resolved:   (Liberal,  true,  true),
-    progress_bounds_matched_sequential:              (Matched,  false, false),
-    progress_bounds_matched_sequential_pre_resolved: (Matched,  false, true),
-    progress_bounds_matched_parallel:                (Matched,  true,  false),
-    progress_bounds_matched_parallel_pre_resolved:   (Matched,  true,  true),
+    progress_bounds_matched:                         (Matched,  false, false),
+    progress_bounds_matched_pre_resolved:            (Matched,  false, true),
   }
 
   /// Events of a run with `Matched` resolution (whose rounds resolve, so they run sequentially):

@@ -136,12 +136,17 @@ mod tests {
       "x 1",
       "--gamma=-1",
     ];
-    let expected = "--seq-lengths should look like \"1500 2000\", got \"x 1\": invalid float literal\n\
+    let f = fail("all-errors", &[HA, "(A,B"], &args);
+    let expected = format!(
+      "{}:1:5: tree \"t1\": Newick parse error: expected ',' or ')' at byte 4\n\
+      --seq-lengths should look like \"1500 2000\", got \"x 1\": invalid float literal\n\
       former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, \
       --resolve-all-rounds, --no-pre-resolve, --match-topologies) cannot be combined with \
       --resolve, --pre-resolve or --no-final-round; see --help-resolve\n\
-      gamma must be a non-negative number, got -1";
-    assert_failed(&fail("all-errors", &[HA, NA], &args), expected, "all errors");
+      gamma must be a non-negative number, got -1",
+      f.dir.path().join("t1.nwk").display()
+    );
+    assert_failed(&f, &expected, "all errors");
   }
 
   #[test]
