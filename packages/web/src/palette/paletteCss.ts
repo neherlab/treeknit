@@ -14,7 +14,9 @@ export function mccVariables(colors: ThemeColors): [string, string][] {
 }
 
 export function paletteCss(palette: Palette): string {
-  return [rule(":root", palette.light), rule(":root.dark", palette.dark)].join("\n");
+  return [rule(":root", palette.light), rule(":root.dark", palette.dark), rule(".light-scope", palette.light)].join(
+    "\n",
+  );
 }
 
 export function applyPalette(target: Document, palette: Palette): () => void {

@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant dark (&:where(.dark, .dark *):not(:where(.light-scope, .light-scope *)));
 
 @theme static {
   --font-*: initial;
@@ -78,4 +78,29 @@
   body {
     @apply bg-ground text-ink font-sans text-base tabular-nums antialiased;
   }
+}
+
+@utility light-scope {
+  color-scheme: light;
+
+  --color-ground: --theme(--color-ground inline);
+  --color-pane: --theme(--color-pane inline);
+  --color-rule: --theme(--color-rule inline);
+  --color-ink: --theme(--color-ink inline);
+  --color-ink-muted: --theme(--color-ink-muted inline);
+  --color-signal: --theme(--color-signal inline);
+  --color-focus: --theme(--color-focus inline);
+  --color-danger: --theme(--color-danger inline);
+  --color-segment-a: --theme(--color-segment-a inline);
+  --color-segment-b: --theme(--color-segment-b inline);
+
+  --color-mcc-0: --theme(--color-mcc-0 inline);
+  --color-mcc-1: --theme(--color-mcc-1 inline);
+  --color-mcc-2: --theme(--color-mcc-2 inline);
+  --color-mcc-3: --theme(--color-mcc-3 inline);
+  --color-mcc-4: --theme(--color-mcc-4 inline);
+  --color-mcc-5: --theme(--color-mcc-5 inline);
+  --color-mcc-6: --theme(--color-mcc-6 inline);
+  --color-mcc-7: --theme(--color-mcc-7 inline);
+  --color-mcc-none: --theme(--color-mcc-none inline);
 }

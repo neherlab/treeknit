@@ -38,7 +38,7 @@ describe("palette CSS variables", () => {
     ]);
   });
 
-  test("writes light colors under the root and dark colors under the dark class", () => {
+  test("writes light colors under the root and the light scope, and dark colors under the dark class", () => {
     expect(paletteCss(PALETTE)).toBe(
       [
         ":root {",
@@ -62,6 +62,17 @@ describe("palette CSS variables", () => {
         "  --color-mcc-6: #100007;",
         "  --color-mcc-7: #100008;",
         "  --color-mcc-none: #10000a;",
+        "}",
+        ".light-scope {",
+        "  --color-mcc-0: #000001;",
+        "  --color-mcc-1: #000002;",
+        "  --color-mcc-2: #000003;",
+        "  --color-mcc-3: #000004;",
+        "  --color-mcc-4: #000005;",
+        "  --color-mcc-5: #000006;",
+        "  --color-mcc-6: #000007;",
+        "  --color-mcc-7: #000008;",
+        "  --color-mcc-none: #00000a;",
         "}",
       ].join("\n"),
     );
