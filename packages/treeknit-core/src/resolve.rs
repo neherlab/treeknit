@@ -244,11 +244,29 @@ fn strict_ok(
   true
 }
 
-/// Resolve `t1` and `t2` (same leaf set) using MCCs; returns the new splits of each.
+/// Resolve `t1` and `t2` (same leaf set) using MCCs; returns the new splits of each. Logs a
+/// warning for each split skipped as incompatible.
 pub fn resolve_with_mccs(t1: &mut Tree, t2: &mut Tree, mccs: &[Mcc], n_taxa: usize, strict: bool) -> [Vec<Bits>; 2] {
-  let s1 = mcc_splits(t1, t2, mccs, n_taxa, strict);
-  let s2 = mcc_splits(t2, t1, mccs, n_taxa, strict);
-  [insert_all(t1, s1, n_taxa), insert_all(t2, s2, n_taxa)]
+  let (new, skipped) = resolve_with_mccs_quiet(t1, t2, mccs, n_taxa, strict);
+  warn_skipped(t1, skipped[0]);
+  warn_skipped(t2, skipped[1]);
+  new
+}
+
+/// As [`resolve_with_mccs`], without logging: returns the new splits of each tree and the
+/// number of splits each tree skipped as incompatible.
+pub(crate) fn resolve_with_mccs_quiet(
+  t1: &mut Tree,
+  t2: &mut Tree,
+  mccs: &[Mcc],
+  n_taxa: usize,
+  strict: bool,
+) -> ([Vec<Bits>; 2], [usize; 2]) {
+  let mut s1 = mcc_splits(t1, t2, mccs, n_taxa, strict);
+  let mut s2 = mcc_splits(t2, t1, mccs, n_taxa, strict);
+  let k1 = insert_compatible(t1, &mut s1, &t1.leaf_set(n_taxa), n_taxa);
+  let k2 = insert_compatible(t2, &mut s2, &t2.leaf_set(n_taxa), n_taxa);
+  ([s1, s2], [k1, k2])
 }
 
 /// Insert `splits` into `t` (on all its leaves); returns those actually inserted.
@@ -257,9 +275,18 @@ pub fn insert_all(t: &mut Tree, mut splits: Vec<Bits>, n_taxa: usize) -> Vec<Bit
   splits
 }
 
-/// Insert `splits` into `t` considering only leaves in `mask`; keeps the inserted ones.
+/// Insert `splits` into `t` considering only leaves in `mask`; keeps the inserted ones. Logs a
+/// warning for each split skipped as incompatible.
 pub fn insert_all_on(t: &mut Tree, splits: &mut Vec<Bits>, mask: &Bits, n_taxa: usize) {
+  let skipped = insert_compatible(t, splits, mask, n_taxa);
+  warn_skipped(t, skipped);
+}
+
+/// Insert `splits` into `t` considering only leaves in `mask`; keeps the inserted ones and
+/// returns the number skipped as incompatible.
+fn insert_compatible(t: &mut Tree, splits: &mut Vec<Bits>, mask: &Bits, n_taxa: usize) -> usize {
   let mut label = t.fresh_index("RESOLVED");
+  let mut skipped = 0;
   splits.retain(
     |s| match insert_split(t, s, mask, n_taxa, &format!("RESOLVED_{label}")) {
       Insert::Added => {
@@ -268,11 +295,19 @@ pub fn insert_all_on(t: &mut Tree, splits: &mut Vec<Bits>, mask: &Bits, n_taxa: 
       },
       Insert::Present => false,
       Insert::Incompatible => {
-        log::warn!("skipping split incompatible with tree {}", t.label);
+        skipped += 1;
         false
       },
     },
   );
+  skipped
+}
+
+/// Log one warning per split that `t` skipped as incompatible.
+pub(crate) fn warn_skipped(t: &Tree, skipped: usize) {
+  for _ in 0..skipped {
+    log::warn!("skipping split incompatible with tree {}", t.label);
+  }
 }
 
 #[cfg(test)]
