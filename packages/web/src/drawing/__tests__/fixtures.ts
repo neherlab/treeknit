@@ -6,6 +6,7 @@ import type {
   DrawNode,
   DrawTree,
   Elbow,
+  Leader,
   Mark,
   PairView,
   Point,
@@ -80,8 +81,24 @@ export function examplePairView(): PairView {
     links,
     blocks,
     mccs: [
-      { index: MCC_ABCD, size: 4, leaves: ["A", "B", "C", "D"], imputedLeaves: [], ambiguous: false, slot: SLOT_ABCD },
-      { index: MCC_X, size: 1, leaves: ["X"], imputedLeaves: ["X"], ambiguous: true, slot: SLOT_X },
+      {
+        index: MCC_ABCD,
+        size: 4,
+        leaves: ["A", "B", "C", "D"],
+        imputedLeaves: [],
+        ambiguousLeaves: [],
+        ambiguous: false,
+        slot: SLOT_ABCD,
+      },
+      {
+        index: MCC_X,
+        size: 1,
+        leaves: ["X"],
+        imputedLeaves: ["X"],
+        ambiguousLeaves: ["X"],
+        ambiguous: true,
+        slot: SLOT_X,
+      },
     ],
     // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated PairView type
     shapes: {
@@ -144,6 +161,9 @@ export function exampleArgView(): ArgView {
           : { kind: "elbow", points: [point(parent), [point(parent)[0], point(child)[1]], point(child)] },
       })),
       marks: [{ kind: "hybrid", node: 4, at: point(4) }],
+      leaders: nodes.flatMap((node, index): Leader[] =>
+        node.leaf ? [{ node: index, from: point(index), to: [1, node.y] }] : [],
+      ),
     },
   };
 }
@@ -219,7 +239,11 @@ function treeDrawing(tree: DrawTree, slotOf: (mcc: number) => number) {
     return [...reassortment, ...imputed];
   });
 
-  return { elbows, marks };
+  const leaders = tree.nodes.flatMap((node, index): Leader[] =>
+    node.leaf ? [{ node: index, from: [node.xDiv, node.y], to: [1, node.y] }] : [],
+  );
+
+  return { elbows, marks, leaders };
 }
 
 function ribbonOutline([leftFirst, leftLast]: [number, number], [rightFirst, rightLast]: [number, number]): Bezier[] {

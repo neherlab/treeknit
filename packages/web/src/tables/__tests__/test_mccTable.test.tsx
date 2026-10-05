@@ -70,5 +70,13 @@ function Probe({ sorting, columnFilters }: { sorting: SortingState; columnFilter
 }
 
 function mcc(index: number, leaves: string[], imputedLeaves: string[], ambiguous: boolean): MccInfo {
-  return { index, size: leaves.length, leaves, imputedLeaves, ambiguous, slot: index };
+  return {
+    index,
+    size: leaves.length,
+    leaves,
+    imputedLeaves,
+    ambiguousLeaves: ambiguous ? imputedLeaves : [],
+    ambiguous,
+    slot: index,
+  };
 }
