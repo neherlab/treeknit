@@ -1,3 +1,4 @@
+import type { ValidationError } from "@neherlab/treeknit-wasm";
 import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useEffect, useEffectEvent } from "react";
 import { useFormContext } from "react-hook-form";
@@ -20,11 +21,18 @@ export function useRunShortcut(workspace: RefObject<HTMLElement | null>): void {
   const runWhenReady = useEffectEvent(async (): Promise<void> => {
     const state = store.getState();
     const request = selectRequest(state);
+    let errors: readonly ValidationError[];
 
-    const errors = await queryClient.query({
-      ...validationQuery(client, request, selectTextIds(state)),
-      staleTime: "static",
-    });
+    try {
+      errors = await queryClient.query({
+        ...validationQuery(client, request, selectTextIds(state)),
+        staleTime: "static",
+      });
+    } catch (error) {
+      console.error("The run shortcut could not check the trees and settings", error);
+
+      return;
+    }
 
     if (selectRequest(store.getState()) !== request) {
       return;
