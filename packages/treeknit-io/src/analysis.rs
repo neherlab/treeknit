@@ -276,12 +276,20 @@ pub fn check_settings(s: &Settings, k: usize) -> Vec<ValidationError> {
       format!("rounds must be at most {MAX_ROUNDS}, got {}", s.rounds),
     ));
   }
+  #[cfg_attr(
+    target_pointer_width = "32",
+    expect(
+      clippy::absurd_extreme_comparisons,
+      reason = "on 32-bit targets the bound is the largest usize, which the check keeps for the other targets"
+    )
+  )]
+  let too_many_steps = s.n_mcmc_it > MAX_MCMC_IT;
   if s.n_mcmc_it == 0 {
     errors.push(ValidationError::at(
       "settings.nMcmcIt",
       "MCMC steps per leaf must be at least 1",
     ));
-  } else if s.n_mcmc_it > MAX_MCMC_IT {
+  } else if too_many_steps {
     errors.push(ValidationError::at(
       "settings.nMcmcIt",
       format!("MCMC steps per leaf must be at most {MAX_MCMC_IT}, got {}", s.n_mcmc_it),
