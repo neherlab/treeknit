@@ -54,7 +54,7 @@ export const CITATION_FORMATS: Record<CitationFormat, CitationFormatChoice> = {
   text: {
     format: "text",
     label: "Text",
-    caption: "Chicago author-date",
+    caption: "Citation",
     description: "Reference in Chicago author-date style, for documents",
     copyTooltip: "Copy the reference; documents keep the italics and the link",
   },
