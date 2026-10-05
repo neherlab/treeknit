@@ -169,7 +169,9 @@ jobs:
       - name: "Check out"
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          sparse-checkout: "CHANGELOG.md"
+          sparse-checkout: |
+            CHANGELOG.md
+            dev/release-notes
           sparse-checkout-cone-mode: false
 
       - name: "Download the binaries"
@@ -180,33 +182,24 @@ jobs:
           path: ".out"
 
       # A nightly is a prerelease, so "Latest" on the releases page stays on the
-      # newest release; GitHub appends the pull requests merged since the
-      # previous release to its notes.
+      # newest release. The notes are written to a file first, so a failure
+      # stops the step before the release exists.
       - name: "Publish"
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.version.outputs.version }}
           TAG: ${{ needs.version.outputs.tag }}
           NIGHTLY: ${{ needs.version.outputs.nightly }}
-          HINTS: |
-            - **Linux and macOS**: make the downloaded file executable with `chmod +x <file>`
-            - **Linux**: the musl builds are static and run on any distribution; the glibc builds need glibc 2.17 or newer
-            - **macOS**: the executables are not signed by a registered developer. If macOS refuses to run one, run `xattr -d com.apple.quarantine <file>`
-            - **CPU**: the x86_64 builds need a Haswell (2013) or newer CPU, the Linux ARM64 builds an ARMv8.2-A CPU
         run: |
+          notes_flags=()
+          flags=(--latest)
           if [[ "${NIGHTLY}" == "true" ]]; then
-            notes="Nightly build of \`main\` for early testing. It may contain bugs and breaking changes."
-            flags=(--prerelease --generate-notes)
-          else
-            notes="$(awk -v heading="## ${VERSION}" '$0 == heading { found = 1; next } found && /^## / { exit } found' CHANGELOG.md)"
-            if [[ -z "${notes//[[:space:]]/}" ]]; then
-              printf 'CHANGELOG.md has no section "## %s"\n' "${VERSION}" >&2
-              exit 1
-            fi
-            flags=(--latest)
+            notes_flags=(--nightly)
+            flags=(--prerelease)
           fi
+          dev/release-notes --repo "${GITHUB_REPOSITORY}" --tag "${TAG}" --sha "${GITHUB_SHA}" "${notes_flags[@]}" \
+            .out/treeknit-* >"${RUNNER_TEMP}/notes.md"
           gh release create "${TAG}" --repo="${GITHUB_REPOSITORY}" --target="${GITHUB_SHA}" --title="${TAG}" \
-            --notes="${notes}"$'\n\n'"${HINTS}" "${flags[@]}" .out/treeknit-*
+            --notes-file="${RUNNER_TEMP}/notes.md" "${flags[@]}" .out/treeknit-*
 
   deploy-web:
     name: "Deploy the web app"

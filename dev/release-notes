@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+#
+# Usage: $0 [options] <asset>...
+#
+# Print the notes of a release on the releases page: a warning for a nightly,
+# or the section of the version in CHANGELOG.md for a release, followed by a
+# table that links the web app, every asset with its size, the source commit,
+# and the issue tracker. .github/workflows/release.yml publishes each release
+# with these notes.
+#
+# Arguments:
+#   <asset>...                Files of the release, named treeknit-<target>[.exe]
+#
+# Options:
+#   -h, --help                Show this help
+#   -r, --repo <owner/repo>   GitHub repository of the release
+#   -t, --tag <tag>           Tag of the release: v<version> for a release, the version for a nightly
+#   -s, --sha <sha>           Source commit of the release
+#   -n, --nightly             Write the notes of a nightly
+#
+# Examples:
+#   $0 --repo neherlab/treeknit-rs --tag v1.0.0 --sha "$(git rev-parse HEAD)" .out/treeknit-*
+#
+set -euo pipefail
+trap "exit" INT
+
+THIS_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+ROOT="$(dirname "${THIS_DIR}")"
+
+ASSET_PREFIX="treeknit-"
+
+# Rows of the CLI table, in display order: the platform label, then one
+# "target=text" entry per asset of the row. Trailing asterisks of the text
+# mark a footnote and are printed after the link.
+CLI_ROWS=(
+  "<b>Linux</b> x86_64|x86_64-unknown-linux-gnu=glibc x86_64-unknown-linux-musl=musl*"
+  "<b>Linux</b> ARM64|aarch64-unknown-linux-gnu=glibc aarch64-unknown-linux-musl=musl*"
+  "<b>macOS</b>** Apple Silicon|aarch64-apple-darwin=executable"
+  "<b>macOS</b>** Intel|x86_64-apple-darwin=executable"
+  "<b>Windows</b> x86_64|x86_64-pc-windows-gnu=.exe"
+)
+
+# Emit the release notes.
+generate_release_notes() {
+  local repo="${1}"
+  local tag="${2}"
+  local sha="${3}"
+  local nightly="${4}"
+  shift 4
+
+  if [[ "${nightly}" == "true" ]]; then
+    printf "> [!WARNING]\n> Nightly build of \`main\` for early testing. It may contain bugs and breaking changes.\n"
+  else
+    changelog_section "${tag#v}"
+  fi
+  generate_download_table "${repo}" "${tag}" "${sha}" "$@"
+}
+
+# Emit the section '## <version>' of CHANGELOG.md without its heading and
+# surrounding blank lines.
+changelog_section() {
+  local version="${1}"
+
+  local section
+  section="$(awk -v heading="## ${version}" '$0 == heading { found = 1; next } found && /^## / { exit } found' "${ROOT}/CHANGELOG.md")"
+  section="${section#"${section%%[![:space:]]*}"}"
+  if [[ -z "${section}" ]]; then
+    printf "CHANGELOG.md has no section \"## %s\"\n" "${version}" >&2
+    return 1
+  fi
+  printf "%s\n" "${section}"
+}
+
+# Emit the download table: the web app, the CLI subtable, assets of no known
+# target, the source code, the issue tracker, and the footnotes of the marked
+# entries. An asset of no known target is listed under "Other", so a new target
+# appears even before its entry is added to CLI_ROWS.
+generate_download_table() {
+  local repo="${1}"
+  local tag="${2}"
+  local sha="${3}"
+  shift 3
+
+  local base_url="https://github.com/${repo}/releases/download/${tag//+/%2B}"
+  local web_address="${repo%%/*}.github.io/${repo#*/}"
+
+  local -A unlisted=()
+  local asset
+  for asset in "$@"; do
+    unlisted["${asset##*/}"]="${asset}"
+  done
+
+  printf "\n### Downloads\n\n<table>\n"
+  printf "<tr><td>🌐 <b>Web app</b></td><td><a href=\"https://%s/\">%s</a>, runs in the browser without installation</td></tr>\n" \
+    "${web_address}" "${web_address}"
+  generate_download_subtable "⌨️ <b>CLI</b>" "${CLI_ROWS[@]}"
+
+  local names other="" name
+  names="$(printf "%s\n" "${!unlisted[@]}" | LC_ALL=C sort)"
+  while IFS= read -r name; do
+    [[ -n "${name}" ]] || continue
+    other+="${other:+<br>}<a href=\"${base_url}/${name}\">${name}</a> ($(format_size "${unlisted[${name}]}"))"
+  done <<<"${names}"
+  [[ -z "${other}" ]] || printf "<tr><td>📦 <b>Other</b></td><td>%s</td></tr>\n" "${other}"
+
+  # The CPU requirements follow the flags of dev/lib/dist-flags.sh.
+  cat <<EOF
+<tr><td>📂 <b>Source code</b></td><td><a href="https://github.com/${repo}">github.com/${repo}</a> (<a href="https://github.com/${repo}/commit/${sha}">${sha:0:7}</a>)</td></tr>
+<tr><td>🚩 <b>Issues</b></td><td><a href="https://github.com/${repo}/issues">Report bugs, suggest features</a></td></tr>
+</table>
+
+<sub>* musl builds are static and run on any Linux distribution. glibc builds need glibc 2.17 or newer</sub>
+<sub>** macOS executables are not signed by a registered developer. If macOS refuses to run one, run <code>xattr -d com.apple.quarantine &lt;file&gt;</code></sub>
+<sub>On Linux and macOS, make the downloaded file executable with <code>chmod +x &lt;file&gt;</code>. The x86_64 builds need a Haswell (2013) or newer CPU, the Linux ARM64 builds an ARMv8.2-A CPU</sub>
+EOF
+}
+
+# Emit one subtable of the download table: a row per platform with links to its
+# assets and a column of their sizes. Reads the asset paths of `unlisted` and
+# `base_url` from the caller and removes each asset it lists. Platforms without
+# assets are omitted, and so is the whole subtable when none has assets.
+generate_download_subtable() {
+  local title="${1}"
+  shift
+
+  local rows="" row entries entry target text mark name links sizes
+  for row in "$@"; do
+    links=""
+    sizes=""
+    read -ra entries <<<"${row#*|}"
+    for entry in "${entries[@]}"; do
+      target="${entry%%=*}"
+      text="${entry#*=}"
+      mark="${text##*[!*]}"
+      text="${text%"${mark}"}"
+      for name in "${!unlisted[@]}"; do
+        [[ "${name}" == "${ASSET_PREFIX}${target}" || "${name}" == "${ASSET_PREFIX}${target}."* ]] || continue
+        links+="${links:+<br>}<a href=\"${base_url}/${name}\">${text}</a>${mark}"
+        sizes+="${sizes:+<br>}$(format_size "${unlisted[${name}]}")"
+        unset "unlisted[${name}]"
+      done
+    done
+    [[ -z "${links}" ]] || rows+="<tr><td>${row%%|*}</td><td>${links}</td><td>${sizes}</td></tr>"$'\n'
+  done
+  [[ -z "${rows}" ]] || printf "<tr><td>%s</td><td><table>\n%s</table></td></tr>\n" "${title}" "${rows}"
+}
+
+# Size of a file in binary megabytes, labeled "MB" as in the asset list of the
+# release page, so both show the same number.
+format_size() {
+  local bytes
+  bytes="$(wc -c <"${1}")"
+  awk -v bytes="${bytes}" 'BEGIN { printf "%.1f MB", bytes / 1048576 }'
+}
+
+require_value() {
+  if (($# < 2)); then
+    printf "Missing value of %s\n" "${1}" >&2
+    exit 1
+  fi
+}
+
+main() {
+  show_help() {
+    sed -n '2,${/^#/!q; s/^# \?//p}' "${BASH_SOURCE[0]}" | sed "s|\$0|${0##*/}|g"
+  }
+
+  local repo=""
+  local tag=""
+  local sha=""
+  local nightly="false"
+
+  # shfmt:off
+  while (($# > 0)); do
+    case "${1}" in
+    -h | --help)
+      show_help
+      exit 0
+      ;;
+    -r | --repo)
+      require_value "$@"
+      repo="${2}"
+      shift 2
+      ;;
+    -t | --tag)
+      require_value "$@"
+      tag="${2}"
+      shift 2
+      ;;
+    -s | --sha)
+      require_value "$@"
+      sha="${2}"
+      shift 2
+      ;;
+    -n | --nightly)
+      nightly="true"
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      printf "Unknown argument: %s\n" "${1}" >&2
+      exit 1
+      ;;
+    *)
+      break
+      ;;
+    esac
+  done
+  # shfmt:on
+
+  local option
+  for option in repo tag sha; do
+    if [[ -z "${!option}" ]]; then
+      printf "Missing option --%s\n" "${option}" >&2
+      exit 1
+    fi
+  done
+  if (($# == 0)); then
+    printf "No assets given\n" >&2
+    exit 1
+  fi
+  local asset
+  for asset in "$@"; do
+    if [[ ! -f "${asset}" ]]; then
+      printf "Asset not found: %s\n" "${asset}" >&2
+      exit 1
+    fi
+  done
+
+  generate_release_notes "${repo}" "${tag}" "${sha}" "${nightly}" "$@"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
