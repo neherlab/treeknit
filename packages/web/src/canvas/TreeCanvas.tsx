@@ -130,39 +130,43 @@ export function TreeCanvas({
   }
 
   return (
-    <div className={cn("relative min-h-0 min-w-0 overflow-hidden", className)}>
-      {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- jsx-a11y counts the application role as non-interactive, but it is the ARIA role of an element that handles its own pointer and keys; the double-click zooms to a clade */}
-      <div
-        role="application"
-        aria-roledescription="tree drawing"
-        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- jsx-a11y counts the application role as non-interactive; the deck.gl controller pans and zooms with the keyboard while the drawing has focus
-        tabIndex={0}
-        aria-label={label}
-        aria-describedby={descriptionId}
-        onDoubleClick={zoomToClade}
-        {...keyboardProps}
-        // oxlint-disable-next-line better-tailwindcss/no-unknown-classes -- deck.gl takes the element with this class as the target of its pointer and keyboard events
-        className="deck-events-root focus-visible:outline-focus absolute inset-0 outline-hidden focus-visible:outline-2 focus-visible:-outline-offset-2"
-      >
-        <DeckGL
-          ref={deckRef}
-          views={VIEW}
-          viewState={view.viewState ?? UNSIZED_VIEW_STATE}
-          controller={CONTROLLER}
-          layers={layers}
-          onResize={resize}
-          onViewStateChange={update}
-          onError={showBoundary}
-          {...events}
-        />
-      </div>
-      <p id={descriptionId} className="sr-only">
-        {description}
-      </p>
-      {minimapLayers !== undefined && frame !== undefined && minimapShown(frame) ? (
-        <Minimap view={view} frame={frame} layers={minimapLayers} />
-      ) : null}
+    <div className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden", className)}>
       {children}
+      <div className={cn("flex min-h-0 flex-1", frame?.leafAxis === "x" ? "flex-col" : "flex-row")}>
+        <div className="relative min-h-0 min-w-0 flex-1">
+          {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- jsx-a11y counts the application role as non-interactive, but it is the ARIA role of an element that handles its own pointer and keys; the double-click zooms to a clade */}
+          <div
+            role="application"
+            aria-roledescription="tree drawing"
+            // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- jsx-a11y counts the application role as non-interactive; the deck.gl controller pans and zooms with the keyboard while the drawing has focus
+            tabIndex={0}
+            aria-label={label}
+            aria-describedby={descriptionId}
+            onDoubleClick={zoomToClade}
+            {...keyboardProps}
+            // oxlint-disable-next-line better-tailwindcss/no-unknown-classes -- deck.gl takes the element with this class as the target of its pointer and keyboard events
+            className="deck-events-root focus-visible:outline-focus absolute inset-0 outline-hidden focus-visible:outline-2 focus-visible:-outline-offset-2"
+          >
+            <DeckGL
+              ref={deckRef}
+              views={VIEW}
+              viewState={view.viewState ?? UNSIZED_VIEW_STATE}
+              controller={CONTROLLER}
+              layers={layers}
+              onResize={resize}
+              onViewStateChange={update}
+              onError={showBoundary}
+              {...events}
+            />
+          </div>
+          <p id={descriptionId} className="sr-only">
+            {description}
+          </p>
+        </div>
+        {minimapLayers !== undefined && frame !== undefined && minimapShown(frame) ? (
+          <Minimap view={view} frame={frame} layers={minimapLayers} />
+        ) : null}
+      </div>
     </div>
   );
 }

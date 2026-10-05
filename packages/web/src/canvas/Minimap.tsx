@@ -1,6 +1,7 @@
 import { type LayersList, OrthographicView } from "@deck.gl/core";
 import { PolygonLayer } from "@deck.gl/layers";
 import { DeckGL } from "@deck.gl/react";
+import { cn } from "cn";
 import { useCallback, useMemo, useState } from "react";
 import { mergeProps, useMove, usePress } from "react-aria";
 import { useErrorBoundary } from "react-error-boundary";
@@ -37,7 +38,7 @@ export function Minimap({ view, frame, layers }: MinimapProps) {
   const { viewState, actions } = view;
   const { leafAxis } = frame;
   const along = leafAxis === "y" ? 1 : 0;
-  const planned = useMemo(() => minimapSize({ leafAxis }), [leafAxis]);
+  const planned = useMemo(() => minimapSize(frame), [frame]);
   const [measured, setMeasured] = useState<{ leafAxis: LeafAxis; size: CanvasSize } | undefined>(undefined);
   const size = measured?.leafAxis === leafAxis ? measured.size : planned;
 
@@ -84,7 +85,10 @@ export function Minimap({ view, frame, layers }: MinimapProps) {
     <div
       aria-hidden
       {...mergeProps(pressProps, moveProps)}
-      className="outline-rule bg-ground absolute right-2 bottom-2 cursor-grab touch-none overflow-hidden shadow-sm outline"
+      className={cn(
+        "border-rule bg-ground relative shrink-0 cursor-grab touch-none overflow-hidden",
+        along === 1 ? "border-l" : "border-t",
+      )}
     >
       <DeckGL
         views={MINIMAP_VIEW}

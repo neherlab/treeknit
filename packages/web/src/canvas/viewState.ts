@@ -175,20 +175,18 @@ export function worldPosition(leafAxis: LeafAxis, cross: number, leaf: number): 
 
 export const MINIMAP_MIN_ROWS = 200;
 
-export const MINIMAP_CROSS_PX = 160;
+export const MINIMAP_CROSS_PX = 112;
 
-export const MINIMAP_LEAF_PX = 200;
-
-const MINIMAP_MIN_CANVAS_SHARE = 2;
+const MINIMAP_MIN_LEAF_PX = 400;
 
 export function minimapShown(frame: CanvasFrame): boolean {
-  return frame.rows > MINIMAP_MIN_ROWS && leafExtent(frame) >= MINIMAP_MIN_CANVAS_SHARE * MINIMAP_LEAF_PX;
+  return frame.rows > MINIMAP_MIN_ROWS && leafExtent(frame) >= MINIMAP_MIN_LEAF_PX;
 }
 
-export function minimapSize({ leafAxis }: Pick<CanvasFrame, "leafAxis">): CanvasSize {
+export function minimapSize({ size, leafAxis }: Pick<CanvasFrame, "size" | "leafAxis">): CanvasSize {
   return leafAxis === "y"
-    ? { width: MINIMAP_CROSS_PX, height: MINIMAP_LEAF_PX }
-    : { width: MINIMAP_LEAF_PX, height: MINIMAP_CROSS_PX };
+    ? { width: MINIMAP_CROSS_PX, height: size.height }
+    : { width: size.width, height: MINIMAP_CROSS_PX };
 }
 
 export function minimapViewState(frame: CanvasFrame, size: CanvasSize): TreeViewState {

@@ -187,27 +187,28 @@ describe("fitRowsViewState", () => {
 
 describe("minimap", () => {
   const LARGE: CanvasFrame = { size: { width: 900, height: 800 }, rows: 2_000, leafAxis: "y" };
-  const NARROW_LARGE: CanvasFrame = { size: { width: 800, height: 900 }, rows: 2_000, leafAxis: "x" };
+  const NARROW_LARGE: CanvasFrame = { size: { width: 1024, height: 900 }, rows: 2_000, leafAxis: "x" };
+  const TALL: CanvasFrame = { size: { width: 900, height: 1024 }, rows: 2_000, leafAxis: "y" };
 
   test("appears only for drawings with more than 200 leaves", () => {
     expect(minimapShown({ ...LARGE, rows: 200 })).toBe(false);
     expect(minimapShown({ ...LARGE, rows: 201 })).toBe(true);
   });
 
-  test("stays hidden when it would cover more than half the leaf axis", () => {
+  test("stays hidden on a drawing shorter than 400 px along the leaf axis", () => {
     expect(minimapShown({ ...LARGE, size: { width: 900, height: 399 } })).toBe(false);
     expect(minimapShown({ ...LARGE, size: { width: 900, height: 400 } })).toBe(true);
   });
 
-  test("is 160 px across the cross axis", () => {
-    expect(minimapSize(LARGE)).toStrictEqual({ width: 160, height: 200 });
-    expect(minimapSize(NARROW)).toStrictEqual({ width: 200, height: 160 });
+  test("is a strip 112 px across, as long as the drawing along the leaf axis", () => {
+    expect(minimapSize(LARGE)).toStrictEqual({ width: 112, height: 800 });
+    expect(minimapSize(NARROW)).toStrictEqual({ width: 500, height: 112 });
   });
 
-  const MEASURED = { width: 158, height: 198 };
+  const MEASURED = { width: 110, height: 792 };
 
   test.each([
-    { name: "the planned size on the wide layout", frame: LARGE, size: minimapSize(LARGE) },
+    { name: "the planned size on the wide layout", frame: TALL, size: minimapSize(TALL) },
     { name: "the planned size on the narrow layout", frame: NARROW_LARGE, size: minimapSize(NARROW_LARGE) },
     { name: "a measured size smaller than planned", frame: LARGE, size: MEASURED },
   ])("projects the whole drawing onto $name", ({ frame, size }) => {
@@ -231,13 +232,13 @@ describe("minimap", () => {
   });
 
   test.each([
-    { name: "planned 200 px", size: minimapSize(LARGE), offsets: [0, 100, 200] },
-    { name: "measured 198 px", size: MEASURED, offsets: [0, 99, 198] },
+    { name: "planned 800 px", size: minimapSize(LARGE), offsets: [0, 400, 800] },
+    { name: "measured 792 px", size: MEASURED, offsets: [0, 396, 792] },
   ])("maps the top, middle, and bottom of the $name leaf axis to the drawing edges and center", ({ size, offsets }) => {
     expect(offsets.map((offset) => minimapLeafAt(LARGE, size, offset))).toStrictEqual([-0.5, 999.5, 1_999.5]);
   });
 
   test("maps a drag offset of a quarter of the measured leaf axis to a quarter of the rows", () => {
-    expect(minimapLeafOffset(LARGE, MEASURED, 49.5)).toBe(500);
+    expect(minimapLeafOffset(LARGE, MEASURED, 198)).toBe(500);
   });
 });
