@@ -4,6 +4,7 @@ import type { Key } from "react-aria-components";
 import DownloadIcon from "~icons/lucide/download";
 
 import { Button } from "../ui/Button";
+import { DisabledButton } from "../ui/DisabledButton";
 import { Select, type SelectOption } from "../ui/Select";
 import { ToggleButton, ToggleButtonGroup } from "../ui/ToggleButtonGroup";
 import { LABEL_MODES, TREE_VERSIONS, X_SCALES } from "../workspace/search";
@@ -18,6 +19,8 @@ const LABEL_MODE_OPTIONS: SelectOption<LabelMode>[] = LABEL_MODES.map((mode) => 
 }));
 
 const FIGURE_BUTTON_LABEL = "Download figure (SVG)";
+
+export const FIGURE_PENDING = "Figure downloads are not available in this version yet.";
 
 export function ScaleToggle({ value, onChange }: ChoiceProps<Scale>) {
   return (
@@ -55,23 +58,23 @@ export function LabelModeSelect({ value, onChange }: ChoiceProps<LabelMode>) {
   );
 }
 
-export function FigureButton({ onDownload }: FigureButtonProps) {
+export function FigureButton(props: FigureButtonProps) {
+  if ("disabledReason" in props) {
+    return (
+      <DisabledButton variant="quiet" size="sm" icon={DownloadIcon} reason={props.disabledReason}>
+        {FIGURE_BUTTON_LABEL}
+      </DisabledButton>
+    );
+  }
+
   return (
-    <Button
-      variant="quiet"
-      size="sm"
-      icon={DownloadIcon}
-      isDisabled={onDownload === undefined}
-      {...(onDownload === undefined ? undefined : { onPress: onDownload })}
-    >
+    <Button variant="quiet" size="sm" icon={DownloadIcon} onPress={props.onDownload}>
       {FIGURE_BUTTON_LABEL}
     </Button>
   );
 }
 
-export interface FigureButtonProps {
-  onDownload?: (() => void) | undefined;
-}
+export type FigureButtonProps = { onDownload: () => void } | { disabledReason: string };
 
 export interface ChoiceProps<K extends string> {
   value: K;

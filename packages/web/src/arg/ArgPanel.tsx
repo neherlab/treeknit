@@ -5,7 +5,7 @@ import { getErrorMessage } from "react-error-boundary";
 import { useArgView } from "../analysis/queries";
 import { CanvasBoundary, useLazyCanvas } from "../canvas/CanvasBoundary";
 import { ZoomControls } from "../canvas/ZoomControls";
-import { FigureButton, LabelModeSelect, ScaleToggle } from "../drawing/DrawingControls";
+import { FIGURE_PENDING, FigureButton, LabelModeSelect, ScaleToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
 import { LeafSearch } from "../drawing/LeafSearch";
 import { selectionOf, type Selection, withSelection } from "../drawing/selection";
@@ -83,7 +83,7 @@ function Arg({ result }: { result: RunResult }) {
       <LabelModeSelect value={labels} onChange={chooseLabels} />
       <LeafSearch names={names} onSelect={findLeaf} />
       <ZoomControls view={view} />
-      <FigureButton />
+      <FigureButton disabledReason={FIGURE_PENDING} />
     </>
   );
 

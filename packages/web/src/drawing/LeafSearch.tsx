@@ -1,11 +1,12 @@
 import { cn } from "cn";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Autocomplete, Button, Input, type Key, Menu, Popover, SearchField, useFilter } from "react-aria-components";
+import { Autocomplete, Input, type Key, Menu, Popover, SearchField, useFilter } from "react-aria-components";
 import SearchIcon from "~icons/lucide/search";
 import ClearIcon from "~icons/lucide/x";
 
+import { IconButton } from "../ui/IconButton";
 import { MenuItem } from "../ui/Menu";
-import { focusRing, inputStyle, listBoxStyle, popoverStyle } from "../ui/styles";
+import { inputStyle, listBoxStyle, popoverStyle } from "../ui/styles";
 import { counted, formatCount } from "./format";
 import { matchingLeaves } from "./leafSearch";
 
@@ -49,15 +50,12 @@ export function LeafSearch({ names, onSelect, className }: LeafSearchProps) {
           placeholder={SEARCH_LABEL}
           className={cn(inputStyle(), "pr-7 pl-7 [&::-webkit-search-cancel-button]:hidden")}
         />
-        <Button
-          aria-label="Clear the search"
-          className={cn(
-            "rounded-inner text-ink-muted data-hovered:text-ink absolute right-1.5 flex size-5 items-center justify-center group-data-empty/search:hidden",
-            focusRing,
-          )}
-        >
-          <ClearIcon aria-hidden className="size-3.5" />
-        </Button>
+        <IconButton
+          label="Clear the search"
+          icon={ClearIcon}
+          size="xs"
+          className="text-ink-muted data-hovered:text-ink absolute right-1.5 group-data-empty/search:hidden"
+        />
       </SearchField>
       <Popover
         triggerRef={fieldRef}

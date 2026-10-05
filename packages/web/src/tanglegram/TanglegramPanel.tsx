@@ -7,7 +7,7 @@ import { CanvasBoundary, useLazyCanvas } from "../canvas/CanvasBoundary";
 import type { TreeView, TreeViewActions } from "../canvas/useTreeView";
 import type { RowRange } from "../canvas/viewState";
 import { ZoomControls } from "../canvas/ZoomControls";
-import { FigureButton, LabelModeSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
+import { FIGURE_PENDING, FigureButton, LabelModeSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
 import { focusDone, type FocusTarget, focusRows, useFocusRequest } from "../drawing/focus";
 import { counted } from "../drawing/format";
@@ -133,7 +133,7 @@ function Tanglegram({ result }: { result: RunResult }) {
       <LabelModeSelect value={labels} onChange={chooseLabels} />
       <LeafSearch names={names} onSelect={findLeaf} />
       <ZoomControls view={view} />
-      <FigureButton />
+      <FigureButton disabledReason={FIGURE_PENDING} />
     </>
   );
 
