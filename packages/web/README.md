@@ -2,15 +2,12 @@
 
 WebAssembly bindings for TreeKnit and a static page that runs analyses in the browser.
 
-Requires the `wasm32-unknown-unknown` target and [wasm-pack](https://github.com/wasm-bindgen/wasm-pack).
-
 ```sh
-rustup target add wasm32-unknown-unknown
-wasm-pack build packages/web --target web --release --out-dir www/pkg
-python3 -m http.server -d packages/web/www 8000   # any static server; browsers do not load WebAssembly from file://
+just build-web                                   # into packages/web/www/pkg/
+python3 -m http.server -d packages/web/www 8000  # any static server; browsers do not load WebAssembly from file://
 ```
 
-Then open http://localhost:8000.
+Then open http://localhost:8000. In the build container, prefix `just build-web` with `./dev/docker/run`; the server can run on the host.
 
 ## Interface
 
@@ -31,7 +28,8 @@ Analyses run on one thread: browsers give WebAssembly no threads without cross-o
 
 ## Tests
 
-```sh
-cargo test -p treeknit-web                # native
-wasm-pack test --node packages/web          # in WebAssembly, needs Node
-```
+- `just test-rs`: the native tests, with the rest of the workspace
+- `just test-web`: the JavaScript interface in WebAssembly, in Node
+- `just lint-web`: Clippy for the WebAssembly target
+
+The `wasm-bindgen` crate pin in `Cargo.toml` and the `wasm-bindgen` tool pin in `.config/mise.toml` must name the same version, because the command-line tool supports only the crate version it was released with.

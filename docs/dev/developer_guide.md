@@ -58,6 +58,8 @@ Optional settings go into the gitignored `.env` in the checkout; `.env.example` 
 | Clippy                                 | `just lint-rs` (`just l`)                  |
 | Format                                 | `just fmt`                                 |
 | Accuracy against the simulated cases   | `just example accuracy [drop]`             |
+| Build the web page                     | `just build-web`                           |
+| Web tests in WebAssembly, Clippy       | `just test-web`, `just lint-web`           |
 
 In the container, prefix each command with `./dev/docker/run`.
 
@@ -97,7 +99,7 @@ Every dependency release must be at least seven days old before the project adop
 - mise itself: the image installs the version in `dev/docker/files/mise-version`, verified by its line in `dev/docker/files/checksums`. `min_version` in `.config/mise.toml` is the oldest mise that reads the configuration; raise it when the configuration needs a newer mise
 - After changing a tool in `.config/mise.toml`, `just tools-lock <tool>` locks only that tool. Locking calls the GitHub API, which allows 60 anonymous requests per hour. With `MISE_GITHUB_TOKEN` set, mise authenticates instead, on the host and in the container alike (`dev/docker/run` forwards it)
 
-Rust dependencies are pinned exactly in the workspace `Cargo.toml`. `.config/deny.toml` sets the license, source, and duplicate-version policy that `just deny` checks offline; `just audit` checks the dependencies against the security advisory database.
+Rust dependencies are pinned exactly in the workspace `Cargo.toml`. Upgrade the `wasm-bindgen` crate and the `wasm-bindgen` tool in `.config/mise.toml` together: the tool supports only the crate version it was released with. `.config/deny.toml` sets the license, source, and duplicate-version policy that `just deny` checks offline; `just audit` checks the dependencies against the security advisory database.
 
 The dependency recipes run in the main checkout only.
 
