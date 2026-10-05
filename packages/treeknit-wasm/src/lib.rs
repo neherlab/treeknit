@@ -1,13 +1,14 @@
 use js_sys::{Error, Function, JSON};
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
 use treeknit_io::display::{ArgView, ConstellationTable, PairView, Scale, Version};
 use treeknit_io::figure::FigureOptions;
-use treeknit_io::inspect::{Overlap, TreeInspection};
+use treeknit_io::inspect::{self, Overlap, TreeInspection};
 use treeknit_io::output::{FileEntry, OutputFile};
-use treeknit_io::palette::Palette;
+use treeknit_io::palette::{self, Palette};
 use treeknit_io::progress::Progress;
-use treeknit_io::schema::SettingsSchema;
+use treeknit_io::schema::{self, SettingsSchema};
 use treeknit_io::summary::Summary;
 use treeknit_io::version::AppVersion;
 use tsify::{Ts, Tsify};
@@ -32,33 +33,38 @@ pub fn default_settings() -> Result<Ts<Settings>, JsError> {
 
 /// Defaults, ranges, applicability, and help of every setting, for `k` trees and `settings`.
 #[wasm_bindgen(js_name = settingsSchema)]
-#[expect(unused_variables, reason = "the settings schema is not built yet")]
 pub fn settings_schema(k: usize, settings: &Ts<Settings>) -> Result<Ts<SettingsSchema>, JsError> {
-  Err(not_implemented("settingsSchema"))
+  to_js(&schema::settings_schema(k, &from_js("settings", settings)?))
 }
 
 /// Leaf, node, and polytomy counts, branch lengths, warnings, and parse error of one tree.
 #[wasm_bindgen(js_name = inspectTree)]
-#[expect(unused_variables, reason = "tree inspection is not built yet")]
 pub fn inspect_tree(label: &str, text: &str) -> Result<Ts<TreeInspection>, JsError> {
-  Err(not_implemented("inspectTree"))
+  to_js(&inspect::inspect_tree(label, text))
 }
 
 /// Leaf overlap of the trees and of each pair, with the pairs that block a run.
 #[wasm_bindgen]
 #[expect(
   clippy::needless_pass_by_value,
-  unused_variables,
-  reason = "wasm-bindgen takes JavaScript arrays only by value; the overlap report is not built yet"
+  reason = "wasm-bindgen takes JavaScript arrays only by value"
 )]
 pub fn overlap(trees: Vec<Ts<TreeText>>) -> Result<Ts<Overlap>, JsError> {
-  Err(not_implemented("overlap"))
+  let trees = trees
+    .iter()
+    .enumerate()
+    .map(|(i, t)| from_js(&format!("trees[{i}]"), t))
+    .collect::<Result<Vec<_>, _>>()?;
+  to_js(&inspect::overlap(&trees))
 }
 
 /// Every problem with the trees and the settings of the request; none when it runs.
 #[wasm_bindgen]
 pub fn validate(request: &Ts<AnalysisRequest>) -> Result<Vec<Ts<ValidationError>>, JsError> {
-  analysis::validate(&from_js(request)?).iter().map(to_js).collect()
+  analysis::validate(&from_js("request", request)?)
+    .iter()
+    .map(to_js)
+    .collect()
 }
 
 /// The request of a session file (`treeknit_request.json`); throws with the messages when its
@@ -94,13 +100,13 @@ pub fn tree_labels(
 /// The TreeKnit version and the source repository.
 #[wasm_bindgen]
 pub fn version() -> Result<Ts<AppVersion>, JsError> {
-  Err(not_implemented("version"))
+  to_js(&AppVersion::new(env!("TREEKNIT_LONG_VERSION")))
 }
 
 /// The drawing colors of the light and the dark theme.
 #[wasm_bindgen]
 pub fn palette() -> Result<Ts<Palette>, JsError> {
-  Err(not_implemented("palette"))
+  to_js(&palette::palette())
 }
 
 /// One run of TreeKnit and its results, kept for later queries.
@@ -117,7 +123,7 @@ impl Session {
     request: &Ts<AnalysisRequest>,
     #[wasm_bindgen(js_name = onProgress, unchecked_param_type = "(progress: Progress) => void")] on_progress: &Function,
   ) -> Result<Session, JsValue> {
-    let errors = analysis::validate(&from_js(request)?);
+    let errors = analysis::validate(&from_js("request", request)?);
     if !errors.is_empty() {
       return Err(validation_error(&errors));
     }
@@ -203,13 +209,14 @@ fn not_implemented(name: &str) -> JsError {
   JsError::new(&format!("not implemented: {name}"))
 }
 
-fn from_js(request: &Ts<AnalysisRequest>) -> Result<AnalysisRequest, JsError> {
-  // JSON text instead of serde-wasm-bindgen: serde_json errors say where the request is wrong.
-  let text = JSON::stringify(&request.js_value())
-    .map_err(|e| JsError::new(&format!("invalid request: {}", js_message(&e))))?
+/// The Rust value of the argument `name`; errors start with `invalid <name>:`.
+fn from_js<T: DeserializeOwned + Tsify>(name: &str, value: &Ts<T>) -> Result<T, JsError> {
+  // JSON text instead of serde-wasm-bindgen: serde_json errors say where the value is wrong.
+  let text = JSON::stringify(&value.js_value())
+    .map_err(|e| JsError::new(&format!("invalid {name}: {}", js_message(&e))))?
     .as_string()
-    .ok_or_else(|| JsError::new("invalid request: expected an object"))?;
-  serde_json::from_str(&text).map_err(|e| JsError::new(&format!("invalid request: {e}")))
+    .ok_or_else(|| JsError::new(&format!("invalid {name}: expected a JSON value")))?;
+  serde_json::from_str(&text).map_err(|e| JsError::new(&format!("invalid {name}: {e}")))
 }
 
 fn to_js<T: Serialize + Tsify>(value: &T) -> Result<Ts<T>, JsError> {

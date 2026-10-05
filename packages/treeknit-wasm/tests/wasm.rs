@@ -119,10 +119,107 @@ mod tests {
     };
     assert_eq!("Error", String::from(error.name()));
     assert_eq!("not implemented: Session.run", String::from(error.message()));
-    match treeknit_wasm::inspect_tree("ha", "(A,B);") {
-      Ok(_) => panic!("expected an error"),
-      Err(e) => assert_eq!("not implemented: inspectTree", message(e)),
+  }
+
+  #[wasm_bindgen_test]
+  fn inspect_tree_returns_a_plain_inspection() {
+    let expected = json!({
+        "label": "ha", "leaves": 3, "internalNodes": 2, "polytomies": 0, "branchLengths": "some",
+        "warnings": ["more than one tree in file, using the first"], "error": null,
+    });
+    let actual = treeknit_wasm::inspect_tree("ha", "((A:1,B:1),C);\n(A,B,C);").unwrap();
+    assert_eq!(expected, plain(&actual.js_value()));
+  }
+
+  #[wasm_bindgen_test]
+  fn inspect_tree_returns_the_parse_error_with_its_position() {
+    let expected = json!({"message": "expected ',' or ')'", "line": 2, "column": 8});
+    let actual = treeknit_wasm::inspect_tree("na", "((A,B),\n(C,D)x y);").unwrap();
+    assert_eq!(expected, plain(&actual.js_value())["error"]);
+  }
+
+  #[wasm_bindgen_test]
+  fn overlap_returns_plain_trees_pairs_and_failures() {
+    let trees = [
+      json!({"label": "ha", "newick": "((A,B),(C,D));"}),
+      json!({"label": "broken", "newick": "((A,B)"}),
+      json!({"label": "na", "newick": "(A,(E,F));"}),
+    ];
+    let expected = json!({
+        "totalLeaves": 6,
+        "trees": [
+            {"index": 0, "label": "ha", "leaves": 4, "missing": 2},
+            {"index": 2, "label": "na", "leaves": 3, "missing": 3},
+        ],
+        "pairs": [{"i": 0, "j": 2, "shared": 1, "blocked": true}],
+        "failed": [1],
+    });
+    let actual = treeknit_wasm::overlap(trees.iter().map(ts).collect()).unwrap();
+    assert_eq!(expected, plain(&actual.js_value()));
+  }
+
+  #[wasm_bindgen_test]
+  fn overlap_names_the_malformed_tree() {
+    let trees = vec![
+      ts(&json!({"label": "ha", "newick": "(A,B);"})),
+      ts(&json!({"label": 3, "newick": "(A,B);"})),
+    ];
+    let expected = "invalid trees[1]: invalid type: integer `3`, expected a string at line 1 column 10";
+    match treeknit_wasm::overlap(trees) {
+      Ok(_) => panic!("expected error {expected:?}"),
+      Err(e) => assert_eq!(expected, message(e)),
     }
+  }
+
+  #[wasm_bindgen_test]
+  fn settings_schema_returns_plain_rules_for_the_settings() {
+    let schema = treeknit_wasm::settings_schema(2, &ts(&json!({"naive": true}))).unwrap();
+    let schema = plain(&schema.js_value());
+    let expected = json!({
+        "default": 2, "min": 0, "minExclusive": false, "max": null, "step": 0.1,
+        "applies": false, "reason": "Naive MCCs skip the inference that uses this setting.",
+        "help": "Cost γ of a reassortment, that is of removing an MCC.",
+    });
+    assert_eq!(expected, schema["settings"]["gamma"]);
+    assert_eq!(
+      json!(["matched", "strict", "liberal", "none"]),
+      json!(
+        schema["modes"]
+          .as_array()
+          .unwrap()
+          .iter()
+          .map(|m| m["mode"].clone())
+          .collect::<Vec<_>>()
+      )
+    );
+  }
+
+  #[wasm_bindgen_test]
+  fn settings_schema_names_malformed_settings() {
+    let expected = "invalid settings: unknown field `foo`";
+    match treeknit_wasm::settings_schema(2, &ts(&json!({"foo": 1}))) {
+      Ok(_) => panic!("expected error {expected:?}"),
+      Err(e) => assert!(message(e).starts_with(expected)),
+    }
+  }
+
+  #[wasm_bindgen_test]
+  fn version_follows_the_command_line_rule() {
+    // Oracle: the rule of `packages/version_rule.rs`, the version of `treeknit --version`.
+    let version = option_env!("TREEKNIT_VERSION")
+      .filter(|v| !v.is_empty())
+      .map_or_else(|| format!("{}-dev", env!("CARGO_PKG_VERSION")), str::to_owned);
+    let expected = json!({"version": version, "repository": "https://github.com/neherlab/treeknit-rs"});
+    assert_eq!(expected, plain(&treeknit_wasm::version().unwrap().js_value()));
+  }
+
+  #[wasm_bindgen_test]
+  fn palette_returns_the_plain_palette() {
+    let expected = serde_json::to_value(treeknit_io::palette::palette()).unwrap();
+    let actual = plain(&treeknit_wasm::palette().unwrap().js_value());
+    assert_eq!(expected, actual);
+    assert_eq!(json!("#2f4b9a"), actual["light"]["mcc"][0]);
+    assert_eq!(json!("#83908d"), actual["light"]["noMcc"]);
   }
 
   fn ts<T: Tsify>(v: &Value) -> Ts<T> {
