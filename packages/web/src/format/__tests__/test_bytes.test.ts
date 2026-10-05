@@ -11,8 +11,12 @@ describe("formatBytes", () => {
     expect([1000, 1540, 999_949].map(formatBytes)).toStrictEqual(["1 kB", "1.5 kB", "999.9 kB"]);
   });
 
-  test("writes larger sizes in megabytes with one decimal", () => {
-    expect([1_000_000, 12_345_678, 2_000_000_000].map(formatBytes)).toStrictEqual(["1 MB", "12.3 MB", "2,000 MB"]);
+  test("writes sizes below one gigabyte in megabytes with one decimal", () => {
+    expect([1_000_000, 12_345_678, 999_949_999].map(formatBytes)).toStrictEqual(["1 MB", "12.3 MB", "999.9 MB"]);
+  });
+
+  test("writes larger sizes in gigabytes with one decimal", () => {
+    expect([999_950_000, 2_000_000_000, 12_345_678_901].map(formatBytes)).toStrictEqual(["1 GB", "2 GB", "12.3 GB"]);
   });
 
   test("moves to the larger unit where rounding would reach 1,000", () => {
