@@ -1,0 +1,55 @@
+import type { ResolveMode, Settings } from "@neherlab/treeknit-wasm";
+import { useMemo } from "react";
+
+import { useWorkspaceStore } from "../workspace/context";
+import { type NumberSettingKey, withNumberSetting, withSeqLength } from "./draft";
+
+export type ToggleSettingKey = "preResolve" | "finalRound" | "likelihood" | "naive";
+
+export interface SettingsActions {
+  setNumber(key: NumberSettingKey, value: number): void;
+  setSeqLength(treeId: string, value: number): void;
+  setToggle(key: ToggleSettingKey, value: boolean): void;
+  setResolve(mode: ResolveMode): void;
+  setSeqLengthsEnabled(enabled: boolean): void;
+}
+
+export function useSettingsActions(): SettingsActions {
+  const store = useWorkspaceStore();
+
+  return useMemo(() => {
+    const update = (change: (settings: Settings) => Settings | null): void => {
+      const state = store.getState();
+      const next = change(state.settings);
+
+      if (next !== null) {
+        state.setSettings(next);
+      }
+    };
+
+    return {
+      setNumber(key, value) {
+        update((settings) => withNumberSetting(settings, key, value));
+      },
+      setSeqLength(treeId, value) {
+        const treeIds = store.getState().trees.map(({ id }) => id);
+
+        update((settings) => withSeqLength(settings, treeIds, treeId, value));
+      },
+      setToggle(key, value) {
+        update((settings) => ({ ...settings, [key]: value }));
+      },
+      setResolve(mode) {
+        update((settings) => ({ ...settings, resolve: mode }));
+      },
+      setSeqLengthsEnabled(enabled) {
+        store
+          .getState()
+          .setSeqLengthsEnabled(enabled)
+          .catch((error: Error) => {
+            console.error("The sequence lengths could not be switched:", error);
+          });
+      },
+    };
+  }, [store]);
+}

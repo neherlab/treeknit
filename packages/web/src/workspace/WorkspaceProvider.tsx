@@ -2,6 +2,7 @@ import { type ReactNode, Suspense, use } from "react";
 import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
 
 import { useDelayedIndicator } from "../indicator/useDelayedIndicator";
+import { SettingsFormProvider } from "../settings/SettingsFormProvider";
 import { InlineNotice } from "../ui/InlineNotice";
 import { WorkspaceContext } from "./context";
 import type { WorkspaceRuntime } from "./runtime";
@@ -26,7 +27,11 @@ export interface WorkspaceProviderProps {
 function ReadyWorkspace({ runtime, children }: WorkspaceProviderProps) {
   const ready = use(runtime);
 
-  return <WorkspaceContext value={ready}>{children}</WorkspaceContext>;
+  return (
+    <WorkspaceContext value={ready}>
+      <SettingsFormProvider>{children}</SettingsFormProvider>
+    </WorkspaceContext>
+  );
 }
 
 function Starting() {
