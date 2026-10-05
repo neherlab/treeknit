@@ -27,7 +27,7 @@ export function labelColumnPx(crossPx: number, longestLabelPx: number): number {
 
 export function tanglegramColumns(crossPx: number, labelPx: number): TanglegramColumns {
   const inner = Math.max(crossPx - 2 * DRAWING_MARGIN_PX, 0);
-  const links = Math.max(LINK_ZONE_SHARE, LINK_ZONE_MIN_SHARE) * inner;
+  const links = Math.max(LINK_ZONE_MIN_SHARE * inner, LINK_ZONE_SHARE * inner - 2 * labelPx);
   const tree = Math.max((inner - links - 2 * labelPx) / 2, 0);
   const leftStart = DRAWING_MARGIN_PX;
   const leftEnd = leftStart + tree;

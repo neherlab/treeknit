@@ -52,9 +52,14 @@ describe("tanglegramColumns", () => {
     });
   });
 
-  test("gives the trees the width the labels and links leave at 1232 px", () => {
-    const columns = tanglegramColumns(1232, 100);
+  test.each([
+    ["no labels: links take 20%", 0, { tree: 480, links: 240 }],
+    ["short labels take their width from the link zone, so the trees keep theirs", 20, { tree: 480, links: 200 }],
+    ["labels reach the 15% minimum of the link zone", 30, { tree: 480, links: 180 }],
+    ["wider labels narrow the trees once the link zone is at 15%", 100, { tree: 410, links: 180 }],
+  ] as const)("at 1232 px, %s", (_, labelPx, expected) => {
+    const columns = tanglegramColumns(1232, labelPx);
 
-    expect([width(columns.left), width(columns.links)]).toStrictEqual([380, 240]);
+    expect({ tree: width(columns.left), links: width(columns.links) }).toStrictEqual(expected);
   });
 });

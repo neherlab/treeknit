@@ -17,9 +17,9 @@ describe("tanglegramGeometry", () => {
     const branch = GEOMETRY.branches.plain.find((item) => item.side === "left" && item.node === 2);
 
     expect(branch?.path).toStrictEqual([
-      [206, 0.5],
-      [206, 0],
-      [396, 0],
+      [221, 0.5],
+      [221, 0],
+      [426, 0],
     ]);
   });
 
