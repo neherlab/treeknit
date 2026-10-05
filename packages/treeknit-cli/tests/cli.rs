@@ -189,7 +189,10 @@ mod tests {
     let out = dir.path().join("out");
     run(&[ha.to_str().unwrap(), na.to_str().unwrap()], &out);
     let log = std::fs::read_to_string(out.join("log.txt")).unwrap();
-    assert!(log.contains("[WARN] ha: more than one tree in file, using the first\n"), "{log}");
+    assert!(
+      log.contains("[WARN] ha: more than one tree in file, using the first\n"),
+      "{log}"
+    );
     assert!(log.contains("[WARN] ignoring invalid branch length 'x'\n"), "{log}");
   }
 
