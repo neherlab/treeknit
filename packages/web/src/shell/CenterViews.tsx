@@ -3,6 +3,7 @@ import type { Key } from "react-aria-components";
 import PanelLeftIcon from "~icons/lucide/panel-left";
 import PanelRightIcon from "~icons/lucide/panel-right";
 
+import { ArgPanel } from "../arg/ArgPanel";
 import { DiagnosticsTabLabel } from "../results/DiagnosticsTabLabel";
 import { DiagnosticsView } from "../results/DiagnosticsView";
 import { FilesView } from "../results/FilesView";
@@ -20,7 +21,7 @@ import { viewTabs } from "./viewTabs";
 const VIEW_PANELS: Record<WorkspaceView, ComponentType> = {
   overview: Overview,
   tanglegram: TanglegramPanel,
-  arg: ViewPlaceholder,
+  arg: ArgPanel,
   mccs: ViewPlaceholder,
   constellation: ViewPlaceholder,
   files: FilesView,

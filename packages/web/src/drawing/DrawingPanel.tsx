@@ -20,7 +20,11 @@ export function DrawingPanel({ toolbar, loading, error, errorTitle, notice, onEs
       <div className="border-rule flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-3 py-1.5">
         {toolbar}
       </div>
-      {notice === undefined ? null : <div className="px-3 pt-3">{notice}</div>}
+      {notice === undefined ? null : (
+        <div className="px-3 pt-3">
+          <InlineNotice tone="warning">{notice}</InlineNotice>
+        </div>
+      )}
       <div {...keyboardProps} className="relative min-h-0 flex-1">
         <DrawingBody loading={loading} error={error} errorTitle={errorTitle}>
           {children}
@@ -35,7 +39,7 @@ export interface DrawingPanelProps {
   loading?: string | undefined;
   error?: string | undefined;
   errorTitle: string;
-  notice?: ReactNode;
+  notice?: string | undefined;
   onEscape: () => void;
   children: ReactNode;
 }
