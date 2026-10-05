@@ -1,6 +1,6 @@
 # CLI end-to-end test passes without running when the Julia examples are absent
 
-`two_trees_with_arg` in `packages/treeknit-cli/tests/cli.rs` reads the H3N2 example trees from `../../../legacy_julia_version/examples`, relative to the crate, and returns early when that directory does not exist. The test then reports a pass although it checked nothing. A checkout of this repository alone, the build container, and CI have no such directory, so the test of the two-tree output (MCC files, auspice JSON, ARG files) never runs there.
+`two_trees_with_arg` in `packages/treeknit-cli/tests/cli.rs` reads the H3N2 example trees from `../../../legacy_julia_version/examples`, relative to the crate, and returns early when that directory does not exist. The test then reports a pass although it checked nothing. A checkout of this repository alone and the build container have no such directory, so the test of the two-tree output (MCC files, auspice JSON, ARG files) never runs there.
 
 ## Fix direction
 

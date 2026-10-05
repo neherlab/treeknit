@@ -12,4 +12,4 @@ Whether browser tests belong in the test suite is open. A browser runner is slow
 
 ## Validation
 
-- The chosen test runs in the build container and in CI, and fails when the worker path, the WebAssembly loading, or the result shape breaks
+- The chosen test runs in the build container and fails when the worker path, the WebAssembly loading, or the result shape breaks
