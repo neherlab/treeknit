@@ -76,6 +76,7 @@ export function useInspectTrees(trees: readonly TreeText[]): (TreeInspection | u
     queries: trees.map(({ label, newick }) => ({
       queryKey: analysisKeys.inspectTree(label, newick),
       queryFn: async () => client.inspectTree(label, newick),
+      gcTime: INPUT_QUERY_GC_MS,
     })),
     combine: inspectionData,
   });
