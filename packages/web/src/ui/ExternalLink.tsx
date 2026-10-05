@@ -1,7 +1,9 @@
 import { cn } from "cn";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 import { composeRenderProps, Link as AriaLink, type LinkProps as AriaLinkProps } from "react-aria-components";
 
-import { focusRing } from "./styles";
+import { buttonStyle, focusRing } from "./styles";
+import { TooltipTrigger, type TooltipTriggerProps } from "./TooltipTrigger";
 
 export function ExternalLink({ className, ...props }: ExternalLinkProps) {
   return (
@@ -22,3 +24,35 @@ export function ExternalLink({ className, ...props }: ExternalLinkProps) {
 }
 
 export type ExternalLinkProps = Omit<AriaLinkProps, "target" | "rel"> & { href: string };
+
+export function ExternalIconLink({
+  href,
+  label,
+  tooltip,
+  icon: Icon,
+  tooltipPlacement,
+  className,
+}: ExternalIconLinkProps) {
+  return (
+    <TooltipTrigger tooltip={tooltip ?? label} repeatsName={tooltip === undefined} placement={tooltipPlacement}>
+      <AriaLink
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={label}
+        className={cn(buttonStyle({ variant: "quiet", size: "md", iconOnly: true }), "cursor-pointer", className)}
+      >
+        <Icon aria-hidden />
+      </AriaLink>
+    </TooltipTrigger>
+  );
+}
+
+export interface ExternalIconLinkProps {
+  href: string;
+  label: string;
+  tooltip?: ReactNode;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  tooltipPlacement?: TooltipTriggerProps["placement"];
+  className?: string;
+}
