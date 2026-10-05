@@ -520,7 +520,7 @@ mod tests {
     let schema = treeknit_wasm::settings_schema(2, &ts(&json!({"naive": true}))).unwrap();
     let schema = plain(&schema.js_value());
     let expected = json!({
-        "default": 2, "min": 0, "minExclusive": false, "max": null, "step": 0.1, "integer": false,
+        "default": 2, "min": 0, "minExclusive": false, "max": null, "step": null, "integer": false,
         "applies": false, "reason": "Naive MCCs skip the inference that uses this setting.",
         "help": "Cost γ of a reassortment, that is of removing an MCC.",
     });
