@@ -3,6 +3,13 @@
 //!
 //! A configuration is a bitset over graph leaves (naive MCCs): set = kept, unset = removed.
 
+#![expect(
+  clippy::as_conversions,
+  clippy::expect_used,
+  clippy::unwrap_used,
+  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
+)]
+
 use crate::bits::{self, Bits};
 use crate::tree::{NodeId, Tree};
 

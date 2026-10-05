@@ -1,6 +1,14 @@
 //! TreeKnit on K ≥ 2 trees: pre-resolution, rounds of pair inference, polytomy sorting,
 //! and placement of leaves missing from one tree of a pair.
 
+#![expect(
+  clippy::as_conversions,
+  clippy::disallowed_types,
+  clippy::expect_used,
+  clippy::unwrap_used,
+  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
+)]
+
 use crate::bits::{self, Bits};
 use crate::impute::{Attachment, attach_private, graft_attachments};
 use crate::mcc_map::{leaf_order, sort_by_leaf_order, sort_polytomies_by_mccs};

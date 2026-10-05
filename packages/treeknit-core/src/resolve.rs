@@ -1,5 +1,10 @@
 //! Resolving polytomies: split exchange between trees, and resolution using MCCs.
 
+#![expect(
+  clippy::unwrap_used,
+  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
+)]
+
 use crate::bits::{self, Bits};
 use crate::mcc_map::{leaf_mcc_map, map_mccs};
 use crate::naive::Mcc;

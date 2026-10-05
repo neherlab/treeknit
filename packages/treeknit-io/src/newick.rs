@@ -4,6 +4,12 @@
 //! (skipped), branch lengths, whitespace. Unnamed or numeric (support value) internal
 //! nodes and duplicate internal names are renamed `NODE_i`.
 
+#![expect(
+  clippy::disallowed_types,
+  clippy::unwrap_used,
+  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
+)]
+
 use std::collections::HashSet;
 use std::fmt::Write;
 use treeknit_core::{NodeId, Tree};

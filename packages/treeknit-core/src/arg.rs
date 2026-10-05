@@ -4,6 +4,13 @@
 //! whose segments have different parents. [`Arg::parents`] gives the grouped view: a list
 //! of parents, each carrying a set of segments.
 
+#![expect(
+  clippy::disallowed_types,
+  clippy::iter_over_hash_type,
+  clippy::unwrap_used,
+  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
+)]
+
 use crate::bits;
 use crate::naive::Mcc;
 use crate::resolve::resolve_with_mccs;

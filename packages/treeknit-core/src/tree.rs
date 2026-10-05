@@ -4,6 +4,13 @@
 //! from the root. Traversals only visit nodes reachable from the root. Use
 //! [`Tree::compacted`] to drop unreachable nodes.
 
+#![expect(
+  clippy::disallowed_types,
+  clippy::expect_used,
+  clippy::unwrap_used,
+  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
+)]
+
 use crate::bits::Bits;
 use std::collections::HashMap;
 

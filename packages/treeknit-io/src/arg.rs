@@ -1,5 +1,10 @@
 //! ARG output: extended Newick (Cardona et al. 2008) and the ARG-node ↔ tree-node table.
 
+#![expect(
+  clippy::disallowed_types,
+  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
+)]
+
 use crate::newick::fmt_f64;
 use std::collections::HashMap;
 use treeknit_core::arg::{Anc, Arg};

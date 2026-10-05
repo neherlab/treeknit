@@ -7,6 +7,12 @@
 //! and is flagged ambiguous. Its imputed position in `Tⱼ` is a new child of the LCA of
 //! the leaves of that MCC below `p` (or a new sister of that leaf if there is only one).
 
+#![expect(
+  clippy::expect_used,
+  clippy::unwrap_used,
+  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
+)]
+
 use crate::bits::Bits;
 use crate::mcc_map::{leaf_mcc_map, map_mccs};
 use crate::naive::Mcc;

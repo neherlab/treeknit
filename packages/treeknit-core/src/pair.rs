@@ -1,5 +1,11 @@
 //! MCC inference for one pair of trees: repeated naive MCCs, annealing, and pruning.
 
+#![expect(
+  clippy::as_conversions,
+  clippy::unwrap_used,
+  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
+)]
+
 use crate::anneal;
 use crate::bits::Bits;
 use crate::naive::{Mcc, naive_mccs, sort_mccs};

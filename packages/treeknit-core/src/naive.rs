@@ -1,5 +1,11 @@
 //! Naive MCCs: maximal clades whose subtrees are identical in all trees.
 
+#![expect(
+  clippy::expect_used,
+  clippy::unwrap_used,
+  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
+)]
+
 use crate::bits::Bits;
 use crate::tree::{NodeId, Tree};
 

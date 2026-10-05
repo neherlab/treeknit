@@ -1,5 +1,11 @@
 //! Simulated annealing over configurations of a split graph.
 
+#![expect(
+  clippy::as_conversions,
+  clippy::disallowed_types,
+  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
+)]
+
 use crate::bits::{self, Bits};
 use crate::options::Cooling;
 use crate::splitgraph::{EnergyState, Graph};

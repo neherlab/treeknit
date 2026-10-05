@@ -1,5 +1,10 @@
 //! Auspice v2 JSON with one MCC colouring per other tree, for tanglegram views.
 
+#![expect(
+  clippy::unwrap_used,
+  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
+)]
+
 use serde_json::{Map, Value, json};
 use treeknit_core::mcc_map::{leaf_mcc_map, map_mccs};
 use treeknit_core::{PairResult, Taxa, Tree};

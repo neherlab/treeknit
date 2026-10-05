@@ -1,5 +1,12 @@
 //! Mapping tree nodes to MCCs (Fitch-like two-pass) and polytomy sorting for tanglegrams.
 
+#![expect(
+  clippy::as_conversions,
+  clippy::disallowed_types,
+  clippy::unwrap_used,
+  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
+)]
+
 use crate::naive::Mcc;
 use crate::tree::{NodeId, Tree};
 use std::collections::{BTreeSet, HashMap};
