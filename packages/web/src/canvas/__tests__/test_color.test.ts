@@ -1,7 +1,13 @@
 import { describe, expect, test } from "vitest";
 
 import { parseColor, withOpacity } from "../color";
-import { type CustomProperties, MCC_SLOT_COUNT, mccColor, readDrawingColors } from "../drawingColors";
+import {
+  type CustomProperties,
+  MCC_SLOT_COUNT,
+  mccColor,
+  nextColorReading,
+  readDrawingColors,
+} from "../drawingColors";
 
 describe("parseColor", () => {
   test.each([
@@ -92,5 +98,20 @@ describe("mccColor", () => {
 
   test.each([MCC_SLOT_COUNT, -1, 1.5])("rejects slot %d, which breaks the palette contract", (slot) => {
     expect(() => mccColor(colors, slot)).toThrow(RangeError);
+  });
+});
+
+describe("nextColorReading", () => {
+  const first = nextColorReading(undefined, tokens(LIGHT));
+
+  test("keeps the same reading while the tokens are unchanged, so consumers do not render again", () => {
+    expect(nextColorReading(first, tokens({ ...LIGHT }))).toBe(first);
+  });
+
+  test("reads the colors again when a token changes", () => {
+    const next = nextColorReading(first, tokens({ ...LIGHT, "--color-mcc-0": "#000000" }));
+
+    expect(next.colors.mcc[0]).toStrictEqual([0, 0, 0, 255]);
+    expect(next.colors.ground).toStrictEqual(first.colors.ground);
   });
 });

@@ -75,29 +75,58 @@ export function mccColor(colors: DrawingColors, slot: number | null | undefined)
   return color;
 }
 
+export interface ColorReading {
+  key: string;
+  colors: DrawingColors;
+}
+
+export function nextColorReading(previous: ColorReading | undefined, style: CustomProperties): ColorReading {
+  const key = TOKENS.map((name) => style.getPropertyValue(name)).join(";");
+
+  return previous?.key === key ? previous : { key, colors: readDrawingColors(style) };
+}
+
 function drawingColorStore() {
-  let cachedKey = "";
-  let cachedColors: DrawingColors | undefined;
+  let reading: ColorReading | undefined;
+  let observer: MutationObserver | undefined;
+  const listeners = new Set<() => void>();
+
+  function read(): ColorReading {
+    reading = nextColorReading(reading, getComputedStyle(document.documentElement));
+
+    return reading;
+  }
+
+  function refresh() {
+    const previous = reading;
+
+    if (read() !== previous) {
+      for (const listener of listeners) {
+        listener();
+      }
+    }
+  }
 
   return {
     snapshot(): DrawingColors {
-      const style = getComputedStyle(document.documentElement);
-      const key = TOKENS.map((name) => style.getPropertyValue(name)).join(";");
-
-      if (cachedColors === undefined || key !== cachedKey) {
-        cachedColors = readDrawingColors(style);
-        cachedKey = key;
-      }
-
-      return cachedColors;
+      return (reading ?? read()).colors;
     },
     subscribe(onChange: () => void): () => void {
-      const observer = new MutationObserver(onChange);
+      listeners.add(onChange);
 
-      observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style"] });
+      if (observer === undefined) {
+        read();
+        observer = new MutationObserver(refresh);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style"] });
+      }
 
       return () => {
-        observer.disconnect();
+        listeners.delete(onChange);
+
+        if (listeners.size === 0) {
+          observer?.disconnect();
+          observer = undefined;
+        }
       };
     },
   };
