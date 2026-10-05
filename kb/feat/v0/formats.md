@@ -1,6 +1,6 @@
 # File formats
 
-TreeKnit reads Newick trees and writes JSON, Newick, extended Newick, and plain-text files. TreeTools.jl 0.6.14 reads and writes the Newick trees. TreeKnit writes all other formats itself.
+TreeKnit reads Newick trees and writes JSON, Newick, extended Newick, and plain-text files. TreeTools.jl 0.6.14 (2024-10-25) reads and writes the Newick trees. TreeKnit writes all other formats itself.
 
 ## Input: Newick
 
@@ -35,10 +35,10 @@ TreeKnit reads Newick trees and writes JSON, Newick, extended Newick, and plain-
 }
 ```
 
-- **Keys**: `"1"` to `"K(K-1)/2"`, numbered in pair order `(1,2), (1,3), ..., (K-1,K)`. The writer builds a `Dict{Int,Any}`, so the order of the keys in the text follows the dictionary, not the numbers
+- **Keys**: `"1"` to `"K(K-1)/2"`, numbered in pair order `(1,2), (1,3), ..., (K-1,K)`. The writer builds a `Dict{Int,Any}`, so the keys appear in dictionary iteration order
 - **`trees`**: the two tree labels in input order
 - **`mccs`**: the MCCs of the pair, sorted as described in [`mcc-inference.md`](mcc-inference.md)
-- **Reading back**: no function reads this file. Downstream pipelines read the first entry of `MCC_dict` and rely on the size order of the MCC list; TreeTime `arg` reads only the line-based format below (see [`treeknit-ecosystem.md`](../reports/treeknit-ecosystem.md))
+- **Reading back**: no function reads this file. A downstream pipeline reads the first entry of `MCC_dict` and takes the last MCC as the largest. TreeTime `arg` reads only the line-based format below (see [`treeknit-ecosystem.md`](../../reports/treeknit-ecosystem.md))
 
 ## MCC list as text
 
@@ -55,7 +55,7 @@ TreeKnit reads Newick trees and writes JSON, Newick, extended Newick, and plain-
 
 ## `parameters.json`
 
-The `OptArgs` of the run, written with `JSON3.pretty` before the inference [[src](https://github.com/PierreBarrat/TreeKnit.jl/blob/dbbc89ac691fed0949a622eedbae103787b89320/src/cli.jl#L131-L134)]. It holds every field of `OptArgs` (see [`pipeline.md`](pipeline.md)), including `Trange` with all temperatures and `cooling_schedule` as a string. Because `OptArgs(K; ...)` ignores `γ`, `nMCMC`, `likelihood_sort`, `seq_lengths`, and `parallel`, the file shows the defaults for these fields, not the command-line values. The upstream example shows the full content [[src](https://github.com/PierreBarrat/TreeKnit.jl/blob/dbbc89ac691fed0949a622eedbae103787b89320/examples/treeknit_results/parameters.json#L1-L20)].
+The `OptArgs` of the run, written with `JSON3.pretty` before the inference [[src](https://github.com/PierreBarrat/TreeKnit.jl/blob/dbbc89ac691fed0949a622eedbae103787b89320/src/cli.jl#L131-L134)]. It holds every field of `OptArgs` (see [`pipeline.md`](pipeline.md)), including `Trange` with all temperatures and `cooling_schedule` as a string. For the fields that `OptArgs(K; ...)` ignores, the file shows the defaults (see [`documented-vs-actual.md`](documented-vs-actual.md)). The upstream example shows the full content [[src](https://github.com/PierreBarrat/TreeKnit.jl/blob/dbbc89ac691fed0949a622eedbae103787b89320/examples/treeknit_results/parameters.json#L1-L20)].
 
 ## `log.txt`
 
@@ -66,7 +66,7 @@ One line per message: `<path>:<line> [<level>] [HH:MM] - <message>` (see [`cli.m
 Extended Newick in one line [[src](https://github.com/PierreBarrat/TreeKnit.jl/blob/dbbc89ac691fed0949a622eedbae103787b89320/src/SimpleReassortmentGraph/IO.jl#L21-L144)]. Each node is written as `<label>[&segments={<s>}]:<length>`:
 
 - **Segments**: `{0,1}` for a node and branch in both segments, `{0}` or `{1}` for one segment (0-based). For a hybrid node, the annotation gives the segment of the edge by which the traversal reached it
-- **Hybrid nodes**: the label is `ARGNode_<random>#H<i>` in the `label#<type><i>` form of extended Newick, with the type `H` (hybridization), with `<i>` counted from 1 in the order of the traversal. The node appears twice, once with its subtree and once as a leaf-like reference with the other segment's length
+- **Hybrid nodes**: the label is `ARGNode_<random>#H<i>` in the `label#<type><i>` form of extended Newick, with the type `H` (hybridization), with `<i>` counted from 1 in the order of the traversal. The node appears twice: once with its subtree, and once without children as a reference, with the branch length of the other segment
 - **Lengths**: omitted when `missing`, for example at the root. Values include the `eps()` offset (see [`arg.md`](arg.md))
 - **Labels**: leaves keep their names. Internal nodes and hybrid nodes have random labels, so two runs give different labels. Labels are never quoted, so a strain name with one of the characters `,():;[]#` makes the file unreadable for extended Newick parsers such as IcyTree
 - **Extra root**: `GlobalRoot[&segments={0,1}]:0.` when the two segment roots differ and neither is shared
@@ -79,7 +79,7 @@ One line per ARG node, with no header and no newline after the last line [[src](
 <ARG label>,<label in tree 1>,<label in tree 2>
 ```
 
-A node that is absent from a tree has a single space in that column. Hybrid nodes have spaces in both columns. The line order follows a dictionary, not the tree. The tree labels refer to the trees inside `arg_from_trees`, after its own resolution and the insertion of `Singleton_...` nodes. The trees in `ARG/*_liberal_resolved*` are written before that step, so they lack the singleton nodes that `nodes.dat` names.
+A node that is absent from a tree has a single space in that column. Hybrid nodes have spaces in both columns. The lines appear in dictionary iteration order. The tree labels refer to the trees inside `arg_from_trees`, after its own resolution and the insertion of `Singleton_...` nodes. The trees in `ARG/*_liberal_resolved*` are written before that step, so they lack the singleton nodes that `nodes.dat` names.
 
 ## `auspice_<label>.json`
 
@@ -103,7 +103,7 @@ Written by `write_auspice_json` (see [`visualization.md`](visualization.md)) [[s
 }
 ```
 
-Leaves have no `children` key. Internal nodes have a `children` array. The empty `updated` value does not match the date pattern of the augur export schema, and the MCC values are strings, so auspice uses a categorical color scale and shows `"null"` as a category (see [`visualization.md`](visualization.md)).
+Leaves have no `children` key. Internal nodes have a `children` array. [`visualization.md`](visualization.md) describes how Auspice reads these files.
 
 ## Code that reads other formats
 

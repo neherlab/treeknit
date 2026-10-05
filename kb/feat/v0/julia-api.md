@@ -12,8 +12,8 @@ TreeKnit.jl is also a Julia library. The module exports the names below [[src](h
 - **`map_mccs`, `map_mccs!`**: assign nodes to MCCs (see below)
 - **`write_mccs`, `read_mccs`**: MCC files (see [`formats.md`](formats.md))
 - **`SRG`**: the ARG submodule (see [`arg.md`](arg.md))
-- **`inferARG`**: exported, but every call fails (see [`arg.md`](arg.md))
-- **`parse_newick_string`**: re-exported from TreeTools for convenience
+- **`inferARG`**: exported, but every call fails (see [`documented-vs-actual.md`](documented-vs-actual.md))
+- **`parse_newick_string`**: re-exported from TreeTools. The source comment says "TreeTools re-exports for docs" [[src](https://github.com/PierreBarrat/TreeKnit.jl/blob/dbbc89ac691fed0949a622eedbae103787b89320/src/TreeKnit.jl#L48-L50)]
 
 ## Internal functions used in the documentation
 
@@ -23,7 +23,11 @@ TreeKnit.jl is also a Julia library. The module exports the names below [[src](h
 - **`TreeKnit.write_auspice_json`**, **`TreeKnit.get_auspice_json`**: auspice output
 - **`TreeKnit.name_mcc_clades!`**, **`TreeKnit.reduce_to_mcc`**, **`TreeKnit.reduce_to_mcc!`**, **`TreeKnit.pruneconf!`**: the coarse-graining and pruning steps of `runopt`
 - **`TreeKnit.new_splits`**, **`TreeKnit.splits_in_mcc`**, **`TreeKnit.splits_in_mccs`**, **`TreeKnit.map_splits_to_tree!`**: split computations behind the MCC resolution
-- **`TreeKnit.SplitGraph`**: `trees2graph`, `compute_energy`, `compute_F`, `count_mismatches`, `sa_opt`, `opttrees`, `conf_likelihood`, and the types `Graph`, `SplitNode`, `LeafNode`
+- **`TreeKnit.SplitGraph`**: the annealing submodule (see [`mcc-inference.md`](mcc-inference.md)):
+  - `opttrees` runs one annealing pass, and `sa_opt` runs the annealing on a split graph
+  - `compute_energy`, `compute_F`, and `count_mismatches` evaluate configurations
+  - `trees2graph` builds the split graph of types `Graph`, `SplitNode`, and `LeafNode`
+  - `conf_likelihood` computes the branch-length likelihood
 
 ## `MCC_set`
 
@@ -35,7 +39,7 @@ TreeKnit.jl is also a Julia library. The module exports the names below [[src](h
 - **Update**: `TreeKnit.add!(M, mccs, "a", "b")` or with tree positions
 - **Iteration**: `TreeKnit.iter_pairs(M)` returns the label pairs and the MCC lists in pair order
 - **Other**: `print(M)` and `copy(M)` (deep copy)
-- **Broken**: `TreeKnit.iter_shared(M, label)` reads the field `M.tree_order`, which does not exist, and fails
+- **`TreeKnit.iter_shared(M, label)`**: fails at run time (see [`documented-vs-actual.md`](documented-vs-actual.md))
 
 ## Assignment of nodes to MCCs
 
@@ -64,4 +68,4 @@ TreeKnit writes its messages with `@logmsg LogLevel(0)`, `LogLevel(-1)`, and `Lo
 
 ## Reproducibility
 
-TreeKnit uses the global Julia random generator and never seeds it. A Julia user can call `Random.seed!` before `run_treeknit!` to repeat a run.
+A Julia user can call `Random.seed!` before `run_treeknit!` to repeat a run, because TreeKnit draws all random numbers from the global Julia generator (see [`documented-vs-actual.md`](documented-vs-actual.md)).

@@ -15,17 +15,16 @@ Shared knowledge base (KB). AI agents and humans collaborate here: documenting p
 
 Each directory is created with its first entry.
 
-| Directory     | Description                                                                                                                                                                                                                                           |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `_raw/`       | Human-produced source material (specifications, papers, notes). Read-only for AI.                                                                                                                                                                     |
-| `algo/`       | Algorithm documentation: scientific background, implementation status, locations in TreeKnit.jl and in this port                                                                                                                                     |
-| `decisions/`  | Deliberate design choices with rationale (one file per decision)                                                                                                                                                                                      |
-| `feat/`       | Feature inventory of TreeKnit.jl: what the reference implementation does, independent of this port, with links to its source                                                                                                                         |
-| `features/`   | Feature parity checklist: `[x]` done, `[/]` partial, `[ ]` not done                                                                                                                                                                                   |
-| `issues/`     | Concrete problems. Severity-prefixed (H/M/N). The working list agents consult before domain work. PREFER independent issues, but entangled problems may share a file when splitting would lose clarity                                                |
-| `proposals/`  | Undecided design documents analyzing a problem space with options and tradeoffs. Every actionable item in a proposal must be extracted into a separate issue so it is not lost when the proposal is no longer actively read                          |
-| `reports/`    | Research reports on algorithms, optimization methods, and implementation analysis                                                                                                                                                                     |
-| `ref-errata/` | Defects in TreeKnit.jl that this port correctly avoids (2+ evidence sources required)                                                                                                                                                                |
+| Directory     | Description                                                                                                                                                                                                                 |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_raw/`       | Human-produced source material (specifications, papers, notes). Read-only for AI.                                                                                                                                           |
+| `algo/`       | Algorithm documentation: scientific background, implementation status, locations in TreeKnit.jl and in this port                                                                                                            |
+| `decisions/`  | Deliberate design choices with rationale (one file per decision)                                                                                                                                                            |
+| `feat/`       | Features. `v0/` inventories what TreeKnit.jl, the reference implementation, does, with links to its source. The parity checklist of this port marks each feature `[x]` done, `[/]` partial, or `[ ]` not done               |
+| `issues/`     | Concrete problems. Severity-prefixed (H/M/N). The working list agents consult before domain work. PREFER independent issues, but entangled problems may share a file when splitting would lose clarity                      |
+| `proposals/`  | Undecided design documents analyzing a problem space with options and tradeoffs. Every actionable item in a proposal must be extracted into a separate issue so it is not lost when the proposal is no longer actively read |
+| `reports/`    | Research reports on algorithms, optimization methods, and implementation analysis                                                                                                                                           |
+| `ref-errata/` | Defects in TreeKnit.jl that this port correctly avoids (2+ evidence sources required)                                                                                                                                       |
 
 ## Structure
 
@@ -35,21 +34,23 @@ The knowledge base holds prose and data only -- no executable code. Reference sc
 
 When new material is added to `_raw/`, dependent articles in other directories should be reviewed and updated.
 
+`feat/v0/` describes TreeKnit.jl as it is, including its defects. It is reference material outside the taxonomy below and holds no work items. `ref-errata/` records the TreeKnit.jl defects that this port avoids, with evidence, and `algo/` documents each algorithm in both implementations.
+
 ## Taxonomy
 
 Every work item falls into exactly one category:
 
-| Category                         | Directory                                 | Scope                                                                        |
-| -------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------- |
-| Implemented, same behavior       | `algo/`, `features/`                      | Feature with equivalent behavior to TreeKnit.jl or the published algorithm   |
-| Implemented, different behavior  | `decisions/`                              | Feature with deliberate divergence from TreeKnit.jl, or intentionally removed |
-| Not yet done                     | `issues/`                                 | Bugs, missing features, stubs, unused flags, behavioral differences          |
-| New in this port                 | `proposals/` (pre-impl), `decisions/` (post-impl) | Feature not in TreeKnit.jl                                           |
-| TreeKnit.jl defective, port correct | `ref-errata/`                          | TreeKnit.jl defect that this port does not reproduce                         |
+| Category                            | Directory                                         | Scope                                                                         |
+| ----------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Implemented, same behavior          | `algo/`, `feat/`                                  | Feature with equivalent behavior to TreeKnit.jl or the published algorithm    |
+| Implemented, different behavior     | `decisions/`                                      | Feature with deliberate divergence from TreeKnit.jl, or intentionally removed |
+| Not yet done                        | `issues/`                                         | Bugs, missing features, stubs, unused flags, behavioral differences           |
+| New in this port                    | `proposals/` (pre-impl), `decisions/` (post-impl) | Feature not in TreeKnit.jl                                                    |
+| TreeKnit.jl defective, port correct | `ref-errata/`                                     | TreeKnit.jl defect that this port does not reproduce                          |
 
 ### Decision rules
 
-- Feature working with same results: `features/` `[x]`, algorithm in domain file
+- Feature working with same results: `feat/` `[x]`, algorithm in domain file
 - Feature working with different results: `decisions/` (one file with rationale)
 - Feature intentionally removed: `decisions/` (one file with rationale)
 - Feature missing, stubbed, or broken: `issues/` (severity-prefixed file)
