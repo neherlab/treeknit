@@ -105,6 +105,16 @@ describe("codeLines", () => {
     ]);
   });
 
+  test("keeps a carriage return that ends no line, as Rust counts it as a character", () => {
+    expect(codeLines("a\n\r", undefined)).toStrictEqual([
+      { number: 1, before: "a", marked: undefined, after: "" },
+      { number: 2, before: "\r", marked: undefined, after: "" },
+    ]);
+    expect(codeLines("a\rb", characterRange({ line: 1, column: 3 }))).toStrictEqual([
+      { number: 1, before: "a\r", marked: "b", after: "" },
+    ]);
+  });
+
   test("gives one empty line for empty code", () => {
     expect(codeLines("", undefined)).toStrictEqual([{ number: 1, before: "", marked: undefined, after: "" }]);
   });
@@ -159,12 +169,13 @@ describe("codeLines with the positions of Rust newick::line_column", () => {
 describe("codeLines properties", () => {
   const position = fc.record({ line: fc.integer({ min: -1, max: 6 }), column: fc.integer({ min: -1, max: 12 }) });
   const range = fc.option(fc.record({ start: position, end: position }), { nil: undefined });
-  const lineText = fc.string({ unit: fc.constantFrom("a", "é", "𝔸", ",", " ", "\r"), maxLength: 8 });
-  const lineEnd = fc.constantFrom("\n", "\r\n", "\r\r\n");
+  const unit = fc.constantFrom("a", "é", "𝔸", ",", " ");
+  const lineText = fc.string({ unit, maxLength: 8 });
+  const lastLineText = fc.string({ unit, minLength: 1, maxLength: 8 });
 
   const code = fc
-    .tuple(fc.array(fc.tuple(lineText, lineEnd), { maxLength: 4 }), lineText)
-    .map(([lines, last]) => lines.map(([text, end]) => text + end).join("") + last);
+    .tuple(fc.array(lineText, { maxLength: 4 }), lastLineText)
+    .map(([lines, last]) => [...lines, last].join("\n"));
 
   test("marks exactly the code points from the start up to the end of the range, as a cell model of the text", () => {
     fc.assert(
@@ -178,12 +189,12 @@ describe("codeLines properties", () => {
 type Cell = readonly [line: number, column: number];
 
 function cellModel(text: string, range: TextRange | undefined) {
-  const lines = text.split("\n").map((line) => Array.from(line.endsWith("\r") ? line.slice(0, -1) : line));
+  const lines = text.split("\n").map((line) => Array.from(line));
   const at = (line: number, column: number): Cell => clampCell(lines, line, column);
   const from = range === undefined ? undefined : at(range.start.line, range.start.column);
   const to = range === undefined ? undefined : at(range.end.line, range.end.column);
 
-  const model = lines.map((characters, index) => {
+  return lines.map((characters, index) => {
     const number = index + 1;
     const lineEndCell: Cell = [number, characters.length + 1];
 
@@ -208,10 +219,6 @@ function cellModel(text: string, range: TextRange | undefined) {
       after: pick((cell) => !isBeforeCell(cell, from) && !isBeforeCell(cell, to)).join(""),
     };
   });
-
-  const last = model.at(-1);
-
-  return model.length > 1 && last?.before === "" && last.marked === undefined ? model.slice(0, -1) : model;
 }
 
 function clampCell(lines: readonly (readonly string[])[], line: number, column: number): Cell {

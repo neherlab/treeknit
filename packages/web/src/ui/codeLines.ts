@@ -20,9 +20,11 @@ export function characterRange(position: TextPosition): TextRange {
 }
 
 export function codeLines(code: string, range: TextRange | undefined): CodeLine[] {
-  const lines = code.split("\n").map((text, index) => {
+  const parts = code.split("\n");
+
+  const lines = parts.map((text, index) => {
     const number = index + 1;
-    const line = text.endsWith("\r") ? text.slice(0, -1) : text;
+    const line = index < parts.length - 1 && text.endsWith("\r") ? text.slice(0, -1) : text;
 
     if (range === undefined) {
       return { number, before: line, marked: undefined, after: "" };
