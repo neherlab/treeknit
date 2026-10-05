@@ -7,6 +7,7 @@ import { getErrorMessage } from "react-error-boundary";
 
 import { useConstellation } from "../analysis/queries";
 import { requestFocus } from "../drawing/focus";
+import { counted, formatCount } from "../drawing/format";
 import { MccSwatch } from "../drawing/MccSwatch";
 import { leafInPair } from "../drawing/navigation";
 import { InfoButton } from "../ui/InfoButton";
@@ -92,7 +93,7 @@ function Constellation({ data }: { data: ConstellationTable }) {
             <p>{CONSTELLATION_INFO}</p>
           </InfoButton>
         </h2>
-        <span className="text-ink-muted text-sm">{`${String(rows.length)} leaves, ${String(data.pairs.length)} pairs`}</span>
+        <span className="text-ink-muted text-sm">{`${counted(rows.length, "leaf", "leaves")}, ${counted(data.pairs.length, "pair", "pairs")}`}</span>
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         <table className={cn(tableStyle, "w-auto")} aria-rowcount={rows.length + 1}>
@@ -165,7 +166,7 @@ function PairCell({ cell, leaf, pair, title, onOpen }: PairCellProps) {
       className={cn("rounded-inner data-hovered:text-ink inline-flex items-center gap-1.5 tabular-nums", focusRing)}
     >
       <MccSwatch slot={cell.slot} />
-      {String(cell.size)}
+      {formatCount(cell.size)}
     </Button>
   );
 }

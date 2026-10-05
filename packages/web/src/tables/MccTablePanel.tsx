@@ -10,7 +10,7 @@ import ShowIcon from "~icons/lucide/git-compare-arrows";
 
 import { usePairView } from "../analysis/queries";
 import { requestFocus } from "../drawing/focus";
-import { leafCount, mccTitle } from "../drawing/format";
+import { counted, formatCount, leafCount, mccTitle } from "../drawing/format";
 import { MccSwatch } from "../drawing/MccSwatch";
 import { mccInTanglegram } from "../drawing/navigation";
 import { withSelection } from "../drawing/selection";
@@ -116,7 +116,7 @@ function MccTable({ data, title }: { data: PairView; title: string }) {
             </p>
           </InfoButton>
         </h2>
-        <span className="text-ink-muted text-sm">{`${String(rows.length)} of ${String(data.mccs.length)} MCCs`}</span>
+        <span className="text-ink-muted text-sm">{`${formatCount(rows.length)} of ${counted(data.mccs.length, "MCC", "MCCs")}`}</span>
         <TextField
           label="Filter by leaf name"
           labelHidden
@@ -215,7 +215,7 @@ function MccRow({ mcc, rowIndex, selected, onSelect, onShow }: MccRowProps) {
     ),
     [MCC_COLUMN.size]: leafCount(mcc.size),
     [MCC_COLUMN.leaves]: <span className="block max-w-[48ch] truncate">{leavesPreview(mcc.leaves)}</span>,
-    [MCC_COLUMN.imputed]: mcc.imputedLeaves.length === 0 ? "none" : String(mcc.imputedLeaves.length),
+    [MCC_COLUMN.imputed]: mcc.imputedLeaves.length === 0 ? "none" : formatCount(mcc.imputedLeaves.length),
     [MCC_COLUMN.ambiguous]: mcc.ambiguous ? "yes" : "no",
   };
 

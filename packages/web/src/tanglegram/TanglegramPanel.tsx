@@ -10,6 +10,7 @@ import { ZoomControls } from "../canvas/ZoomControls";
 import { FigureButton, LabelModeSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
 import { focusDone, type FocusTarget, focusRows, useFocusRequest } from "../drawing/focus";
+import { counted } from "../drawing/format";
 import { LeafSearch } from "../drawing/LeafSearch";
 import { selectionOf, type Selection, withSelection } from "../drawing/selection";
 import { leafNames, leafRow, rowCount } from "../drawing/trees";
@@ -154,7 +155,7 @@ function Tanglegram({ result }: { result: RunResult }) {
             selection={selection}
             onSelect={select}
             resultKey={resultKey}
-            label={`Tanglegram of ${labelsOf?.[0] ?? data.left.label} and ${labelsOf?.[1] ?? data.right.label} with ${String(data.mccs.length)} MCCs`}
+            label={`Tanglegram of ${labelsOf?.[0] ?? data.left.label} and ${labelsOf?.[1] ?? data.right.label} with ${counted(data.mccs.length, "MCC", "MCCs")}`}
           />
         </CanvasBoundary>
       )}

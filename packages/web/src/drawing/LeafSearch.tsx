@@ -6,6 +6,7 @@ import ClearIcon from "~icons/lucide/x";
 
 import { MenuItem } from "../ui/Menu";
 import { focusRing, inputStyle, listBoxStyle, popoverStyle } from "../ui/styles";
+import { counted, formatCount } from "./format";
 import { matchingLeaves } from "./leafSearch";
 
 const POPOVER_OFFSET_PX = 4;
@@ -82,7 +83,7 @@ export function LeafSearch({ names, onSelect, className }: LeafSearchProps) {
         </Menu>
         {matches.total > matches.shown.length ? (
           <p className="border-rule text-ink-muted border-t px-3 py-1.5 text-xs">
-            {`Showing ${String(matches.shown.length)} of ${String(matches.total)} matches`}
+            {`Showing ${formatCount(matches.shown.length)} of ${counted(matches.total, "match", "matches")}`}
           </p>
         ) : null}
       </Popover>
