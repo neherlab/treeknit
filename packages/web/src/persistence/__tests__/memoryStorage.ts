@@ -1,14 +1,22 @@
-import type { PersistenceChannel, PersistenceMessage, RecordStorage, StoredRecord } from "../record";
+import {
+  type PersistenceChannel,
+  type PersistenceMessage,
+  readableRecordSchema,
+  type RecordStorage,
+  type RecordUpdate,
+  type StoredRecord,
+  UnreadableRecordError,
+} from "../record";
 
 export class MemoryStorage implements RecordStorage {
-  record: StoredRecord | undefined;
+  record: unknown;
   writes = 0;
   #readFailure: Error | undefined;
   #updateFailure: Error | undefined;
   #held: PromiseWithResolvers<undefined> | undefined;
   #started: PromiseWithResolvers<undefined> | undefined;
 
-  constructor(record?: StoredRecord) {
+  constructor(record?: unknown) {
     this.record = record;
   }
 
@@ -45,10 +53,16 @@ export class MemoryStorage implements RecordStorage {
       throw failure;
     }
 
-    return this.record;
+    const record = readableRecordSchema.safeParse(this.record);
+
+    if (!record.success) {
+      throw new UnreadableRecordError(record.error);
+    }
+
+    return record.data;
   }
 
-  async update(updater: (current: StoredRecord | undefined) => StoredRecord | undefined): Promise<void> {
+  async update(updater: (current: StoredRecord | undefined) => RecordUpdate): Promise<void> {
     const held = this.#held;
 
     this.#started?.resolve(undefined);
@@ -64,9 +78,9 @@ export class MemoryStorage implements RecordStorage {
       throw failure;
     }
 
-    const next = updater(this.record);
+    const next = updater(readableRecordSchema.safeParse(this.record).data);
 
-    if (next !== this.record) {
+    if (next !== "keep") {
       this.writes += 1;
       this.record = next;
     }

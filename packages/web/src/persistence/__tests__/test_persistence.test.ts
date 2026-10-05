@@ -280,6 +280,46 @@ describe("workspace persistence", () => {
     expect({ saved, writes: storage.writes }).toStrictEqual({ saved: workspaceRecord(1, TWO_TREES), writes: 2 });
   });
 
+  test("a save that a newer change replaces during its storage write leaves the record as it is", async () => {
+    const storage = new MemoryStorage();
+    const tab = new Tab(storage);
+
+    await tab.persistence.enable(EMPTY);
+    tab.persistence.changed(ONE_TREE);
+    storage.holdUpdate();
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
+    await storage.updateStarted();
+    tab.persistence.changed(TWO_TREES);
+    storage.releaseUpdate();
+    await vi.advanceTimersByTimeAsync(0);
+    const replaced = { record: storage.record, writes: storage.writes };
+
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
+
+    expect({ replaced, saved: storage.record, writes: storage.writes }).toStrictEqual({
+      replaced: { record: workspaceRecord(1, EMPTY), writes: 1 },
+      saved: workspaceRecord(1, TWO_TREES),
+      writes: 2,
+    });
+  });
+
+  test("a save over a record this version cannot read keeps that record and turns the switch off", async () => {
+    const storage = new MemoryStorage();
+    const tab = new Tab(storage);
+    const newer = { kind: "workspace", version: 2, generation: 1, payload: "from a newer version" };
+
+    await tab.persistence.enable(EMPTY);
+    storage.record = newer;
+    tab.persistence.changed(ONE_TREE);
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
+
+    expect({ record: storage.record, writes: storage.writes, switches: tab.switches }).toStrictEqual({
+      record: newer,
+      writes: 1,
+      switches: [true, false],
+    });
+  });
+
   test("a change made while turning the switch on is stored before the switch is on", async () => {
     const storage = new MemoryStorage();
     const tab = new Tab(storage);

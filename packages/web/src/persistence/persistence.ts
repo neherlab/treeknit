@@ -258,13 +258,13 @@ export class WorkspacePersistence {
 
       await this.#services.storage.update((current) => {
         if (epoch !== this.#epoch) {
-          return current;
+          return "keep";
         }
 
         if (current?.generation !== generation) {
           outcome.conflict = true;
 
-          return current;
+          return "keep";
         }
 
         return {
@@ -303,7 +303,7 @@ export class WorkspacePersistence {
 
     await this.#services.storage.update((current) => {
       if (epoch !== this.#epoch) {
-        return current;
+        return "keep";
       }
 
       const next = record(current);

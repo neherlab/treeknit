@@ -1,12 +1,12 @@
-import { createStore, get, update } from "idb-keyval";
-import * as z from "zod";
+import { createStore, get, promisifyRequest } from "idb-keyval";
 
 import {
   type PersistenceChannel,
   type PersistenceMessage,
   persistenceMessageSchema,
+  readableRecordSchema,
   type RecordStorage,
-  storedRecordSchema,
+  UnreadableRecordError,
 } from "./record";
 
 const DATABASE = "treeknit";
@@ -22,22 +22,39 @@ export function indexedDbStorage(): RecordStorage {
 
   return {
     async read() {
-      const stored = await get<unknown>(RECORD_KEY, store);
-
-      if (stored === undefined) {
-        return undefined;
-      }
-
-      const record = storedRecordSchema.safeParse(stored);
+      const record = readableRecordSchema.safeParse(await get<unknown>(RECORD_KEY, store));
 
       if (!record.success) {
-        throw new Error(`The workspace stored in this browser is not readable.\n${z.prettifyError(record.error)}`);
+        throw new UnreadableRecordError(record.error);
       }
 
       return record.data;
     },
     async update(updater) {
-      await update<unknown>(RECORD_KEY, (current) => updater(storedRecordSchema.safeParse(current).data), store);
+      await store(
+        "readwrite",
+        (objectStore) =>
+          new Promise<void>((resolve, reject) => {
+            const request = objectStore.get(RECORD_KEY);
+
+            request.addEventListener("success", () => {
+              try {
+                const next = updater(readableRecordSchema.safeParse(request.result).data);
+
+                if (next !== "keep") {
+                  objectStore.put(next, RECORD_KEY);
+                }
+
+                resolve(promisifyRequest(objectStore.transaction));
+              } catch (error) {
+                reject(error instanceof Error ? error : new Error(String(error)));
+              }
+            });
+            request.addEventListener("error", () => {
+              reject(request.error ?? new Error("The stored workspace could not be read."));
+            });
+          }),
+      );
     },
   };
 }
