@@ -21,6 +21,8 @@ pub struct ParseError {
   /// Byte offset in the text where parsing stopped; `None` for errors of the whole tree, such
   /// as duplicate leaf names.
   pub offset: Option<usize>,
+  /// The warnings that hold although the tree does not parse: `SeveralTrees`.
+  pub warnings: Vec<ParseWarning>,
 }
 
 impl ParseError {
@@ -28,6 +30,7 @@ impl ParseError {
     ParseError {
       message: message.into(),
       offset: None,
+      warnings: Vec::new(),
     }
   }
 }
@@ -106,6 +109,7 @@ impl Parser<'_> {
     Err(ParseError {
       message: msg.to_owned(),
       offset: Some(self.i),
+      warnings: Vec::new(),
     })
   }
 
@@ -261,25 +265,31 @@ pub fn parse(s: &str, label: &str) -> Result<Tree, ParseError> {
 /// callers that read input files log them with `Parsed::log_warnings`.
 ///
 /// The first tree ends at the first `;` outside quoted labels and comments. The text after it
-/// is not parsed; a further `;` there gives the warning `SeveralTrees` (see [`holds_several_trees`]).
+/// is not parsed; a further `;` there gives the warning `SeveralTrees` (see [`holds_several_trees`]),
+/// which the parse error of a first tree that does not parse carries too.
 pub fn parse_first(content: &str, label: &str) -> Result<Parsed, ParseError> {
   let mut p = Parser {
     s: content.as_bytes(),
     i: 0,
     warnings: Vec::new(),
   };
-  let tree = p.tree(label)?;
-  let mut warnings = p.warnings;
-  // The further trees follow the first, so their warning comes after those of the first tree.
-  if holds_several_trees(content) {
-    warnings.push(ParseWarning::SeveralTrees);
+  let several = holds_several_trees(content).then_some(ParseWarning::SeveralTrees);
+  match p.tree(label) {
+    // The further trees follow the first, so their warning comes after those of the first tree.
+    Ok(tree) => Ok(Parsed {
+      tree,
+      warnings: p.warnings.into_iter().chain(several).collect(),
+    }),
+    Err(e) => Err(ParseError {
+      warnings: several.into_iter().collect(),
+      ..e
+    }),
   }
-  Ok(Parsed { tree, warnings })
 }
 
 /// Whether `content` holds more than one tree: two `;` outside quoted labels and comments. This
 /// holds whether or not the first tree parses, so callers can report it next to a parse error.
-pub(crate) fn holds_several_trees(content: &str) -> bool {
+fn holds_several_trees(content: &str) -> bool {
   let mut p = Parser {
     s: content.as_bytes(),
     i: 0,

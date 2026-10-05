@@ -121,11 +121,7 @@ pub fn inspect_tree(label: &str, text: &str) -> TreeInspection {
         internal_nodes: 0,
         polytomies: 0,
         branch_lengths: BranchLengths::None,
-        warnings: if newick::holds_several_trees(text) {
-          vec![newick::ParseWarning::SeveralTrees.to_string()]
-        } else {
-          Vec::new()
-        },
+        warnings: e.warnings.iter().map(ToString::to_string).collect(),
         error: Some(TreeError {
           message: e.message,
           line: position.map(|(l, _)| l),

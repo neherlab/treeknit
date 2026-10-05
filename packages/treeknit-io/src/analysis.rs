@@ -235,10 +235,8 @@ pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationErro
         parsed.push(p.tree);
       },
       Err(e) => {
-        // The warning holds whether or not the first tree parses, as `inspect::inspect_tree`
-        // reports it.
-        if newick::holds_several_trees(&t.newick) {
-          newick::ParseWarning::SeveralTrees.log(&t.label);
+        for w in &e.warnings {
+          w.log(&t.label);
         }
         errors.push(parse_error(i, t, &e));
       },
