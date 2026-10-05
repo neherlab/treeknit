@@ -46,7 +46,7 @@ TreeKnit.jl has no browser version. `packages/treeknit-wasm` compiles the core a
 `packages/web` [[src](../../packages/web/src/main.tsx)] is being rebuilt: the page shows the wordmark only, on the design tokens and fonts of the new visual identity [[src](../../packages/web/src/index.css)].
 
 - [ ] **Tree input**: no file, paste, or drop input
-- [/] **Examples**: `src/analysis/example.ts` provides a small pair of trees, the real H3N2 tree pairs of `data/`, and the simulated cases of `fixtures/sim/` as file names with Newick texts. Vite bundles each tree file as its own chunk and fetches it when its case is loaded. No menu offers them yet [[src](../../packages/web/src/analysis/example.ts)]
+- [/] **Examples**: `src/analysis/example.ts` provides a small pair of trees, the real H3N2 tree sets of `data/`, and the simulated cases of `fixtures/sim/` as file names with Newick texts. Vite bundles each tree file as its own chunk and fetches it when its case is loaded. No menu offers them yet [[src](../../packages/web/src/analysis/example.ts)]
 - [ ] **Newick text input**: there is no field to paste a tree
 - [ ] **Tree list editing**: the label, order, or presence of a single tree cannot be changed
 - [ ] **Settings form**: no settings inputs

@@ -73,13 +73,14 @@ describe("directoryExamples", () => {
 });
 
 describe("example groups", () => {
-  test("offers every tree pair of data/ as a real-data example", () => {
+  test("offers every tree set of data/ as a real-data example", () => {
     const real = EXAMPLE_GROUPS.find(({ id }) => id === "real");
 
     expect(real?.examples.map(({ id }) => id)).toStrictEqual([
       "real/h3n2-2012-2018",
       "real/h3n2-2017",
       "real/h3n2-2017-2018",
+      "real/h3n2-2k-4-segments",
       "real/h3n2-new-york-1999-2004",
     ]);
   });

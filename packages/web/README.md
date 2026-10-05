@@ -27,7 +27,7 @@ The commands are the same in the main checkout and in a worktree; `run-web` prin
 - `src/help/HelpPage.tsx`: the help page: the workflow, the resolution modes from the schema, a glossary, privacy, other tools, citation, and the version from Rust `version()`
 - `src/index.css`: the Tailwind CSS theme tokens: interface colors, type scale, control radius, and the MCC colors, which the app fills from the Rust palette; the dark values apply under the `dark` class on `html`
 - `src/download.ts`: `downloadFile`, the one way the app saves a file: a Blob of the content under an object URL, revoked a minute after the click
-- `src/analysis/example.ts`: the examples: a small pair of trees, the real H3N2 tree pairs of `data/`, and the simulated cases of `fixtures/sim/`, each tree as its file name and Newick text, one lazily loaded chunk per tree file
+- `src/analysis/example.ts`: the examples: a small pair of trees, the real H3N2 tree sets of `data/`, and the simulated cases of `fixtures/sim/`, each tree as its file name and Newick text, one lazily loaded chunk per tree file
 - `build/content-security-policy.ts`: the Content Security Policy of the page, and the theme script in the head of `index.html`. `'wasm-unsafe-eval'` lets the page compile WebAssembly. The theme script is the script that `next-themes` renders for `THEME_PROVIDER_PROPS`; it sets the theme class before the first paint, because React does not run a script element that it creates on the client. The built page allows that one inline script by its SHA-256 hash
 
 ## UI controls
