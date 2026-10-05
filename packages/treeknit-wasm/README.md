@@ -10,22 +10,38 @@ wasm-bindgen writes the JavaScript module, the WebAssembly binary, and the TypeS
 
 ## Interface
 
-The request and its types come from `treeknit_io::analysis`, which the command line uses too, and derive their TypeScript declarations with tsify.
+Every value that crosses the boundary is a Rust type of `treeknit-io` (modules `analysis`, `inspect`, `schema`, `output`, `summary`, `progress`, `display`, `palette`, `figure`, `version`), which the command line uses too, and derives its TypeScript declaration with tsify. Field names are camelCase and enums are lowercase strings, as in `pkg/treeknit_wasm.d.ts`.
 
-```js
-await init();
-defaultSettings();
-// { gamma: 2, seqLengths: null, nMcmcIt: 50, resolve: 'matched', preResolve: false, rounds: 1,
-//   finalRound: true, likelihood: true, naive: false, seed: 1 }
-validate({
-  trees: [{ label: 'ha', newick: '((A,B),(C,(D,X)));' }, { label: 'na', newick: '((A,(B,X)),(C,D);' }],
-  settings: { gamma: -1 }, // optional; missing fields take the CLI defaults
-});
-// [{ field: 'trees[1].newick', message: "tree na: Newick parse error: expected ',' or ')' at byte 16", line: 1, column: 17 },
-//  { field: 'settings.gamma', message: 'gamma must be a non-negative number, got -1', line: null, column: null }]
-```
+Stateless functions:
 
-`validate` applies the checks of the command line and returns every problem, with the path of the field it concerns and, for Newick errors with a position, the 1-based line and column. An empty list means the request runs. Settings: `gamma`, `seqLengths`, `nMcmcIt`, `resolve` (`matched`, `strict`, `liberal`, `none`), `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed`. A request that is not of the declared type throws an `Error` that says where it is wrong. A Rust panic traps the module and leaves the instance unusable.
+- `defaultSettings(): Settings`: the command-line defaults
+- `settingsSchema(k, settings): SettingsSchema`: default, range, step, applicability with its reason, and help of each setting for `k` trees; the resolution modes with their effects; the help on tree order
+- `inspectTree(label, text): TreeInspection`: leaf, internal node, and polytomy counts, branch lengths (`all`, `some`, `none`), parser warnings, and the parse error with line and column
+- `overlap(trees): Overlap`: total leaves, each tree's leaves and missing leaves, each pair's shared leaves and whether it blocks a run, and the trees that do not parse
+- `validate(request): ValidationError[]`: every problem with the trees and the settings
+- `readRequest(text): AnalysisRequest`: the request of a session file; throws when its JSON structure is invalid
+- `requestFile(request): OutputFile`: the session file `treeknit_request.json`
+- `treeLabels(fileNames, existingLabels): string[]`: labels for loaded files, unique against the existing labels
+- `version(): AppVersion`: the TreeKnit version and the repository URL
+- `palette(): Palette`: the drawing colors of the light and the dark theme
+
+`Session`, one run and its results:
+
+- `Session.run(request, onProgress): Session`: validates and runs the request, calling `onProgress` with each `Progress` (`phase` `pairs`, `matching`, or `done`)
+- `summary(): Summary`: per pair the labels and MCCs, the ARG outcome (`status` `built` or `failed`; `null` for more than two trees), and the diagnostics
+- `files(): FileEntry[]`: every output file with its command-line path, media type, and size
+- `fileText(path): string`: the text of a listed file
+- `zip(): Uint8Array`: every listed file under `treeknit_results/`
+- `commandLine(): string`: the command that reproduces the file set from the extracted archive
+- `pairView(pair, version, scale): PairView`: the tanglegram of a pair in version `input`, `resolved`, or `imputed`, laid out with scale `div` or `depth`
+- `argView(scale): ArgView | undefined`: the ARG of two trees; `undefined` for more than two trees or a failed ARG
+- `constellation(): ConstellationTable`: the MCC of every leaf in every pair
+- `figure(pair, version, options): string`: the SVG tanglegram of a pair
+- `argFigure(options): string`: the SVG figure of the ARG
+
+`validate` and `Session.run` apply the checks of the command line. `validate` returns each problem with the path of the field it concerns (such as `settings.gamma` or `trees[1].newick`) and, for Newick errors with a position, the 1-based line and column; an empty list means the request runs. `Session.run` throws an `Error` named `ValidationError` whose message joins the messages, one per line, so the caller tells an invalid request from an internal failure, which throws an `Error`. A request that is not of the declared type throws an `Error` that says where it is wrong. A Rust panic traps the module and leaves the instance unusable.
+
+Display data uses normalized units: x from 0 to 1 across the column of a shape (a tree column, or the link zone of a tanglegram), y in leaf rows. `PairView` and `ArgView` carry the drawn shapes (`shapes`): branch elbows, marks, link curves, and ribbon outlines, with curves as cubic Bézier segments `{ from, c1, c2, to }`. The SVG figures draw the same shapes.
 
 Analyses run on one thread: browsers give WebAssembly no threads without cross-origin isolation.
 
