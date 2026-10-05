@@ -57,9 +57,9 @@ cargo_min_age := "RUSTC_BOOTSTRAP=1 cargo -Zmin-publish-age --config 'registry.g
 
 # Groups of the full gate, one CI job each (`just check-group <group>`).
 checks_format := "fmt-check-rs fmt-check-other lint-shell lint-docker lint-workflows deny shear"
-checks_clippy := "lint-rs"
-checks_tests := "test-rs"
-check_fast := "fmt-check-rs fmt-check-other lint-rs"
+checks_clippy := "lint-rs lint-web"
+checks_tests := "test-rs test-web build-web"
+check_fast := "fmt-check-rs fmt-check-other lint-rs lint-web"
 check_full := checks_format + " " + checks_clippy + " " + checks_tests
 
 alias b := build
@@ -122,6 +122,14 @@ build-dist *args:
 build-profiling *args:
     source dev/lib/dist-flags.sh && export_dist_flags && cargo build --locked --profile=profiling --bin treeknit "$@"
 
+# Build the WebAssembly package of the web page as shipped (dist profile) into packages/web/www/pkg/
+[group("build")]
+build-web:
+    rm -rf packages/web/www/pkg
+    cargo build --locked --profile=dist --target=wasm32-unknown-unknown -p treeknit-web
+    wasm-bindgen --target=web --out-dir=packages/web/www/pkg {{ quote(CARGO_TARGET_DIR / "wasm32-unknown-unknown" / "dist" / "treeknit_web.wasm") }}
+    wasm-opt -O packages/web/www/pkg/treeknit_web_bg.wasm -o packages/web/www/pkg/treeknit_web_bg.wasm
+
 # Run the CLI (dev profile): just run ha.nwk na.nwk -o tmp/results
 [group("run")]
 run *args:
@@ -157,6 +165,12 @@ test-unit-rs *args:
 test-integration-rs *args:
     cargo nextest run --locked --workspace --test '*' "$@"
 
+# Cargo passes --quiet on to the test binary, which wasm-bindgen-test-runner rejects.
+# Tests of the web package in WebAssembly, run in Node
+[group("test")]
+test-web *args:
+    CARGO_TERM_QUIET=false cargo test --locked -p treeknit-web --target=wasm32-unknown-unknown --test=wasm "$@"
+
 # List Rust tests without running them
 [group("test")]
 test-list-rs *args:
@@ -180,12 +194,12 @@ review-suppressions:
 
 # Fast lints: clippy
 [group("lint")]
-lint: lint-rs
+lint: lint-rs lint-web
 
 # Every lint: clippy, unused dependencies, dependency policy, and the shell, Dockerfile, and workflow lints, keep-going
 [group("lint")]
 lint-all:
-    dev/run-checks --serial lint-rs deny shear lint-shell lint-docker lint-workflows
+    dev/run-checks --serial lint-rs lint-web deny shear lint-shell lint-docker lint-workflows
 
 # Apply clippy's machine-applicable fixes; stage your changes first
 [group("lint")]
@@ -196,6 +210,11 @@ lint-fix:
 [group("lint")]
 lint-rs *args:
     {{ lint_env }} CARGO_BUILD_WARNINGS=deny cargo clippy --locked --workspace --all-targets --keep-going "$@"
+
+# Clippy over the web package for WebAssembly; fails on warnings
+[group("lint")]
+lint-web *args:
+    {{ lint_env }} CARGO_BUILD_WARNINGS=deny cargo clippy --locked -p treeknit-web --all-targets --target=wasm32-unknown-unknown --keep-going "$@"
 
 # Dependency bans, licenses, and sources (cargo-deny, offline)
 [group("lint")]
