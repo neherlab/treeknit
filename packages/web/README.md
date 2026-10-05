@@ -15,7 +15,7 @@ The commands are the same in the main checkout and in a worktree; `run-web` prin
 
 - `src/analysis/worker.ts`: the Web Worker that loads the WebAssembly module and exposes `analyze` and `defaultSettings` through [comlink](https://github.com/GoogleChromeLabs/comlink)
 - `src/analysis/client.ts`: `AnalysisClient`, the owner of the worker. A WebAssembly trap (a Rust panic) leaves the module unusable, so the client replaces the worker after a trap or a failed start; the analysis fails, the page stays
-- `src/analysis/example.ts`: the examples of the **Load example** menu: a small pair of trees, and the simulated cases of `fixtures/sim/`, one lazily loaded chunk per tree file
+- `src/analysis/example.ts`: the examples of the **Load example** menu: a small pair of trees, the real H3N2 tree pairs of `data/`, and the simulated cases of `fixtures/sim/`, one lazily loaded chunk per tree file
 - `src/analysis/`: the form (`react-hook-form`) with the trees and the settings, and the TanStack Query hooks that call the client
 - `src/results/`: the MCC tables, the ARG summary, and the downloads of the output files
 - `src/ui/`: the controls, built on React Aria Components and styled with Tailwind CSS
