@@ -300,6 +300,61 @@ pub fn options(s: &Settings, k: usize, parallel: bool) -> Result<Options, Vec<Va
   Ok(o)
 }
 
+/// The request of a session file (`treeknit_request.json`), or the error of its JSON structure:
+/// wrong types, missing required or unknown fields, and a seed above [`MAX_SEED`], which no
+/// JavaScript number holds exactly. The other rules of [`validate`] are not applied, so a session
+/// file with a broken tree or an out-of-range setting still loads and can be fixed.
+pub fn read_request(text: &str) -> Result<AnalysisRequest, Vec<ValidationError>> {
+  let request: AnalysisRequest = serde_json::from_str(text).map_err(|e| {
+    vec![ValidationError {
+      field: None,
+      message: format!("not a TreeKnit session file: {e}"),
+      line: None,
+      column: None,
+    }]
+  })?;
+  let seed = request.settings.seed;
+  if seed > MAX_SEED {
+    return Err(vec![ValidationError::at(
+      "settings.seed",
+      format!(
+        "the seed {seed} of the session file is above {MAX_SEED}, the largest integer a JavaScript number holds exactly"
+      ),
+    )]);
+  }
+  Ok(request)
+}
+
+/// Labels of the web app for trees loaded from `file_names`: each file name without its last
+/// extension (`ha.nwk` gives `ha`, `ha.tree.nwk` gives `ha.tree`), or `tree` for an empty name.
+/// A label that equals one of `existing_labels` or an earlier new label, ignoring case as the
+/// label check does, gets the first free suffix of `_2`, `_3`, ...
+///
+/// The command line labels its tree files by path instead (the file stem, and the parent
+/// directory when stems collide), because it has directories to tell equal file names apart;
+/// the web app has file names only.
+pub fn tree_labels(file_names: &[String], existing_labels: &[String]) -> Vec<String> {
+  let mut taken: std::collections::BTreeSet<String> = existing_labels.iter().map(|l| l.to_lowercase()).collect();
+  file_names
+    .iter()
+    .map(|name| {
+      let stem = match name.rsplit_once('.') {
+        Some((stem, _)) if !stem.is_empty() => stem,
+        _ => name.as_str(),
+      };
+      let base = if stem.is_empty() { "tree" } else { stem };
+      let mut label = base.to_owned();
+      let mut suffix = 1;
+      while taken.contains(&label.to_lowercase()) {
+        suffix += 1;
+        label = format!("{base}_{suffix}");
+      }
+      taken.insert(label.to_lowercase());
+      label
+    })
+    .collect()
+}
+
 /// File-name stem of the pair of trees labeled `a` and `b`, as in `MCCs_<a>_<b>.dat`.
 pub fn pair_stem(a: &str, b: &str) -> String {
   format!("{a}_{b}")
@@ -840,6 +895,78 @@ mod tests {
       PairShared { i: 1, j: 2, shared: 2 },
     ];
     assert_eq!(expected, shared_leaf_counts(&p.trees, p.taxa.len()));
+  }
+
+  #[test]
+  fn read_request_loads_a_request_that_fails_validation() {
+    // Structure only: the broken tree and the negative gamma stay for the user to fix.
+    let text = r#"{"trees": [{"label": "ha", "newick": "((A,B"}], "settings": {"gamma": -1}}"#;
+    let expected = AnalysisRequest {
+      trees: trees(&[("ha", "((A,B")]),
+      settings: Settings {
+        gamma: -1.0,
+        ..Settings::default()
+      },
+    };
+    assert_eq!(Ok(expected), read_request(text));
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::not_json(     "ha.nwk",                                          "not a TreeKnit session file: expected value at line 1 column 1")]
+  #[case::no_trees(     r#"{"settings": {}}"#,                             "not a TreeKnit session file: missing field `trees` at line 1 column 16")]
+  #[case::unknown_field(r#"{"trees": [], "tree": []}"#,                    "not a TreeKnit session file: unknown field `tree`, expected `trees` or `settings` at line 1 column 20")]
+  #[case::wrong_type(   r#"{"trees": [{"label": 1, "newick": "(A,B);"}]}"#, "not a TreeKnit session file: invalid type: integer `1`, expected a string at line 1 column 22")]
+  #[trace]
+  fn read_request_rejects_a_wrong_structure(#[case] text: &str, #[case] message: &str) {
+    let expected = vec![ValidationError { field: None, message: message.to_owned(), line: None, column: None }];
+    assert_eq!(Err(expected), read_request(text));
+  }
+
+  #[test]
+  fn read_request_rejects_a_seed_above_the_javascript_limit() {
+    let text = r#"{"trees": [], "settings": {"seed": 9007199254740992}}"#;
+    let expected = vec![error(
+      "settings.seed",
+      "the seed 9007199254740992 of the session file is above 9007199254740991, the largest integer a JavaScript number holds exactly",
+    )];
+    assert_eq!(Err(expected), read_request(text));
+  }
+
+  #[test]
+  fn read_request_accepts_the_largest_seed() {
+    let text = r#"{"trees": [], "settings": {"seed": 9007199254740991}}"#;
+    assert_eq!(Ok(MAX_SEED), read_request(text).map(|r| r.settings.seed));
+  }
+
+  fn strings(v: &[&str]) -> Vec<String> {
+    v.iter().map(|&s| s.to_owned()).collect()
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::extension(      &["ha.nwk", "na.tree"],          &[],             &["ha", "na"])]
+  #[case::last_extension( &["ha.tree.nwk"],                &[],             &["ha.tree"])]
+  #[case::no_extension(   &["ha"],                         &[],             &["ha"])]
+  #[case::dot_file(       &[".nwk"],                       &[],             &[".nwk"])]
+  #[case::empty_name(     &["", ""],                       &[],             &["tree", "tree_2"])]
+  #[case::existing(       &["ha.nwk"],                     &["ha"],         &["ha_2"])]
+  #[case::existing_case(  &["ha.nwk"],                     &["HA"],         &["ha_2"])]
+  #[case::new_repeated(   &["ha.nwk", "ha.tree", "ha.nwk"], &[],            &["ha", "ha_2", "ha_3"])]
+  #[case::suffix_taken(   &["ha.nwk"],                     &["ha", "ha_2"], &["ha_3"])]
+  #[case::no_files(       &[],                             &["ha"],         &[])]
+  #[trace]
+  fn tree_labels_follow_the_web_label_policy(#[case] files: &[&str], #[case] existing: &[&str], #[case] expected: &[&str]) {
+    assert_eq!(strings(expected), tree_labels(&strings(files), &strings(existing)));
+  }
+
+  #[test]
+  fn tree_labels_pass_the_label_check() {
+    // Repeated file names and existing labels give labels that check_trees accepts.
+    let existing = strings(&["HA", "na"]);
+    let new = tree_labels(&strings(&["ha.nwk", "ha.nwk", "NA.nwk"]), &existing);
+    let all: Vec<&str> = existing.iter().chain(&new).map(String::as_str).collect();
+    assert_eq!(Vec::<ValidationError>::new(), check_trees(&labeled(&all)));
   }
 
   #[test]
