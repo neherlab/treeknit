@@ -6,14 +6,16 @@ import { CanvasBoundary, useLazyCanvas } from "../canvas/CanvasBoundary";
 import { type TreeViewActions, type TreeViewHandle, useTreeViewReady } from "../canvas/useTreeView";
 import type { RowRange } from "../canvas/viewState";
 import { ZoomControls } from "../canvas/ZoomControls";
-import { FIGURE_PENDING, FigureButton, LabelModeSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
+import { FigureButton, LabelModeSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
+import { figureOptions } from "../drawing/figure";
 import { focusDone, type FocusTarget, focusRows, useFocusRequest } from "../drawing/focus";
 import { counted } from "../drawing/format";
 import { LeafSearch } from "../drawing/LeafSearch";
 import { pairLeafNames, pairLeafRows, rowCenter, rowCount } from "../drawing/trees";
 import { useDrawingSearch, useFindLeaf } from "../drawing/useDrawingSearch";
 import { useDrawingView } from "../drawing/useDrawingView";
+import { useFigureDownload } from "../drawing/useFigureDownload";
 import { Select, type SelectOption } from "../ui/Select";
 import { Switch } from "../ui/Switch";
 import { useWorkspace } from "../workspace/context";
@@ -42,6 +44,10 @@ function Tanglegram({ result }: { result: RunResult }) {
   const resultKey = `${String(result.sessionId)}:tanglegram`;
   const names = useMemo(() => (data === undefined ? [] : pairLeafNames(data)), [data]);
   const findLeaf = useFindLeaf(data, leafRowsOf, select, view.actions);
+
+  const figure = useFigureDownload(result.sessionId, { kind: "pair", pair }, async (client, sessionId) =>
+    client.figure(sessionId, pair, version, figureOptions(search)),
+  );
 
   useFocusedRows(data, view);
 
@@ -82,13 +88,14 @@ function Tanglegram({ result }: { result: RunResult }) {
       <LabelModeSelect value={labels} onChange={chooseLabels} />
       <LeafSearch names={names} onSelect={findLeaf} />
       <ZoomControls view={view} />
-      <FigureButton disabledReason={FIGURE_PENDING} />
+      <FigureButton {...figure.button} />
     </>
   );
 
   return (
     <DrawingPanel
       toolbar={toolbar}
+      failure={figure.failure}
       query={query}
       loading="Loading the tanglegram"
       errorTitle="The tanglegram could not be loaded"

@@ -3,18 +3,22 @@ import { useMemo } from "react";
 import { useArgView } from "../analysis/queries";
 import { CanvasBoundary, useLazyCanvas } from "../canvas/CanvasBoundary";
 import { ZoomControls } from "../canvas/ZoomControls";
-import { FIGURE_PENDING, FigureButton, LabelModeSelect, ScaleToggle } from "../drawing/DrawingControls";
+import { FigureButton, LabelModeSelect, ScaleToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
+import { figureOptions } from "../drawing/figure";
 import { LeafSearch } from "../drawing/LeafSearch";
 import { segmentLabels } from "../drawing/tooltip";
 import { argLeafNames, argLeafRows, rowCount } from "../drawing/trees";
 import { useDrawingSearch, useFindLeaf } from "../drawing/useDrawingSearch";
 import { useDrawingView } from "../drawing/useDrawingView";
+import { useFigureDownload } from "../drawing/useFigureDownload";
 import { useWorkspace } from "../workspace/context";
 import type { RunResult } from "../workspace/store";
 import { argFailure } from "./outcome";
 
 const loadArgCanvas = async () => import("./ArgCanvas");
+
+const ARG_FIGURE = { kind: "arg" } as const;
 
 export function ArgPanel() {
   const result = useWorkspace((state) => state.result);
@@ -35,13 +39,17 @@ function Arg({ result }: { result: RunResult }) {
   const names = useMemo(() => (data === undefined ? [] : argLeafNames(data)), [data]);
   const findLeaf = useFindLeaf(data, argLeafRows, select, view.actions);
 
+  const figure = useFigureDownload(result.sessionId, ARG_FIGURE, async (client, sessionId) =>
+    client.argFigure(sessionId, figureOptions(search)),
+  );
+
   const toolbar = (
     <>
       <ScaleToggle value={x} onChange={chooseScale} />
       <LabelModeSelect value={labels} onChange={chooseLabels} />
       <LeafSearch names={names} onSelect={findLeaf} />
       <ZoomControls view={view} />
-      <FigureButton disabledReason={FIGURE_PENDING} />
+      <FigureButton {...figure.button} />
     </>
   );
 
@@ -53,6 +61,7 @@ function Arg({ result }: { result: RunResult }) {
   return (
     <DrawingPanel
       toolbar={toolbar}
+      failure={figure.failure}
       notice={notice}
       query={query}
       loading="Loading the ARG"

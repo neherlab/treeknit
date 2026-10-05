@@ -9,6 +9,7 @@ const OTHER_VIEWS_AVAILABLE = "The tables and files are still available.";
 export function DrawingPanel<T>({
   toolbar,
   notice,
+  failure,
   onEscape,
   query,
   loading,
@@ -30,6 +31,13 @@ export function DrawingPanel<T>({
       <div className="border-rule flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-3 py-1.5">
         {toolbar}
       </div>
+      {failure === undefined ? null : (
+        <div className="px-3 pt-3">
+          <InlineNotice tone="danger" title={failure.title} onDismiss={failure.onDismiss}>
+            {failure.message}
+          </InlineNotice>
+        </div>
+      )}
       {notice === undefined ? null : (
         <NoticeRegion className="px-3 pt-3">
           <InlineNotice tone="warning">{notice}</InlineNotice>
@@ -47,6 +55,13 @@ export function DrawingPanel<T>({
 export interface DrawingPanelProps<T> extends Pick<QueryStateProps<T>, "query" | "loading" | "errorTitle"> {
   toolbar: ReactNode;
   notice?: string | undefined;
+  failure?: DrawingFailure | undefined;
   onEscape: () => void;
   children: (data: T) => ReactNode;
+}
+
+export interface DrawingFailure {
+  title: string;
+  message: string;
+  onDismiss: () => void;
 }

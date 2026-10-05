@@ -20,8 +20,6 @@ const LABEL_MODE_OPTIONS: SelectOption<LabelMode>[] = LABEL_MODES.map((mode) => 
 
 const FIGURE_BUTTON_LABEL = "Download figure (SVG)";
 
-export const FIGURE_PENDING = "Figure downloads are not available in this version yet.";
-
 export function ScaleToggle({ value, onChange }: ChoiceProps<Scale>) {
   return (
     <ChoiceGroup label="Branch scale" choices={X_SCALES} labels={SCALE_LABELS} value={value} onChange={onChange} />
@@ -68,13 +66,13 @@ export function FigureButton(props: FigureButtonProps) {
   }
 
   return (
-    <Button variant="quiet" size="sm" icon={DownloadIcon} onPress={props.onDownload}>
+    <Button variant="quiet" size="sm" icon={DownloadIcon} isPending={props.isPending} onPress={props.onDownload}>
       {FIGURE_BUTTON_LABEL}
     </Button>
   );
 }
 
-export type FigureButtonProps = { onDownload: () => void } | { disabledReason: string };
+export type FigureButtonProps = { onDownload: () => void; isPending: boolean } | { disabledReason: string };
 
 export interface ChoiceProps<K extends string> {
   value: K;
