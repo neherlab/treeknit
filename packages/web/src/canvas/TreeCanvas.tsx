@@ -1,7 +1,7 @@
 import { type LayersList, OrthographicView, type OrthographicViewState, type PickingInfo } from "@deck.gl/core";
 import { DeckGL, type DeckGLProps, type DeckGLRef } from "@deck.gl/react";
 import { cn } from "cn";
-import { type MouseEvent, type ReactNode, useCallback, useId, useMemo, useRef } from "react";
+import { type MouseEvent, type ReactNode, useCallback, useId, useMemo, useRef, useState } from "react";
 import { useKeyboard } from "react-aria";
 import { useErrorBoundary } from "react-error-boundary";
 
@@ -56,7 +56,7 @@ export function TreeCanvas({
   children,
   ...events
 }: TreeCanvasProps) {
-  const webGl2 = browserSupportsWebGl2();
+  const [webGl2] = useState(browserSupportsWebGl2);
   const descriptionId = useId();
   const deckRef = useRef<DeckGLRef<OrthographicView>>(null);
   const { actions, frame } = view;
