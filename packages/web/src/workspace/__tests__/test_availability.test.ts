@@ -10,6 +10,7 @@ const SUMMARY: Summary = {
   pairs: [
     {
       index: 0,
+      trees: [0, 1],
       labels: ["ha", "na"],
       mccCount: 2,
       mccs: [["X"], ["A", "B", "C", "D"]],
@@ -18,6 +19,7 @@ const SUMMARY: Summary = {
     },
   ],
   arg: { status: "built", reassortments: 1 },
+  noReassortment: false,
   diagnostics: [],
 };
 

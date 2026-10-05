@@ -15,6 +15,10 @@ pub struct Summary {
   pub pairs: Vec<PairSummary>,
   /// Outcome of the ARG; `None` for more than two trees.
   pub arg: Option<ArgOutcome>,
+  /// The run shows that the trees have no reassortment: for two trees, the ARG was built with
+  /// no reassortment (one MCC whose ARG failed proves nothing); for more trees, every pair has
+  /// one MCC.
+  pub no_reassortment: bool,
   /// Warnings and errors of the run, in the order they occurred.
   pub diagnostics: Vec<Diagnostic>,
 }
@@ -23,11 +27,17 @@ impl Summary {
   /// The summary of `run`, with the `diagnostics` of the run.
   pub fn new(run: &RunResult, diagnostics: Vec<Diagnostic>) -> Summary {
     let RunResult { trees, taxa, pairs, .. } = run;
+    let arg = run.arg_outcome();
+    let no_reassortment = match &arg {
+      Some(outcome) => *outcome == ArgOutcome::Built { reassortments: 0 },
+      None => !pairs.is_empty() && pairs.iter().all(|p| p.mccs.len() == 1),
+    };
     let pairs = pairs
       .iter()
       .enumerate()
       .map(|(index, p)| PairSummary {
         index,
+        trees: [p.i, p.j],
         labels: [trees[p.i].label.clone(), trees[p.j].label.clone()],
         mcc_count: p.mccs.len(),
         mccs: p.mccs.iter().map(|m| taxa.names_of(m)).collect(),
@@ -38,7 +48,8 @@ impl Summary {
       .collect();
     Summary {
       pairs,
-      arg: run.arg_outcome(),
+      arg,
+      no_reassortment,
       diagnostics,
     }
   }
@@ -51,6 +62,8 @@ impl Summary {
 pub struct PairSummary {
   /// Index of the pair in pipeline order.
   pub index: usize,
+  /// Indices of the two trees, `i < j`.
+  pub trees: [usize; 2],
   /// Labels of the two trees.
   pub labels: [String; 2],
   /// Number of MCCs.
@@ -164,6 +177,7 @@ mod tests {
     let expected = Summary {
       pairs: vec![PairSummary {
         index: 0,
+        trees: [0, 1],
         labels: ["ha".into(), "na".into()],
         mcc_count: 2,
         mccs: vec![names(&["X"]), names(&["A", "B", "C", "D"])],
@@ -171,6 +185,7 @@ mod tests {
         ambiguous_count: 0,
       }],
       arg: Some(ArgOutcome::Built { reassortments: 1 }),
+      no_reassortment: false,
       diagnostics: vec![warning()],
     };
     assert_eq!(expected, Summary::new(&r, vec![warning()]));
@@ -180,11 +195,12 @@ mod tests {
   fn summary_new_of_three_trees_lists_every_pair_without_arg() {
     let t = "((A,B),(C,D));";
     let s = Summary::new(&run_trees(&[("ha", t), ("na", t), ("pb2", t)]), Vec::new());
-    let pairs: Vec<(usize, [String; 2])> = s.pairs.iter().map(|p| (p.index, p.labels.clone())).collect();
+    let pairs: Vec<(usize, [usize; 2], [String; 2])> =
+      s.pairs.iter().map(|p| (p.index, p.trees, p.labels.clone())).collect();
     let expected = vec![
-      (0, ["ha".into(), "na".into()]),
-      (1, ["ha".into(), "pb2".into()]),
-      (2, ["na".into(), "pb2".into()]),
+      (0, [0, 1], ["ha".into(), "na".into()]),
+      (1, [0, 2], ["ha".into(), "pb2".into()]),
+      (2, [1, 2], ["na".into(), "pb2".into()]),
     ];
     assert_eq!(expected, pairs);
     assert_eq!(None, s.arg);
@@ -201,6 +217,34 @@ mod tests {
     r.pairs[0].attached.push(extra);
     let pair = &Summary::new(&r, Vec::new()).pairs[0];
     assert_eq!((3, 2), (pair.imputed_count, pair.ambiguous_count));
+  }
+
+  /// The trees `t` (identical), and the two-tree example with X moved.
+  const T: &str = "((A,B),(C,D));";
+  const HA: &str = "((A,B),(C,(D,X)));";
+  const NA: &str = "((A,(B,X)),(C,D));";
+
+  #[rustfmt::skip]
+  #[rstest]
+  // Oracle: two trees show no reassortment only through an ARG built with none; more trees
+  // through one MCC in every pair.
+  #[case::two_identical(  &[("ha", T), ("na", T)],             true)]
+  #[case::two_moved(      &[("ha", HA), ("na", NA)],           false)]
+  #[case::three_identical(&[("ha", T), ("na", T), ("pb2", T)], true)]
+  #[case::three_moved(    &[("ha", HA), ("na", NA), ("pb2", T)], false)]
+  #[trace]
+  fn summary_new_tells_whether_the_run_shows_no_reassortment(#[case] trees: &[(&str, &str)], #[case] expected: bool) {
+    assert_eq!(expected, Summary::new(&run_trees(trees), Vec::new()).no_reassortment);
+  }
+
+  #[test]
+  fn summary_new_of_one_mcc_with_a_failed_arg_does_not_show_no_reassortment() {
+    let mut r = run_trees(&[("ha", T), ("na", T)]);
+    r.arg = Some(Err(treeknit_core::arg::ArgError(
+      "trees do not match within MCC 1".to_owned(),
+    )));
+    assert_eq!(1, r.pairs[0].mccs.len());
+    assert!(!Summary::new(&r, Vec::new()).no_reassortment);
   }
 
   #[rustfmt::skip]
@@ -234,6 +278,7 @@ mod tests {
     let summary = Summary {
       pairs: vec![PairSummary {
         index: 0,
+        trees: [0, 1],
         labels: ["ha".into(), "na".into()],
         mcc_count: 2,
         mccs: vec![vec!["X".into()], vec!["A".into(), "B".into(), "C".into(), "D".into()]],
@@ -241,6 +286,7 @@ mod tests {
         ambiguous_count: 0,
       }],
       arg: Some(ArgOutcome::Built { reassortments: 1 }),
+      no_reassortment: false,
       diagnostics: vec![Diagnostic {
         level: Level::Warn,
         message: "m".into(),
@@ -249,10 +295,11 @@ mod tests {
     };
     let expected = json!({
       "pairs": [{
-        "index": 0, "labels": ["ha", "na"], "mccCount": 2, "mccs": [["X"], ["A", "B", "C", "D"]],
+        "index": 0, "trees": [0, 1], "labels": ["ha", "na"], "mccCount": 2, "mccs": [["X"], ["A", "B", "C", "D"]],
         "imputedCount": 0, "ambiguousCount": 0,
       }],
       "arg": {"status": "built", "reassortments": 1},
+      "noReassortment": false,
       "diagnostics": [{"level": "warn", "message": "m", "time": "2026-01-01T00:00:00Z"}],
     });
     assert_eq!(expected, serde_json::to_value(&summary).unwrap());

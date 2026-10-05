@@ -223,10 +223,11 @@ mod tests {
     // Oracle: fixtures/doc_mccs_1.json (TreeKnit.jl): MCCs [X] and [A,B,C,D], one reassortment.
     let expected = json!({
         "pairs": [{
-            "index": 0, "labels": ["ha", "na"], "mccCount": 2, "mccs": [["X"], ["A", "B", "C", "D"]],
-            "imputedCount": 0, "ambiguousCount": 0,
+            "index": 0, "trees": [0, 1], "labels": ["ha", "na"], "mccCount": 2,
+            "mccs": [["X"], ["A", "B", "C", "D"]], "imputedCount": 0, "ambiguousCount": 0,
         }],
         "arg": {"status": "built", "reassortments": 1},
+        "noReassortment": false,
         "diagnostics": [],
     });
     assert_eq!(expected, plain(&session.summary().unwrap().js_value()));

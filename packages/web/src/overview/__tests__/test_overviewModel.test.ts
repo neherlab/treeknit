@@ -106,6 +106,12 @@ describe("overview before a run", () => {
   });
 });
 
+const TREES_OF_PAIR: readonly [number, number][] = [
+  [0, 1],
+  [0, 2],
+  [1, 2],
+];
+
 function pair(
   index: number,
   labels: [string, string],
@@ -113,8 +119,15 @@ function pair(
   imputedCount: number,
   ambiguousCount: number,
 ): PairSummary {
+  const trees = TREES_OF_PAIR[index];
+
+  if (trees === undefined) {
+    throw new RangeError(`no pair ${String(index)} among three trees`);
+  }
+
   return {
     index,
+    trees,
     labels,
     mccCount,
     mccs: Array.from({ length: mccCount }, (_, mcc) => [`L${String(mcc)}`]),
@@ -128,5 +141,5 @@ function built(reassortments: number): Summary["arg"] {
 }
 
 function summaryOf(pairs: PairSummary[], arg: Summary["arg"]): Summary {
-  return { pairs, arg, diagnostics: [] };
+  return { pairs, arg, noReassortment: false, diagnostics: [] };
 }

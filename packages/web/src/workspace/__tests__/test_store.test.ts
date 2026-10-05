@@ -36,7 +36,12 @@ const HA = "((A,B),(C,(D,X)));";
 
 const NA = "((A,(B,X)),(C,D));";
 
-const SUMMARY: Summary = { pairs: [], arg: { status: "built", reassortments: 1 }, diagnostics: [] };
+const SUMMARY: Summary = {
+  pairs: [],
+  arg: { status: "built", reassortments: 1 },
+  noReassortment: false,
+  diagnostics: [],
+};
 
 describe("workspace store", () => {
   test("labels added trees through the label service and keeps their sources", async () => {

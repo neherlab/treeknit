@@ -505,6 +505,10 @@ export interface PairSummary {
      */
     index: number;
     /**
+     * Indices of the two trees, `i < j`.
+     */
+    trees: [number, number];
+    /**
      * Labels of the two trees.
      */
     labels: [string, string];
@@ -605,6 +609,12 @@ export interface Summary {
      * Outcome of the ARG; `None` for more than two trees.
      */
     arg: ArgOutcome | null;
+    /**
+     * The run shows that the trees have no reassortment: for two trees, the ARG was built with
+     * no reassortment (one MCC whose ARG failed proves nothing); for more trees, every pair has
+     * one MCC.
+     */
+    noReassortment: boolean;
     /**
      * Warnings and errors of the run, in the order they occurred.
      */

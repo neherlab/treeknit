@@ -467,7 +467,12 @@ function trap(): never {
 }
 
 function summaryNamed(name: string): Summary {
-  return { pairs: [], arg: null, diagnostics: [{ level: "info", message: name, time: "2026-01-01T00:00:00Z" }] };
+  return {
+    pairs: [],
+    arg: null,
+    noReassortment: false,
+    diagnostics: [{ level: "info", message: name, time: "2026-01-01T00:00:00Z" }],
+  };
 }
 
 function sessionId(outcome: { status: string; sessionId?: number }): number {
