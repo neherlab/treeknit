@@ -103,7 +103,13 @@ export function labelFontStore(loader: FontLoader): FontStore {
       };
     },
     isReady(text) {
-      return [...text].every((character) => loaded.has(character));
+      for (const character of text) {
+        if (!loaded.has(character)) {
+          return false;
+        }
+      }
+
+      return true;
     },
   };
 }
