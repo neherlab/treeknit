@@ -25,11 +25,21 @@ export function readFailures(failures: readonly ReadFailure[], added: number): s
           .map(({ name, cause }) => `${name} (${causeMessage(cause)})`)
           .join("; ")}. Check the files and add them again.`;
 
-  return added === 0 ? unread : `${unread} ${addedFiles(added)}`;
+  return added === 0 ? unread : `${unread} ${addedTrees(added)}`;
 }
 
-function addedFiles(added: number): string {
-  return added === 1 ? "The other file was added." : `The other ${String(added)} files were added.`;
+export function batchProblem(
+  failures: readonly ReadFailure[],
+  added: number,
+  addProblem: string | null,
+): string | null {
+  const readProblem = readFailures(failures, addProblem === null ? added : 0);
+
+  return [readProblem, addProblem].filter((message) => message !== null).join(" ") || null;
+}
+
+function addedTrees(added: number): string {
+  return added === 1 ? "1 tree was added." : `${String(added)} trees were added.`;
 }
 
 export function sessionFailure(name: string, cause: unknown): string {

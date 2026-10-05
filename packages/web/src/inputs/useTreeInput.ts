@@ -7,6 +7,7 @@ import { useWorkspaceStore } from "../workspace/context";
 import type { NewTree } from "../workspace/store";
 import {
   addFailure,
+  batchProblem,
   batchRejection,
   isSessionFileName,
   type ReadFailure,
@@ -80,10 +81,9 @@ export function useTreeInput(): TreeInputState {
 
     const addRead = async (files: readonly File[], pasted: readonly NewTree[]): Promise<void> => {
       const { trees, failures } = await readTrees(files);
-      const addProblem = await addTrees([...trees, ...pasted]);
-      const readProblem = readFailures(failures, addProblem === null ? trees.length : 0);
+      const added = [...trees, ...pasted];
 
-      report([readProblem, addProblem].filter((message) => message !== null).join(" ") || null);
+      report(batchProblem(failures, added.length, await addTrees(added)));
     };
 
     const openSessionFile = async (file: File): Promise<void> => {

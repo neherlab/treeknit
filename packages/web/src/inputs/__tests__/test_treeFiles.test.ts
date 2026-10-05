@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { addFailure, batchRejection, isSessionFileName, readFailures, sessionFailure } from "../treeFiles";
+import {
+  addFailure,
+  batchProblem,
+  batchRejection,
+  isSessionFileName,
+  readFailures,
+  sessionFailure,
+} from "../treeFiles";
 
 describe("tree files", () => {
   test("routes JSON files to the session file reader and everything else to the trees", () => {
@@ -58,13 +65,29 @@ describe("tree files", () => {
     );
   });
 
-  test("states how many of the other files were added", () => {
+  test("states how many trees were added", () => {
     const failure = [{ name: "ha.nwk", cause: new Error("permission denied") }];
 
     expect({ one: readFailures(failure, 1), three: readFailures(failure, 3) }).toStrictEqual({
-      one: "ha.nwk could not be read: permission denied. Check the file and add it again. The other file was added.",
-      three:
-        "ha.nwk could not be read: permission denied. Check the file and add it again. The other 3 files were added.",
+      one: "ha.nwk could not be read: permission denied. Check the file and add it again. 1 tree was added.",
+      three: "ha.nwk could not be read: permission denied. Check the file and add it again. 3 trees were added.",
+    });
+  });
+
+  test("joins the read failures and the add failure of one batch, and counts no tree when adding failed", () => {
+    const failure = [{ name: "ha.nwk", cause: new Error("permission denied") }];
+    const added = "The trees could not be added: worker stopped. Try again.";
+
+    expect({
+      none: batchProblem([], 2, null),
+      read: batchProblem(failure, 2, null),
+      add: batchProblem([], 2, added),
+      both: batchProblem(failure, 2, added),
+    }).toStrictEqual({
+      none: null,
+      read: "ha.nwk could not be read: permission denied. Check the file and add it again. 2 trees were added.",
+      add: added,
+      both: `ha.nwk could not be read: permission denied. Check the file and add it again. ${added}`,
     });
   });
 });
