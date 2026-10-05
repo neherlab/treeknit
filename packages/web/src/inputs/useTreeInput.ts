@@ -5,7 +5,7 @@ import { useAnalysisClient } from "../analysis/context";
 import type { Example } from "../analysis/example";
 import { useWorkspaceStore } from "../workspace/context";
 import type { NewTree } from "../workspace/store";
-import { addFailure, isSessionFileName, readFailure, sessionFailure } from "./treeFiles";
+import { addFailure, batchRejection, isSessionFileName, readFailure, sessionFailure } from "./treeFiles";
 
 const PLAIN_TEXT = "text/plain";
 
@@ -73,18 +73,37 @@ export function useTreeInput(): TreeInputState {
       }
     };
 
-    const addFiles = async (files: readonly File[]): Promise<void> => {
+    const addBatch = async (files: readonly File[], texts: readonly string[]): Promise<void> => {
       setError(null);
 
       const sessions = files.filter((file) => isSessionFileName(file.name));
       const treeFiles = files.filter((file) => !isSessionFileName(file.name));
 
-      await addTrees(await readTrees(treeFiles));
+      const rejection = batchRejection(
+        sessions.map(({ name }) => name),
+        treeFiles.length + texts.length,
+      );
 
-      for (const file of sessions.slice(-1)) {
-        await openSessionFile(file);
+      if (rejection !== null) {
+        setError(rejection);
+
+        return;
       }
+
+      const [session] = sessions;
+
+      if (session !== undefined) {
+        await openSessionFile(session);
+
+        return;
+      }
+
+      const pasted = texts.map((newick): NewTree => ({ newick, source: { kind: "paste" } }));
+
+      await addTrees([...(await readTrees(treeFiles)), ...pasted]);
     };
+
+    const addFiles = async (files: readonly File[]): Promise<void> => addBatch(files, []);
 
     return {
       addFiles,
@@ -118,9 +137,9 @@ export function useTreeInput(): TreeInputState {
               .map(async (item) => item.getText(PLAIN_TEXT)),
           );
 
-          await addFiles(files);
-          await addTrees(
-            texts.filter((text) => text.trim() !== "").map((newick) => ({ newick, source: { kind: "paste" } })),
+          await addBatch(
+            files,
+            texts.filter((text) => text.trim() !== ""),
           );
         } catch (cause) {
           setError(addFailure(cause));

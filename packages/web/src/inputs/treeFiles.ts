@@ -14,6 +14,20 @@ export function sessionFailure(name: string, cause: unknown): string {
   return `${name} is not a TreeKnit session file: ${causeMessage(cause)}. Open a treeknit_request.json file.`;
 }
 
+export function batchRejection(sessionNames: readonly string[], treeCount: number): string | null {
+  const [first] = sessionNames;
+
+  if (first === undefined || (sessionNames.length === 1 && treeCount === 0)) {
+    return null;
+  }
+
+  if (sessionNames.length > 1) {
+    return `${sessionNames.join(", ")} were not opened: open one session file at a time. Nothing was added.`;
+  }
+
+  return `${first} was not opened together with trees, because a session file replaces the trees. Nothing was added. Open the session file on its own, or add only the trees.`;
+}
+
 export function addFailure(cause: unknown): string {
   return `The trees could not be added: ${causeMessage(cause)}. Try again.`;
 }
