@@ -9,8 +9,6 @@ export interface FieldErrors {
   general: readonly ValidationError[];
 }
 
-export const NO_FIELD_ERRORS: FieldErrors = { byField: new Map(), general: [] };
-
 export function treeField(index: number, part: "label" | "newick"): string {
   return `trees[${String(index)}].${part}`;
 }
