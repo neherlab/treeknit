@@ -49,12 +49,26 @@ export function shownOpacity(fade: Fade, resultKey: string, reduced: boolean): n
   return fade.key === resultKey ? fade.opacity : 0;
 }
 
+export function fadeDone(fade: Fade, resultKey: string): boolean {
+  return fade.key === resultKey && fade.opacity >= 1;
+}
+
+export function reducedFade(fade: Fade, resultKey: string, reduced: boolean): Fade | undefined {
+  return reduced && !fadeDone(fade, resultKey) ? { key: resultKey, opacity: 1 } : undefined;
+}
+
 export function useFadeIn(resultKey: string): number {
   const reduced = usePrefersReducedMotion();
   const [fade, setFade] = useState<Fade>({ key: resultKey, opacity: reduced ? 1 : 0 });
+  const settled = reducedFade(fade, resultKey, reduced);
+  const done = fadeDone(fade, resultKey);
+
+  if (settled !== undefined) {
+    setFade(settled);
+  }
 
   useEffect(() => {
-    if (reduced) {
+    if (reduced || done) {
       return undefined;
     }
 
@@ -73,7 +87,7 @@ export function useFadeIn(resultKey: string): number {
     return () => {
       cancelAnimationFrame(frame);
     };
-  }, [resultKey, reduced]);
+  }, [resultKey, reduced, done]);
 
   return shownOpacity(fade, resultKey, reduced);
 }

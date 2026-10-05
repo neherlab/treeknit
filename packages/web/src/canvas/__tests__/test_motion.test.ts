@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { FADE_IN_MS, fadeInOpacity, shownOpacity } from "../motion";
+import { FADE_IN_MS, fadeDone, fadeInOpacity, reducedFade, shownOpacity } from "../motion";
 
 describe("fadeInOpacity", () => {
   test("starts transparent and ends opaque after the fade duration", () => {
@@ -35,5 +35,34 @@ describe("shownOpacity", () => {
 
   test("shows every result opaque under reduced motion", () => {
     expect(shownOpacity(FADING, "result-2", true)).toBe(1);
+  });
+});
+
+describe("fadeDone", () => {
+  test("is done only when the fade of the shown result is opaque", () => {
+    expect(fadeDone({ key: "result-1", opacity: 1 }, "result-1")).toBe(true);
+    expect(fadeDone({ key: "result-1", opacity: 0.4 }, "result-1")).toBe(false);
+    expect(fadeDone({ key: "result-1", opacity: 1 }, "result-2")).toBe(false);
+  });
+});
+
+describe("reducedFade", () => {
+  test("ends a running fade at full opacity when reduced motion turns on, so turning it off again starts no fade", () => {
+    const settled = reducedFade({ key: "result-1", opacity: 0.4 }, "result-1", true);
+
+    expect(settled).toStrictEqual({ key: "result-1", opacity: 1 });
+    expect(settled !== undefined && fadeDone(settled, "result-1")).toBe(true);
+  });
+
+  test("marks a new result as shown under reduced motion", () => {
+    expect(reducedFade({ key: "result-1", opacity: 1 }, "result-2", true)).toStrictEqual({
+      key: "result-2",
+      opacity: 1,
+    });
+  });
+
+  test("changes nothing without reduced motion or after the fade", () => {
+    expect(reducedFade({ key: "result-1", opacity: 0.4 }, "result-1", false)).toBeUndefined();
+    expect(reducedFade({ key: "result-1", opacity: 1 }, "result-1", true)).toBeUndefined();
   });
 });
