@@ -427,6 +427,7 @@ function schemaWith(seqLengthDefault: number): SettingsSchema {
     reason: null,
     help: "",
   };
+
   const toggle: ToggleSetting = { default: false, applies: true, reason: null, help: "" };
 
   return {
