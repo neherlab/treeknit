@@ -63,6 +63,16 @@
     --color-danger: #e07a5a;
     --color-segment-a: #406e8f;
     --color-segment-b: #8a6a3e;
+
+    --color-mcc-0: #617ecf;
+    --color-mcc-1: #c9a227;
+    --color-mcc-2: #2c8c83;
+    --color-mcc-3: #8054b0;
+    --color-mcc-4: #89603e;
+    --color-mcc-5: #6f7f33;
+    --color-mcc-6: #d07a1e;
+    --color-mcc-7: #5b7c99;
+    --color-mcc-none: #6e7c79;
   }
 
   body {

@@ -164,12 +164,17 @@ mod tests {
     assert_eq!(expected, actual);
   }
 
-  #[test]
-  fn light_mcc_tokens_equal_the_palette() {
-    // The web app writes the MCC tokens at start-up; the light values in the CSS are the
-    // palette, so the page draws with them before the palette arrives.
-    let c = colors(Theme::Light);
-    let tokens = css_tokens("@theme static {");
+  #[rstest]
+  #[case::light(Theme::Light)]
+  #[case::dark(Theme::Dark)]
+  fn mcc_tokens_equal_the_palette(#[case] theme: Theme) {
+    // The web app writes the MCC tokens at start-up; the values in the CSS are the palette of
+    // each theme, so the page draws with them before the palette arrives.
+    let c = colors(theme);
+    let tokens = css_tokens(match theme {
+      Theme::Light => "@theme static {",
+      Theme::Dark => ":root.dark {",
+    });
     let mut expected: Vec<String> = c.mcc.iter().map(|m| m.to_lowercase()).collect();
     expected.push(c.no_mcc.to_lowercase());
     let mut actual: Vec<String> = (0..8).map(|i| tokens[format!("mcc-{i}").as_str()].clone()).collect();
