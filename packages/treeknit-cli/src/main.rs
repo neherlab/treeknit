@@ -9,24 +9,9 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use treeknit_core::{Options, Resolution, Taxa, Tree};
 use treeknit_io::analysis::{self, ParsedTrees, Settings, TreeText, ValidationError};
-use treeknit_io::{arg, auspice, mccs, newick};
+use treeknit_io::{arg, auspice, mccs, newick, schema};
 
-const RESOLVE_HELP: &str = "\
-Resolution of the trees (--resolve):
-  matched  (default) resolve during inference and with the inferred MCCs, then resolve all
-           trees so that their topologies match within every MCC. Where splits from
-           different trees conflict, trees given earlier take precedence, and MCCs that
-           cannot be matched are split.
-  strict   resolve during inference and with the inferred MCCs, unambiguous splits only.
-  liberal  as strict, also adding ambiguous splits.
-  none     no resolution with MCCs; MCCs then require identical topologies.
-With strict or liberal and more than two trees, MCCs are re-inferred without resolution in a
-final extra round, since resolving later pairs can invalidate earlier pairs' MCCs
-(--no-final-round skips it).
-
---pre-resolve adds to each tree, before inference, the splits of other trees that are
-compatible with all trees. It is mostly useful with --resolve none.
-
+const FORMER_OPTIONS_HELP: &str = "\
 Former options are still accepted with their TreeKnit.jl meaning, and reproduce its
 results: the method preset depends on the number of trees (--better-MCCs for two,
 --better-trees for more), and --rounds counts all rounds (with --better-MCCs and more than
@@ -39,6 +24,29 @@ mixed with --resolve, --pre-resolve or --no-final-round. Closest current equival
   --match-topologies     --resolve matched
   --no-pre-resolve       the default
   --resolve-all-rounds   resolve in the final round too";
+
+/// The text of `--help-resolve`: the resolution modes, the final round, and pre-resolution
+/// with the words of the web app (`treeknit_io::schema`), then the former options.
+fn resolve_help() -> String {
+  let modes = schema::modes()
+    .iter()
+    .map(|m| {
+      let name = m.name.to_lowercase();
+      let default = if m.mode == analysis::ResolveMode::default() {
+        "(default) "
+      } else {
+        ""
+      };
+      format!("  {name:<8} {default}{}", m.effect)
+    })
+    .collect::<Vec<_>>()
+    .join("\n");
+  format!(
+    "Resolution of the trees (--resolve):\n{modes}\n\nFinal round (--no-final-round skips it): {}\n\n--pre-resolve: {}\n\n{FORMER_OPTIONS_HELP}",
+    schema::FINAL_ROUND_HELP,
+    schema::PRE_RESOLVE_HELP,
+  )
+}
 
 /// How trees are resolved (see --help-resolve).
 #[derive(clap::ValueEnum, Clone, Copy, Debug)]
@@ -168,7 +176,7 @@ struct Cli {
 fn main() -> Result<()> {
   let cli = Cli::parse();
   if cli.help_resolve || cli.help_defaults {
-    println!("{RESOLVE_HELP}");
+    println!("{}", resolve_help());
     return Ok(());
   }
   if cli.trees.len() < 2 {

@@ -196,6 +196,23 @@ mod tests {
     assert!(log.contains("[WARN] ignoring invalid branch length 'x'\n"), "{log}");
   }
 
+  #[test]
+  fn help_resolve_uses_the_texts_of_the_settings_schema() {
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .arg("--help-resolve")
+      .output()
+      .unwrap();
+    assert!(output.status.success());
+    let help = String::from_utf8(output.stdout).unwrap();
+    let mut texts: Vec<String> = treeknit_io::schema::modes().into_iter().map(|m| m.effect).collect();
+    texts.push(treeknit_io::schema::FINAL_ROUND_HELP.to_owned());
+    texts.push(treeknit_io::schema::PRE_RESOLVE_HELP.to_owned());
+    texts.push("  matched  (default) ".to_owned());
+    texts.push("Former options are still accepted".to_owned());
+    let missing: Vec<&String> = texts.iter().filter(|t| !help.contains(t.as_str())).collect();
+    assert_eq!(Vec::<&String>::new(), missing, "{help}");
+  }
+
   fn mccs(out: &Path) -> serde_json::Value {
     serde_json::from_str(&std::fs::read_to_string(out.join("MCCs.json")).unwrap()).unwrap()
   }
