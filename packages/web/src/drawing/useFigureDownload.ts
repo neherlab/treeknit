@@ -6,7 +6,6 @@ import type { AnalysisClient } from "../analysis/client";
 import { useAnalysisClient } from "../analysis/context";
 import { useSessionFiles } from "../analysis/queries";
 import { downloadFile } from "../download";
-import { downloadName } from "../results/fileRows";
 import type { FigureButtonProps } from "./DrawingControls";
 import type { DrawingFailure } from "./DrawingPanel";
 import { figureFile } from "./figure";
@@ -30,7 +29,7 @@ export function useFigureDownload(
   const mutation = useMutation({
     mutationFn: async (entry: FileEntry) => ({ entry, text: await render(client, sessionId) }),
     onSuccess: ({ entry, text }) => {
-      downloadFile({ name: downloadName(entry.path), mediaType: entry.mediaType, content: text });
+      downloadFile({ name: entry.fileName, mediaType: entry.mediaType, content: text });
     },
   });
 

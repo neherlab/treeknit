@@ -6,16 +6,40 @@ import { FIGURE_LISTING, FIGURE_MISSING, FIGURE_UNLISTED, figureFile, figureOpti
 const SVG = "image/svg+xml";
 
 const TWO_TREES: FileEntry[] = [
-  { path: "MCCs.json", mediaType: "application/json", size: 120, figure: null },
-  { path: "tanglegram_ha_na.svg", mediaType: SVG, size: null, figure: { kind: "pair", pair: 0 } },
-  { path: "ARG/arg.svg", mediaType: SVG, size: null, figure: { kind: "arg" } },
+  { path: "MCCs.json", fileName: "MCCs.json", mediaType: "application/json", size: 120, figure: null },
+  {
+    path: "tanglegram_ha_na.svg",
+    fileName: "tanglegram_ha_na.svg",
+    mediaType: SVG,
+    size: null,
+    figure: { kind: "pair", pair: 0 },
+  },
+  { path: "ARG/arg.svg", fileName: "arg.svg", mediaType: SVG, size: null, figure: { kind: "arg" } },
 ];
 
 const THREE_TREES: FileEntry[] = [
-  { path: "MCCs.json", mediaType: "application/json", size: 240, figure: null },
-  { path: "tanglegram_ha_na.svg", mediaType: SVG, size: null, figure: { kind: "pair", pair: 0 } },
-  { path: "tanglegram_ha_pb2.svg", mediaType: SVG, size: null, figure: { kind: "pair", pair: 1 } },
-  { path: "tanglegram_na_pb2.svg", mediaType: SVG, size: 5_400, figure: { kind: "pair", pair: 2 } },
+  { path: "MCCs.json", fileName: "MCCs.json", mediaType: "application/json", size: 240, figure: null },
+  {
+    path: "tanglegram_ha_na.svg",
+    fileName: "tanglegram_ha_na.svg",
+    mediaType: SVG,
+    size: null,
+    figure: { kind: "pair", pair: 0 },
+  },
+  {
+    path: "tanglegram_ha_pb2.svg",
+    fileName: "tanglegram_ha_pb2.svg",
+    mediaType: SVG,
+    size: null,
+    figure: { kind: "pair", pair: 1 },
+  },
+  {
+    path: "tanglegram_na_pb2.svg",
+    fileName: "tanglegram_na_pb2.svg",
+    mediaType: SVG,
+    size: 5_400,
+    figure: { kind: "pair", pair: 2 },
+  },
 ];
 
 describe("figure downloads", () => {

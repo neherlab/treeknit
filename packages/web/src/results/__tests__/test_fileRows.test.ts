@@ -20,8 +20,14 @@ describe("files tab rows", () => {
 
   test("lists the figures of two trees under their names, made on download", () => {
     const files: FileEntry[] = [
-      { path: "tanglegram_ha_na.svg", mediaType: SVG, size: null, figure: { kind: "pair", pair: 0 } },
-      { path: "ARG/arg.svg", mediaType: SVG, size: null, figure: { kind: "arg" } },
+      {
+        path: "tanglegram_ha_na.svg",
+        fileName: "tanglegram_ha_na.svg",
+        mediaType: SVG,
+        size: null,
+        figure: { kind: "pair", pair: 0 },
+      },
+      { path: "ARG/arg.svg", fileName: "arg.svg", mediaType: SVG, size: null, figure: { kind: "arg" } },
     ];
 
     expect(files.map(fileRow).map(({ path, size, name }) => ({ path, size, name }))).toStrictEqual([
@@ -32,9 +38,27 @@ describe("files tab rows", () => {
 
   test("lists one tanglegram per pair of three trees, with the size once rendered", () => {
     const files: FileEntry[] = [
-      { path: "tanglegram_ha_na.svg", mediaType: SVG, size: 2_500, figure: { kind: "pair", pair: 0 } },
-      { path: "tanglegram_ha_pb2.svg", mediaType: SVG, size: null, figure: { kind: "pair", pair: 1 } },
-      { path: "tanglegram_na_pb2.svg", mediaType: SVG, size: null, figure: { kind: "pair", pair: 2 } },
+      {
+        path: "tanglegram_ha_na.svg",
+        fileName: "tanglegram_ha_na.svg",
+        mediaType: SVG,
+        size: 2_500,
+        figure: { kind: "pair", pair: 0 },
+      },
+      {
+        path: "tanglegram_ha_pb2.svg",
+        fileName: "tanglegram_ha_pb2.svg",
+        mediaType: SVG,
+        size: null,
+        figure: { kind: "pair", pair: 1 },
+      },
+      {
+        path: "tanglegram_na_pb2.svg",
+        fileName: "tanglegram_na_pb2.svg",
+        mediaType: SVG,
+        size: null,
+        figure: { kind: "pair", pair: 2 },
+      },
     ];
 
     expect(files.map(fileRow).map(({ size, name }) => ({ size, name }))).toStrictEqual([

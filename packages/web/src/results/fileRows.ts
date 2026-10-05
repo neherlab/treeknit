@@ -25,5 +25,5 @@ export interface FileRow {
 }
 
 export function fileRow(file: FileEntry): FileRow {
-  return { id: file.path, path: file.path, size: fileSizeLabel(file.size), name: downloadName(file.path), file };
+  return { id: file.path, path: file.path, size: fileSizeLabel(file.size), name: file.fileName, file };
 }
