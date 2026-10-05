@@ -4,13 +4,13 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 
 import {
   type CanvasFrame,
-  type CanvasSize,
   constrainViewState,
   fitRowsViewState,
   fitViewState,
-  type LeafAxis,
+  leafAxisFor,
   leafTarget,
   leafZoom,
+  type MeasuredSize,
   panViewState,
   resizeViewState,
   type RowRange,
@@ -23,7 +23,7 @@ import {
 } from "./viewState";
 
 export interface TreeViewActions {
-  resize(size: CanvasSize): void;
+  resize(measured: MeasuredSize): void;
   update(request: ViewStateRequest): void;
   zoomIn(): void;
   zoomOut(): void;
@@ -49,7 +49,6 @@ export interface StoredView {
 
 export interface Drawing {
   rows: number;
-  leafAxis: LeafAxis;
 }
 
 type ViewChange =
@@ -60,7 +59,9 @@ type ViewChange =
   | { type: "pan"; leaf: number }
   | { type: "panBy"; delta: number };
 
-export type TreeViewAction = Drawing & ({ type: "resize"; size: CanvasSize } | ViewChange);
+type Resize = { type: "resize" } & MeasuredSize;
+
+export type TreeViewAction = Drawing & (Resize | ViewChange);
 
 export interface TreeViewHandle {
   store: TreeViewStore;
@@ -75,13 +76,13 @@ export function createTreeViewStore(): TreeViewStore {
 }
 
 export function treeViewActions(store: TreeViewStore, drawing: Drawing): TreeViewActions {
-  const dispatch = (change: ViewChange | { type: "resize"; size: CanvasSize }) => {
+  const dispatch = (change: Resize | ViewChange) => {
     store.setState(({ stored }) => ({ stored: treeViewReducer(stored, { ...drawing, ...change }) }));
   };
 
   return {
-    resize(size) {
-      dispatch({ type: "resize", size });
+    resize(measured) {
+      dispatch({ type: "resize", ...measured });
     },
     update(request) {
       dispatch({ type: "update", request });
@@ -139,7 +140,7 @@ export function treeViewReducer(stored: StoredView | undefined, action: TreeView
   const current = currentView(stored, action);
 
   if (action.type === "resize") {
-    return resized(current, action, action.size);
+    return resized(current, action);
   }
 
   if (current === undefined) {
@@ -149,12 +150,12 @@ export function treeViewReducer(stored: StoredView | undefined, action: TreeView
   return { frame: current.frame, viewState: changed(current, action) };
 }
 
-export function currentView(stored: StoredView | undefined, { rows, leafAxis }: Drawing): StoredView | undefined {
-  if (stored === undefined || (stored.frame.rows === rows && stored.frame.leafAxis === leafAxis)) {
+export function currentView(stored: StoredView | undefined, { rows }: Drawing): StoredView | undefined {
+  if (stored === undefined || stored.frame.rows === rows) {
     return stored;
   }
 
-  const frame = { size: stored.frame.size, rows, leafAxis };
+  const frame = { ...stored.frame, rows };
 
   return { frame, viewState: fitViewState(frame) };
 }
@@ -172,21 +173,22 @@ function zoomRoom({ frame, viewState }: StoredView): Pick<TreeView, "canZoomIn" 
   return { canZoomIn: zoom < maxZoom, canZoomOut: zoom > minZoom };
 }
 
-function resized(current: StoredView | undefined, { rows, leafAxis }: Drawing, size: CanvasSize) {
+function resized(current: StoredView | undefined, { rows, canvas: size, areaWidth }: Drawing & MeasuredSize) {
   if (size.width <= 0 || size.height <= 0) {
     return undefined;
   }
 
-  if (current !== undefined && current.frame.size.width === size.width && current.frame.size.height === size.height) {
+  const frame: CanvasFrame = { size, rows, leafAxis: leafAxisFor(areaWidth) };
+
+  if (current === undefined || current.frame.leafAxis !== frame.leafAxis) {
+    return { frame, viewState: fitViewState(frame) };
+  }
+
+  if (current.frame.size.width === size.width && current.frame.size.height === size.height) {
     return current;
   }
 
-  const frame: CanvasFrame = { size, rows, leafAxis };
-
-  return {
-    frame,
-    viewState: current === undefined ? fitViewState(frame) : resizeViewState(current.viewState, current.frame, frame),
-  };
+  return { frame, viewState: resizeViewState(current.viewState, current.frame, frame) };
 }
 
 function changed({ frame, viewState }: StoredView, change: ViewChange): TreeViewState {

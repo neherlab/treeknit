@@ -6,6 +6,7 @@ import {
   constrainViewState,
   fitRowsViewState,
   fitViewState,
+  leafAxisFor,
   MAX_ROW_PX,
   minimapLeafAt,
   minimapLeafOffset,
@@ -240,5 +241,15 @@ describe("minimap", () => {
 
   test("maps a drag offset of a quarter of the measured leaf axis to a quarter of the rows", () => {
     expect(minimapLeafOffset(LARGE, MEASURED, 198)).toBe(500);
+  });
+});
+
+describe("leafAxisFor", () => {
+  test.each([
+    [0, "x"],
+    [639, "x"],
+    [640, "y"],
+  ] as const)("a drawing area %i px wide draws its leaves along %s", (width, axis) => {
+    expect(leafAxisFor(width)).toBe(axis);
   });
 });

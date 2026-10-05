@@ -5,6 +5,11 @@ export interface CanvasSize {
   height: number;
 }
 
+export interface MeasuredSize {
+  canvas: CanvasSize;
+  areaWidth: number;
+}
+
 export interface CanvasFrame {
   size: CanvasSize;
   rows: number;
@@ -35,9 +40,15 @@ export interface ViewStateRequest {
 
 export const MAX_ROW_PX = 64;
 
+export const NARROW_AREA_PX = 640;
+
 export const TOOLBAR_ZOOM_FACTOR = 2;
 
 const HALF_ROW = 0.5;
+
+export function leafAxisFor(areaWidthPx: number): LeafAxis {
+  return areaWidthPx < NARROW_AREA_PX ? "x" : "y";
+}
 
 export function leafExtent({ size, leafAxis }: Pick<CanvasFrame, "size" | "leafAxis">): number {
   return leafAxis === "y" ? size.height : size.width;

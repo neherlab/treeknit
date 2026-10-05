@@ -1,20 +1,21 @@
 import { type LayersList, OrthographicView, type OrthographicViewState, type PickingInfo } from "@deck.gl/core";
 import { DeckGL, type DeckGLProps, type DeckGLRef } from "@deck.gl/react";
 import { cn } from "cn";
-import { type MouseEvent, type ReactNode, useCallback, useId, useRef } from "react";
+import { type MouseEvent, type ReactNode, useCallback, useId, useMemo, useRef } from "react";
 import { useKeyboard } from "react-aria";
 import { useErrorBoundary } from "react-error-boundary";
 
 import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
 import { Minimap } from "./Minimap";
+import { useMeasuredSize } from "./useMeasuredSize";
 import type { TreeView } from "./useTreeView";
-import { type CanvasSize, minimapShown, type RowRange } from "./viewState";
+import { type MeasuredSize, minimapShown, type RowRange } from "./viewState";
 import { browserSupportsWebGl2, WEBGL2_MISSING } from "./webgl";
 
 export const CANVAS_DESCRIPTION =
   "Arrow keys pan, plus and minus zoom, Enter zooms to the selected clade. Use the MCC table, the leaf search, and the inspector to read every value.";
 
-const VIEW = new OrthographicView({ id: "tree", flipY: true });
+const VIEW_ID = "tree";
 
 const CONTROLLER = {
   doubleClickZoom: false,
@@ -63,10 +64,26 @@ export function TreeCanvas({
   const { showBoundary } = useErrorBoundary();
 
   const resize = useCallback(
-    (size: CanvasSize) => {
-      actions.resize(size);
+    (measured: MeasuredSize) => {
+      actions.resize(measured);
     },
     [actions],
+  );
+
+  const { areaRef, canvasRef } = useMeasuredSize(resize);
+  const frameWidth = frame?.size.width;
+  const frameHeight = frame?.size.height;
+
+  const views = useMemo(
+    () =>
+      new OrthographicView({
+        id: VIEW_ID,
+        flipY: true,
+        ...(frameWidth === undefined || frameHeight === undefined
+          ? undefined
+          : { width: frameWidth, height: frameHeight }),
+      }),
+    [frameWidth, frameHeight],
   );
 
   const update = useCallback(
@@ -130,10 +147,10 @@ export function TreeCanvas({
   }
 
   return (
-    <div className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden", className)}>
+    <div ref={areaRef} className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden", className)}>
       {children}
       <div className={cn("flex min-h-0 flex-1", frame?.leafAxis === "x" ? "flex-col" : "flex-row")}>
-        <div className="relative min-h-0 min-w-0 flex-1">
+        <div ref={canvasRef} className="relative min-h-0 min-w-0 flex-1">
           {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- jsx-a11y counts the application role as non-interactive, but it is the ARIA role of an element that handles its own pointer and keys; the double-click zooms to a clade */}
           <div
             role="application"
@@ -149,11 +166,10 @@ export function TreeCanvas({
           >
             <DeckGL
               ref={deckRef}
-              views={VIEW}
+              views={views}
               viewState={view.viewState ?? UNSIZED_VIEW_STATE}
               controller={CONTROLLER}
               layers={layers}
-              onResize={resize}
               onViewStateChange={update}
               onError={showBoundary}
               {...events}
