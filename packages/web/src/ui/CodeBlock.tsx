@@ -74,8 +74,13 @@ export interface CodeBlockProps {
   className?: string;
 }
 
-function writeClipboard(text: string): Promise<void> {
-  return navigator.clipboard.writeText(text);
+async function writeClipboard(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (error) {
+    console.error("Could not copy the text to the clipboard:", error);
+    throw error;
+  }
 }
 
 function CodeLineRow({ line, lineNumber, reveal }: CodeLineRowProps) {
