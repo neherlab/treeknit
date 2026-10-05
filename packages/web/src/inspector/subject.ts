@@ -36,6 +36,14 @@ export type InspectorSubject =
   | { kind: "node"; side: TreeSide; tree: string; node: DrawNode; mcc: MccInfo | undefined }
   | { kind: "argNode"; node: ArgNodeView };
 
+export function inspectorParent(subject: InspectorSubject): Selection | null {
+  if ((subject.kind === "leaf" || subject.kind === "node") && subject.mcc !== undefined) {
+    return { mcc: subject.mcc.index };
+  }
+
+  return null;
+}
+
 export function inspectorSubject(selection: Selection, data: InspectorData): InspectorSubject {
   const { pair, arg } = data;
   const { node, leaf, mcc } = selection;

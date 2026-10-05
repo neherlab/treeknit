@@ -39,7 +39,10 @@ export function TanglegramPanel() {
 
 function Tanglegram({ result }: { result: RunResult }) {
   const [TanglegramCanvas, reloadTanglegramCanvas] = useLazyCanvas(TANGLEGRAM_CANVAS);
-  const { search, selection, select, clear, choosePair, chooseVersion, chooseScale, chooseLabels } = useDrawingSearch();
+
+  const { search, selection, select, clearOnEscape, choosePair, chooseVersion, chooseScale, chooseLabels } =
+    useDrawingSearch();
+
   const { pair, version, x, labels } = search;
   const query = usePairView(result.sessionId, pair, version, x);
   const data = query.data;
@@ -79,7 +82,7 @@ function Tanglegram({ result }: { result: RunResult }) {
       query={query}
       loading="Loading the tanglegram"
       errorTitle="The tanglegram could not be loaded"
-      onEscape={clear}
+      onEscape={clearOnEscape}
     >
       {(shown) => (
         <CanvasBoundary onReset={reloadTanglegramCanvas} resultKey={resultKey}>

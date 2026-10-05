@@ -31,7 +31,7 @@ export function AuspicePanel() {
 
 function Auspice({ result }: { result: RunResult }) {
   const [AuspiceView, reloadAuspiceView] = useLazyCanvas(AUSPICE_VIEW);
-  const { search, select, clear, choosePair, chooseVersion, chooseScale } = useDrawingSearch();
+  const { search, select, clearOnEscape, choosePair, chooseVersion, chooseScale } = useDrawingSearch();
   const { pair, version, x } = search;
   const query = useAuspiceView(result.sessionId, pair, version, x);
   const files = useAuspiceFiles(result.sessionId, pair, version, x, "both").data;
@@ -53,7 +53,7 @@ function Auspice({ result }: { result: RunResult }) {
       query={query}
       loading="Loading the Auspice view"
       errorTitle="The Auspice view could not be loaded"
-      onEscape={clear}
+      onEscape={clearOnEscape}
     >
       {(datasets) =>
         labels === undefined ? null : (

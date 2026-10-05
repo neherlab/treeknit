@@ -23,7 +23,7 @@ export function VirtualList<T extends { id: Key; text: string }>({
         aria-label={label}
         items={items}
         onAction={onAction}
-        className={cn("border-rule bg-ground rounded-control h-64 overflow-auto border outline-hidden", className)}
+        className={cn("border-rule bg-ground rounded-control overflow-auto border outline-hidden", className)}
       >
         {(item) => (
           <ListBoxItem id={item.id} textValue={item.text} className={cn(optionStyle, "min-w-0 overflow-hidden")}>

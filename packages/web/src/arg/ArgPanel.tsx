@@ -30,7 +30,7 @@ export function ArgPanel() {
 
 function Arg({ result }: { result: RunResult }) {
   const [ArgCanvas, reloadArgCanvas] = useLazyCanvas(ARG_CANVAS);
-  const { search, selection, select, clear, chooseScale, chooseLabels } = useDrawingSearch();
+  const { search, selection, select, clearOnEscape, chooseScale, chooseLabels } = useDrawingSearch();
   const { x, labels } = search;
   const query = useArgView(result.sessionId, x);
   const data = query.data ?? undefined;
@@ -76,7 +76,7 @@ function Arg({ result }: { result: RunResult }) {
       query={query}
       loading="Loading the ARG"
       errorTitle="The ARG could not be loaded"
-      onEscape={clear}
+      onEscape={clearOnEscape}
     >
       {(shown) =>
         shown === null ? null : (

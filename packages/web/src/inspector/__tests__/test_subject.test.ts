@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { exampleArgView, exampleConstellation, examplePairView } from "../../drawing/__tests__/fixtures";
-import { type InspectorData, inspectorSubject, leafPairs } from "../subject";
+import { type InspectorData, inspectorParent, inspectorSubject, leafPairs } from "../subject";
 
 const PAIR = examplePairView();
 
@@ -87,5 +87,33 @@ describe("leafPairs", () => {
 
   test("gives no pairs before the table loads", () => {
     expect(leafPairs(undefined, "C")).toStrictEqual([]);
+  });
+});
+
+describe("inspectorParent", () => {
+  test.each([
+    ["a leaf steps up to its MCC", { leaf: "X" }, { mcc: 1 }],
+    ["a node steps up to its MCC", { mcc: 0, node: { side: "right", name: "NODE_3" } }, { mcc: 0 }],
+    ["an MCC has no parent; clearing reaches the MCC list", { mcc: 1 }, null],
+    ["an ARG node has no MCC", { node: { side: "arg", name: "H" } }, null],
+    ["nothing selected has no parent", {}, null],
+  ] as const)("%s", (_, selection, parent) => {
+    expect(inspectorParent(inspectorSubject(selection, DATA))).toStrictEqual(parent);
+  });
+
+  test("a leaf without an MCC has no parent", () => {
+    const left = {
+      ...PAIR.left,
+      nodes: PAIR.left.nodes.map((node) => (node.name === "X" ? { ...node, mcc: null } : node)),
+    };
+
+    const right = {
+      ...PAIR.right,
+      nodes: PAIR.right.nodes.map((node) => (node.name === "X" ? { ...node, mcc: null } : node)),
+    };
+
+    const subject = inspectorSubject({ leaf: "X" }, { ...DATA, pair: { ...PAIR, left, right } });
+
+    expect({ kind: subject.kind, parent: inspectorParent(subject) }).toStrictEqual({ kind: "leaf", parent: null });
   });
 });

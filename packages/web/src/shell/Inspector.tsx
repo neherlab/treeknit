@@ -1,22 +1,28 @@
 import type { ArgNodeView, DrawNode, MccInfo } from "@neherlab/treeknit-wasm";
-import { type ReactNode, useCallback, useMemo } from "react";
+import { createContext, type ReactNode, use, useCallback, useMemo } from "react";
 import type { Key, PressEvent } from "react-aria-components";
 import { match } from "ts-pattern";
+import BackIcon from "~icons/lucide/arrow-left";
 import ZoomIcon from "~icons/lucide/scan-search";
+import ClearIcon from "~icons/lucide/x";
 
 import { currentData, useArgView, useConstellation, usePairView } from "../analysis/queries";
 import { requestFocus } from "../drawing/focus";
 import { formatBranchLength, leafCount, mccSummary, mccTitle } from "../drawing/format";
 import { leafInPair, mccInTanglegram } from "../drawing/navigation";
-import { selectionOf, type Selection, withSelection } from "../drawing/selection";
+import { selectionOf, type Selection } from "../drawing/selection";
 import { segmentLabels, segmentList, segmentName, type SegmentLabels } from "../drawing/tooltip";
+import { useDrawingSearch } from "../drawing/useDrawingSearch";
+import { counted } from "../format/count";
 import { NONE, yesNo } from "../format/words";
-import { type InspectorSubject, inspectorSubject, type LeafPair } from "../inspector/subject";
+import { inspectorParent, type InspectorSubject, inspectorSubject, type LeafPair } from "../inspector/subject";
 import { hasAmbiguousAttachment, mccsBySize } from "../tables/mccTable";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
+import { IconButton } from "../ui/IconButton";
 import { Link } from "../ui/Link";
 import { MccSwatch } from "../ui/MccSwatch";
+import { useEscapeKey } from "../ui/useEscapeKey";
 import { VirtualList } from "../ui/VirtualList";
 import { useWorkspace } from "../workspace/context";
 import type { RunResult } from "../workspace/store";
@@ -24,11 +30,19 @@ import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 
 const NOTHING_SELECTED = "Select a leaf, a branch, or an MCC to see details.";
 
+const LIST_STYLE = "min-h-48 flex-1";
+
+const SubjectNavigation = createContext<SubjectNavigationValue>({
+  parent: null,
+  onSelect: () => undefined,
+  onClear: () => undefined,
+});
+
 export function Inspector() {
   const result = useWorkspace((state) => state.result);
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 px-4 py-4">
       {result === null ? (
         <EmptyState title={NOTHING_SELECTED} className="text-ink-muted" />
       ) : (
@@ -39,7 +53,8 @@ export function Inspector() {
 }
 
 function ResultInspector({ result }: { result: RunResult }) {
-  const { search, update } = useWorkspaceSearch();
+  const { search, select, clear, clearOnEscape } = useDrawingSearch();
+  const escapeProps = useEscapeKey(clearOnEscape);
   const { sessionId } = result;
   const selection = useMemo(() => selectionOf(search), [search]);
   const pair = currentData(usePairView(sessionId, search.pair, search.version, search.x));
@@ -53,20 +68,28 @@ function ResultInspector({ result }: { result: RunResult }) {
 
   const segments = useMemo(() => segmentLabels(result.request.trees), [result.request.trees]);
 
-  const select = useCallback(
-    (next: Selection) => {
-      update((written) => withSelection(written, next));
-    },
-    [update],
-  );
+  const parent = inspectorParent(subject);
+  const navigation = useMemo(() => ({ parent, onSelect: select, onClear: clear }), [parent, select, clear]);
 
-  return match(subject)
+  const details = match(subject)
     .with({ kind: "none" }, ({ mccs }) => <NothingSelected mccs={mccs} onSelect={select} />)
     .with({ kind: "mcc" }, ({ mcc }) => <MccDetails mcc={mcc} onSelect={select} />)
     .with({ kind: "leaf" }, (leaf) => <LeafDetails subject={leaf} />)
     .with({ kind: "node" }, (node) => <NodeDetails subject={node} />)
     .with({ kind: "argNode" }, ({ node }) => <ArgNodeDetails node={node} segments={segments} />)
     .exhaustive();
+
+  return (
+    <div {...escapeProps} className="flex min-h-0 flex-1 flex-col gap-4">
+      <SubjectNavigation value={navigation}>{details}</SubjectNavigation>
+    </div>
+  );
+}
+
+interface SubjectNavigationValue {
+  parent: Selection | null;
+  onSelect: (selection: Selection) => void;
+  onClear: () => void;
 }
 
 function NothingSelected({ mccs, onSelect }: { mccs: readonly MccInfo[]; onSelect: (selection: Selection) => void }) {
@@ -82,36 +105,44 @@ function NothingSelected({ mccs, onSelect }: { mccs: readonly MccInfo[]; onSelec
     [onSelect],
   );
 
+  if (items.length === 0) {
+    return <EmptyState title={NOTHING_SELECTED} className="text-ink-muted" />;
+  }
+
   return (
-    <>
-      <EmptyState title={NOTHING_SELECTED} className="text-ink-muted" />
-      {items.length === 0 ? null : (
-        <section aria-label="MCCs of this pair" className="flex flex-col gap-2">
-          <h3 className="text-ink text-sm font-semibold">MCCs of this pair</h3>
-          <VirtualList label="MCCs of this pair" items={items} onAction={choose}>
-            {({ mcc }) => (
-              <>
-                <MccSwatch slot={mcc.slot} />
-                <span className="w-16 shrink-0">{mccTitle(mcc.index)}</span>
-                <span className="text-ink-muted w-20 shrink-0 text-right tabular-nums">{leafCount(mcc.size)}</span>
-                <span className="text-ink-muted min-w-0 truncate">{mcc.leaves[0] ?? ""}</span>
-              </>
-            )}
-          </VirtualList>
-        </section>
-      )}
-    </>
+    <section aria-labelledby="inspector-mccs" className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex flex-col gap-0.5">
+        <h2 id="inspector-mccs" className="text-ink text-base font-semibold">
+          {counted(items.length, "MCC", "MCCs")}
+        </h2>
+        <p className="text-ink-muted text-sm">Select an MCC, a leaf, or a branch for details.</p>
+      </div>
+      <VirtualList label="MCCs of this pair" items={items} onAction={choose} className={LIST_STYLE}>
+        {({ mcc }) => (
+          <>
+            <MccSwatch slot={mcc.slot} />
+            <span className="w-20 shrink-0 whitespace-nowrap">{mccTitle(mcc.index)}</span>
+            <span className="text-ink-muted w-20 shrink-0 text-right tabular-nums">{leafCount(mcc.size)}</span>
+            <span className="text-ink-muted min-w-0 truncate">{mcc.leaves[0] ?? ""}</span>
+          </>
+        )}
+      </VirtualList>
+    </section>
   );
 }
 
 function MccDetails({ mcc, onSelect }: { mcc: MccInfo; onSelect: (selection: Selection) => void }) {
-  const { update } = useWorkspaceSearch();
+  const { search, update } = useWorkspaceSearch();
+  const inAuspice = search.view === "auspice";
   const leaves = useMemo(() => mcc.leaves.map((name) => ({ id: name, text: name })), [mcc]);
 
   const zoom = useCallback(() => {
-    update((written) => mccInTanglegram(written, mcc.index));
+    if (!inAuspice) {
+      update((written) => mccInTanglegram(written, mcc.index));
+    }
+
     requestFocus({ kind: "mcc", mcc: mcc.index });
-  }, [mcc.index, update]);
+  }, [inAuspice, mcc.index, update]);
 
   const chooseLeaf = useCallback(
     (key: Key) => {
@@ -132,7 +163,12 @@ function MccDetails({ mcc, onSelect }: { mcc: MccInfo; onSelect: (selection: Sel
       <Button size="sm" icon={ZoomIcon} onPress={zoom} className="self-start">
         Zoom to MCC
       </Button>
-      <VirtualList label={`Leaves of ${mccTitle(mcc.index)}`} items={leaves} onAction={chooseLeaf}>
+      <VirtualList
+        label={`Leaves of ${mccTitle(mcc.index)}`}
+        items={leaves}
+        onAction={chooseLeaf}
+        className={LIST_STYLE}
+      >
         {({ text }) => <span className="min-w-0 truncate">{text}</span>}
       </VirtualList>
     </Section>
@@ -243,12 +279,26 @@ function ArgNodeDetails({ node, segments }: { node: ArgNodeView; segments: Segme
 }
 
 function Section({ title, swatch, children }: { title: string; swatch?: number; children: ReactNode }) {
+  const { parent, onSelect, onClear } = use(SubjectNavigation);
+
+  const stepUp = useCallback(() => {
+    if (parent !== null) {
+      onSelect(parent);
+    }
+  }, [parent, onSelect]);
+
   return (
-    <section aria-label={title} className="flex flex-col gap-3">
-      <h2 className="text-ink flex items-center gap-2 text-base font-semibold wrap-anywhere">
-        {swatch === undefined ? null : <MccSwatch slot={swatch} />}
-        <span>{title}</span>
-      </h2>
+    <section aria-label={title} className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex items-start gap-1">
+        {parent?.mcc === undefined ? null : (
+          <IconButton label={`Show ${mccTitle(parent.mcc)}`} icon={BackIcon} size="sm" onPress={stepUp} />
+        )}
+        <h2 className="text-ink flex min-w-0 flex-1 items-center gap-2 pt-0.5 text-base font-semibold wrap-anywhere">
+          {swatch === undefined ? null : <MccSwatch slot={swatch} />}
+          <span>{title}</span>
+        </h2>
+        <IconButton label="Clear selection" icon={ClearIcon} size="sm" onPress={onClear} />
+      </div>
       {children}
     </section>
   );

@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { useKeyboard } from "react-aria";
 
 import { InlineNotice, NoticeRegion, type NoticeTone } from "../ui/InlineNotice";
 import { QueryState, type QueryStateProps } from "../ui/QueryState";
+import { useEscapeKey } from "../ui/useEscapeKey";
 
 const OTHER_VIEWS_AVAILABLE = "The tables and files are still available.";
 
@@ -16,15 +16,7 @@ export function DrawingPanel<T>({
   errorTitle,
   children,
 }: DrawingPanelProps<T>) {
-  const { keyboardProps } = useKeyboard({
-    onKeyDown: (event) => {
-      if (event.key === "Escape") {
-        onEscape();
-      } else {
-        event.continuePropagation();
-      }
-    },
-  });
+  const keyboardProps = useEscapeKey(onEscape);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -58,7 +50,7 @@ export interface DrawingPanelProps<T> extends Pick<QueryStateProps<T>, "query" |
   toolbar: ReactNode;
   notice?: DrawingNotice | undefined;
   failure?: DrawingFailure | undefined;
-  onEscape: () => void;
+  onEscape: (() => void) | null;
   children: (data: T) => ReactNode;
 }
 

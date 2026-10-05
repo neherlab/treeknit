@@ -6,7 +6,7 @@ import type { RowRange } from "../canvas/viewState";
 import { selectPair, type WorkspaceSearch } from "../workspace/search";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 import { revealLeafRows } from "./focus";
-import { selectionOf, type Selection, withSelection } from "./selection";
+import { hasSelection, selectionOf, type Selection, withSelection } from "./selection";
 
 export interface DrawingSearch {
   search: WorkspaceSearch;
@@ -14,6 +14,7 @@ export interface DrawingSearch {
   selection: Selection;
   select: (next: Selection) => void;
   clear: () => void;
+  clearOnEscape: (() => void) | null;
   choosePair: (next: number) => void;
   chooseVersion: (next: TreeVersion) => void;
   chooseScale: (next: Scale) => void;
@@ -63,7 +64,20 @@ export function useDrawingSearch(): DrawingSearch {
     [update],
   );
 
-  return { search, update, selection, select, clear, choosePair, chooseVersion, chooseScale, chooseLabels };
+  const clearOnEscape = hasSelection(selection) ? clear : null;
+
+  return {
+    search,
+    update,
+    selection,
+    select,
+    clear,
+    clearOnEscape,
+    choosePair,
+    chooseVersion,
+    chooseScale,
+    chooseLabels,
+  };
 }
 
 export function useFindLeaf<D>(

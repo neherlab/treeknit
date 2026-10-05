@@ -149,3 +149,7 @@ export function argSelectionRows(view: ArgView, selection: Selection): RowRange 
 export function emphasisOpacity(mcc: number | null, selected: number | undefined): number {
   return selected === undefined || mcc === selected ? 1 : UNSELECTED_OPACITY;
 }
+
+export function hasSelection(selection: Selection): boolean {
+  return selection.mcc !== undefined || selection.leaf !== undefined || selection.node !== undefined;
+}

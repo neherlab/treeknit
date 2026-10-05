@@ -9,14 +9,14 @@ import { usePairView } from "../analysis/queries";
 import { requestFocus } from "../drawing/focus";
 import { leafCount, mccTitle } from "../drawing/format";
 import { mccInTanglegram } from "../drawing/navigation";
-import { withSelection } from "../drawing/selection";
+import { useDrawingSearch } from "../drawing/useDrawingSearch";
 import { counted, formatCount } from "../format/count";
 import { NONE, yesNo } from "../format/words";
 import { IconButton } from "../ui/IconButton";
 import { InfoButton } from "../ui/InfoButton";
 import { MccSwatch } from "../ui/MccSwatch";
 import { QueryState } from "../ui/QueryState";
-import { focusRing } from "../ui/styles";
+import { inlineButtonStyle } from "../ui/styles";
 import {
   type CellAlign,
   cellStyle,
@@ -27,6 +27,7 @@ import {
   tableStyle,
 } from "../ui/Table";
 import { TextField } from "../ui/TextField";
+import { useEscapeKey } from "../ui/useEscapeKey";
 import { useVirtualRows } from "../ui/useVirtualRows";
 import { VirtualGap } from "../ui/VirtualGap";
 import { useWorkspace } from "../workspace/context";
@@ -71,7 +72,8 @@ function MccTableQuery({ result }: { result: RunResult }) {
 }
 
 function MccTable({ data, title }: { data: PairView; title: string }) {
-  const { search, update } = useWorkspaceSearch();
+  const { search, update, select: selectSubject, clearOnEscape } = useDrawingSearch();
+  const escapeProps = useEscapeKey(clearOnEscape);
   const { contains } = useFilter({ sensitivity: "base" });
   const columns = useMemo(() => mccColumns(contains), [contains]);
   const table = useTable({ features: mccTableFeatures, columns, data: data.mccs });
@@ -91,9 +93,9 @@ function MccTable({ data, title }: { data: PairView; title: string }) {
 
   const select = useCallback(
     (mcc: number) => {
-      update((written) => withSelection(written, { mcc }));
+      selectSubject({ mcc });
     },
-    [update],
+    [selectSubject],
   );
 
   const show = useCallback(
@@ -126,7 +128,7 @@ function MccTable({ data, title }: { data: PairView; title: string }) {
           className="ml-auto w-56"
         />
       </div>
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+      <div ref={scrollRef} {...escapeProps} className="min-h-0 flex-1 overflow-auto">
         <table aria-label={title} aria-rowcount={rows.length + 1} className={tableStyle}>
           <thead ref={headerRef} className={tableHeaderStyle}>
             <tr aria-rowindex={1}>
@@ -178,14 +180,7 @@ function SortHeader({ header }: { header: MccHeader }) {
 
   return (
     <th scope="col" aria-sort={direction ?? "none"} className={columnStyle(align)}>
-      <Button
-        onPress={toggle}
-        className={cn(
-          "rounded-inner data-hovered:text-ink inline-flex items-center gap-1",
-          align === "end" && "flex-row-reverse",
-          focusRing,
-        )}
-      >
+      <Button onPress={toggle} className={cn(inlineButtonStyle, "gap-1", align === "end" && "flex-row-reverse")}>
         {isMccColumn(column.id) ? MCC_HEADERS[column.id] : column.id}
         <SortIndicator direction={direction} />
       </Button>
@@ -207,7 +202,7 @@ function MccRow({ cells, mcc, index, selected, measure, onSelect, onShow }: MccR
       <Button
         aria-pressed={selected}
         onPress={choose}
-        className={cn("rounded-inner inline-flex items-center gap-2 font-sans", selected && "font-semibold", focusRing)}
+        className={cn(inlineButtonStyle, "gap-2", selected && "font-semibold")}
       >
         <MccSwatch slot={mcc.slot} />
         {mccTitle(mcc.index)}
