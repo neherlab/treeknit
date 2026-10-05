@@ -25,6 +25,7 @@ Counterpart: [`v0/visualization.md`](v0/visualization.md). TreeKnit.jl draws not
 - [x] **Divergence**: `div` from the root, a missing length counted as 0. The tree itself does not change; TreeKnit.jl sets missing lengths to `0.0` in the tree
 - [x] **`meta.updated`**: the empty string, as in TreeKnit.jl. It does not match the date pattern of the augur schema, and Auspice still reads the file
 - [x] **Tanglegram on auspice.us**: the same files as TreeKnit.jl, so the same procedure applies. No test loads them in Auspice
+- [x] **Auspice view in the web app (new)**: the web app embeds Auspice and draws each pair as an Auspice tanglegram from datasets that Rust builds for display, separate from the files: one categorical coloring `mcc` with the colors of the MCC slots, the MCC number as a node attribute, branch labels "MCC" where an MCC starts, and `div` from the branch lengths or, for a cladogram, the depth. The files `auspice_<label>.json` stay as in TreeKnit.jl (see [`web-app.md`](web-app.md#web-app))
 
 ## ARG viewers
 
