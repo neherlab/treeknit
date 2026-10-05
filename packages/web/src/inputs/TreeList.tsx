@@ -4,6 +4,7 @@ import ErrorIcon from "~icons/lucide/circle-alert";
 import UndoIcon from "~icons/lucide/undo-2";
 
 import { useInspectTrees, useOverlap, useSettingsSchema } from "../analysis/queries";
+import { visibleGeneralErrors } from "../run/runControl";
 import { Button } from "../ui/Button";
 import { GridList } from "../ui/GridList";
 import { InfoButton } from "../ui/InfoButton";
@@ -11,7 +12,7 @@ import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
 import { reorder, type ReorderMove } from "../ui/reorder";
 import { errorStyle } from "../ui/styles";
 import { useCurrentRequest, useWorkspace, useWorkspaceStore } from "../workspace/context";
-import { fieldMessage, TREE_LIST_FIELD } from "../workspace/fieldErrors";
+import { TREE_LIST_FIELD } from "../workspace/fieldErrors";
 import { useFieldErrors } from "../workspace/useFieldErrors";
 import { NewickDialog } from "./NewickDialog";
 import { TreeActions } from "./TreeActions";
@@ -106,7 +107,7 @@ export function TreeList() {
     [dismissError],
   );
 
-  const listError = fieldMessage(errors, TREE_LIST_FIELD);
+  const listErrors = visibleGeneralErrors(trees.length, errors.byField.get(TREE_LIST_FIELD) ?? []);
 
   return (
     <section aria-labelledby="rail-trees" className="flex flex-col gap-3">
@@ -145,10 +146,10 @@ export function TreeList() {
           }}
         </GridList>
       </TreeDropZone>
-      {listError === undefined ? null : (
+      {listErrors.length === 0 ? null : (
         <p className={errorStyle}>
           <ErrorIcon aria-hidden />
-          <span>{listError}</span>
+          <span>{listErrors.map(({ message }) => message).join("; ")}</span>
         </p>
       )}
       <NoticeRegion>
