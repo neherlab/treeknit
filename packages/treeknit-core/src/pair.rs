@@ -51,7 +51,7 @@ pub fn infer_pair(
   let mut found: Vec<Mcc> = Vec::new();
   for it in 1.. {
     let n_leaves = trees[0].n_leaves();
-    let m = (n_leaves as f64 * p.n_mcmc as f64 / p.temperatures.len() as f64).ceil() as usize;
+    let m = steps_per_temperature(n_leaves, p.n_mcmc, p.temperatures.len());
     log::debug!(
       "iteration {it} (max. {}): {n_leaves} leaves, {m} steps per temperature",
       p.itmax
@@ -81,6 +81,14 @@ pub fn infer_pair(
     }
   }
   sort_mccs(found)
+}
+
+/// MCMC steps at each temperature of an annealing: `ceil(n_leaves * n_mcmc / n_temperatures)`,
+/// bounded by 2^32 - 1, the largest `usize` of 32-bit WebAssembly, so that every target runs the
+/// same number of steps.
+fn steps_per_temperature(n_leaves: usize, n_mcmc: usize, n_temperatures: usize) -> usize {
+  let m = (n_leaves as f64 * n_mcmc as f64 / n_temperatures as f64).ceil();
+  m.min(f64::from(u32::MAX)) as usize
 }
 
 /// Most iterations that inference with `itmax` runs: `itmax + 1`, since the loop of `infer_pair`
@@ -192,6 +200,19 @@ mod tests {
   use crate::tree::test_util::trees;
   use rand::SeedableRng;
   use rand_xoshiro::Xoshiro256PlusPlus;
+
+  #[test]
+  fn steps_per_temperature_round_up_and_stop_at_the_largest_32_bit_count() {
+    // Oracle: ceil(5 * 50 / 100) = 3, the debug line of the two-tree example; 10^6 leaves with
+    // 2^32 - 1 steps per leaf over one temperature exceed 2^32 - 1.
+    assert_eq!(
+      (3, 0xFFFF_FFFF),
+      (
+        steps_per_temperature(5, 50, 100),
+        steps_per_temperature(1_000_000, 0xFFFF_FFFF, 1)
+      )
+    );
+  }
 
   fn params(o: &Options) -> PairParams {
     PairParams {
