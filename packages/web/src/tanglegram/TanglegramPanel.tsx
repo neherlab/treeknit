@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { usePairView } from "../analysis/queries";
 import { CanvasBoundary, useLazyCanvas } from "../canvas/CanvasBoundary";
-import type { TreeView, TreeViewActions } from "../canvas/useTreeView";
+import { type TreeViewActions, type TreeViewHandle, useTreeViewReady } from "../canvas/useTreeView";
 import type { RowRange } from "../canvas/viewState";
 import { ZoomControls } from "../canvas/ZoomControls";
 import { FIGURE_PENDING, FigureButton, LabelModeSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
@@ -116,21 +116,20 @@ function leafRowsOf(data: PairView, name: string): RowRange | null {
   return pairLeafRows(data.left, data.right, name);
 }
 
-function useFocusedRows(data: PairView | undefined, view: TreeView) {
+function useFocusedRows(data: PairView | undefined, view: TreeViewHandle) {
   const request = useFocusRequest();
-  const [handled, setHandled] = useState<number | null>(null);
-
-  if (request !== null && request.id !== handled && data !== undefined && view.frame !== undefined) {
-    setHandled(request.id);
-    applyFocus(view.actions, request.target, focusRows(data, request.target));
-  }
+  const ready = useTreeViewReady(view);
+  const { actions } = view;
 
   useEffect(() => {
-    // oxlint-disable-next-line react-you-might-not-need-an-effect/no-event-handler -- the render above applied the request; clearing it in the shared store during render would update other subscribers mid-render, and leaving it would replay it on the next mount
-    if (handled !== null) {
-      focusDone(handled);
+    // oxlint-disable-next-line react-you-might-not-need-an-effect/no-event-handler -- a focus request from another view waits in the focus store until the pair view has loaded and the canvas has a size; applying it writes the view store, which must not change during render
+    if (request === null || data === undefined || !ready) {
+      return;
     }
-  }, [handled]);
+
+    applyFocus(actions, request.target, focusRows(data, request.target));
+    focusDone(request.id);
+  }, [request, data, ready, actions]);
 }
 
 function applyFocus(actions: TreeViewActions, target: FocusTarget, range: RowRange | null) {

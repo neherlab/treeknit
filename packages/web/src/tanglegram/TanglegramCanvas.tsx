@@ -7,7 +7,7 @@ import { labelsVisible } from "../canvas/labels";
 import { useFadeIn } from "../canvas/motion";
 import { curveRowPx } from "../canvas/projection";
 import { TreeCanvas } from "../canvas/TreeCanvas";
-import type { TreeView } from "../canvas/useTreeView";
+import { type TreeViewHandle, useTreeView } from "../canvas/useTreeView";
 import { crossExtent } from "../canvas/viewState";
 import { drawingCursor } from "../drawing/cursor";
 import { labelColumnPx, useLeafLabels } from "../drawing/labelWidth";
@@ -34,7 +34,8 @@ export default function TanglegramCanvas({
   const colors = useDrawingColors();
   const rules = useDrawingRules();
   const fade = useFadeIn(resultKey);
-  const { frame, rowPx } = view;
+  const tree = useTreeView(view);
+  const { frame, rowPx } = tree;
   const leafAxis = frame?.leafAxis ?? "y";
   const crossPx = frame === undefined ? 0 : crossExtent(frame);
   const names = useMemo(() => pairLeafNames(data), [data]);
@@ -88,7 +89,7 @@ export default function TanglegramCanvas({
 
   return (
     <TreeCanvas
-      view={view}
+      view={tree}
       label={label}
       layers={layers}
       minimapLayers={minimapLayers}
@@ -103,7 +104,7 @@ export default function TanglegramCanvas({
 
 export interface TanglegramCanvasProps {
   data: PairView;
-  view: TreeView;
+  view: TreeViewHandle;
   labels: LabelMode;
   colorByMcc: boolean;
   selection: Selection;

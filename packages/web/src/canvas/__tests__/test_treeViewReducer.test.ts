@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { currentView, type Drawing, type StoredView, treeViewReducer } from "../useTreeView";
+import {
+  createTreeViewStore,
+  currentView,
+  type Drawing,
+  type StoredView,
+  treeViewActions,
+  treeViewReducer,
+} from "../useTreeView";
 import { fitViewState, rowPixels, visibleLeafRange } from "../viewState";
 
 const DRAWING: Drawing = { rows: 300, leafAxis: "y" };
@@ -98,5 +105,20 @@ describe("treeViewReducer", () => {
 
     expect(currentView(zoomed, other)?.viewState).toStrictEqual(fitViewState({ size: SIZE, ...other }));
     expect(currentView(zoomed, DRAWING)).toBe(zoomed);
+  });
+});
+
+describe("treeViewActions", () => {
+  test("write each reduced view into the store", () => {
+    const store = createTreeViewStore();
+    const actions = treeViewActions(store, DRAWING);
+
+    actions.resize(SIZE);
+    actions.fitRows({ first: 100, last: 119 });
+    actions.panBy(10);
+
+    const stored = store.getState().stored;
+
+    expect(stored === undefined ? [] : visibleLeafRange(stored.viewState, stored.frame)).toStrictEqual([109.5, 129.5]);
   });
 });

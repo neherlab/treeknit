@@ -1,23 +1,26 @@
 import { useMemo, useState } from "react";
 
-import { type TreeView, type TreeViewActions, useTreeView } from "../canvas/useTreeView";
+import { createTreeViewStore, type TreeViewHandle, treeViewActions } from "../canvas/useTreeView";
 import { drawingLeafAxis } from "./narrow";
 
-export function useDrawingView(rows: number): TreeView {
+export function useDrawingView(rows: number): TreeViewHandle {
+  const [store] = useState(createTreeViewStore);
   const [width, setWidth] = useState<number | undefined>(undefined);
-  const view = useTreeView(rows, drawingLeafAxis(width));
-  const inner = view.actions;
+  const drawing = useMemo(() => ({ rows, leafAxis: drawingLeafAxis(width) }), [rows, width]);
 
-  const actions = useMemo<TreeViewActions>(
-    () => ({
-      ...inner,
-      resize(size) {
-        setWidth(size.width);
-        inner.resize(size);
+  return useMemo(() => {
+    const inner = treeViewActions(store, drawing);
+
+    return {
+      store,
+      drawing,
+      actions: {
+        ...inner,
+        resize(size) {
+          setWidth(size.width);
+          inner.resize(size);
+        },
       },
-    }),
-    [inner],
-  );
-
-  return { ...view, actions };
+    };
+  }, [store, drawing]);
 }

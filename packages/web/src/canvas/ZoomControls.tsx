@@ -4,14 +4,15 @@ import ZoomInIcon from "~icons/lucide/zoom-in";
 import ZoomOutIcon from "~icons/lucide/zoom-out";
 
 import { IconButton } from "../ui/IconButton";
-import type { TreeView } from "./useTreeView";
+import { type TreeViewHandle, useZoomRoom } from "./useTreeView";
 
 export interface ZoomControlsProps {
-  view: TreeView;
+  view: TreeViewHandle;
 }
 
 export function ZoomControls({ view }: ZoomControlsProps) {
-  const { actions, canZoomIn, canZoomOut } = view;
+  const { actions } = view;
+  const { canZoomIn, canZoomOut } = useZoomRoom(view);
 
   const zoomIn = useCallback(() => {
     actions.zoomIn();
