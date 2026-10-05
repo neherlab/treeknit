@@ -1,5 +1,6 @@
 import { Layer, type LayersList } from "@deck.gl/core";
 import { PathLayer } from "@deck.gl/layers";
+import type { DrawingRules } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
 import { withOpacity } from "../../canvas/color";
@@ -18,6 +19,7 @@ import {
   type PairStyle,
   RIBBON_OPACITY,
   ribbonColor,
+  ribbonsShown,
   selectionPositions,
   tanglegramLayers,
 } from "../layers";
@@ -61,6 +63,19 @@ const STYLE: PairStyle = {
 const SLOT_0 = COLORS.mcc[0] ?? COLORS.mccNone;
 
 const SLOT_3 = COLORS.mcc[3] ?? COLORS.mccNone;
+
+const RULES: DrawingRules = { labelAutoMinRowPx: 10, linkMinRowPx: 6, labelMaxChars: 40 };
+
+describe("ribbonsShown", () => {
+  test.each([
+    [0.1, true],
+    [5.99, true],
+    [6, false],
+    [30, false],
+  ] as const)("at %f px per row draws ribbons: %s", (rowPx, ribbons) => {
+    expect(ribbonsShown(rowPx, RULES)).toBe(ribbons);
+  });
+});
 
 describe("branch colors", () => {
   test.each([

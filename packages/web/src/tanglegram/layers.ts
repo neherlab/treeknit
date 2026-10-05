@@ -1,4 +1,5 @@
 import type { LayersList } from "@deck.gl/core";
+import type { DrawingRules } from "@neherlab/treeknit-wasm";
 
 import { type Rgba, withOpacity } from "../canvas/color";
 import { type DrawingColors, mccColor } from "../canvas/drawingColors";
@@ -30,6 +31,10 @@ export interface PairStyle {
   fontReady: boolean;
   labelMaxChars: number;
   fade: number;
+}
+
+export function ribbonsShown(rowPx: number, rules: DrawingRules): boolean {
+  return rowPx < rules.linkMinRowPx;
 }
 
 export function branchColor(item: Pick<BranchItem, "mcc" | "slot">, kind: BranchKind, style: PairStyle): Rgba {

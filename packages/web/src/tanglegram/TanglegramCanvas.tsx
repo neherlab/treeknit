@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react";
 
 import { useDrawingRules } from "../analysis/queries";
 import { useDrawingColors } from "../canvas/drawingColors";
-import { labelCharacters, labelsVisible, ribbonsShown, useLabelFontReady } from "../canvas/labels";
+import { labelCharacters, labelsVisible, useLabelFontReady } from "../canvas/labels";
 import { useFadeIn } from "../canvas/motion";
 import { curveRowPx } from "../canvas/projection";
 import { TreeCanvas } from "../canvas/TreeCanvas";
@@ -24,7 +24,7 @@ import { tooltipContent } from "../drawing/tooltipContent";
 import { leafNames, leafRows } from "../drawing/trees";
 import { labelColumnPx, tanglegramColumns } from "./columns";
 import { pairTargetAt, tanglegramGeometry } from "./geometry";
-import { tanglegramLayers } from "./layers";
+import { ribbonsShown, tanglegramLayers } from "./layers";
 import { TanglegramLegend } from "./TanglegramLegend";
 
 export default function TanglegramCanvas({

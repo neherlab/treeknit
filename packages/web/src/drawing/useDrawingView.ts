@@ -10,30 +10,10 @@ export function useDrawingView(rows: number): TreeView {
 
   const actions = useMemo<TreeViewActions>(
     () => ({
+      ...inner,
       resize(size) {
         setWidth(size.width);
         inner.resize(size);
-      },
-      update(request) {
-        inner.update(request);
-      },
-      zoomIn() {
-        inner.zoomIn();
-      },
-      zoomOut() {
-        inner.zoomOut();
-      },
-      fit() {
-        inner.fit();
-      },
-      fitRows(range) {
-        inner.fitRows(range);
-      },
-      panTo(leaf) {
-        inner.panTo(leaf);
-      },
-      panBy(delta) {
-        inner.panBy(delta);
       },
     }),
     [inner],

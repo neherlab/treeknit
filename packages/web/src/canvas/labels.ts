@@ -17,10 +17,6 @@ export function labelsVisible(mode: LabelMode, rowPx: number, rules: DrawingRule
   return mode === "on" || (mode === "auto" && rowPx >= rules.labelAutoMinRowPx);
 }
 
-export function ribbonsShown(rowPx: number, rules: DrawingRules): boolean {
-  return rowPx < rules.linkMinRowPx;
-}
-
 export function shortenLabel(name: string, maxLength: number): string {
   const parts = Array.from(graphemes.segment(name), ({ segment }) => segment);
 

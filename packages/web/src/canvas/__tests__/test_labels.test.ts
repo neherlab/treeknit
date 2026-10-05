@@ -7,7 +7,6 @@ import {
   labelCharacters,
   labelFontStore,
   labelsVisible,
-  ribbonsShown,
   shortenLabel,
 } from "../labels";
 
@@ -28,17 +27,6 @@ describe("labelsVisible", () => {
     ["off", 30, false],
   ] as const)("mode %s at %f px per row shows labels: %s", (mode, rowPx, visible) => {
     expect(labelsVisible(mode, rowPx, RULES)).toBe(visible);
-  });
-});
-
-describe("ribbonsShown", () => {
-  test.each([
-    [0.1, true],
-    [5.99, true],
-    [6, false],
-    [30, false],
-  ] as const)("at %f px per row draws ribbons: %s", (rowPx, ribbons) => {
-    expect(ribbonsShown(rowPx, RULES)).toBe(ribbons);
   });
 });
 
