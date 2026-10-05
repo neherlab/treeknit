@@ -76,10 +76,6 @@ export function pairLeafRows(left: DrawTree, right: DrawTree, name: string): Row
   );
 }
 
-export function rowCenter({ first, last }: RowRange): number {
-  return (first + last) / 2;
-}
-
 export function nodeIndex(tree: DrawTree, name: string): number | undefined {
   const index = tree.nodes.findIndex((node) => node.name === name);
 

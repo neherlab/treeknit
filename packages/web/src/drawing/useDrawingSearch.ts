@@ -5,8 +5,8 @@ import type { TreeViewActions } from "../canvas/useTreeView";
 import type { RowRange } from "../canvas/viewState";
 import type { WorkspaceSearch } from "../workspace/search";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
+import { revealLeafRows } from "./focus";
 import { selectionOf, type Selection, withSelection } from "./selection";
-import { rowCenter } from "./trees";
 
 export interface DrawingSearch {
   search: WorkspaceSearch;
@@ -54,7 +54,7 @@ export function useFindLeaf<D>(
   data: D | undefined,
   rowsOf: (data: D, name: string) => RowRange | null,
   select: (next: Selection) => void,
-  actions: Pick<TreeViewActions, "panTo">,
+  actions: Pick<TreeViewActions, "panTo" | "fitRows">,
 ): (name: string) => void {
   return useCallback(
     (name: string) => {
@@ -63,7 +63,7 @@ export function useFindLeaf<D>(
       const rows = data === undefined ? null : rowsOf(data, name);
 
       if (rows !== null) {
-        actions.panTo(rowCenter(rows));
+        revealLeafRows(actions, rows);
       }
     },
     [data, rowsOf, select, actions],

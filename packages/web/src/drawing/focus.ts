@@ -2,6 +2,7 @@ import type { PairView } from "@neherlab/treeknit-wasm";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 
+import type { TreeViewActions } from "../canvas/useTreeView";
 import type { RowRange } from "../canvas/viewState";
 import { pairLeafRows, rowSpan } from "./trees";
 
@@ -56,4 +57,12 @@ export function mccRows(view: PairView, mcc: number): RowRange | null {
       tree.nodes.flatMap((node) => (node.leaf && node.mcc === mcc ? [node.y] : [])),
     ),
   );
+}
+
+export function revealLeafRows(actions: Pick<TreeViewActions, "panTo" | "fitRows">, range: RowRange): void {
+  if (range.first === range.last) {
+    actions.panTo(range.first);
+  } else {
+    actions.fitRows(range);
+  }
 }

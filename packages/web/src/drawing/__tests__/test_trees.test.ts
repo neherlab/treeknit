@@ -9,7 +9,6 @@ import {
   leafRows,
   pairLeafNames,
   pairLeafRows,
-  rowCenter,
   rowCount,
   treeNodePoints,
 } from "../trees";
@@ -114,10 +113,6 @@ describe("tree lookups", () => {
       c: { first: 2, last: 2 },
       none: null,
     });
-  });
-
-  test("centers a row range between its first and last row", () => {
-    expect(rowCenter({ first: 2, last: 4 })).toBe(3);
   });
 
   test("counts the rows of the taller tree", () => {

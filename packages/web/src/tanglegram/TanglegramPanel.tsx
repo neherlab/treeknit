@@ -10,10 +10,10 @@ import { ZoomControls } from "../canvas/ZoomControls";
 import { FigureButton, LabelModeSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
 import { figureOptions } from "../drawing/figure";
-import { focusDone, type FocusTarget, focusRows, useFocusRequest } from "../drawing/focus";
+import { focusDone, type FocusTarget, focusRows, revealLeafRows, useFocusRequest } from "../drawing/focus";
 import { counted } from "../drawing/format";
 import { LeafSearch } from "../drawing/LeafSearch";
-import { pairLeafNames, pairLeafRows, rowCenter, rowCount } from "../drawing/trees";
+import { pairLeafNames, pairLeafRows, rowCount } from "../drawing/trees";
 import { useDrawingSearch, useFindLeaf } from "../drawing/useDrawingSearch";
 import { useDrawingView } from "../drawing/useDrawingView";
 import { useFigureDownload } from "../drawing/useFigureDownload";
@@ -146,7 +146,7 @@ function applyFocus(actions: TreeViewActions, target: FocusTarget, range: RowRan
   }
 
   if (target.kind === "leaf") {
-    actions.panTo(rowCenter(range));
+    revealLeafRows(actions, range);
   } else {
     actions.fitRows(range);
   }

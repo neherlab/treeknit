@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { focusRows, mccRows } from "../focus";
+import type { RowRange } from "../../canvas/viewState";
+import { focusRows, mccRows, revealLeafRows } from "../focus";
 import { examplePairView } from "./fixtures";
 
 const VIEW = examplePairView();
@@ -22,5 +23,34 @@ describe("focusRows", () => {
       leaf: focusRows(VIEW, { kind: "leaf", name: "nope" }),
       mcc: focusRows(VIEW, { kind: "mcc", mcc: 7 }),
     }).toStrictEqual({ leaf: null, mcc: null });
+  });
+});
+
+
+describe("revealLeafRows", () => {
+  function recorded(range: RowRange) {
+    const calls: [string, number | RowRange][] = [];
+
+    revealLeafRows(
+      {
+        panTo: (leaf) => {
+          calls.push(["panTo", leaf]);
+        },
+        fitRows: (rows) => {
+          calls.push(["fitRows", rows]);
+        },
+      },
+      range,
+    );
+
+    return calls;
+  }
+
+  test("pans to a leaf with one row, keeping the zoom", () => {
+    expect(recorded({ first: 7, last: 7 })).toStrictEqual([["panTo", 7]]);
+  });
+
+  test("fits both copies of a leaf in rows 10 and 5,000, so neither copy is left off screen", () => {
+    expect(recorded({ first: 10, last: 5000 })).toStrictEqual([["fitRows", { first: 10, last: 5000 }]]);
   });
 });
