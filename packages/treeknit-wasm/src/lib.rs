@@ -4,8 +4,9 @@ use js_sys::{Error, Function, JSON};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::cell::RefCell;
+use treeknit_core::Options;
 use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
-use treeknit_io::display::{ArgView, ConstellationTable, PairView, Scale, TreeVersion};
+use treeknit_io::display::{self, ArgView, ConstellationTable, DrawingRules, PairView, Scale, TreeVersion};
 use treeknit_io::figure::FigureOptions;
 use treeknit_io::inspect::{self, Overlap, TreeInspection};
 use treeknit_io::output::{self, FileEntry, OutputFile, OutputOptions};
@@ -118,11 +119,20 @@ pub fn palette() -> Result<Ts<Palette>, JsError> {
   to_js(&palette::palette())
 }
 
+/// The thresholds of the drawing rules that depend on the drawn row height.
+#[wasm_bindgen(js_name = drawingRules)]
+pub fn drawing_rules() -> Result<Ts<DrawingRules>, JsError> {
+  let _log = log_capture::discard();
+  to_js(&display::DRAWING_RULES)
+}
+
 /// One run of TreeKnit and its results, kept for later queries.
 #[wasm_bindgen]
 pub struct Session {
   /// Everything the run produced; display data and figures read from it.
   run: RunResult,
+  /// The options of the run; the display data sorts the trees of a pair as the run did.
+  options: Options,
   /// The Warn and Error records of the run, in the order they occurred.
   diagnostics: Vec<Diagnostic>,
   /// The output files with their text, in the order of `files()`: the session file, the files of
@@ -186,6 +196,7 @@ impl Session {
     files.push(output::log_file(&records));
     Ok(Session {
       run: result,
+      options: opts,
       diagnostics: records
         .into_iter()
         .filter(|r| matches!(r.level, Level::Error | Level::Warn))
@@ -246,25 +257,28 @@ impl Session {
 
   /// The tanglegram of pair `pair` (pipeline order) in `version`, laid out with `scale`.
   #[wasm_bindgen(js_name = pairView)]
-  #[expect(unused_variables, reason = "the pair view is not built yet")]
   pub fn pair_view(&self, pair: usize, version: &Ts<TreeVersion>, scale: &Ts<Scale>) -> Result<Ts<PairView>, JsError> {
     let _log = log_capture::discard();
-    Err(not_implemented("Session.pairView"))
+    let version = from_js("version", version)?;
+    let scale = from_js("scale", scale)?;
+    let view = display::pair_view(&self.run, &self.options, pair, version, scale)
+      .ok_or_else(|| JsError::new(&format!("no pair {pair}: the run has {} pairs", self.run.pairs.len())))?;
+    to_js(&view)
   }
 
   /// The ARG laid out with `scale`; `undefined` for more than two trees or a failed ARG.
   #[wasm_bindgen(js_name = argView)]
-  #[expect(unused_variables, reason = "the ARG view is not built yet")]
   pub fn arg_view(&self, scale: &Ts<Scale>) -> Result<Option<Ts<ArgView>>, JsError> {
     let _log = log_capture::discard();
-    Err(not_implemented("Session.argView"))
+    let scale = from_js("scale", scale)?;
+    display::arg_view(&self.run, scale).as_ref().map(to_js).transpose()
   }
 
   /// The MCC of every leaf in every pair.
   #[wasm_bindgen]
   pub fn constellation(&self) -> Result<Ts<ConstellationTable>, JsError> {
     let _log = log_capture::discard();
-    Err(not_implemented("Session.constellation"))
+    to_js(&display::constellation(&self.run, &self.options))
   }
 
   /// The SVG tanglegram of pair `pair` in `version`.

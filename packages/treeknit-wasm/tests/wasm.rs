@@ -348,6 +348,119 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
+  fn session_pair_view_of_the_two_tree_example_is_plain() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let view = plain(
+      &session
+        .pair_view(0, &ts(&json!("resolved")), &ts(&json!("div")))
+        .unwrap()
+        .js_value(),
+    );
+    let leaves = |side: &str| -> Vec<String> {
+      view[side]["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|n| n["leaf"] == json!(true))
+        .map(|n| n["name"].as_str().unwrap().to_owned())
+        .collect()
+    };
+    assert_eq!(vec!["A", "B", "C", "D", "X"], leaves("left"));
+    assert_eq!(vec!["A", "B", "X", "C", "D"], leaves("right"));
+    let x = &view["left"]["nodes"]
+      .as_array()
+      .unwrap()
+      .iter()
+      .find(|n| n["name"] == json!("X"))
+      .unwrap();
+    assert_eq!(json!(true), x["mccBreak"]);
+    // JSON writes whole numbers without a fraction, so they read back as integers.
+    assert_eq!(json!(4), x["y"]);
+    assert!(x["xDiv"].is_number() && x["xDepth"].is_number());
+    assert_eq!(
+      json!({"index": 0, "size": 1, "leaves": ["X"], "imputedLeaves": [], "ambiguous": false, "slot": 1}),
+      view["mccs"][0]
+    );
+    assert_eq!(json!({"mcc": 0, "left": [4, 4], "right": [2, 2]}), view["blocks"][2]);
+    assert_eq!(json!({"left": 8, "right": 5, "mcc": 0}), view["links"][4]);
+    let curve = json!({"from": [0, 4], "c1": [0.5, 4], "c2": [0.5, 2], "to": [1, 2]});
+    assert_eq!(
+      json!({"link": 4, "slot": 1, "curve": curve}),
+      view["shapes"]["links"][4]
+    );
+    assert_eq!(4, view["shapes"]["ribbons"][0]["outline"].as_array().unwrap().len());
+    let elbow = &view["shapes"]["left"]["elbows"][0];
+    assert_eq!(
+      json!(["node", "points", "slot", "mccBreak", "added"]),
+      json!(keys(elbow))
+    );
+    assert_eq!(json!("reassortment"), view["shapes"]["left"]["marks"][0]["kind"]);
+  }
+
+  #[wasm_bindgen_test]
+  fn session_pair_view_of_an_unknown_pair_throws() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    match session.pair_view(1, &ts(&json!("resolved")), &ts(&json!("div"))) {
+      Ok(_) => panic!("expected an error"),
+      Err(e) => assert_eq!("no pair 1: the run has 1 pairs", message(e)),
+    }
+    match session.pair_view(0, &ts(&json!("final")), &ts(&json!("div"))) {
+      Ok(_) => panic!("expected an error"),
+      Err(e) => assert!(message(e).starts_with("invalid version: unknown variant `final`")),
+    }
+  }
+
+  #[wasm_bindgen_test]
+  fn session_arg_view_of_the_two_tree_example_is_plain() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let view = plain(&session.arg_view(&ts(&json!("depth"))).unwrap().unwrap().js_value());
+    assert_eq!(json!("shared"), view["rootCase"]);
+    let nodes = view["nodes"].as_array().unwrap();
+    let root = &nodes[usize::try_from(view["root"].as_u64().unwrap()).unwrap()];
+    assert_eq!(json!([null, null]), root["parents"]);
+    assert_eq!(1, nodes.iter().filter(|n| n["hybrid"] == json!(true)).count());
+    let kinds: BTreeSet<&str> = view["shapes"]["edges"]
+      .as_array()
+      .unwrap()
+      .iter()
+      .map(|e| e["path"]["kind"].as_str().unwrap())
+      .collect();
+    assert_eq!(BTreeSet::from(["curve", "elbow"]), kinds);
+    assert_eq!(json!("hybrid"), view["shapes"]["marks"][0]["kind"]);
+    assert_eq!(
+      json!([
+        "label", "parents", "children", "tau", "hybrid", "leaf", "segments", "xDiv", "xDepth", "y"
+      ]),
+      json!(keys(root))
+    );
+  }
+
+  #[wasm_bindgen_test]
+  fn session_arg_view_of_three_trees_is_undefined() {
+    let t = "((A,B),(C,D));";
+    let request =
+      json!({"trees": [{"label": "a", "newick": t}, {"label": "b", "newick": t}, {"label": "c", "newick": t}]});
+    let session = Session::run(&ts(&request), &Function::new_no_args("")).unwrap();
+    assert!(session.arg_view(&ts(&json!("div"))).unwrap().is_none());
+  }
+
+  #[wasm_bindgen_test]
+  fn session_constellation_of_the_two_tree_example_is_plain() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let table = plain(&session.constellation().unwrap().js_value());
+    assert_eq!(json!(["A", "B", "C", "D", "X"]), table["leaves"]);
+    assert_eq!(json!([["ha", "na"]]), table["pairs"]);
+    assert_eq!(json!([{"mcc": 0, "size": 1, "slot": 1}]), table["cells"][4]);
+    assert_eq!(json!([{"mcc": 1, "size": 4, "slot": 0}]), table["cells"][0]);
+  }
+
+  #[wasm_bindgen_test]
+  fn drawing_rules_are_plain() {
+    let expected = json!({"labelAutoMinRowPx": 10, "linkMinRowPx": 6, "labelMaxChars": 40});
+    assert_eq!(expected, plain(&treeknit_wasm::drawing_rules().unwrap().js_value()));
+  }
+
+  #[wasm_bindgen_test]
   fn inspect_tree_returns_a_plain_inspection() {
     let expected = json!({
         "label": "ha", "leaves": 3, "internalNodes": 2, "polytomies": 0, "branchLengths": "some",
@@ -468,6 +581,11 @@ mod tests {
 
   fn plain_list<T: Tsify>(values: &[Ts<T>]) -> Value {
     Value::Array(values.iter().map(|v| plain(&v.js_value())).collect())
+  }
+
+  /// The keys of the JSON object `v`, in their order.
+  fn keys(v: &Value) -> Vec<&str> {
+    v.as_object().unwrap().keys().map(String::as_str).collect()
   }
 
   fn message(e: JsError) -> String {
