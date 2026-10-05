@@ -13,17 +13,27 @@
   "dependencies": {
     "@fontsource/ibm-plex-mono": "catalog:",
     "@fontsource/ibm-plex-sans": "catalog:",
+    "@fontsource/ibm-plex-sans-condensed": "catalog:",
     "@neherlab/treeknit-wasm": "workspace:*",
     "@tanstack/react-query": "catalog:",
+    "@tanstack/react-router": "catalog:",
     "class-variance-authority": "catalog:",
     "cn": "catalog:",
     "comlink": "catalog:",
+    "idb-keyval": "catalog:",
+    "immer": "catalog:",
+    "luxon": "catalog:",
+    "next-themes": "catalog:",
     "react": "catalog:",
+    "react-aria": "catalog:",
     "react-aria-components": "catalog:",
     "react-dom": "catalog:",
     "react-error-boundary": "catalog:",
     "react-hook-form": "catalog:",
-    "remeda": "catalog:"
+    "remeda": "catalog:",
+    "ts-pattern": "catalog:",
+    "zod": "catalog:",
+    "zustand": "catalog:"
   },
   "devDependencies": {
     "@iconify-json/lucide": "catalog:",
