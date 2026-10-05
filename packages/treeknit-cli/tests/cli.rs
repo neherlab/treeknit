@@ -252,7 +252,9 @@ mod tests {
     // Oracle: the output directories that the command line wrote before its writers moved to
     // `treeknit_io`, captured from the same inputs and flags, without `log.txt` (its lines carry
     // times).
-    let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/outputs").join(case);
+    let data = Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("tests/data/outputs")
+      .join(case);
     let dir = TempDir::new(&format!("bytes-{case}"));
     let out = dir.path().join("out");
     let paths: Vec<String> = inputs
