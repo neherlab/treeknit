@@ -320,6 +320,72 @@ mod tests {
     );
   }
 
+  /// The file at `path` is an SVG figure; the command line writes the extension in lowercase.
+  fn is_figure(path: &str) -> bool {
+    Path::new(path).extension().is_some_and(|e| e == "svg")
+  }
+
+  #[test]
+  fn plot_adds_the_figures_and_keeps_the_bytes_of_the_other_files() {
+    // Oracle: the captured output directory of `output_files_keep_their_bytes`.
+    let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/outputs/two");
+    let dir = TempDir::new("plot-bytes");
+    let out = dir.path().join("out");
+    let ha = data.join("input/ha.nwk");
+    let na = data.join("input/na.nwk");
+    run(&[ha.to_str().unwrap(), na.to_str().unwrap(), "--plot"], &out);
+    let mut written = readable(files_below(&out));
+    let figures: Vec<String> = written.keys().filter(|p| is_figure(p)).cloned().collect();
+    assert_eq!(
+      vec!["ARG/arg.svg".to_owned(), "tanglegram_ha_na.svg".to_owned()],
+      figures
+    );
+    for path in &figures {
+      let svg = written.remove(path).unwrap();
+      assert!(
+        svg.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\"") && svg.ends_with("</svg>\n"),
+        "{path}"
+      );
+    }
+    assert_eq!(readable(files_below(&data.join("expected"))), written);
+  }
+
+  #[test]
+  fn plot_writes_a_tanglegram_per_pair_of_three_trees_and_no_arg() {
+    let dir = TempDir::new("plot-three");
+    let t = "((A:1,B:1):1,(C:1,D:1):1);";
+    let paths = write_trees(dir.path(), &[("ha", t), ("na", t), ("pb2", t)]);
+    let out = dir.path().join("out");
+    let args: Vec<&str> = paths.iter().map(|p| p.to_str().unwrap()).chain(["--plot"]).collect();
+    run(&args, &out);
+    let figures: Vec<String> = files_below(&out).into_keys().filter(|p| is_figure(p)).collect();
+    let expected = vec!["tanglegram_ha_na.svg", "tanglegram_ha_pb2.svg", "tanglegram_na_pb2.svg"];
+    assert_eq!(expected, figures);
+  }
+
+  #[test]
+  fn request_with_plot_gives_the_figures_of_the_tree_files() {
+    let dir = TempDir::new("plot-request");
+    let request = write_request(dir.path(), &serde_json::json!({}));
+    let from_request = dir.path().join("from-request");
+    run(&["--request", request.to_str().unwrap(), "--plot"], &from_request);
+    let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
+    let from_files = dir.path().join("from-files");
+    run(
+      &[paths[0].to_str().unwrap(), paths[1].to_str().unwrap(), "--plot"],
+      &from_files,
+    );
+    let figures = |out: &Path| -> BTreeMap<String, String> {
+      readable(files_below(out))
+        .into_iter()
+        .filter(|(p, _)| is_figure(p))
+        .collect()
+    };
+    let expected = figures(&from_files);
+    assert_eq!(2, expected.len());
+    assert_eq!(expected, figures(&from_request));
+  }
+
   #[rustfmt::skip]
   #[rstest]
   #[case::same_stem(      "stems-dirs", ("ha", "ha"), ["ha_a_resolved.nwk", "ha_b_resolved.nwk"], "ha_resolved.nwk")]
