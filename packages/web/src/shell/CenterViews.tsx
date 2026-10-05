@@ -12,6 +12,7 @@ import { ConstellationPanel } from "../tables/ConstellationPanel";
 import { MccTablePanel } from "../tables/MccTablePanel";
 import { TanglegramPanel } from "../tanglegram/TanglegramPanel";
 import { Button } from "../ui/Button";
+import { PanelBoundary } from "../ui/PanelBoundary";
 import { Tab, TabList, TabPanel, Tabs } from "../ui/Tabs";
 import { useWorkspaceAvailability } from "../workspace/availability";
 import { WORKSPACE_VIEWS, type WorkspaceView } from "../workspace/search";
@@ -77,7 +78,9 @@ export function CenterViews({ onOpenRail, onOpenInspector }: CenterViewsProps) {
 
         return (
           <TabPanel key={view} id={view} className="overflow-y-auto">
-            <Panel />
+            <PanelBoundary title="This view could not be shown">
+              <Panel />
+            </PanelBoundary>
           </TabPanel>
         );
       })}

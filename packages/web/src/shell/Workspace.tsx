@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from "react";
 
 import { useRunShortcut } from "../run/useRunShortcut";
 import { Dialog } from "../ui/Dialog";
+import { PanelBoundary } from "../ui/PanelBoundary";
 import { CenterViews } from "./CenterViews";
 import { Inspector } from "./Inspector";
 import {
@@ -66,7 +67,9 @@ export function Workspace() {
           aria-label={INSPECTOR_TITLE}
           className={cn("border-rule bg-pane shrink-0 overflow-y-auto border-l", INSPECTOR_WIDTH_CLASS)}
         >
-          <Inspector />
+          <PanelBoundary title="The inspector could not be shown">
+            <Inspector />
+          </PanelBoundary>
         </aside>
       )}
       <Dialog
@@ -85,7 +88,9 @@ export function Workspace() {
         isOpen={inspectorOpen}
         onOpenChange={setInspectorOpen}
       >
-        <Inspector />
+        <PanelBoundary title="The inspector could not be shown">
+          <Inspector />
+        </PanelBoundary>
       </Dialog>
     </div>
   );

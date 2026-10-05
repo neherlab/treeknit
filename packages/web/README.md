@@ -52,6 +52,7 @@ The commands are the same in the main checkout and in a worktree; `run-web` prin
 - `VirtualList`: a React Aria list box inside a `Virtualizer` with fixed 32 px rows, for long lists of the inspector
 - `MccSwatch`: the square of an MCC color slot; a slot outside the palette is an error
 - `QueryState`: the progress bar while a query has no data, the error notice when it failed, and otherwise its content
+- `PanelBoundary`: the error boundary of one view tab or the inspector, so a value that fails while a panel renders shows a notice with Retry in that panel and leaves the rest of the page working
 - `Link`: a router link (TanStack Router `createLink` over the React Aria link), so links take `to` and `search`
 - `ExternalLink`: a link to another site, opened in a new tab
 - `EmptyState`: a quiet, left-aligned message with an optional icon, details, and actions
