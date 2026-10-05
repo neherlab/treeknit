@@ -31,13 +31,11 @@ describe("matchingLeaves", () => {
 });
 
 describe("longestLabelPx", () => {
-  test("measures the shortened form of each label", () => {
-    const long = "x".repeat(60);
-
-    expect(longestLabelPx(["ab", long, "abcd"], (text) => text.length, 40)).toBe(40);
+  test("measures each label as it is drawn", () => {
+    expect(longestLabelPx(["ab", "abc…xyz", "abcd"], (text) => text.length)).toBe(7);
   });
 
   test("is zero without labels", () => {
-    expect(longestLabelPx([], (text) => text.length, 40)).toBe(0);
+    expect(longestLabelPx([], (text) => text.length)).toBe(0);
   });
 });

@@ -24,6 +24,10 @@ interface NodeSpec {
   branchLength?: number;
 }
 
+export const LONG_LEAF_NAME = "A/Hong Kong/1-0123456789/2004|EPI_ISL_000000|H3N2|2004-01-02";
+
+export const LONG_LEAF_SHORT_NAME = "A/Hong Kong/1-012345…000|H3N2|2004-01-02";
+
 const MCC_ABCD = 0;
 
 const MCC_X = 1;

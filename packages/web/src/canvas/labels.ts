@@ -7,25 +7,8 @@ export const LABEL_FONT_WEIGHT = 400;
 
 export const LABEL_FONT_SIZE_PX = 12;
 
-const ELLIPSIS = "…";
-
-const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-
 export function labelsVisible(mode: LabelMode, rowPx: number, rules: DrawingRules): boolean {
   return mode === "on" || (mode === "auto" && rowPx >= rules.labelAutoMinRowPx);
-}
-
-export function shortenLabel(name: string, maxLength: number): string {
-  const parts = Array.from(graphemes.segment(name), ({ segment }) => segment);
-
-  if (parts.length <= maxLength) {
-    return name;
-  }
-
-  const kept = maxLength - 1;
-  const head = Math.ceil(kept / 2);
-
-  return parts.slice(0, head).join("") + ELLIPSIS + parts.slice(parts.length - (kept - head)).join("");
 }
 
 export const LABEL_FONT = `${String(LABEL_FONT_WEIGHT)} ${String(LABEL_FONT_SIZE_PX)}px ${LABEL_FONT_FAMILY}`;
@@ -46,11 +29,11 @@ export interface FontStore {
   isReady(text: string): boolean;
 }
 
-export function labelCharacters(names: Iterable<string>): string {
-  const characters = new Set<string>([ELLIPSIS]);
+export function labelCharacters(texts: Iterable<string>): string {
+  const characters = new Set<string>();
 
-  for (const name of names) {
-    for (const character of name) {
+  for (const text of texts) {
+    for (const character of text) {
       characters.add(character);
     }
   }

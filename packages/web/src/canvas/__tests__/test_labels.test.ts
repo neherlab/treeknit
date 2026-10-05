@@ -1,7 +1,7 @@
 import type { DrawingRules } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
-import { type FontStore, LABEL_FONT, labelCharacters, labelFontStore, labelsVisible, shortenLabel } from "../labels";
+import { type FontStore, LABEL_FONT, labelCharacters, labelFontStore, labelsVisible } from "../labels";
 
 const RULES: DrawingRules = {
   labelAutoMinRowPx: 10,
@@ -25,10 +25,6 @@ const RULES: DrawingRules = {
   dotPx: [1, 3],
 };
 
-function graphemeCount(text: string): number {
-  return Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text)).length;
-}
-
 describe("labelsVisible", () => {
   test.each([
     ["auto", 9.99, false],
@@ -43,40 +39,13 @@ describe("labelsVisible", () => {
   });
 });
 
-describe("shortenLabel", () => {
-  test("keeps a label of exactly the maximum length", () => {
-    const name = "A".repeat(40);
-
-    expect(shortenLabel(name, 40)).toBe(name);
-  });
-
-  test("keeps a short strain name unchanged", () => {
-    expect(shortenLabel("A/New York/392/2004", 40)).toBe("A/New York/392/2004");
-  });
-
-  test("shortens a longer label in the middle to the maximum length", () => {
-    const name = "A/Hong Kong/1-0123456789/2004|EPI_ISL_000000|H3N2|2004-01-02";
-    const short = shortenLabel(name, 40);
-
-    expect(short).toBe("A/Hong Kong/1-012345…000|H3N2|2004-01-02");
-    expect(graphemeCount(short)).toBe(40);
-  });
-
-  test("never splits a letter with a combining mark or a surrogate pair", () => {
-    const name = `${"e\u0301".repeat(25)}${"𝔸".repeat(25)}`;
-    const short = shortenLabel(name, 11);
-
-    expect(short).toBe(`${"e\u0301".repeat(5)}…${"𝔸".repeat(5)}`);
-  });
-});
-
 describe("labelCharacters", () => {
-  test("lists each character of the names once in code unit order, with the ellipsis of shortened labels", () => {
-    expect(labelCharacters(["A/Texas", "A/Kyiv/Київ"])).toBe("/AKTaeisvxyКвиї…");
+  test("lists each character of the labels once in code unit order", () => {
+    expect(labelCharacters(["A/Texas", "A/Kyiv/Київ"])).toBe("/AKTaeisvxyКвиї");
   });
 
   test("keeps a letter outside the basic plane whole", () => {
-    expect(labelCharacters(["𝔸𝔸"])).toBe("…𝔸");
+    expect(labelCharacters(["𝔸𝔸…"])).toBe("…𝔸");
   });
 });
 

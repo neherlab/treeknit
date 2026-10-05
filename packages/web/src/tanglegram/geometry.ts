@@ -57,7 +57,7 @@ export interface LabelItem {
   side: TreeSide;
   node: number;
   mcc: number | null;
-  name: string;
+  text: string;
   position: WorldPosition;
 }
 
@@ -215,7 +215,7 @@ function treeGeometry(view: PairView, side: TreeSide, column: Column, leafAxis: 
 function labelItems(view: PairView, side: TreeSide, crossPx: number, leafAxis: LeafAxis): LabelItem[] {
   return view[side].nodes.flatMap((node, index) =>
     node.leaf
-      ? [{ side, node: index, mcc: node.mcc, name: node.name, position: worldPosition(leafAxis, crossPx, node.y) }]
+      ? [{ side, node: index, mcc: node.mcc, text: node.shortName, position: worldPosition(leafAxis, crossPx, node.y) }]
       : [],
   );
 }

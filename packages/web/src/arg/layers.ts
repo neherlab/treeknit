@@ -2,7 +2,6 @@ import type { LayersList } from "@deck.gl/core";
 
 import type { Rgba } from "../canvas/color";
 import type { DrawingColors } from "../canvas/drawingColors";
-import { shortenLabel } from "../canvas/labels";
 import { labelLayer } from "../canvas/layers/labelLayer";
 import { leaderLayer } from "../canvas/layers/leaderLayer";
 import { branchLayer, ringLayer, selectionLayer } from "../canvas/layers/treeLayers";
@@ -15,7 +14,6 @@ export interface ArgStyle {
   emphasis: ArgEmphasis;
   labels: boolean;
   fontReady: boolean;
-  labelMaxChars: number;
 }
 
 export function argEdgeColor(
@@ -79,7 +77,7 @@ export function argLayers(geometry: ArgGeometry, style: ArgStyle): LayersList {
       fontReady: style.fontReady,
       visible: style.labels,
       getPosition: (item) => item.position,
-      getText: (item) => shortenLabel(item.name, style.labelMaxChars),
+      getText: (item) => item.text,
       getColor: colors.ink,
       anchor: "start",
       offsetPx: [LABEL_GAP_PX, 0],

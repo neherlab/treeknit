@@ -9,7 +9,7 @@ import { labelColumnPx } from "../drawing/labelWidth";
 import { useDrawingPicking } from "../drawing/picking";
 import { NO_SELECTION, pairEmphasis, type Selection } from "../drawing/selection";
 import { innerWidthPx } from "../drawing/spacing";
-import { pairLeafNames } from "../drawing/trees";
+import { pairLeafLabels } from "../drawing/trees";
 import { useDrawingCanvas, useDrawingGeometry } from "../drawing/useDrawingCanvas";
 import { tanglegramColumns } from "./columns";
 import { tanglegramCurves, tanglegramFrame } from "./geometry";
@@ -30,8 +30,8 @@ export default function TanglegramCanvas({
   label,
 }: TanglegramCanvasProps) {
   const fade = useFadeIn(resultKey);
-  const names = useMemo(() => pairLeafNames(data), [data]);
-  const canvas = useDrawingCanvas(view, labels, names);
+  const texts = useMemo(() => pairLeafLabels(data), [data]);
+  const canvas = useDrawingCanvas(view, labels, texts);
   const { colors, rules, tree, crossPx, labelsShown, leafLabels } = canvas;
   const { rowPx } = tree;
 
@@ -50,7 +50,6 @@ export default function TanglegramCanvas({
       ribbons: ribbonsShown(rowPx, rules),
       labels: labelsShown,
       fontReady: leafLabels.fontReady,
-      labelMaxChars: rules.labelMaxChars,
       fade,
     }),
     [colors, colorByMcc, data, selection, rowPx, rules, labelsShown, leafLabels.fontReady, fade],
@@ -67,10 +66,9 @@ export default function TanglegramCanvas({
         ribbons: true,
         labels: false,
         fontReady: false,
-        labelMaxChars: rules.labelMaxChars,
         fade: 1,
       }),
-    [geometry, colors, colorByMcc, data, rules],
+    [geometry, colors, colorByMcc, data],
   );
 
   const picking = useDrawingPicking(PAIR_PICK_RULES, data, geometry, selection, onSelect);

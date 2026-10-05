@@ -32,7 +32,7 @@ export interface ArgLeaderItem {
 
 export interface ArgLabelItem {
   node: number;
-  name: string;
+  text: string;
   position: WorldPosition;
 }
 
@@ -77,7 +77,7 @@ export function argFrame(view: ArgView, column: Column, leafAxis: LeafAxis): Omi
       path: projectPath([from, to], column, leafAxis),
     })),
     labels: view.nodes.flatMap((node, index) =>
-      node.leaf ? [{ node: index, name: node.label, position: worldPosition(leafAxis, column.end, node.y) }] : [],
+      node.leaf ? [{ node: index, text: node.shortLabel, position: worldPosition(leafAxis, column.end, node.y) }] : [],
     ),
     nodes: argNodePoints(view).map((point) =>
       point === undefined ? undefined : projectPoint(point, column, leafAxis),

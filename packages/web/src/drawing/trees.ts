@@ -86,6 +86,18 @@ export function argLeafNames(view: ArgView): string[] {
   return view.nodes.flatMap((node) => (node.leaf ? [node.label] : []));
 }
 
+export function pairLeafLabels(view: Pick<PairView, "left" | "right">): string[] {
+  return [
+    ...new Set(
+      [view.left, view.right].flatMap((tree) => tree.nodes.flatMap((node) => (node.leaf ? [node.shortName] : []))),
+    ),
+  ];
+}
+
+export function argLeafLabels(view: ArgView): string[] {
+  return view.nodes.flatMap((node) => (node.leaf ? [node.shortLabel] : []));
+}
+
 export function argLeafRows(view: ArgView, name: string): RowRange | null {
   return rowSpan(view.nodes.flatMap((node) => (node.leaf && node.label === name ? [node.y] : [])));
 }

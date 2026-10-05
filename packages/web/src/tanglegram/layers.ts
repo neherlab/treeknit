@@ -3,7 +3,6 @@ import type { DrawingRules } from "@neherlab/treeknit-wasm";
 
 import { type Rgba, withOpacity } from "../canvas/color";
 import { type DrawingColors, mccColor } from "../canvas/drawingColors";
-import { shortenLabel } from "../canvas/labels";
 import { fillLayer } from "../canvas/layers/fillLayer";
 import { labelLayer } from "../canvas/layers/labelLayer";
 import { LEADER_OPACITY, leaderLayer } from "../canvas/layers/leaderLayer";
@@ -29,7 +28,6 @@ export interface PairStyle {
   ribbons: boolean;
   labels: boolean;
   fontReady: boolean;
-  labelMaxChars: number;
   fade: number;
 }
 
@@ -162,7 +160,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       fontReady: style.fontReady,
       visible: style.labels,
       getPosition: (item) => item.position,
-      getText: (item) => shortenLabel(item.name, style.labelMaxChars),
+      getText: (item) => item.text,
       getColor: (item) => labelColor(item.mcc, style),
       anchor: "start",
       offsetPx: [LABEL_GAP_PX, 0],
@@ -175,7 +173,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       fontReady: style.fontReady,
       visible: style.labels,
       getPosition: (item) => item.position,
-      getText: (item) => shortenLabel(item.name, style.labelMaxChars),
+      getText: (item) => item.text,
       getColor: (item) => labelColor(item.mcc, style),
       anchor: "end",
       offsetPx: [-LABEL_GAP_PX, 0],

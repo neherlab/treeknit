@@ -2,7 +2,7 @@ import type { Leader } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
 import { columnPixel } from "../../canvas/projection";
-import { examplePairView } from "../../drawing/__tests__/fixtures";
+import { examplePairView, LONG_LEAF_NAME, LONG_LEAF_SHORT_NAME } from "../../drawing/__tests__/fixtures";
 import { tanglegramColumns } from "../columns";
 import { PAIR_LAYER, pairTargetAt } from "../geometry";
 import { tanglegramGeometry } from "./geometry";
@@ -106,6 +106,23 @@ describe("tanglegramGeometry", () => {
     expect([GEOMETRY.labels.left[0]?.position, GEOMETRY.labels.right[0]?.position]).toStrictEqual([
       [COLUMNS.leftLabels.start, 0],
       [COLUMNS.rightLabels.end, 0],
+    ]);
+  });
+
+  test("draws the short name of each leaf", () => {
+    const left = {
+      ...VIEW.left,
+      nodes: VIEW.left.nodes.map((node) =>
+        node.name === "A" ? { ...node, name: LONG_LEAF_NAME, shortName: LONG_LEAF_SHORT_NAME } : node,
+      ),
+    };
+
+    expect(tanglegramGeometry({ ...VIEW, left }, COLUMNS, "y", 64).labels.left.map(({ text }) => text)).toStrictEqual([
+      LONG_LEAF_SHORT_NAME,
+      "B",
+      "C",
+      "D",
+      "X",
     ]);
   });
 

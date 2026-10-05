@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import type { Rgba } from "../../canvas/color";
 import type { DrawingColors } from "../../canvas/drawingColors";
 import { columnPixel } from "../../canvas/projection";
-import { exampleArgView } from "../../drawing/__tests__/fixtures";
+import { exampleArgView, LONG_LEAF_NAME, LONG_LEAF_SHORT_NAME } from "../../drawing/__tests__/fixtures";
 import { argEmphasis } from "../../drawing/selection";
 import { ARG_LAYER, argColumn, argTargetAt } from "../geometry";
 import { argEdgeColor, argSelectionPositions } from "../layers";
@@ -70,10 +70,27 @@ describe("argGeometry", () => {
   });
 
   test("puts the leaf labels at the end of the tree column", () => {
-    expect(GEOMETRY.labels.map(({ name, position }) => [name, position])).toStrictEqual([
+    expect(GEOMETRY.labels.map(({ text, position }) => [text, position])).toStrictEqual([
       ["A", [COLUMN.end, 0]],
       ["B", [COLUMN.end, 1]],
       ["C", [COLUMN.end, 2]],
+    ]);
+  });
+});
+
+describe("argGeometry labels", () => {
+  test("draws the short label of each leaf", () => {
+    const view = {
+      ...VIEW,
+      nodes: VIEW.nodes.map((node) =>
+        node.label === "B" ? { ...node, label: LONG_LEAF_NAME, shortLabel: LONG_LEAF_SHORT_NAME } : node,
+      ),
+    };
+
+    expect(argGeometry(view, COLUMN, "y", 64).labels.map(({ text }) => text)).toStrictEqual([
+      "A",
+      LONG_LEAF_SHORT_NAME,
+      "C",
     ]);
   });
 });

@@ -25,14 +25,18 @@ export interface GeometryBuilder<D, L, F, C> {
   curves(data: D, layout: L, leafAxis: LeafAxis, curveRowPx: number): C;
 }
 
-export function useDrawingCanvas(view: TreeViewHandle, labels: LabelMode, names: readonly string[]): DrawingCanvas {
+export function useDrawingCanvas(
+  view: TreeViewHandle,
+  labels: LabelMode,
+  labelTexts: readonly string[],
+): DrawingCanvas {
   const colors = useDrawingColors();
   const rules = useDrawingRules();
   const tree = useTreeView(view);
   const { frame, rowPx } = tree;
   const leafAxis = frame?.leafAxis ?? "y";
   const labelsShown = leafAxis === "y" && labelsVisible(labels, rowPx, rules);
-  const leafLabels = useLeafLabels(names, labelsShown, rules.labelMaxChars);
+  const leafLabels = useLeafLabels(labelTexts, labelsShown);
 
   return {
     colors,
