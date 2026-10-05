@@ -13,11 +13,11 @@ export function useWorkspaceSearch(): WorkspaceSearchState {
   const resolved = useMemo(() => resolveWorkspaceSearch(search, availability), [search, availability]);
 
   const update = useCallback(
-    (change: (written: WorkspaceSearch) => WorkspaceSearch, options?: SearchUpdateOptions) =>
-      navigate({
-        search: change,
-        replace: options?.replace ?? false,
-      }),
+    (change: (written: WorkspaceSearch) => WorkspaceSearch, options?: SearchUpdateOptions) => {
+      navigate({ search: change, replace: options?.replace ?? false }).catch((error) => {
+        console.error("The workspace search could not be updated:", error);
+      });
+    },
     [navigate],
   );
 
@@ -26,7 +26,7 @@ export function useWorkspaceSearch(): WorkspaceSearchState {
 
 export interface WorkspaceSearchState {
   search: WorkspaceSearch;
-  update: (change: (written: WorkspaceSearch) => WorkspaceSearch, options?: SearchUpdateOptions) => Promise<void>;
+  update: (change: (written: WorkspaceSearch) => WorkspaceSearch, options?: SearchUpdateOptions) => void;
 }
 
 export interface SearchUpdateOptions {

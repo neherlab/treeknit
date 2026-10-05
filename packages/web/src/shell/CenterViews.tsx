@@ -34,7 +34,7 @@ export function CenterViews({ onOpenRail, onOpenInspector }: CenterViewsProps) {
       const view = WORKSPACE_VIEWS.find((candidate) => candidate === key);
 
       if (view !== undefined) {
-        void update((current) => ({ ...current, view }));
+        update((written) => ({ ...written, view }));
       }
     },
     [update],
