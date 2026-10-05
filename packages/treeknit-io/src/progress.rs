@@ -48,13 +48,22 @@ impl From<core::Phase> for Phase {
 
 impl From<core::Progress> for Progress {
   fn from(p: core::Progress) -> Progress {
+    // Destructured without `..`, so a new field of the core type stops the build here.
+    let core::Progress {
+      phase,
+      fraction,
+      round,
+      rounds,
+      pair,
+      pairs,
+    } = p;
     Progress {
-      phase: p.phase.into(),
-      fraction: p.fraction,
-      round: p.round,
-      rounds: p.rounds,
-      pair: p.pair,
-      pairs: p.pairs,
+      phase: phase.into(),
+      fraction,
+      round,
+      rounds,
+      pair,
+      pairs,
     }
   }
 }
