@@ -946,9 +946,9 @@ export interface AnalysisRequest {
 }
 
 /**
- * Version of the trees of a pair.
+ * Version of the trees of a pair: input, resolved, or imputed.
  */
-export type Version = "input" | "resolved" | "imputed";
+export type TreeVersion = "input" | "resolved" | "imputed";
 
 /**
  * When leaf labels are drawn.
@@ -984,7 +984,7 @@ export class Session {
     /**
      * The SVG tanglegram of pair `pair` in `version`.
      */
-    figure(pair: number, version: Version, options: FigureOptions): string;
+    figure(pair: number, version: TreeVersion, options: FigureOptions): string;
     /**
      * The text of the listed file at `path`.
      */
@@ -996,7 +996,7 @@ export class Session {
     /**
      * The tanglegram of pair `pair` (pipeline order) in `version`, laid out with `scale`.
      */
-    pairView(pair: number, version: Version, scale: Scale): PairView;
+    pairView(pair: number, version: TreeVersion, scale: Scale): PairView;
     /**
      * Validate and run `request`, calling `onProgress` with each `Progress`. Throws an `Error`
      * named `ValidationError` when the request does not validate, and an `Error` otherwise.

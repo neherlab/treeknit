@@ -15,11 +15,11 @@ use tsify::Tsify;
 #[cfg_attr(feature = "tsify", tsify::declare)]
 pub type Point = [f64; 2];
 
-/// Version of the trees of a pair.
+/// Version of the trees of a pair: input, resolved, or imputed.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
-pub enum Version {
+pub enum TreeVersion {
   /// The parsed input tree.
   Input,
   /// The final tree of the run.
@@ -385,13 +385,13 @@ mod tests {
   use serde_json::json;
 
   #[test]
-  fn version_and_scale_are_lowercase_strings() {
+  fn tree_version_and_scale_are_lowercase_strings() {
     assert_eq!(
       json!(["input", "resolved", "imputed"]),
-      json!([Version::Input, Version::Resolved, Version::Imputed])
+      json!([TreeVersion::Input, TreeVersion::Resolved, TreeVersion::Imputed])
     );
     assert_eq!(json!(["div", "depth"]), json!([Scale::Div, Scale::Depth]));
-    assert_eq!(Version::Imputed, serde_json::from_value(json!("imputed")).unwrap());
+    assert_eq!(TreeVersion::Imputed, serde_json::from_value(json!("imputed")).unwrap());
   }
 
   #[test]

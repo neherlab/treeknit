@@ -2,7 +2,7 @@ use js_sys::{Error, Function, JSON};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
-use treeknit_io::display::{ArgView, ConstellationTable, PairView, Scale, Version};
+use treeknit_io::display::{ArgView, ConstellationTable, PairView, Scale, TreeVersion};
 use treeknit_io::figure::FigureOptions;
 use treeknit_io::inspect::{self, Overlap, TreeInspection};
 use treeknit_io::output::{FileEntry, OutputFile};
@@ -164,7 +164,7 @@ impl Session {
   /// The tanglegram of pair `pair` (pipeline order) in `version`, laid out with `scale`.
   #[wasm_bindgen(js_name = pairView)]
   #[expect(unused_variables, reason = "the pair view is not built yet")]
-  pub fn pair_view(&self, pair: usize, version: &Ts<Version>, scale: &Ts<Scale>) -> Result<Ts<PairView>, JsError> {
+  pub fn pair_view(&self, pair: usize, version: &Ts<TreeVersion>, scale: &Ts<Scale>) -> Result<Ts<PairView>, JsError> {
     Err(not_implemented("Session.pairView"))
   }
 
@@ -184,7 +184,7 @@ impl Session {
   /// The SVG tanglegram of pair `pair` in `version`.
   #[wasm_bindgen]
   #[expect(unused_variables, reason = "figures are not built yet")]
-  pub fn figure(&self, pair: usize, version: &Ts<Version>, options: &Ts<FigureOptions>) -> Result<String, JsError> {
+  pub fn figure(&self, pair: usize, version: &Ts<TreeVersion>, options: &Ts<FigureOptions>) -> Result<String, JsError> {
     Err(not_implemented("Session.figure"))
   }
 
