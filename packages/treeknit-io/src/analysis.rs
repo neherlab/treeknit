@@ -7,8 +7,8 @@
 
 use crate::newick;
 use serde::{Deserialize, Serialize};
-use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
+use std::collections::btree_map::Entry;
 use treeknit_core::{Options, Resolution, Taxa, Tree, bits};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
@@ -196,7 +196,10 @@ pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationErro
   }
   let taxa = Taxa::from_trees(&parsed);
   for t in &mut parsed {
-    #[expect(clippy::expect_used, reason = "the table is built from these trees, so it holds every leaf")]
+    #[expect(
+      clippy::expect_used,
+      reason = "the table is built from these trees, so it holds every leaf"
+    )]
     t.assign_taxa(&taxa)
       .expect("the taxon table built from the trees holds every leaf of every tree");
   }
@@ -565,7 +568,10 @@ mod tests {
 
   #[test]
   fn options_without_lengths_give_one_length_per_tree() {
-    assert_eq!(vec![1.0; 3], options(&Settings::default(), 3, false).unwrap().seq_lengths);
+    assert_eq!(
+      vec![1.0; 3],
+      options(&Settings::default(), 3, false).unwrap().seq_lengths
+    );
   }
 
   #[rstest]
@@ -784,7 +790,11 @@ mod tests {
   #[test]
   fn rounds_leave_room_for_the_final_round() {
     // Strict resolution of three trees adds a final round on top of `rounds`.
-    let s = |rounds| Settings { rounds, resolve: ResolveMode::Strict, ..Settings::default() };
+    let s = |rounds| Settings {
+      rounds,
+      resolve: ResolveMode::Strict,
+      ..Settings::default()
+    };
     let expected = vec![error(
       "settings.rounds",
       &format!("rounds must be less than {0}, got {0}", usize::MAX),
