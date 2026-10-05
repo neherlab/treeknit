@@ -13,12 +13,12 @@ export function useWorkspaceSearch(): WorkspaceSearchState {
   const resolved = useMemo(() => resolveWorkspaceSearch(search, availability), [search, availability]);
 
   const update = useCallback(
-    (change: (current: WorkspaceSearch) => WorkspaceSearch, options?: SearchUpdateOptions) =>
+    (change: (written: WorkspaceSearch) => WorkspaceSearch, options?: SearchUpdateOptions) =>
       navigate({
-        search: change(resolved),
+        search: change,
         replace: options?.replace ?? false,
       }),
-    [navigate, resolved],
+    [navigate],
   );
 
   return { search: resolved, update };
@@ -26,7 +26,7 @@ export function useWorkspaceSearch(): WorkspaceSearchState {
 
 export interface WorkspaceSearchState {
   search: WorkspaceSearch;
-  update: (change: (current: WorkspaceSearch) => WorkspaceSearch, options?: SearchUpdateOptions) => Promise<void>;
+  update: (change: (written: WorkspaceSearch) => WorkspaceSearch, options?: SearchUpdateOptions) => Promise<void>;
 }
 
 export interface SearchUpdateOptions {

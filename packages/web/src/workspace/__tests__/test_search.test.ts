@@ -119,6 +119,16 @@ describe("stringifySearch", () => {
   });
 });
 
+describe("a change to the written search", () => {
+  test("keeps the values that the availability hides", () => {
+    const written = parseUrl("?pair=2&leaf=X&mcc=1");
+    const changed = parseUrl(stringifySearch({ ...written, view: "files" }));
+
+    expect(resolveWorkspaceSearch(written, NO_WORKSPACE)).toStrictEqual(DEFAULT_SEARCH);
+    expect(changed).toStrictEqual({ ...DEFAULT_SEARCH, view: "files", pair: 2, leaf: "X", mcc: 1 });
+  });
+});
+
 describe("parseNodeRef", () => {
   test.each([
     { text: "left:NODE_3", expected: { side: "left", name: "NODE_3" } },
