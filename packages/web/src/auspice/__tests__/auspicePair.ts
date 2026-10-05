@@ -8,6 +8,7 @@ const MCC_SCALE: [string, string][] = [
 export const AUSPICE_LABELS = ["a", "b"] as const;
 
 export const AUSPICE_PAIR: AuspicePair = {
+  scale: "div",
   left: dataset({
     name: "NODE_1",
     node_attrs: { div: 0, mcc: { value: "2" } },
@@ -73,6 +74,7 @@ function dataset(tree: AuspiceNode): AuspiceDataset {
       colorings: [{ key: "mcc", title: "MCC", type: "categorical", scale: MCC_SCALE }],
       filters: ["mcc"],
       display_defaults: { color_by: "mcc", branch_label: "MCC" },
+      sharing: { entropy: false },
     },
     tree,
   };
