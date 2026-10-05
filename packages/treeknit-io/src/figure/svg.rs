@@ -229,10 +229,21 @@ impl Svg {
     }
   }
 
-  /// The dotted `leaders` from the leaf tips to the label edge, in `column` of `rows`; none for a
-  /// tip at the edge.
-  pub(super) fn leaders(&mut self, leaders: &[Leader], rows: Rows, column: Column, ink_muted: &str) {
-    let leaders: Vec<_> = leaders.iter().filter(|l| l.from[0] < l.to[0]).collect();
+  /// The dotted `leaders` from the leaf tips to the label edge, in `column` of `rows`, for the
+  /// leaves whose node index `labeled` accepts (the leaves with a label text); none for a tip at
+  /// the edge.
+  pub(super) fn leaders(
+    &mut self,
+    leaders: &[Leader],
+    labeled: impl Fn(usize) -> bool,
+    rows: Rows,
+    column: Column,
+    ink_muted: &str,
+  ) {
+    let leaders: Vec<_> = leaders
+      .iter()
+      .filter(|l| l.from[0] < l.to[0] && labeled(l.node))
+      .collect();
     if leaders.is_empty() {
       return;
     }
@@ -363,10 +374,11 @@ impl LabelColumn {
   }
 
   /// The label of `name`: shortened to the length of the drawing rules, then further until its
-  /// estimated width fits the column; empty when not even one character fits.
+  /// estimated width fits the column, keeping at least one character of the name besides the
+  /// ellipsis; empty when that does not fit.
   pub(super) fn text(&self, name: &str) -> String {
     let max = label_max_chars().min(name.chars().count());
-    (1..=max)
+    (shortest(name)..=max)
       .rev()
       .map(|k| shorten(name, k))
       .find(|t| advance(t) <= self.room)
@@ -374,10 +386,17 @@ impl LabelColumn {
   }
 }
 
+/// The fewest characters a shortened label of `name` keeps: a character of the name and the
+/// ellipsis, or the whole name when it has fewer than two characters. A bare ellipsis shows
+/// nothing of the name.
+fn shortest(name: &str) -> usize {
+  name.chars().count().min(2)
+}
+
 /// The label column for leaf `names`: as wide as the longest label (shortened to the length of
 /// the drawing rules) and a gap on each side, at most `max_width` px. Labels that do not fit are
 /// shortened further. No column when `shown` is false, there are no names, or no label fits with
-/// one character.
+/// one character of its name.
 pub(super) fn label_column<'a>(names: impl Iterator<Item = &'a str>, shown: bool, max_width: f64) -> LabelColumn {
   if !shown {
     return LabelColumn::NONE;
@@ -394,7 +413,11 @@ pub(super) fn label_column<'a>(names: impl Iterator<Item = &'a str>, shown: bool
     };
   }
   let room = px_em(max_width - 2.0 * LABEL_GAP);
-  let narrowest = names.iter().map(|n| advance(&shorten(n, 1))).min().unwrap_or(u32::MAX);
+  let narrowest = names
+    .iter()
+    .map(|n| advance(&shorten(n, shortest(n))))
+    .min()
+    .unwrap_or(u32::MAX);
   if narrowest <= room {
     LabelColumn { width: max_width, room }
   } else {
@@ -669,6 +692,10 @@ mod tests {
   #[case::one_char( &["a"],          19.0,  ("18.67", vec!["a"]))]
   // 18 px leave 6 px, 500 units, less than the 556 of "a" and the 1000 of "…".
   #[case::no_room(  &["a", "abc"],   18.0,  ("0",     vec!["", ""]))]
+  // 25 px leave 13 px, 1083 units: "…" (1000) fits, "a…" (1556) does not, and a bare ellipsis
+  // shows nothing of a name.
+  #[case::ellipsis( &["abc"],        25.0,  ("0",     vec![""]))]
+  #[case::one_name( &["a", "abc"],   25.0,  ("25",    vec!["a", ""]))]
   #[case::no_names( &[],             100.0, ("0",     vec![]))]
   #[trace]
   fn label_column_fits_the_longest_label(

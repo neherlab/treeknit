@@ -37,7 +37,8 @@ pub(super) fn draw(view: &PairView, options: &FigureOptions) -> String {
       colors: &colors,
     };
     if layout.labels.shown() {
-      svg.leaders(&shapes.leaders, layout.rows, column, &colors.ink_muted);
+      let labeled = |n: usize| !layout.labels.text(&tree.nodes[n].name).is_empty();
+      svg.leaders(&shapes.leaders, labeled, layout.rows, column, &colors.ink_muted);
     }
     draw.branches(&mut svg);
     draw.marks(&mut svg);

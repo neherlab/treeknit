@@ -573,6 +573,44 @@ mod tests {
   }
 
   #[test]
+  fn arg_svg_draws_no_leader_for_a_leaf_without_label_text() {
+    // Oracle: a 132 px figure has an inner width of 100 px and an ARG label column of at most
+    // 25 px, which leaves 13 px (1083 units) for a label: "A" (667) fits, "L…" (1556) does not.
+    let (ha, na) = (
+      "((A:1,B:1):1,(Long:1,(C:1,D:1):1):1);",
+      "((A:1,B:1):1,(Long:1,(C:1,D:1):1):1);",
+    );
+    let r = run_trees(&[("ha", ha), ("na", na)]);
+    let view = display::arg_view(&r, Scale::Div).unwrap();
+    let svg = arg_svg(&view, ["ha", "na"], &options(132.0, 12.0, Scale::Div, LabelMode::On)).unwrap();
+    let away = |l: &&display::Leader| l.from[0] < l.to[0];
+    let long = view.nodes.iter().position(|n| n.label == "Long").unwrap();
+    assert!(view.shapes.leaders.iter().filter(away).any(|l| l.node == long));
+    let labeled = view
+      .shapes
+      .leaders
+      .iter()
+      .filter(away)
+      .filter(|l| l.node != long)
+      .count();
+    let parsed = elements(&svg);
+    // The leaders are the paths of the group with the dotted stroke.
+    let group = parsed
+      .iter()
+      .position(|e| e.name == "g" && e.attribute("stroke-dasharray") == Some("1 3"))
+      .unwrap();
+    let leaders = parsed[group + 1..]
+      .iter()
+      .take_while(|e| e.name == "path" && e.attribute("stroke").is_none())
+      .count();
+    let labels = parsed
+      .iter()
+      .filter(|e| e.name == "text" && e.text.contains('\u{2026}'))
+      .count();
+    assert_eq!((labeled, 0), (leaders, labels));
+  }
+
+  #[test]
   fn arg_svg_without_reassortment_has_no_rings_or_reassortment_entry() {
     let r = run_trees(&[("ha", HA), ("na", HA)]);
     let view = display::arg_view(&r, Scale::Depth).unwrap();

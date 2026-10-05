@@ -37,7 +37,8 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
   svg.title(&title, &colors.ink);
 
   if labels.shown() {
-    svg.leaders(&view.shapes.leaders, rows, column, &colors.ink_muted);
+    let labeled = |n: usize| !labels.text(&view.nodes[n].label).is_empty();
+    svg.leaders(&view.shapes.leaders, labeled, rows, column, &colors.ink_muted);
   }
 
   svg.open("g", &[("fill", "none".to_owned()), ("stroke-width", num(BRANCH_WIDTH))]);
