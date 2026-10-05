@@ -52,8 +52,8 @@ Optional settings go into the gitignored `.env` in the checkout; `.env.example` 
 | Fast checks (format, clippy, oxlint, types)  | `just check`                                     |
 | Every check; must pass before merging        | `just check-all`                                 |
 | Lint fixes and format (stage first)          | `just fix`                                       |
-| Build                                        | `just build` (`just b`)                          |
-| Run the CLI                                  | `just run ha.nwk na.nwk -o tmp/results`          |
+| Build the CLI                                | `just build <mode>` (`just b`)                   |
+| Run the CLI                                  | `just run <mode> ha.nwk na.nwk -o tmp/results`   |
 | Rust tests, optionally filtered              | `just test-rs [filter]` (`just t`)               |
 | Clippy                                       | `just lint-rs` (`just l`)                        |
 | Format                                       | `just fmt`                                       |
@@ -61,7 +61,7 @@ Optional settings go into the gitignored `.env` in the checkout; `.env.example` 
 | Build the web app                            | `just build-web <dev\|prod>`                     |
 | Run the web app                              | `just run-web <dev\|prod>`                       |
 | TypeScript types, lints, tests               | `just typecheck`, `just lint-ts`, `just test-ts` |
-| WebAssembly build, tests, Clippy             | `just build-wasm`, `just test-wasm`, `just lint-wasm` |
+| WebAssembly build, tests, Clippy             | `just build-wasm <dev\|release\|prod>`, `just test-wasm`, `just lint-wasm` |
 | WebAssembly type declarations                | `just gen`                                       |
 
 In the container, prefix each command with `./dev/docker/run`.
@@ -98,16 +98,18 @@ TypeScript is linted by oxlint with type information (`oxlint.config.ts`): the c
 
 `just review-suppressions` prints every `#[allow]`, allowed lint, ignored test, and test tolerance, for review apart from ordinary code changes.
 
-## Build profiles
+## Build modes
 
-- `dev` (`just build`, `just run`, the tests): unoptimized workspace crates, dependencies at `opt-level = 2`, full debug info
-- `dev-opt` (`just run-dev-opt`): `dev` with optimized workspace crates, for long runs on real datasets; rebuilds are slower
-- `release` (`just build-release`, `just run-release`, `just example`): optimized and fast to rebuild, without LTO, with integer overflow checks
-- `dist` (`just build-dist`): the shipped binary, with fat LTO, one codegen unit, and the CPU flags of `dev/lib/dist-flags.sh` (`-C target-cpu=haswell` on x86-64)
-- `profiling` (`just build-profiling`): `dist` with full debug info
-- `bench` (`just bench`): the `dist` settings
+The build and run recipes take the mode as their first argument: `just build <mode>`, `just run <mode> [CLI args]`, `just build-wasm <mode>`, `just build-web <dev|prod>`, `just run-web <dev|prod>`. The commands are the same in the main checkout and in a worktree. Each mode is a cargo profile:
 
-`just build-dist` copies the binary to `.out/treeknit`; use it with `hyperfine`, which the container provides.
+- `dev` (the tests): unoptimized workspace crates, dependencies at `opt-level = 2`, full debug info
+- `dev-opt`: `dev` with optimized workspace crates, for long runs on real datasets; rebuilds are slower
+- `release` (also `just example`): optimized and fast to rebuild, without LTO, with integer overflow checks
+- `prod`: the shipped build, the cargo profile `dist`, with fat LTO, one codegen unit, and the CPU flags of `dev/lib/dist-flags.sh` (`-C target-cpu=haswell` on x86-64); the WebAssembly build adds `wasm-opt`
+- `profiling` (`just build` only): `prod` with full debug info
+- `bench` (`just bench`, no mode): the `prod` settings
+
+`just build release` and `just build prod` copy the binary to `.out/treeknit`; use it with `hyperfine`, which the container provides.
 
 ## Reports
 

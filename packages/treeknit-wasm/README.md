@@ -3,7 +3,7 @@
 WebAssembly bindings of TreeKnit, used by the web app in `packages/web`.
 
 ```sh
-just build-wasm [dev|release|dist]   # into packages/treeknit-wasm/pkg/; dist, the default, adds wasm-opt
+just build-wasm <dev|release|prod>   # into packages/treeknit-wasm/pkg/; prod, as shipped, adds wasm-opt
 ```
 
 wasm-bindgen writes the JavaScript module, the WebAssembly binary, and the TypeScript declarations into `pkg/`. The directory is the workspace package `@neherlab/treeknit-wasm`. Only the declarations `pkg/treeknit_wasm.d.ts` are committed, so the TypeScript type checks and lints run without a Rust build: `just gen` rewrites them after a change to the interface, and `just generated-check` fails when they are stale.
