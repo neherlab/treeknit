@@ -9,6 +9,7 @@ import {
   useSuspenseQuery,
   type UseQueryResult,
 } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { isDeepEqual } from "remeda";
 
 import { useAnalysisClient } from "./context";
@@ -24,13 +25,15 @@ const SESSION_SCOPE = 3;
 
 const NO_SESSION = ["session", null] as const;
 
+const UNLABELLED = "";
+
 export const analysisKeys = {
   defaultSettings: () => ["defaultSettings"] as const,
   palette: () => ["palette"] as const,
   drawingRules: () => ["drawingRules"] as const,
   version: () => ["version"] as const,
-  inspectTree: (...args: StatelessArgs<"inspectTree">) => ["inspectTree", ...args] as const,
-  overlap: (trees: readonly TreeText[]) => ["overlap", trees] as const,
+  inspectTree: (newick: string) => ["inspectTree", newick] as const,
+  overlap: (newicks: readonly string[]) => ["overlap", newicks] as const,
   validate: (...args: StatelessArgs<"validate">) => ["validate", ...args] as const,
   settingsSchema: (...args: StatelessArgs<"settingsSchema">) => ["settingsSchema", ...args] as const,
   session: (sessionId: number) => ["session", sessionId] as const,
@@ -66,24 +69,13 @@ export function useVersion(): Answer<StatelessResult<"version">> {
   return useQuery({ queryKey: analysisKeys.version(), queryFn: async () => client.version() });
 }
 
-export function useInspectTree(...args: StatelessArgs<"inspectTree">): Answer<StatelessResult<"inspectTree">> {
-  const client = useAnalysisClient();
-
-  return useQuery({
-    queryKey: analysisKeys.inspectTree(...args),
-    queryFn: async () => client.inspectTree(...args),
-    placeholderData: keepPreviousData,
-    gcTime: INPUT_QUERY_GC_MS,
-  });
-}
-
 export function useInspectTrees(trees: readonly TreeText[]): (TreeInspection | undefined)[] {
   const client = useAnalysisClient();
 
   return useQueries({
-    queries: trees.map(({ label, newick }) => ({
-      queryKey: analysisKeys.inspectTree(label, newick),
-      queryFn: async () => client.inspectTree(label, newick),
+    queries: trees.map(({ newick }) => ({
+      queryKey: analysisKeys.inspectTree(newick),
+      queryFn: async () => client.inspectTree(UNLABELLED, newick),
       gcTime: INPUT_QUERY_GC_MS,
     })),
     combine: inspectionData,
@@ -92,10 +84,11 @@ export function useInspectTrees(trees: readonly TreeText[]): (TreeInspection | u
 
 export function useOverlap(trees: readonly TreeText[]): Answer<StatelessResult<"overlap">> {
   const client = useAnalysisClient();
+  const newicks = useMemo(() => trees.map(({ newick }) => newick), [trees]);
 
   return useQuery({
-    queryKey: analysisKeys.overlap(trees),
-    queryFn: async () => client.overlap([...trees]),
+    queryKey: analysisKeys.overlap(newicks),
+    queryFn: async () => client.overlap(newicks.map((newick) => ({ label: UNLABELLED, newick }))),
     placeholderData: keepPreviousData,
     gcTime: INPUT_QUERY_GC_MS,
   });

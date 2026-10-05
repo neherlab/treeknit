@@ -33,11 +33,13 @@ describe("analysis query keys", () => {
 
   test("key stateless queries by their inputs", () => {
     expect([
-      analysisKeys.inspectTree("ha", "(A,B);"),
+      analysisKeys.inspectTree("(A,B);"),
+      analysisKeys.overlap(["(A,B);", "(A,C);"]),
       analysisKeys.settingsSchema(2, { gamma: 2 }),
       analysisKeys.validate({ trees: [] }),
     ]).toStrictEqual([
-      ["inspectTree", "ha", "(A,B);"],
+      ["inspectTree", "(A,B);"],
+      ["overlap", ["(A,B);", "(A,C);"]],
       ["settingsSchema", 2, { gamma: 2 }],
       ["validate", { trees: [] }],
     ]);
