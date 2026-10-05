@@ -627,7 +627,7 @@ pub fn arg_inputs(trees: &[Tree], pair: &PairResult, n: usize) -> (Tree, Tree, V
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::progress::{PAIRS_SHARE, Phase};
+  use crate::progress::{PAIRS_SHARE, Phase, ratio};
   use crate::tree::test_util::{splits, trees};
 
   fn ids(taxa: &Taxa, m: &[&[&str]]) -> Vec<Mcc> {
@@ -1317,30 +1317,27 @@ mod tests {
     }
   }
 
-  /// Number of iterations that MCC inference of `TWO_ITERATIONS` runs with `one_pair(itmax)`,
-  /// counted from the log line that `infer_pair` writes at the start of each iteration.
-  fn iterations(itmax: usize) -> usize {
-    let lines = logged(|| {
-      observed(&TWO_ITERATIONS, &one_pair(itmax));
-    });
-    lines.iter().filter(|l| l.starts_with("DEBUG iteration ")).count()
-  }
-
-  /// Require that `TWO_ITERATIONS` stops by itself after two iterations, which the exact
-  /// fractions of the progress tests depend on.
-  fn assert_two_iterations() {
-    assert_eq!(
-      2,
-      iterations(10),
-      "TWO_ITERATIONS no longer stops after two iterations with seed 1"
-    );
+  /// Number of iterations that MCC inference completed in a run of one pair with `itmax`,
+  /// counted from its progress events: the last temperature step of iteration `k` reports the
+  /// completed fraction `k / (itmax + 1)` of the pair, and no other step reports a multiple of
+  /// `1 / (itmax + 1)`.
+  fn iterations(events: &[Progress], itmax: usize) -> usize {
+    let max = itmax + 1;
+    (1..=max)
+      .filter(|&k| {
+        let end = Progress::at(0, 1, 0, 1, ratio(k, max));
+        events
+          .iter()
+          .any(|p| p.phase == Phase::Pairs && p.fraction.to_bits() == end.fraction.to_bits())
+      })
+      .count()
   }
 
   #[test]
   fn progress_of_a_pair_that_runs_all_iterations_rises_to_the_pairs_share() {
-    assert_two_iterations();
     // With itmax = 1, pair inference runs both of its itmax + 1 = 2 iterations.
     let events = observed(&TWO_ITERATIONS, &one_pair(1));
+    assert_eq!(2, iterations(&events, 1), "{events:?}");
     assert_eq!(Some(&Progress::at(0, 1, 0, 1, 0.0)), events.first());
     assert_eq!(Some(&Progress::done(1, 1)), events.last());
     assert!(never_decreasing(&events), "{events:?}");
@@ -1359,9 +1356,9 @@ mod tests {
 
   #[test]
   fn progress_of_a_pair_that_stops_early_jumps_to_done_at_the_end() {
-    assert_two_iterations();
-    // With itmax = 2 the same pair stops after two of its three iterations, at 2/3.
+    // With itmax = 2 the same pair stops by itself after two of its three iterations, at 2/3.
     let events = observed(&TWO_ITERATIONS, &one_pair(2));
+    assert_eq!(2, iterations(&events, 2), "{events:?}");
     let before_end = &events[..events.len() - 1];
     assert!(never_decreasing(&events), "{events:?}");
     assert_eq!(
