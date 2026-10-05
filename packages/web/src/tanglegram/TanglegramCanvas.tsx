@@ -1,25 +1,23 @@
 import type { LabelMode, PairView } from "@neherlab/treeknit-wasm";
 import { useMemo } from "react";
 
-import { useDrawingRules } from "../analysis/queries";
-import { useDrawingColors } from "../canvas/drawingColors";
-import { labelsVisible } from "../canvas/labels";
 import { useFadeIn } from "../canvas/motion";
-import { curveRowPx } from "../canvas/projection";
 import { TreeCanvas } from "../canvas/TreeCanvas";
-import { type TreeViewHandle, useTreeView } from "../canvas/useTreeView";
-import { crossExtent } from "../canvas/viewState";
+import type { TreeViewHandle } from "../canvas/useTreeView";
 import { drawingCursor } from "../drawing/cursor";
-import { labelColumnPx, useLeafLabels } from "../drawing/labelWidth";
+import { labelColumnPx } from "../drawing/labelWidth";
 import { useDrawingPicking } from "../drawing/picking";
 import { NO_SELECTION, pairEmphasis, type Selection } from "../drawing/selection";
 import { innerWidthPx } from "../drawing/spacing";
 import { pairLeafNames } from "../drawing/trees";
+import { useDrawingCanvas, useDrawingGeometry } from "../drawing/useDrawingCanvas";
 import { tanglegramColumns } from "./columns";
 import { tanglegramCurves, tanglegramFrame } from "./geometry";
 import { type PairStyle, ribbonsShown, tanglegramLayers } from "./layers";
 import { PAIR_PICK_RULES } from "./picking";
 import { TanglegramLegend } from "./TanglegramLegend";
+
+const PAIR_GEOMETRY = { frame: tanglegramFrame, curves: tanglegramCurves };
 
 export default function TanglegramCanvas({
   data,
@@ -31,32 +29,18 @@ export default function TanglegramCanvas({
   resultKey,
   label,
 }: TanglegramCanvasProps) {
-  const colors = useDrawingColors();
-  const rules = useDrawingRules();
   const fade = useFadeIn(resultKey);
-  const tree = useTreeView(view);
-  const { frame, rowPx } = tree;
-  const leafAxis = frame?.leafAxis ?? "y";
-  const crossPx = frame === undefined ? 0 : crossExtent(frame);
   const names = useMemo(() => pairLeafNames(data), [data]);
-  const labelsShown = leafAxis === "y" && labelsVisible(labels, rowPx, rules);
-  const leafLabels = useLeafLabels(names, labelsShown, rules.labelMaxChars);
+  const canvas = useDrawingCanvas(view, labels, names);
+  const { colors, rules, tree, crossPx, labelsShown, leafLabels } = canvas;
+  const { rowPx } = tree;
 
   const columns = useMemo(
     () => tanglegramColumns(crossPx, labelColumnPx(innerWidthPx(crossPx) / 2, leafLabels.longestPx)),
     [crossPx, leafLabels.longestPx],
   );
 
-  const sampledRowPx = curveRowPx(rowPx);
-
-  const frameGeometry = useMemo(() => tanglegramFrame(data, columns, leafAxis), [data, columns, leafAxis]);
-
-  const curves = useMemo(
-    () => tanglegramCurves(data, columns, leafAxis, sampledRowPx),
-    [data, columns, leafAxis, sampledRowPx],
-  );
-
-  const geometry = useMemo(() => ({ ...frameGeometry, ...curves }), [frameGeometry, curves]);
+  const geometry = useDrawingGeometry(PAIR_GEOMETRY, data, columns, canvas);
 
   const style = useMemo<PairStyle>(
     () => ({
