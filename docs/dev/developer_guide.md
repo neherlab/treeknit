@@ -178,7 +178,7 @@ The dependency recipes run in the main checkout only.
 
 ## Nightly releases
 
-`.github/workflows/nightly.yml`, the only workflow, runs every night at 04:00 UTC on `main` and does nothing when `main` has not changed since the latest nightly. It runs no checks. Otherwise it:
+`.github/workflows/nightly.yml`, the only workflow, runs every night at 03:40 UTC on `main` and does nothing when `main` has not changed since the latest nightly. It runs no checks. Otherwise it:
 
 - **Publishes the CLI**: builds the shipped CLI for every release target, one job per target in its cross image, and publishes the binaries that build as a release on the releases page. A failed target leaves only its binary out. The release notes hold download hints and the pull requests merged since the previous nightly, which GitHub generates. Every nightly stays on the releases page
 - **Deploys the web app**: `just build-web prod`, published to GitHub Pages. The site is public even though the repository is private. The build uses relative asset paths (Vite `base: "./"`), so it works under the `/treeknit-rs/` path of Pages and at any other path

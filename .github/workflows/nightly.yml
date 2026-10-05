@@ -5,7 +5,7 @@ name: "Nightly"
 # releases page, and deploy the web app to GitHub Pages.
 on:
   schedule:
-    - cron: "0 4 * * *"
+    - cron: "40 3 * * *"
   workflow_dispatch:
     inputs:
       force:
