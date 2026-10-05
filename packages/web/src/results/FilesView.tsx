@@ -17,7 +17,7 @@ import { InlineNotice } from "../ui/InlineNotice";
 import { ProgressBar } from "../ui/ProgressBar";
 import { Cell, Column, Row, Table, TableBody, TableHeader } from "../ui/Table";
 import { useCurrentRequest, useWorkspace } from "../workspace/context";
-import { downloadName, fileSizeLabel, RESULTS_ARCHIVE_NAME, ZIP_MEDIA_TYPE } from "./fileRows";
+import { downloadName, type FileRow, fileRow, RESULTS_ARCHIVE_NAME, ZIP_MEDIA_TYPE } from "./fileRows";
 
 export function FilesView() {
   const sessionId = useWorkspace((state) => state.result?.sessionId);
@@ -52,9 +52,9 @@ function SessionFiles({ sessionId }: SessionFilesProps) {
   });
 
   const entry = useMutation({
-    mutationFn: async (file: FileEntry) => ({ file, text: await client.fileText(sessionId, file.path) }),
-    onSuccess: async ({ file, text }) => {
-      downloadFile({ name: downloadName(file.path), mediaType: file.mediaType, content: text });
+    mutationFn: async ({ file, name }: FileRow) => ({ file, name, text: await client.fileText(sessionId, file.path) }),
+    onSuccess: async ({ file, name, text }) => {
+      downloadFile({ name, mediaType: file.mediaType, content: text });
 
       if (file.size === null) {
         await queryClient.invalidateQueries({ queryKey: analysisKeys.files(sessionId) });
@@ -124,7 +124,7 @@ interface SessionFilesProps {
 }
 
 function FileTable({ files, onDownload }: FileTableProps) {
-  const rows = useMemo(() => files.map((file) => ({ ...file, id: file.path })), [files]);
+  const rows = useMemo(() => files.map(fileRow), [files]);
   const rowDependencies = useMemo(() => [onDownload], [onDownload]);
 
   return (
@@ -138,14 +138,14 @@ function FileTable({ files, onDownload }: FileTableProps) {
           </Column>
         </TableHeader>
         <TableBody items={rows} dependencies={rowDependencies}>
-          {(file) => (
-            <Row id={file.id}>
-              <Cell className="wrap-anywhere">{file.path}</Cell>
+          {(row) => (
+            <Row id={row.id}>
+              <Cell className="wrap-anywhere">{row.path}</Cell>
               <Cell align="end" className="text-ink-muted whitespace-nowrap">
-                {fileSizeLabel(file.size)}
+                {row.size}
               </Cell>
               <Cell align="end" className="w-10">
-                <DownloadButton file={file} onDownload={onDownload} />
+                <DownloadButton row={row} onDownload={onDownload} />
               </Cell>
             </Row>
           )}
@@ -157,18 +157,18 @@ function FileTable({ files, onDownload }: FileTableProps) {
 
 interface FileTableProps {
   files: readonly FileEntry[];
-  onDownload: (file: FileEntry) => void;
+  onDownload: (row: FileRow) => void;
 }
 
-function DownloadButton({ file, onDownload }: DownloadButtonProps) {
+function DownloadButton({ row, onDownload }: DownloadButtonProps) {
   const download = useCallback(() => {
-    onDownload(file);
-  }, [file, onDownload]);
+    onDownload(row);
+  }, [row, onDownload]);
 
-  return <IconButton label={`Download ${file.path}`} icon={DownloadIcon} size="sm" onPress={download} />;
+  return <IconButton label={`Download ${row.path}`} icon={DownloadIcon} size="sm" onPress={download} />;
 }
 
 interface DownloadButtonProps {
-  file: FileEntry;
-  onDownload: (file: FileEntry) => void;
+  row: FileRow;
+  onDownload: (row: FileRow) => void;
 }
