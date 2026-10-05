@@ -1,16 +1,7 @@
+import { counted } from "../format/count";
 import { APP_LOCALE } from "../format/locale";
 
 const BRANCH_LENGTH = new Intl.NumberFormat(APP_LOCALE, { maximumSignificantDigits: 4 });
-
-const COUNT = new Intl.NumberFormat(APP_LOCALE);
-
-export function formatCount(count: number): string {
-  return COUNT.format(count);
-}
-
-export function counted(count: number, one: string, many: string): string {
-  return `${formatCount(count)} ${count === 1 ? one : many}`;
-}
 
 function mccNumber(index: number): number {
   return index + 1;

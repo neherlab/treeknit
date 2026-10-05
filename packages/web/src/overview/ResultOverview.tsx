@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useMemo } from "react";
 import { match } from "ts-pattern";
 
-import { counted, formatCount } from "../drawing/format";
+import { counted, formatCount } from "../format/count";
 import { InfoButton } from "../ui/InfoButton";
 import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
 import { Link } from "../ui/Link";

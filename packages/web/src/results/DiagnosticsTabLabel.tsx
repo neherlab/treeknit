@@ -1,4 +1,4 @@
-import { counted } from "../drawing/format";
+import { counted } from "../format/count";
 import { useWorkspace } from "../workspace/context";
 
 export function DiagnosticsTabLabel({ label }: DiagnosticsTabLabelProps) {

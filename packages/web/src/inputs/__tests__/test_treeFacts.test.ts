@@ -1,7 +1,7 @@
 import type { TreeInspection } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
-import { counted } from "../../drawing/format";
+import { counted } from "../../format/count";
 import { treeFacts } from "../treeFacts";
 
 const INSPECTION: TreeInspection = {

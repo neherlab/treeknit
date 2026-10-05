@@ -5,9 +5,9 @@ import { Button } from "react-aria-components";
 
 import { useConstellation } from "../analysis/queries";
 import { requestFocus } from "../drawing/focus";
-import { counted, formatCount } from "../drawing/format";
 import { itemAt } from "../drawing/lookup";
 import { leafInPair } from "../drawing/navigation";
+import { counted, formatCount } from "../format/count";
 import { InfoButton } from "../ui/InfoButton";
 import { MccSwatch } from "../ui/MccSwatch";
 import { QueryState } from "../ui/QueryState";

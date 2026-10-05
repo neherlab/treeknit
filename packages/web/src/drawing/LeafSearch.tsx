@@ -4,10 +4,10 @@ import { Autocomplete, Input, type Key, Menu, Popover, SearchField, useFilter } 
 import SearchIcon from "~icons/lucide/search";
 import ClearIcon from "~icons/lucide/x";
 
+import { counted, formatCount } from "../format/count";
 import { IconButton } from "../ui/IconButton";
 import { MenuItem } from "../ui/Menu";
 import { inputStyle, listBoxStyle, popoverStyle } from "../ui/styles";
-import { counted, formatCount } from "./format";
 import { matchingLeaves } from "./leafSearch";
 
 const POPOVER_OFFSET_PX = 4;

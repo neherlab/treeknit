@@ -18,12 +18,12 @@ import {
   revealLeafRows,
   useFocusRequest,
 } from "../drawing/focus";
-import { counted } from "../drawing/format";
 import { LeafSearch } from "../drawing/LeafSearch";
 import { pairLeafNames, pairLeafRows, rowCount } from "../drawing/trees";
 import { useDrawingSearch, useFindLeaf } from "../drawing/useDrawingSearch";
 import { useDrawingView } from "../drawing/useDrawingView";
 import { useFigureDownload } from "../drawing/useFigureDownload";
+import { counted } from "../format/count";
 import { Select, type SelectOption } from "../ui/Select";
 import { Switch } from "../ui/Switch";
 import { useWorkspace } from "../workspace/context";

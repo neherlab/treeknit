@@ -1,6 +1,6 @@
 import type { TreeInspection } from "@neherlab/treeknit-wasm";
 
-import { counted } from "../drawing/format";
+import { counted } from "../format/count";
 import { BRANCH_LENGTH_LABELS } from "./treeStatus";
 
 export function treeFacts(inspection: TreeInspection | undefined, missing: number | undefined): string[] {

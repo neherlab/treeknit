@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import BlockedIcon from "~icons/lucide/circle-alert";
 
 import { useInspectTrees, useOverlap } from "../analysis/queries";
-import { formatCount } from "../drawing/format";
+import { formatCount } from "../format/count";
 import { useDelayedIndicator } from "../indicator/useDelayedIndicator";
 import { BRANCH_LENGTH_VALUES } from "../inputs/treeStatus";
 import { InfoButton } from "../ui/InfoButton";

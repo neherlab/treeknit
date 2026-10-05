@@ -7,9 +7,10 @@ import ShowIcon from "~icons/lucide/git-compare-arrows";
 
 import { usePairView } from "../analysis/queries";
 import { requestFocus } from "../drawing/focus";
-import { counted, formatCount, leafCount, mccTitle } from "../drawing/format";
+import { leafCount, mccTitle } from "../drawing/format";
 import { mccInTanglegram } from "../drawing/navigation";
 import { withSelection } from "../drawing/selection";
+import { counted, formatCount } from "../format/count";
 import { IconButton } from "../ui/IconButton";
 import { InfoButton } from "../ui/InfoButton";
 import { MccSwatch } from "../ui/MccSwatch";
