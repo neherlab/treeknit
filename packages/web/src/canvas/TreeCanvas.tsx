@@ -2,6 +2,7 @@ import { type LayersList, OrthographicView, type OrthographicViewState, type Pic
 import { DeckGL, type DeckGLProps, type DeckGLRef } from "@deck.gl/react";
 import { cn } from "cn";
 import { type MouseEvent, type ReactNode, useCallback, useId, useRef } from "react";
+import { useErrorBoundary } from "react-error-boundary";
 
 import { InlineNotice } from "../ui/InlineNotice";
 import { Minimap } from "./Minimap";
@@ -24,6 +25,8 @@ const CONTROLLER = {
 const UNSIZED_VIEW_STATE: OrthographicViewState = { target: [0, 0], zoom: 0 };
 
 const PICK_RADIUS_PX = 4;
+
+type PickPosition = Parameters<DeckGLRef<OrthographicView>["pickObjectAsync"]>[0];
 
 type DeckEvents = Pick<DeckGLProps<OrthographicView>, "getTooltip" | "onClick" | "onHover" | "getCursor">;
 
@@ -53,6 +56,7 @@ export function TreeCanvas({
   const descriptionId = useId();
   const deckRef = useRef<DeckGLRef<OrthographicView>>(null);
   const { actions, frame } = view;
+  const { showBoundary } = useErrorBoundary();
 
   const resize = useCallback(
     (size: CanvasSize) => {
@@ -68,28 +72,35 @@ export function TreeCanvas({
     [actions],
   );
 
-  const zoomToClade = useCallback(
-    (event: MouseEvent<HTMLDivElement>) => {
+  const zoomToCladeAt = useCallback(
+    async (position: PickPosition) => {
       const deck = deckRef.current;
 
       if (deck === null || onCladeZoom === undefined) {
         return;
       }
 
-      const bounds = event.currentTarget.getBoundingClientRect();
-      const position = { x: event.clientX - bounds.left, y: event.clientY - bounds.top, radius: PICK_RADIUS_PX };
-
-      void deck.pickObjectAsync(position).then((info) => {
+      try {
+        const info = await deck.pickObjectAsync(position);
         const range = info === null ? null : onCladeZoom(info);
 
         if (range !== null) {
           actions.fitRows(range);
         }
-
-        return range;
-      });
+      } catch (error) {
+        showBoundary(error);
+      }
     },
-    [actions, onCladeZoom],
+    [actions, onCladeZoom, showBoundary],
+  );
+
+  const zoomToClade = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      const bounds = event.currentTarget.getBoundingClientRect();
+
+      void zoomToCladeAt({ x: event.clientX - bounds.left, y: event.clientY - bounds.top, radius: PICK_RADIUS_PX });
+    },
+    [zoomToCladeAt],
   );
 
   if (!webGl2) {
@@ -122,6 +133,7 @@ export function TreeCanvas({
           layers={layers}
           onResize={resize}
           onViewStateChange={update}
+          onError={showBoundary}
           {...events}
         />
       </div>
