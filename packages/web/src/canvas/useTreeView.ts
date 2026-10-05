@@ -8,6 +8,7 @@ import {
   fitRowsViewState,
   fitViewState,
   type LeafAxis,
+  leafTarget,
   leafZoom,
   panViewState,
   resizeViewState,
@@ -28,6 +29,7 @@ export interface TreeViewActions {
   fit(): void;
   fitRows(range: RowRange): void;
   panTo(leaf: number): void;
+  panBy(delta: number): void;
 }
 
 export interface TreeView {
@@ -54,7 +56,8 @@ type ViewChange =
   | { type: "zoom"; factor: number }
   | { type: "fit" }
   | { type: "fitRows"; range: RowRange }
-  | { type: "pan"; leaf: number };
+  | { type: "pan"; leaf: number }
+  | { type: "panBy"; delta: number };
 
 export type TreeViewAction = Drawing & ({ type: "resize"; size: CanvasSize } | ViewChange);
 
@@ -85,6 +88,9 @@ export function useTreeView(rows: number, leafAxis: LeafAxis): TreeView {
       },
       panTo(leaf) {
         dispatch({ ...drawing, type: "pan", leaf });
+      },
+      panBy(delta) {
+        dispatch({ ...drawing, type: "panBy", delta });
       },
     };
   }, [rows, leafAxis]);
@@ -156,5 +162,6 @@ function changed({ frame, viewState }: StoredView, change: ViewChange): TreeView
     .with({ type: "fit" }, () => fitViewState(frame))
     .with({ type: "fitRows" }, ({ range }) => fitRowsViewState(frame, range))
     .with({ type: "pan" }, ({ leaf }) => panViewState(viewState, frame, leaf))
+    .with({ type: "panBy" }, ({ delta }) => panViewState(viewState, frame, leafTarget(viewState) + delta))
     .exhaustive();
 }

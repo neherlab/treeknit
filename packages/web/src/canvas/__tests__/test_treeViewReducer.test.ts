@@ -74,6 +74,21 @@ describe("treeViewReducer", () => {
     expect(updated?.viewState).toStrictEqual(panned?.viewState);
   });
 
+  test("adds two drag moves queued before a render, each to the latest center", () => {
+    const zoomed = treeViewReducer(sized(), { ...DRAWING, type: "fitRows", range: { first: 100, last: 119 } });
+    const once = treeViewReducer(zoomed, { ...DRAWING, type: "panBy", delta: 10 });
+    const twice = treeViewReducer(once, { ...DRAWING, type: "panBy", delta: 15 });
+
+    expect(twice === undefined ? [] : visibleLeafRange(twice.viewState, twice.frame)).toStrictEqual([124.5, 144.5]);
+  });
+
+  test("stops a drag move at the drawing edge", () => {
+    const zoomed = treeViewReducer(sized(), { ...DRAWING, type: "fitRows", range: { first: 100, last: 119 } });
+    const moved = treeViewReducer(zoomed, { ...DRAWING, type: "panBy", delta: 1_000 });
+
+    expect(moved === undefined ? [] : visibleLeafRange(moved.viewState, moved.frame)).toStrictEqual([279.5, 299.5]);
+  });
+
   test("refits when the drawing gets other rows or another leaf axis", () => {
     const zoomed = treeViewReducer(sized(), { ...DRAWING, type: "zoom", factor: 4 });
     const other: Drawing = { rows: 50, leafAxis: "x" };

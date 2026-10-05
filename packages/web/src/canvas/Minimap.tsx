@@ -8,7 +8,7 @@ import { mergeProps, useMove, usePress } from "react-aria";
 import { withOpacity } from "./color";
 import { useDrawingColors } from "./drawingColors";
 import type { TreeView } from "./useTreeView";
-import { type CanvasFrame, leafTarget, minimapLeafAt, minimapViewState, visibleWorldRect } from "./viewState";
+import { type CanvasFrame, minimapLeafAt, minimapViewState, visibleWorldRect } from "./viewState";
 
 const MINIMAP_VIEW = new OrthographicView({ id: "minimap", flipY: true });
 
@@ -45,11 +45,7 @@ export function Minimap({ view, frame, layers }: MinimapProps) {
 
   const { moveProps } = useMove({
     onMove: ({ deltaX, deltaY }) => {
-      if (viewState !== undefined) {
-        const delta = minimapLeafAt(frame, along === 1 ? deltaY : deltaX) - minimapLeafAt(frame, 0);
-
-        actions.panTo(leafTarget(viewState) + delta);
-      }
+      actions.panBy(minimapLeafAt(frame, along === 1 ? deltaY : deltaX) - minimapLeafAt(frame, 0));
     },
   });
 
