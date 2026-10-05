@@ -28,9 +28,17 @@ const panelStyle = cva("bg-ground text-ink flex max-h-full min-h-0 flex-col outl
 
 export type DialogPlacement = "center" | "left" | "right";
 
-export function Dialog({ title, placement = "center", footer, className, children, ...props }: DialogProps) {
+export function Dialog({
+  title,
+  placement = "center",
+  isDismissable = true,
+  footer,
+  className,
+  children,
+  ...props
+}: DialogProps) {
   return (
-    <ModalOverlay {...props} isDismissable className={overlayStyle({ placement })}>
+    <ModalOverlay {...props} isDismissable={isDismissable} className={overlayStyle({ placement })}>
       <Modal className={cn(panelStyle({ placement }), className)}>
         <AriaDialog className="flex min-h-0 flex-1 flex-col outline-hidden">
           {({ close }) => (
@@ -55,7 +63,7 @@ export function Dialog({ title, placement = "center", footer, className, childre
   );
 }
 
-export interface DialogProps extends Omit<ModalOverlayProps, "children" | "className" | "isDismissable"> {
+export interface DialogProps extends Omit<ModalOverlayProps, "children" | "className"> {
   title: string;
   placement?: DialogPlacement;
   footer?: ReactNode;
