@@ -472,7 +472,21 @@ mod tests {
       .chain(&view.shapes.right.elbows)
       .filter(|e| e.added && !e.mcc_break)
       .count();
-    assert!(imputed > 0 && added > 0, "imputed {imputed}, added {added}");
+    // Oracle: P is the one leaf that na lacks, so it is the one imputed leaf.
+    assert!(imputed == 1 && added > 0, "imputed {imputed}, added {added}");
+    let p = view.right.nodes.iter().find(|n| n.name == "P").unwrap();
+    let p_color = colors.mcc[view.mccs[p.mcc.unwrap()].slot].clone();
+    let mut rings: Vec<String> = elements(&svg)
+      .iter()
+      .filter(|e| e.name == "circle")
+      .filter_map(|e| e.attribute("stroke").map(str::to_owned))
+      .filter(|stroke| colors.mcc.contains(stroke))
+      .collect();
+    rings.sort();
+    // The ring of P in the color of its MCC, and the legend ring in the color of slot 0.
+    let mut expected = vec![p_color, colors.mcc[0].clone()];
+    expected.sort();
+    assert_eq!(expected, rings);
     let dashed = elements(&svg)
       .iter()
       .filter(|e| {
