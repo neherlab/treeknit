@@ -17,11 +17,15 @@ export function paletteCss(palette: Palette): string {
   return [rule(":root", palette.light), rule(":root.dark", palette.dark)].join("\n");
 }
 
-export function applyPalette(target: Document, palette: Palette): void {
+export function applyPalette(target: Document, palette: Palette): () => void {
   const sheet = new CSSStyleSheet();
 
   sheet.replaceSync(paletteCss(palette));
   target.adoptedStyleSheets = [...target.adoptedStyleSheets, sheet];
+
+  return () => {
+    target.adoptedStyleSheets = target.adoptedStyleSheets.filter((adopted) => adopted !== sheet);
+  };
 }
 
 function rule(selector: string, colors: ThemeColors): string {
