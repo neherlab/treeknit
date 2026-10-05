@@ -7,9 +7,10 @@ use simplelog::{ColorChoice, CombinedLogger, ConfigBuilder, LevelFilter, TermLog
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
-use treeknit_core::{Options, Resolution, Taxa, Tree};
-use treeknit_io::analysis::{self, ParsedTrees, Settings, TreeText, ValidationError};
-use treeknit_io::{arg, auspice, mccs, newick, schema};
+use treeknit_core::{Options, Resolution};
+use treeknit_io::analysis::{self, Settings, TreeText, ValidationError};
+use treeknit_io::output::{self, OutputFile, OutputOptions};
+use treeknit_io::{run, schema};
 
 const FORMER_OPTIONS_HELP: &str = "\
 Former options are still accepted with their TreeKnit.jl meaning, and reproduce its
@@ -212,9 +213,9 @@ fn main() -> Result<()> {
     .collect::<Result<Vec<_>>>()?;
   let parsed = analysis::parse_trees(&texts);
   if let Ok(p) = &parsed {
-    report_overlap(&p.trees, &p.taxa);
+    run::report_overlap(&p.trees, &p.taxa);
   }
-  let (ParsedTrees { mut trees, taxa }, opts) = match (parsed, options(&cli, texts.len())) {
+  let (parsed, opts) = match (parsed, options(&cli, texts.len())) {
     (Ok(p), Ok(o)) => (p, o),
     (parsed, opts) => {
       let mut errors = parsed.err().unwrap_or_default();
@@ -222,91 +223,37 @@ fn main() -> Result<()> {
       fail(&errors, &cli.trees)?
     },
   };
-  log_options(&opts, trees.len());
+  log_options(&opts, parsed.trees.len());
   log::debug!("parameters: {opts:?}");
-  fs::write(
-    cli.outdir.join("parameters.json"),
-    serde_json::to_string_pretty(&params_json(&opts, cli.seed))?,
-  )?;
+  write_file(&cli.outdir, &output::parameters_file(&opts, cli.seed))?;
 
   let start = Instant::now();
-  let pairs = treeknit_core::run(&mut trees, &taxa, &opts, cli.seed);
+  let result = run::run(parsed, &opts, cli.seed, &|_| {});
   log::info!(
     "found {:?} MCCs (runtime {:.2}s)",
-    pairs.iter().map(|p| p.mccs.len()).collect::<Vec<_>>(),
+    result.pairs.iter().map(|p| p.mccs.len()).collect::<Vec<_>>(),
     start.elapsed().as_secs_f64()
   );
 
   log::info!("writing results in {}", cli.outdir.display());
-  let json = mccs::to_json(&pairs, &trees, &taxa);
-  fs::write(
-    cli.outdir.join("MCCs.json"),
-    format!("{}\n", serde_json::to_string_pretty(&json)?),
-  )?;
-  // Legacy text format of TreeKnit.jl < 0.5 (one MCC per line): `MCCs.dat` for two trees,
-  // `MCCs_<a>_<b>.dat` per pair otherwise.
-  for p in &pairs {
-    let name = if trees.len() == 2 {
-      "MCCs.dat".to_owned()
-    } else {
-      format!("MCCs_{}.dat", analysis::pair_stem(&trees[p.i].label, &trees[p.j].label))
-    };
-    let names: Vec<Vec<String>> = p.mccs.iter().map(|m| taxa.names_of(m)).collect();
-    fs::write(cli.outdir.join(name), mccs::to_lines(&names))?;
-  }
-  for (t, path) in trees.iter().zip(&cli.trees) {
-    fs::write(
-      cli.outdir.join(out_name(path, "_resolved")),
-      format!("{}\n", newick::write(t)),
-    )?;
-  }
-  if cli.impute {
-    let imputed = treeknit_core::imputed_trees(&trees, &pairs, taxa.len());
-    for (t, path) in imputed.iter().zip(&cli.trees) {
-      fs::write(
-        cli.outdir.join(out_name(path, "_imputed")),
-        format!("{}\n", newick::write(t)),
-      )?;
-    }
-  }
-  if cli.auspice_view {
-    for (i, t) in trees.iter().enumerate() {
-      let v = auspice::auspice_json(i, &trees, &pairs, &taxa);
-      fs::write(
-        cli.outdir.join(format!("auspice_{}.json", t.label)),
-        serde_json::to_string_pretty(&v)?,
-      )?;
-    }
-  }
-  if trees.len() == 2 && !pairs[0].mccs.is_empty() {
-    write_arg(&cli, &trees, &pairs[0], &taxa)?;
+  let output_options = OutputOptions {
+    extensions: cli.trees.iter().map(|p| extension(p)).collect(),
+    imputed: cli.impute,
+    auspice: cli.auspice_view,
+  };
+  for file in output::output_files(&result, &output_options) {
+    write_file(&cli.outdir, &file)?;
   }
   Ok(())
 }
 
-/// ARG of the two trees, the liberally resolved trees it was built from, and the node table.
-fn write_arg(cli: &Cli, trees: &[Tree], pair: &treeknit_core::PairResult, taxa: &Taxa) -> Result<()> {
-  log::debug!("building ARG from trees and MCCs");
-  let (t1, t2, m) = treeknit_core::arg_inputs(trees, pair, taxa.len());
-  let arg = match treeknit_core::arg::arg_from_trees(&t1, &t2, &m, taxa.len()) {
-    Ok(a) => a,
-    Err(e) => {
-      log::error!("{e}; no ARG written");
-      return Ok(());
-    },
-  };
-  log::info!("found {} reassortments in the ARG", arg.n_hybrids());
-  let dir = cli.outdir.join("ARG");
-  fs::create_dir_all(&dir)?;
-  fs::write(dir.join("arg.nwk"), format!("{}\n", arg::extended_newick(&arg)))?;
-  fs::write(dir.join("nodes.dat"), format!("{}\n", arg::node_table(&arg)))?;
-  for (t, path) in arg.trees.iter().zip(&cli.trees) {
-    fs::write(
-      dir.join(out_name(path, "_liberal_resolved")),
-      format!("{}\n", newick::write(t)),
-    )?;
+/// Write `file` at its path below `dir`, creating its parent directories.
+fn write_file(dir: &Path, file: &OutputFile) -> Result<()> {
+  let path = dir.join(&file.path);
+  if let Some(parent) = path.parent() {
+    fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
   }
-  Ok(())
+  fs::write(&path, &file.text).with_context(|| format!("writing {}", path.display()))
 }
 
 /// Stop with every validation error, one per line. An error of a tree starts with the path of
@@ -519,27 +466,6 @@ fn former_options(cli: &Cli, k: usize) -> Options {
   o
 }
 
-fn params_json(o: &Options, seed: u64) -> serde_json::Value {
-  serde_json::json!({
-      "gamma": o.gamma,
-      "itmax": o.itmax,
-      "likelihood_sort": o.likelihood_sort,
-      "resolution": format!("{:?}", o.resolution).to_lowercase(),
-      "seq_lengths": o.seq_lengths,
-      "pre_resolve": o.pre_resolve,
-      "rounds": o.rounds,
-      "final_unresolved_round": o.final_unresolved_round,
-      "nMCMC": o.n_mcmc,
-      "sa_rep": o.sa_rep,
-      "Tmin": o.t_min,
-      "Tmax": o.t_max,
-      "nT": o.n_t,
-      "cooling_schedule": format!("{:?}", o.cooling).to_lowercase(),
-      "naive": o.naive,
-      "seed": seed,
-  })
-}
-
 /// Tree labels from file names; if names collide, append the parent directory name.
 fn tree_labels(paths: &[PathBuf]) -> Result<Vec<String>> {
   let stem = |p: &Path| {
@@ -568,27 +494,13 @@ fn tree_labels(paths: &[PathBuf]) -> Result<Vec<String>> {
   Ok(labels)
 }
 
-fn out_name(path: &Path, suffix: &str) -> String {
-  let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-  let ext = path
+/// File extension of `path` with its dot, or empty without one: the output trees of an input
+/// file keep its extension.
+fn extension(path: &Path) -> String {
+  path
     .extension()
     .map(|e| format!(".{}", e.to_string_lossy()))
-    .unwrap_or_default();
-  format!("{stem}{suffix}{ext}")
-}
-
-fn report_overlap(trees: &[Tree], taxa: &Taxa) {
-  let n = taxa.len();
-  for t in trees {
-    let missing = n - t.n_leaves();
-    if missing > 0 {
-      log::info!(
-        "tree {}: {} of {n} leaves missing (placed by imputation)",
-        t.label,
-        missing
-      );
-    }
-  }
+    .unwrap_or_default()
 }
 
 fn setup_logging(cli: &Cli) -> Result<()> {
