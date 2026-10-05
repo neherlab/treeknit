@@ -108,7 +108,8 @@ function SessionFiles({ sessionId }: SessionFilesProps) {
             <InfoButton topic="the command line">
               <p>
                 Extract {RESULTS_ARCHIVE_NAME} and run this command in the directory that holds the extracted
-                treeknit_results directory. The command line then writes the same files.
+                treeknit_results directory. The command line then writes the same files into treeknit_results_cli, next
+                to treeknit_results, so you can compare the two directories.
               </p>
             </InfoButton>
           </div>
