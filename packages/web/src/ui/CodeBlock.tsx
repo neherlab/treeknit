@@ -25,12 +25,7 @@ export function CodeBlock({ code, label, errorRange, lineNumbers, className }: C
   const copy = useCallback(() => void feedback.copy(code), [feedback, code]);
   const captionId = useId();
 
-  useEffect(
-    () => () => {
-      feedback.dispose();
-    },
-    [feedback],
-  );
+  useEffect(() => feedback.attach(), [feedback]);
 
   return (
     <figure className={cn("rounded-control border-rule bg-pane flex min-w-0 flex-col border", className)}>

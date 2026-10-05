@@ -16,6 +16,13 @@ describe("copyFeedback", () => {
     return Promise.resolve();
   }
 
+  function attached(write: (text: string) => Promise<void>) {
+    const feedback = copyFeedback(write, recordState);
+    const detach = feedback.attach();
+
+    return { feedback, detach };
+  }
+
   function writeFails() {
     return Promise.reject(new Error("Clipboard access denied"));
   }
@@ -31,14 +38,14 @@ describe("copyFeedback", () => {
   });
 
   test("writes the text to the clipboard and shows copied", async () => {
-    await copyFeedback(writeSucceeds, recordState).copy("((A,B),C);");
+    await attached(writeSucceeds).feedback.copy("((A,B),C);");
 
     expect(written).toStrictEqual(["((A,B),C);"]);
     expect(states).toStrictEqual(["copied"]);
   });
 
   test("returns to idle two seconds after a copy, not before", async () => {
-    await copyFeedback(writeSucceeds, recordState).copy("(A,B);");
+    await attached(writeSucceeds).feedback.copy("(A,B);");
 
     vi.advanceTimersByTime(COPY_FEEDBACK_MS - 1);
     expect(states).toStrictEqual(["copied"]);
@@ -48,7 +55,7 @@ describe("copyFeedback", () => {
   });
 
   test("shows failed when the clipboard rejects the write, then returns to idle", async () => {
-    await copyFeedback(writeFails, recordState).copy("(A,B);");
+    await attached(writeFails).feedback.copy("(A,B);");
 
     expect(states).toStrictEqual(["failed"]);
 
@@ -57,7 +64,7 @@ describe("copyFeedback", () => {
   });
 
   test("restarts the two seconds on a second copy", async () => {
-    const feedback = copyFeedback(writeSucceeds, recordState);
+    const { feedback } = attached(writeSucceeds);
 
     await feedback.copy("(A,B);");
     vi.advanceTimersByTime(COPY_FEEDBACK_MS - 500);
@@ -70,22 +77,22 @@ describe("copyFeedback", () => {
     expect(states).toStrictEqual(["copied", "copied", "idle"]);
   });
 
-  test("cancels the pending return to idle on dispose", async () => {
-    const feedback = copyFeedback(writeSucceeds, recordState);
+  test("cancels the pending return to idle on detach", async () => {
+    const { feedback, detach } = attached(writeSucceeds);
 
     await feedback.copy("(A,B);");
-    feedback.dispose();
+    detach();
     vi.advanceTimersByTime(COPY_FEEDBACK_MS);
 
     expect(states).toStrictEqual(["copied"]);
   });
 
-  test("ignores a write that ends after dispose and starts no timer", async () => {
+  test("ignores a write that ends after detach and starts no timer", async () => {
     const pending = Promise.withResolvers<undefined>();
-    const feedback = copyFeedback(() => pending.promise, recordState);
+    const { feedback, detach } = attached(() => pending.promise);
 
     const copied = feedback.copy("(A,B);");
-    feedback.dispose();
+    detach();
     pending.resolve(undefined);
     await copied;
 
@@ -97,7 +104,7 @@ describe("copyFeedback", () => {
     const earlier = Promise.withResolvers<undefined>();
     const later = Promise.withResolvers<undefined>();
     const writes = [earlier.promise, later.promise];
-    const feedback = copyFeedback(() => writes.shift() ?? Promise.resolve(), recordState);
+    const { feedback } = attached(() => writes.shift() ?? Promise.resolve());
 
     const first = feedback.copy("(A,B);");
     const second = feedback.copy("(A,C);");
@@ -113,7 +120,7 @@ describe("copyFeedback", () => {
     const earlier = Promise.withResolvers<undefined>();
     const later = Promise.withResolvers<undefined>();
     const writes = [earlier.promise, later.promise];
-    const feedback = copyFeedback(() => writes.shift() ?? Promise.resolve(), recordState);
+    const { feedback } = attached(() => writes.shift() ?? Promise.resolve());
 
     const first = feedback.copy("(A,B);");
     const second = feedback.copy("(A,C);");
@@ -126,5 +133,22 @@ describe("copyFeedback", () => {
     await second;
 
     expect(states).toStrictEqual(["copied"]);
+  });
+
+  test("shows feedback again after a detach and a new attach", async () => {
+    const { feedback, detach } = attached(writeSucceeds);
+
+    detach();
+    feedback.attach();
+    await feedback.copy("(A,B);");
+
+    expect(states).toStrictEqual(["copied"]);
+  });
+
+  test("shows no feedback before the first attach", async () => {
+    await copyFeedback(writeSucceeds, recordState).copy("(A,B);");
+
+    expect(written).toStrictEqual(["(A,B);"]);
+    expect(states).toStrictEqual([]);
   });
 });

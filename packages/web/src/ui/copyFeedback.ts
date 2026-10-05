@@ -4,7 +4,7 @@ export const COPY_FEEDBACK_MS = 2000;
 
 export interface CopyFeedback {
   copy(text: string): Promise<void>;
-  dispose(): void;
+  attach(): () => void;
 }
 
 export function copyFeedback(
@@ -13,7 +13,7 @@ export function copyFeedback(
 ): CopyFeedback {
   let reset: ReturnType<typeof setTimeout> | undefined;
   let latestRequest = 0;
-  let disposed = false;
+  let attached = false;
 
   function cancelReset() {
     clearTimeout(reset);
@@ -21,7 +21,7 @@ export function copyFeedback(
   }
 
   function show(request: number, state: CopyState) {
-    if (disposed || request !== latestRequest) {
+    if (!attached || request !== latestRequest) {
       return;
     }
 
@@ -48,9 +48,14 @@ export function copyFeedback(
 
       show(request, "copied");
     },
-    dispose() {
-      disposed = true;
-      cancelReset();
+    attach() {
+      attached = true;
+
+      return () => {
+        attached = false;
+        latestRequest += 1;
+        cancelReset();
+      };
     },
   };
 }
