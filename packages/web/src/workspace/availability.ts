@@ -1,5 +1,5 @@
 import type { ArgView, PairView } from "@neherlab/treeknit-wasm";
-import { type QueryClient, useQueryClient } from "@tanstack/react-query";
+import { notifyManager, type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 
@@ -100,13 +100,14 @@ function nodeInLoadedView(pair: number, node: NodeRef, views: LoadedViews): bool
   return view === undefined || view[node.side].nodes.some(({ name }) => name === node.name);
 }
 
+export function subscribeToQueryCache(queryClient: QueryClient, onChange: () => void): () => void {
+  return queryClient.getQueryCache().subscribe(notifyManager.batchCalls(onChange));
+}
+
 function useCachedData<T>(read: (queryClient: QueryClient) => T | undefined): T | undefined {
   const queryClient = useQueryClient();
 
-  const subscribe = useCallback(
-    (onChange: () => void) => queryClient.getQueryCache().subscribe(onChange),
-    [queryClient],
-  );
+  const subscribe = useCallback((onChange: () => void) => subscribeToQueryCache(queryClient, onChange), [queryClient]);
 
   return useSyncExternalStore(subscribe, () => read(queryClient));
 }

@@ -1,7 +1,8 @@
 import type { ArgView, PairView, Summary } from "@neherlab/treeknit-wasm";
-import { describe, expect, test } from "vitest";
+import { defaultScheduler, notifyManager, QueryClient } from "@tanstack/react-query";
+import { afterEach, describe, expect, test } from "vitest";
 
-import { type LoadedViews, workspaceAvailability } from "../availability";
+import { type LoadedViews, subscribeToQueryCache, workspaceAvailability } from "../availability";
 import { resolveWorkspaceSearch, type WorkspaceSearch } from "../search";
 import type { RunResult } from "../store";
 
@@ -131,6 +132,38 @@ describe("workspace availability", () => {
       cleared: { view: "tanglegram", pair: 0, version: "resolved", x: "div", labels: "auto" },
       noResult: { view: "overview", pair: 0, version: "resolved", x: "div", labels: "auto" },
     });
+  });
+});
+
+describe("query cache subscription", () => {
+  afterEach(() => {
+    notifyManager.setScheduler(defaultScheduler);
+  });
+
+  test("defers the change notice of a query that a render creates", () => {
+    const scheduled: (() => void)[] = [];
+
+    notifyManager.setScheduler((callback) => {
+      scheduled.push(callback);
+    });
+
+    const queryClient = new QueryClient();
+    const notices: string[] = [];
+
+    const unsubscribe = subscribeToQueryCache(queryClient, () => {
+      notices.push("changed");
+    });
+
+    queryClient.getQueryCache().build(queryClient, { queryKey: ["inspectTree", "(A,B);"] });
+    const duringRender = [...notices];
+
+    for (const callback of scheduled) {
+      callback();
+    }
+
+    unsubscribe();
+
+    expect({ duringRender, afterRender: notices }).toStrictEqual({ duringRender: [], afterRender: ["changed"] });
   });
 });
 
