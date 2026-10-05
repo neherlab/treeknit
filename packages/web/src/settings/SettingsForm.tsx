@@ -11,13 +11,13 @@ import { InlineNotice } from "../ui/InlineNotice";
 import { Radio, RadioGroup } from "../ui/RadioGroup";
 import { Switch } from "../ui/Switch";
 import { useWorkspace } from "../workspace/context";
-import { fieldMessage } from "../workspace/fieldErrors";
+import { fieldMessage, settingField } from "../workspace/fieldErrors";
 import { useFieldErrors } from "../workspace/useFieldErrors";
-import type { SettingsDraft } from "./draft";
+import type { SettingsDraft, ToggleSettingKey } from "./draft";
 import { DraftNumberField } from "./DraftNumberField";
 import { drawSeed } from "./seed";
 import { SettingInfo } from "./SettingInfo";
-import { type ToggleSettingKey, useSettingsActions } from "./useSettingsActions";
+import { useSettingsActions } from "./useSettingsActions";
 
 export const SEQ_LENGTHS_FAILED = "The sequence lengths could not be turned on. Try again.";
 
@@ -91,7 +91,7 @@ export function SettingsForm() {
         name="gamma"
         label="γ"
         setting={fields.gamma}
-        error={fieldMessage(errors, "settings.gamma")}
+        error={fieldMessage(errors, settingField("gamma"))}
         onCommit={commitGamma}
       />
       <RadioGroup label="Resolution" info={modesInfo} value={settings.resolve ?? null} onChange={selectMode}>
@@ -106,7 +106,7 @@ export function SettingsForm() {
           name="seed"
           label="Seed"
           setting={fields.seed}
-          error={fieldMessage(errors, "settings.seed")}
+          error={fieldMessage(errors, settingField("seed"))}
           onCommit={commitSeed}
           className="flex-1"
         />
@@ -125,7 +125,7 @@ export function SettingsForm() {
           name="rounds"
           label="Rounds"
           setting={fields.rounds}
-          error={fieldMessage(errors, "settings.rounds")}
+          error={fieldMessage(errors, settingField("rounds"))}
           onCommit={commitRounds}
         />
         <SettingSwitch name="finalRound" label="Final round" setting={fields.finalRound} />
@@ -146,7 +146,7 @@ export function SettingsForm() {
           name="nMcmcIt"
           label="MCMC steps per leaf"
           setting={fields.nMcmcIt}
-          error={fieldMessage(errors, "settings.nMcmcIt")}
+          error={fieldMessage(errors, settingField("nMcmcIt"))}
           onCommit={commitSteps}
         />
         <SettingSwitch name="naive" label="Naive mode" setting={fields.naive} />

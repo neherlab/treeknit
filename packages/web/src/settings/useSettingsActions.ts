@@ -2,9 +2,7 @@ import type { ResolveMode, Settings } from "@neherlab/treeknit-wasm";
 import { useMemo } from "react";
 
 import { useWorkspaceStore } from "../workspace/context";
-import { type NumberSettingKey, withNumberSetting, withSeqLength } from "./draft";
-
-export type ToggleSettingKey = "preResolve" | "finalRound" | "likelihood" | "naive";
+import { type NumberSettingKey, type ToggleSettingKey, withNumberSetting, withSeqLength } from "./draft";
 
 export interface SettingsActions {
   setNumber(key: NumberSettingKey, value: number): void;

@@ -1,6 +1,6 @@
 import type { NumberSetting } from "@neherlab/treeknit-wasm";
 import { useCallback, useMemo } from "react";
-import { useController, useFormContext } from "react-hook-form";
+import { type FieldPathByValue, useController, useFormContext } from "react-hook-form";
 
 import { NumberField } from "../ui/NumberField";
 import { errorProps } from "../workspace/fieldErrors";
@@ -11,7 +11,7 @@ const INTEGER_FORMAT: Intl.NumberFormatOptions = { maximumFractionDigits: 0, use
 
 const DECIMAL_FORMAT: Intl.NumberFormatOptions = { maximumFractionDigits: 12, useGrouping: false };
 
-export type DraftFieldName = "gamma" | "nMcmcIt" | "rounds" | "seed" | `seqLengths.${string}`;
+export type DraftFieldName = FieldPathByValue<SettingsDraft, number>;
 
 export function DraftNumberField({ name, label, setting, error, onCommit, className }: DraftNumberFieldProps) {
   const { control } = useFormContext<SettingsDraft>();

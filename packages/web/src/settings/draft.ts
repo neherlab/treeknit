@@ -1,16 +1,18 @@
-import type { Settings } from "@neherlab/treeknit-wasm";
+import type { NumberSetting, SettingFields, Settings, ToggleSetting } from "@neherlab/treeknit-wasm";
 
-export const NUMBER_SETTINGS = ["gamma", "nMcmcIt", "rounds", "seed"] as const;
+import { everyVariantOf } from "../workspace/search";
 
-export type NumberSettingKey = (typeof NUMBER_SETTINGS)[number];
+type SettingKeysOf<Kind> = {
+  [Key in keyof SettingFields]: SettingFields[Key] extends Kind ? Key : never;
+}[keyof SettingFields];
 
-export interface SettingsDraft {
-  gamma: number;
-  nMcmcIt: number;
-  rounds: number;
-  seed: number;
-  seqLengths: Record<string, number>;
-}
+export type NumberSettingKey = Exclude<SettingKeysOf<NumberSetting>, "seqLengths">;
+
+export type ToggleSettingKey = SettingKeysOf<ToggleSetting>;
+
+export const NUMBER_SETTINGS = everyVariantOf<NumberSettingKey>()(["gamma", "nMcmcIt", "rounds", "seed"]);
+
+export type SettingsDraft = Record<NumberSettingKey, number> & { seqLengths: Record<string, number> };
 
 export const ENTER_A_NUMBER = "Enter a number";
 
@@ -58,7 +60,7 @@ function keepDraft(current: number | undefined, value: number): number {
 }
 
 export function hasDraft(draft: SettingsDraft): boolean {
-  return [draft.gamma, draft.nMcmcIt, draft.rounds, draft.seed, ...Object.values(draft.seqLengths)].some((value) =>
+  return [...NUMBER_SETTINGS.map((key) => draft[key]), ...Object.values(draft.seqLengths)].some((value) =>
     Number.isNaN(value),
   );
 }

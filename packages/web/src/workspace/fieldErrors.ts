@@ -1,6 +1,6 @@
-import type { ValidationError } from "@neherlab/treeknit-wasm";
+import type { SettingFields, TreeText, ValidationError } from "@neherlab/treeknit-wasm";
 
-export const SETTING_FIELDS = ["settings.gamma", "settings.nMcmcIt", "settings.rounds", "settings.seed"] as const;
+import { NUMBER_SETTINGS } from "../settings/draft";
 
 export const TREE_LIST_FIELD = "trees";
 
@@ -9,19 +9,23 @@ export interface FieldErrors {
   general: readonly ValidationError[];
 }
 
-export function treeField(index: number, part: "label" | "newick"): string {
+export function settingField(key: keyof SettingFields): string {
+  return `settings.${key}`;
+}
+
+export function treeField(index: number, part: keyof TreeText): string {
   return `trees[${String(index)}].${part}`;
 }
 
 export function seqLengthField(index: number): string {
-  return `settings.seqLengths[${String(index)}]`;
+  return `${settingField("seqLengths")}[${String(index)}]`;
 }
 
 export function shownFields(treeCount: number, seqLengthsOn: boolean): ReadonlySet<string> {
   const indices = Array.from({ length: treeCount }, (_, index) => index);
 
   return new Set([
-    ...SETTING_FIELDS,
+    ...NUMBER_SETTINGS.map((key) => settingField(key)),
     TREE_LIST_FIELD,
     ...indices.flatMap((index) => [treeField(index, "label"), treeField(index, "newick")]),
     ...(seqLengthsOn ? indices.map((index) => seqLengthField(index)) : []),

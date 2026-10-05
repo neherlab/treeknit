@@ -165,7 +165,7 @@ export function selectPair(search: WorkspaceSearch, pair: number): WorkspaceSear
   return { ...omit(search, ["mcc", "node"]), pair };
 }
 
-function everyVariantOf<T extends string>() {
+export function everyVariantOf<T extends string>() {
   return <const V extends readonly [T, ...T[]]>(
     values: V & ([Exclude<T, V[number]>] extends [never] ? unknown : never),
   ) => values;
