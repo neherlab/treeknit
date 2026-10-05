@@ -239,6 +239,29 @@ describe("analysis client", () => {
     client.dispose();
   });
 
+  test("replaces a utility worker that stops while idle, so the next call does not fail", async () => {
+    const host = new FakeHost({
+      utility: [
+        fakeApi({ version: () => ({ version: "0.5.0", repository: "first" }) }),
+        fakeApi({ version: () => ({ version: "0.5.0", repository: "second" }) }),
+      ],
+      job: [],
+    });
+
+    const client = new WorkerAnalysisClient(host);
+    const first = await client.version();
+
+    host.raiseError("treeknit-utility#0");
+    const second = await client.version();
+
+    expect({ first: first.repository, second: second.repository, terminated: host.terminatedNames() }).toStrictEqual({
+      first: "first",
+      second: "second",
+      terminated: ["treeknit-utility#0"],
+    });
+    client.dispose();
+  });
+
   test("keeps the utility worker after an ordinary error", async () => {
     const host = new FakeHost({
       utility: [

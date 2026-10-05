@@ -87,7 +87,7 @@ export class WorkerAnalysisClient implements AnalysisClient {
 
   constructor(host: WorkerHost) {
     this.#host = host;
-    this.#utility = this.#connect("treeknit-utility");
+    this.#utility = this.#connectUtility();
   }
 
   async defaultSettings(): StatelessResult<"defaultSettings"> {
@@ -270,9 +270,8 @@ export class WorkerAnalysisClient implements AnalysisClient {
     try {
       return await connection.call(operation);
     } catch (error) {
-      if (isWorkerFailure(error) && connection === this.#utility) {
-        connection.close(asError(error));
-        this.#utility = this.#connect("treeknit-utility");
+      if (isWorkerFailure(error)) {
+        this.#replaceUtility(connection, asError(error));
       }
 
       throw error;
@@ -294,6 +293,23 @@ export class WorkerAnalysisClient implements AnalysisClient {
       }
 
       throw error;
+    }
+  }
+
+  #connectUtility(): Connection {
+    const connection = this.#connect("treeknit-utility");
+
+    connection.onCrash(() => {
+      this.#replaceUtility(connection, new WorkerCrashError());
+    });
+
+    return connection;
+  }
+
+  #replaceUtility(connection: Connection, reason: Error): void {
+    if (connection === this.#utility) {
+      connection.close(reason);
+      this.#utility = this.#connectUtility();
     }
   }
 
