@@ -20,18 +20,18 @@ Counterpart: [`v0/mcc-inference.md`](v0/mcc-inference.md). `fn infer_pair` takes
 ## Iteration in `runopt`
 
 - [x] **Resolution of the copies**: `resolve_trees` on both copies when the round resolves
-- [x] **Steps per temperature**: $M = \lceil n \cdot n_{MCMC} / n_{temp} \rceil$ with the number of remaining leaves [[src](../../packages/treeknit-core/src/pair.rs#L54)]
+- [x] **Steps per temperature**: $M = \lceil n \cdot n_{MCMC} / n_{temp} \rceil$ with the number of remaining leaves, at most 2^32 - 1 on every target [[src](../../packages/treeknit-core/src/pair.rs#L86-L92)]
 - [x] **Stop rules**: nothing removed, removed MCCs cover all leaves, one naive MCC left, or the iteration counter above `itmax`, so at most `itmax + 1` annealing runs [[src](../../packages/treeknit-core/src/pair.rs#L64-L81)]
-- [x] **Pruning**: `prune_mccs` removes each removed MCC and splices out unary nodes, adding branch lengths [[src](../../packages/treeknit-core/src/pair.rs#L178-L186)]
-- [ ] **Tree check after each iteration**: TreeKnit.jl asserts `check_tree`. `Tree::check` exists [[src](../../packages/treeknit-core/src/tree.rs#L446-L453)], but `infer_pair` does not call it
+- [x] **Pruning**: `prune_mccs` removes each removed MCC and splices out unary nodes, adding branch lengths [[src](../../packages/treeknit-core/src/pair.rs#L186-L194)]
+- [ ] **Tree check after each iteration**: TreeKnit.jl asserts `check_tree`. `Tree::check` exists [[src](../../packages/treeknit-core/src/tree.rs#L454-L461)], but `infer_pair` does not call it
 - [ ] **`output = :all`**: TreeKnit.jl can also return the two pruned trees. `infer_pair` returns only the MCCs
 
 ## One annealing pass
 
-`fn remove_mccs` takes the role of `opttrees` [[src](../../packages/treeknit-core/src/pair.rs#L92-L120)]:
+`fn remove_mccs` takes the role of `opttrees` [[src](../../packages/treeknit-core/src/pair.rs#L100-L128)]:
 
 - [x] **Single naive MCC**: returned without annealing
-- [x] **Coarse-graining**: `reduce_to_mccs` replaces each naive MCC by one leaf whose taxon number is the MCC index [[src](../../packages/treeknit-core/src/pair.rs#L157-L176)]. The port does not read numbers back from labels, so a label such as `A/MCC/x` works. In TreeKnit.jl it stops the run with a parse error
+- [x] **Coarse-graining**: `reduce_to_mccs` replaces each naive MCC by one leaf whose taxon number is the MCC index [[src](../../packages/treeknit-core/src/pair.rs#L165-L184)]. The port does not read numbers back from labels, so a label such as `A/MCC/x` works. In TreeKnit.jl it stops the run with a parse error
 - [x] **Split graph**: `Graph::new` keeps, for each tree, the clades, parents, and children of the internal nodes and the parent of each leaf [[src](../../packages/treeknit-core/src/splitgraph.rs#L152-L201)]. A tree that is one leaf gets an artificial root
 - [x] **Result**: the naive MCCs that the chosen configuration removes
 
@@ -56,11 +56,11 @@ Counterpart: [`v0/mcc-inference.md`](v0/mcc-inference.md). `fn infer_pair` takes
 
 ## Choice among configurations with the same score
 
-`fn choose_conf` [[src](../../packages/treeknit-core/src/pair.rs#L122-L155)]:
+`fn choose_conf` [[src](../../packages/treeknit-core/src/pair.rs#L130-L163)]:
 
 - [x] **Order of the rules**: drop the configuration that removes nothing; take the only one left; without the likelihood, take one at random; otherwise keep the highest likelihood, then the lowest energy, then take one at random
 - [x] **Missing branch lengths**: they contribute 0, so no configuration has a missing likelihood and no warning is needed. TreeKnit.jl prefers the configurations with a `missing` likelihood. The port avoids this on purpose ([README](../../README.md#deliberate-differences-from-treeknitjl))
-- [x] **Undefined likelihood**: zero sequence lengths would give `NaN` for every configuration, and the choice would panic. The shared validation accepts only finite positive sequence lengths, on the command line and in the web app [[src](../../packages/treeknit-io/src/analysis.rs#L246-L297)]
+- [x] **Undefined likelihood**: zero sequence lengths would give `NaN` for every configuration, and the choice would panic. The shared validation accepts only finite positive sequence lengths, on the command line and in the web app [[src](../../packages/treeknit-io/src/analysis.rs#L266-L317)]
 
 ## Branch-length likelihood
 
