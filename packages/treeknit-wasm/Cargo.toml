@@ -19,7 +19,7 @@ js-sys.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 treeknit-core.workspace = true
-treeknit-io.workspace = true
+treeknit-io = { workspace = true, features = ["tsify"] }
 tsify.workspace = true
 wasm-bindgen.workspace = true
 

@@ -812,10 +812,15 @@ name = "treeknit-io"
 version = "1.0.0"
 dependencies = [
  "log",
+ "pretty_assertions",
  "rand",
  "rand_xoshiro",
+ "rstest",
+ "serde",
  "serde_json",
  "treeknit-core",
+ "tsify",
+ "wasm-bindgen",
 ]
 
 [[package]]

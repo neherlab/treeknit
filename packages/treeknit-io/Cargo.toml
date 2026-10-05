@@ -10,14 +10,24 @@ publish.workspace = true
 keywords.workspace = true
 license.workspace = true
 
+[features]
+# TypeScript declarations of the boundary types for the WebAssembly bindings; the tsify derive
+# emits wasm-bindgen custom sections.
+tsify = ["dep:tsify", "dep:wasm-bindgen"]
+
 [dependencies]
 log.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 treeknit-core.workspace = true
+tsify = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
+pretty_assertions.workspace = true
 rand.workspace = true
 rand_xoshiro.workspace = true
+rstest.workspace = true
 
 # The default test run collects the tests of this example.
 [[example]]
