@@ -10,6 +10,7 @@ describe("analysis query keys", () => {
       analysisKeys.files(3),
       analysisKeys.commandLine(3),
       analysisKeys.pairView(3, 1, "resolved", "div"),
+      analysisKeys.auspiceView(3, 1, "resolved", "div"),
       analysisKeys.argView(3, "depth"),
       analysisKeys.constellation(3),
     ];
@@ -60,6 +61,18 @@ describe("view placeholders", () => {
       sharesScope(analysisKeys.argView(1, "div"), scope),
       sharesScope(undefined, scope),
     ]).toStrictEqual([true, true, false, false, false, false]);
+  });
+
+  test("keep the previous Auspice view only within the same session and pair, apart from the pair view", () => {
+    const scope = analysisKeys.auspiceViewScope(1, 0);
+
+    expect([
+      sharesScope(analysisKeys.auspiceView(1, 0, "input", "div"), scope),
+      sharesScope(analysisKeys.auspiceView(1, 0, "resolved", "depth"), scope),
+      sharesScope(analysisKeys.auspiceView(1, 1, "resolved", "depth"), scope),
+      sharesScope(analysisKeys.auspiceView(2, 0, "resolved", "depth"), scope),
+      sharesScope(analysisKeys.pairView(1, 0, "resolved", "div"), scope),
+    ]).toStrictEqual([true, true, false, false, false]);
   });
 
   test("keep the previous ARG view only within the same session", () => {

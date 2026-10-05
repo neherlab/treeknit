@@ -41,6 +41,10 @@ function pairViewScope(sessionId: number, pair: SessionArgs<"pairView">[0]) {
   return ["session", sessionId, "pairView", pair] as const;
 }
 
+function auspiceViewScope(sessionId: number, pair: SessionArgs<"auspiceView">[0]) {
+  return ["session", sessionId, "auspiceView", pair] as const;
+}
+
 function argViewScope(sessionId: number) {
   return ["session", sessionId, "argView"] as const;
 }
@@ -61,6 +65,9 @@ export const analysisKeys = {
   pairViewScope,
   pairView: (sessionId: number, ...[pair, ...rest]: SessionArgs<"pairView">) =>
     [...pairViewScope(sessionId, pair), ...rest] as const,
+  auspiceViewScope,
+  auspiceView: (sessionId: number, ...[pair, ...rest]: SessionArgs<"auspiceView">) =>
+    [...auspiceViewScope(sessionId, pair), ...rest] as const,
   argViewScope,
   argView: (sessionId: number, ...args: SessionArgs<"argView">) => [...argViewScope(sessionId), ...args] as const,
   constellation: (sessionId: number) => ["session", sessionId, "constellation"] as const,
@@ -192,6 +199,26 @@ export function usePairView(
       sharesScope(
         previousQuery?.queryKey,
         sessionKey(sessionId, (id) => analysisKeys.pairViewScope(id, args[0])),
+      )
+        ? previous
+        : undefined,
+  });
+}
+
+export function useAuspiceView(
+  sessionId: number | null,
+  ...args: SessionArgs<"auspiceView">
+): Answer<SessionResult<"auspiceView">> {
+  const client = useAnalysisClient();
+  const queryKey = sessionKey(sessionId, (id) => analysisKeys.auspiceView(id, ...args));
+
+  return useQuery({
+    queryKey,
+    queryFn: sessionQuery(sessionId, async (id) => client.auspiceView(id, ...args)),
+    placeholderData: (previous, previousQuery) =>
+      sharesScope(
+        previousQuery?.queryKey,
+        sessionKey(sessionId, (id) => analysisKeys.auspiceViewScope(id, args[0])),
       )
         ? previous
         : undefined,
