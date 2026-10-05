@@ -36,9 +36,22 @@ export function usePrefersReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReducedMotion, reducedMotion, reducedMotionOnServer);
 }
 
+export interface Fade {
+  key: string;
+  opacity: number;
+}
+
+export function shownOpacity(fade: Fade, resultKey: string, reduced: boolean): number {
+  if (reduced) {
+    return 1;
+  }
+
+  return fade.key === resultKey ? fade.opacity : 0;
+}
+
 export function useFadeIn(resultKey: string): number {
   const reduced = usePrefersReducedMotion();
-  const [fade, setFade] = useState({ key: resultKey, opacity: reduced ? 1 : 0 });
+  const [fade, setFade] = useState<Fade>({ key: resultKey, opacity: reduced ? 1 : 0 });
 
   useEffect(() => {
     if (reduced) {
@@ -62,9 +75,5 @@ export function useFadeIn(resultKey: string): number {
     };
   }, [resultKey, reduced]);
 
-  if (reduced) {
-    return 1;
-  }
-
-  return fade.key === resultKey ? fade.opacity : 0;
+  return shownOpacity(fade, resultKey, reduced);
 }

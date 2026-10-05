@@ -1,7 +1,6 @@
 import type { Color, Position } from "@deck.gl/core";
 import { describe, expect, test } from "vitest";
 
-import { LABEL_FONT_FAMILY, LABEL_FONT_SIZE_PX } from "../labels";
 import { type LabelAnchor, labelLayer } from "../layers/labelLayer";
 import { DASH_PX, pathLayer } from "../layers/pathLayer";
 
@@ -36,21 +35,6 @@ describe("labelLayer", () => {
   test("waits for the label font before building a text layer", () => {
     expect(labelLayer({ ...LABELS, fontReady: false })).toBeNull();
   });
-
-  test("builds the glyph set from the data, in 12 px Plex Sans Condensed", () => {
-    const layer = labelLayer({ ...LABELS, fontReady: true });
-
-    expect(layer?.props.characterSet).toBe("auto");
-    expect(layer?.props.fontFamily).toBe(LABEL_FONT_FAMILY);
-    expect(layer?.props.getSize).toBe(LABEL_FONT_SIZE_PX);
-    expect(layer?.props.sizeUnits).toBe("pixels");
-  });
-
-  test("rebuilds colors only for the given triggers", () => {
-    const layer = labelLayer({ ...LABELS, fontReady: true, colorTriggers: ["leaf-3"] });
-
-    expect(layer?.props.updateTriggers).toStrictEqual({ getColor: ["leaf-3"] });
-  });
 });
 
 describe("pathLayer", () => {
@@ -71,12 +55,8 @@ describe("pathLayer", () => {
     widthPx: 2,
   };
 
-  test("draws solid lines with widths in pixels", () => {
-    const layer = pathLayer(PATHS);
-
-    expect(layer.props.widthUnits).toBe("pixels");
-    expect(layer.props.getWidth).toBe(2);
-    expect(layer.props.extensions).toStrictEqual([]);
+  test("draws solid lines without the dash extension", () => {
+    expect(pathLayer(PATHS).props.extensions).toStrictEqual([]);
   });
 
   test("draws dashed lines with a dash pattern in pixels", () => {

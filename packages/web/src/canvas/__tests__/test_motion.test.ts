@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { FADE_IN_MS, fadeInOpacity } from "../motion";
+import { FADE_IN_MS, fadeInOpacity, shownOpacity } from "../motion";
 
 describe("fadeInOpacity", () => {
   test("starts transparent and ends opaque after the fade duration", () => {
@@ -19,5 +19,21 @@ describe("fadeInOpacity", () => {
   test("treats a time before the start as transparent and a zero duration as opaque", () => {
     expect(fadeInOpacity(-50)).toBe(0);
     expect(fadeInOpacity(10, 0)).toBe(1);
+  });
+});
+
+describe("shownOpacity", () => {
+  const FADING = { key: "result-1", opacity: 0.4 };
+
+  test("shows the fade of the result it belongs to", () => {
+    expect(shownOpacity(FADING, "result-1", false)).toBe(0.4);
+  });
+
+  test("starts a new result transparent before its first animation frame", () => {
+    expect(shownOpacity(FADING, "result-2", false)).toBe(0);
+  });
+
+  test("shows every result opaque under reduced motion", () => {
+    expect(shownOpacity(FADING, "result-2", true)).toBe(1);
   });
 });
