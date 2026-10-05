@@ -3,6 +3,11 @@ import { entries, groupBy, map, pipe, sortBy } from "remeda";
 
 import { treeLabel } from "./request";
 
+const REAL_TREE_FILES = import.meta.glob<string>("../../../../data/*/*.nwk", {
+  query: "?raw",
+  import: "default",
+});
+
 const SIMULATED_TREE_FILES = import.meta.glob<string>("../../../../fixtures/sim/*/*.nwk", {
   query: "?raw",
   import: "default",
@@ -15,20 +20,25 @@ export const EXAMPLE_GROUPS: readonly ExampleGroup[] = [
     examples: [{ id: "small", name: "5 leaves", load: () => Promise.resolve(smallTrees()) }],
   },
   {
+    id: "real",
+    name: "Real data (influenza A/H3N2)",
+    examples: directoryExamples("real", REAL_TREE_FILES),
+  },
+  {
     id: "simulated",
     name: "Simulated (ARGTools)",
-    examples: simulatedExamples(SIMULATED_TREE_FILES),
+    examples: directoryExamples("simulated", SIMULATED_TREE_FILES),
   },
 ];
 
-export function simulatedExamples(files: TreeFileReaders): Example[] {
+export function directoryExamples(group: string, files: TreeFileReaders): Example[] {
   return pipe(
     entries(files),
     groupBy(([path]) => pathParts(path).directory),
     entries(),
     sortBy(([directory]) => directory),
     map(([directory, treeFiles]) => ({
-      id: `simulated/${directory}`,
+      id: `${group}/${directory}`,
       name: directory,
       load: async () => readTreeFiles(treeFiles),
     })),

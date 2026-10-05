@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { simulatedExamples, type TreeFileReaders } from "../example";
+import { directoryExamples, type TreeFileReaders } from "../example";
 
-describe("simulatedExamples", () => {
+describe("directoryExamples", () => {
   test("makes one example per case directory, sorted by directory name", () => {
     const files: TreeFileReaders = {
       "../fixtures/sim/sim_k2_n50_r0.1/tree1.nwk": readsAs("(A,B);"),
@@ -11,9 +11,20 @@ describe("simulatedExamples", () => {
       "../fixtures/sim/sim_k2_n50_r0.1/tree2.nwk": readsAs("(A,B);"),
     };
 
-    expect(simulatedExamples(files).map(({ id, name }) => ({ id, name }))).toStrictEqual([
+    expect(directoryExamples("simulated", files).map(({ id, name }) => ({ id, name }))).toStrictEqual([
       { id: "simulated/sim_k2_n100_r0.01", name: "sim_k2_n100_r0.01" },
       { id: "simulated/sim_k2_n50_r0.1", name: "sim_k2_n50_r0.1" },
+    ]);
+  });
+
+  test("prefixes each example id with its group", () => {
+    const files: TreeFileReaders = {
+      "../data/h3n2-2017/ha.nwk": readsAs("(A,B);"),
+      "../data/h3n2-2017/na.nwk": readsAs("(A,B);"),
+    };
+
+    expect(directoryExamples("real", files).map(({ id, name }) => ({ id, name }))).toStrictEqual([
+      { id: "real/h3n2-2017", name: "h3n2-2017" },
     ]);
   });
 
@@ -25,7 +36,7 @@ describe("simulatedExamples", () => {
       "../fixtures/sim/case_a/tree2.nwk": readsAs("(A,(B,C));"),
     };
 
-    const [caseA] = simulatedExamples(files);
+    const [caseA] = directoryExamples("simulated", files);
 
     await expect(caseA?.load()).resolves.toStrictEqual([
       { label: "tree1", newick: "((A,B),C);" },
@@ -43,7 +54,7 @@ describe("simulatedExamples", () => {
       return Promise.resolve("(A,B);");
     };
 
-    const [first] = simulatedExamples({
+    const [first] = directoryExamples("simulated", {
       "../fixtures/sim/case_a/tree1.nwk": recordsRead("case_a/tree1"),
       "../fixtures/sim/case_a/tree2.nwk": recordsRead("case_a/tree2"),
       "../fixtures/sim/case_b/tree1.nwk": recordsRead("case_b/tree1"),
@@ -57,7 +68,7 @@ describe("simulatedExamples", () => {
   });
 
   test("makes no examples without files", () => {
-    expect(simulatedExamples({})).toStrictEqual([]);
+    expect(directoryExamples("simulated", {})).toStrictEqual([]);
   });
 });
 
