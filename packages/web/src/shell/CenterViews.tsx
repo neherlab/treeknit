@@ -4,12 +4,12 @@ import PanelLeftIcon from "~icons/lucide/panel-left";
 import PanelRightIcon from "~icons/lucide/panel-right";
 
 import { ArgPanel } from "../arg/ArgPanel";
-import { ConstellationPanel } from "../tables/ConstellationPanel";
+import { Overview } from "../overview/Overview";
 import { DiagnosticsTabLabel } from "../results/DiagnosticsTabLabel";
 import { DiagnosticsView } from "../results/DiagnosticsView";
 import { FilesView } from "../results/FilesView";
+import { ConstellationPanel } from "../tables/ConstellationPanel";
 import { MccTablePanel } from "../tables/MccTablePanel";
-import { Overview } from "../overview/Overview";
 import { TanglegramPanel } from "../tanglegram/TanglegramPanel";
 import { Button } from "../ui/Button";
 import { Tab, TabList, TabPanel, Tabs } from "../ui/Tabs";
@@ -17,7 +17,6 @@ import { useWorkspaceAvailability } from "../workspace/availability";
 import { WORKSPACE_VIEWS, type WorkspaceView } from "../workspace/search";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 import { INSPECTOR_TITLE, RAIL_TITLE } from "./layout";
-import { ViewPlaceholder } from "./ViewPlaceholder";
 import { viewTabs } from "./viewTabs";
 
 const VIEW_PANELS: Record<WorkspaceView, ComponentType> = {
