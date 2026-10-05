@@ -187,7 +187,7 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
 
       return {
         trees: restoredTrees,
-        settings: start.restored === null ? defaults : mergeSettings(defaults, start.restored.request.settings),
+        settings: start.restored?.request.settings ?? defaults,
         run: { status: "idle" },
         result: null,
         undo: null,
@@ -339,7 +339,7 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
             const trees = sessionTrees(request, [], state.nextTreeNumber);
 
             state.nextTreeNumber += trees.length;
-            replaceWorkspace(state, "session", trees, mergeSettings(defaults, request.settings));
+            replaceWorkspace(state, "session", trees, request.settings ?? defaults);
           });
         },
 
@@ -471,10 +471,6 @@ function sessionTrees(request: AnalysisRequest, sources: readonly TreeSource[], 
     newick,
     source: sources[index] ?? SESSION_SOURCE,
   }));
-}
-
-function mergeSettings(defaults: Settings, settings: Settings | undefined): Settings {
-  return { ...defaults, ...settings };
 }
 
 function replaceWorkspace(

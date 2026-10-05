@@ -361,7 +361,7 @@ describe("workspace store", () => {
         { label: "x", newick: HA },
         { label: "y", newick: NA },
       ],
-      settings: { gamma: 5 },
+      settings: { ...DEFAULTS, gamma: 5 },
     };
 
     store.getState().loadRequest(request);
@@ -371,16 +371,14 @@ describe("workspace store", () => {
 
     expect({
       loaded: loaded.trees.map(({ label, source }) => ({ label, source })),
-      gamma: loaded.settings.gamma,
-      resolve: loaded.settings.resolve,
+      settings: loaded.settings,
       restored: store.getState().trees.map(({ label }) => label),
     }).toStrictEqual({
       loaded: [
         { label: "x", source: { kind: "session" } },
         { label: "y", source: { kind: "session" } },
       ],
-      gamma: 5,
-      resolve: "strict",
+      settings: { ...DEFAULTS, gamma: 5 },
       restored: ["ha"],
     });
   });
@@ -406,6 +404,15 @@ describe("workspace store", () => {
       clearReason: "clear",
       loadReason: "session",
     });
+  });
+
+  test("a request without settings loads with the default settings", async () => {
+    const store = await storeWith(["ha.nwk"]);
+
+    store.getState().setSettings({ ...DEFAULTS, gamma: 3 });
+    store.getState().loadRequest({ trees: [{ label: "x", newick: HA }] });
+
+    expect(store.getState().settings).toStrictEqual(DEFAULTS);
   });
 
   test("a result is stale exactly when the current request differs from the one that ran", async () => {
