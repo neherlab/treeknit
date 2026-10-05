@@ -174,3 +174,9 @@
     transform: none;
   }
 }
+
+@keyframes countdown {
+  to {
+    stroke-dashoffset: 43.98;
+  }
+}

@@ -2,7 +2,9 @@ import type { ModeInfo, ToggleSetting } from "@neherlab/treeknit-wasm";
 import { useCallback, useMemo, useState } from "react";
 import { getErrorMessage } from "react-error-boundary";
 import { useFormContext } from "react-hook-form";
+import { isDeepEqual } from "remeda";
 import DicesIcon from "~icons/lucide/dices";
+import ResetIcon from "~icons/lucide/rotate-ccw";
 
 import { useSettingsSchema } from "../analysis/queries";
 import { Disclosure } from "../ui/Disclosure";
@@ -10,7 +12,7 @@ import { IconButton } from "../ui/IconButton";
 import { InlineNotice } from "../ui/InlineNotice";
 import { Radio, RadioGroup } from "../ui/RadioGroup";
 import { Switch } from "../ui/Switch";
-import { useWorkspace } from "../workspace/context";
+import { useWorkspace, useWorkspaceStore } from "../workspace/context";
 import { fieldMessage, settingField } from "../workspace/fieldErrors";
 import { useFieldErrors } from "../workspace/useFieldErrors";
 import type { SettingsDraft, ToggleSettingKey } from "./draft";
@@ -24,6 +26,8 @@ const SEQ_LENGTHS_FAILED = "The sequence lengths could not be turned on. Try aga
 export function SettingsForm() {
   const settings = useWorkspace((state) => state.settings);
   const treeCount = useWorkspace((state) => state.trees.length);
+  const atDefaults = useWorkspace((state) => isDeepEqual(state.settings, state.defaults));
+  const store = useWorkspaceStore();
   const { data: schema } = useSettingsSchema(treeCount, settings);
   const errors = useFieldErrors();
   const actions = useSettingsActions();
@@ -69,6 +73,10 @@ export function SettingsForm() {
     [actions],
   );
 
+  const resetSettings = useCallback(() => {
+    store.getState().resetSettings();
+  }, [store]);
+
   const dismissSeqLengthsFailure = useCallback(() => {
     setSeqLengthsFailure(null);
   }, []);
@@ -88,9 +96,18 @@ export function SettingsForm() {
 
   return (
     <section aria-labelledby="rail-settings" className="flex flex-col gap-4">
-      <h2 id="rail-settings" className="text-ink text-sm font-semibold">
-        Settings
-      </h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="rail-settings" className="text-ink text-sm font-semibold">
+          Settings
+        </h2>
+        <IconButton
+          label="Reset settings to defaults"
+          icon={ResetIcon}
+          size="sm"
+          isDisabled={atDefaults}
+          onPress={resetSettings}
+        />
+      </div>
       <DraftNumberField
         name="gamma"
         label="γ"

@@ -9,6 +9,8 @@ import { Dialog } from "../ui/Dialog";
 import { IconButton } from "../ui/IconButton";
 import { PanelBoundary } from "../ui/PanelBoundary";
 import { Tabs } from "../ui/Tabs";
+import { ActionToastRegion } from "../ui/Toast";
+import { useUndoToast } from "../workspace/useUndoToast";
 import { useViewTabs, ViewPanels, ViewTabList } from "./CenterViews";
 import { Header } from "./Header";
 import { Inspector } from "./Inspector";
@@ -43,6 +45,7 @@ export function Workspace() {
   const railPane = layout.rail === "pane";
   const inspectorPane = layout.inspector === "pane";
   const { tabs, disabledKeys, selectedKey, selectView } = useViewTabs();
+  const undoQueue = useUndoToast();
   const root = useRef<HTMLDivElement>(null);
 
   useRunShortcut(root);
@@ -148,6 +151,7 @@ export function Workspace() {
       >
         {INSPECTOR}
       </Dialog>
+      <ActionToastRegion queue={undoQueue} />
     </div>
   );
 }

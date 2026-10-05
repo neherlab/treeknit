@@ -124,6 +124,7 @@ function emptyWorkspace(): WorkspaceData {
     settings: SETTINGS,
     run: { status: "idle" },
     result: null,
+    defaults: SETTINGS,
     undo: null,
     restored: false,
     nextTreeNumber: 1,

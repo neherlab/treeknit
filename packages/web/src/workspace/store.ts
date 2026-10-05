@@ -42,7 +42,8 @@ export type UndoEntry =
       trees: WorkspaceTree[];
       settings: Settings;
       result: RunResult | null;
-    };
+    }
+  | { kind: "settings"; settings: Settings };
 
 export type WorkspaceReplacement = "clear" | "session";
 
@@ -51,6 +52,7 @@ export interface WorkspaceData {
   settings: Settings;
   run: RunState;
   result: RunResult | null;
+  defaults: Settings;
   undo: UndoEntry | null;
   restored: boolean;
   nextTreeNumber: number;
@@ -65,6 +67,8 @@ export interface WorkspaceActions {
   reorderTrees(order: readonly string[]): void;
   removeTree(id: string): void;
   restoreUndo(): void;
+  dismissUndo(entry: UndoEntry): void;
+  resetSettings(): void;
   setSettings(settings: Settings): void;
   setSeqLengthsEnabled(enabled: boolean): Promise<void>;
   clear(): void;
@@ -228,6 +232,7 @@ export function createWorkspaceStore(
         settings: start.restored?.request.settings ?? defaults,
         run: { status: "idle" },
         result: null,
+        defaults,
         undo: null,
         restored: start.restored !== null,
         nextTreeNumber: restoredTrees.length + 1,
@@ -343,7 +348,33 @@ export function createWorkspaceStore(
                 state.resetRevision += 1;
               });
             })
+            .with({ kind: "settings" }, ({ settings }) => {
+              set((state) => {
+                state.settings = settings;
+                state.undo = null;
+                state.resetRevision += 1;
+              });
+            })
             .exhaustive();
+        },
+
+        dismissUndo(entry) {
+          set((state) => {
+            if (get().undo === entry) {
+              state.undo = null;
+            }
+          });
+        },
+
+        resetSettings() {
+          set((state) => {
+            const { settings } = get();
+
+            state.undo = { kind: "settings", settings };
+            state.settings = defaults;
+            state.restored = false;
+            state.resetRevision += 1;
+          });
         },
 
         setSettings(settings) {

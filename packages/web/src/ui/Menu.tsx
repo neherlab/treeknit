@@ -13,7 +13,6 @@ import {
   type MenuTriggerProps as AriaMenuTriggerProps,
   Popover,
   type PopoverProps,
-  Separator,
 } from "react-aria-components";
 import CheckIcon from "~icons/lucide/check";
 
@@ -81,8 +80,4 @@ export function MenuSection<T extends object>({ title, className, children, ...p
 export interface MenuSectionProps<T extends object> extends Omit<AriaMenuSectionProps<T>, "children" | "items"> {
   title?: string;
   children: ReactNode;
-}
-
-export function MenuSeparator() {
-  return <Separator className="bg-rule mx-1 my-1 h-px" />;
 }

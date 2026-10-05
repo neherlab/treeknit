@@ -1,15 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { Key } from "react-aria-components";
 import ErrorIcon from "~icons/lucide/circle-alert";
-import UndoIcon from "~icons/lucide/undo-2";
 
 import { useInspectTrees, useOverlap, useSettingsSchema } from "../analysis/queries";
 import { visibleGeneralErrors } from "../run/runControl";
-import { Button } from "../ui/Button";
 import { FilePicker, type FilePickerHandle } from "../ui/FilePicker";
 import { GridList } from "../ui/GridList";
 import { InfoButton } from "../ui/InfoButton";
-import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
+import { InlineNotice } from "../ui/InlineNotice";
 import { reorder, type ReorderMove } from "../ui/reorder";
 import { errorStyle } from "../ui/styles";
 import { useWorkspace, useWorkspaceStore } from "../workspace/context";
@@ -26,7 +24,6 @@ import { useTreeInput } from "./useTreeInput";
 export function TreeList() {
   const trees = useWorkspace((state) => state.trees);
   const settings = useWorkspace((state) => state.settings);
-  const undo = useWorkspace((state) => state.undo);
   const store = useWorkspaceStore();
   const inspections = useInspectTrees(trees);
   const { data: overlap } = useOverlap(trees);
@@ -82,20 +79,9 @@ export function TreeList() {
     }
   }, []);
 
-  const restore = useCallback(() => store.getState().restoreUndo(), [store]);
-
   const rowDependencies = useMemo(
     () => [errors, inspections, missing, schema, seqLengthsOn],
     [errors, inspections, missing, schema, seqLengthsOn],
-  );
-
-  const undoAction = useMemo(
-    () => (
-      <Button variant="quiet" size="sm" icon={UndoIcon} onPress={restore}>
-        Undo
-      </Button>
-    ),
-    [restore],
   );
 
   const listError = joinedMessage(visibleGeneralErrors(trees.length, errors.byField.get(TREE_LIST_FIELD) ?? []));
@@ -143,13 +129,6 @@ export function TreeList() {
           <span>{listError}</span>
         </p>
       )}
-      <NoticeRegion>
-        {undo?.kind === "tree" ? (
-          <InlineNotice tone="info" action={undoAction}>
-            Removed {undo.tree.label}.
-          </InlineNotice>
-        ) : null}
-      </NoticeRegion>
       {error === null ? null : (
         <InlineNotice tone="danger" onDismiss={dismissError}>
           {error}

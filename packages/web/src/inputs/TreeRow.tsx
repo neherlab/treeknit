@@ -7,14 +7,14 @@ import ReadyIcon from "~icons/lucide/circle-check";
 import CodeIcon from "~icons/lucide/code";
 import MoreIcon from "~icons/lucide/ellipsis";
 import ReplaceIcon from "~icons/lucide/file-up";
-import RemoveIcon from "~icons/lucide/trash-2";
 import WarningIcon from "~icons/lucide/triangle-alert";
+import RemoveIcon from "~icons/lucide/x";
 
 import { DraftNumberField } from "../settings/DraftNumberField";
 import { useSettingsActions } from "../settings/useSettingsActions";
 import { GridListItem } from "../ui/GridList";
 import { IconButton } from "../ui/IconButton";
-import { Menu, MenuItem, MenuSeparator } from "../ui/Menu";
+import { Menu, MenuItem } from "../ui/Menu";
 import { errorStyle } from "../ui/styles";
 import { TextField } from "../ui/TextField";
 import { useWorkspaceStore } from "../workspace/context";
@@ -61,12 +61,14 @@ export function TreeRow({
         onReplace(tree.id);
       } else if (key === "newick") {
         onViewNewick(tree.id);
-      } else if (key === "remove") {
-        store.getState().removeTree(tree.id);
       }
     },
-    [onReplace, onViewNewick, store, tree.id],
+    [onReplace, onViewNewick, tree.id],
   );
+
+  const remove = useCallback(() => {
+    store.getState().removeTree(tree.id);
+  }, [store, tree.id]);
 
   return (
     <GridListItem id={tree.id} textValue={tree.label}>
@@ -93,11 +95,8 @@ export function TreeRow({
             <MenuItem id="newick" icon={CodeIcon}>
               View Newick
             </MenuItem>
-            <MenuSeparator />
-            <MenuItem id="remove" icon={RemoveIcon} tone="danger">
-              Remove
-            </MenuItem>
           </Menu>
+          <IconButton label="Remove tree" icon={RemoveIcon} onPress={remove} />
         </div>
         {facts.length === 0 ? null : (
           <p className="text-ink-muted flex flex-wrap gap-x-3 px-0.5 text-xs">
