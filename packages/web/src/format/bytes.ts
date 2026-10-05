@@ -2,6 +2,10 @@ const KILO = 1000;
 
 const MEGA = KILO * KILO;
 
+const ONE_DECIMAL_ROUNDING = 20;
+
+const SMALLEST_ROUNDED_MEGABYTE = MEGA - KILO / ONE_DECIMAL_ROUNDING;
+
 const LOCALE = "en";
 
 const BYTES = new Intl.NumberFormat(LOCALE, { style: "unit", unit: "byte", unitDisplay: "long" });
@@ -21,13 +25,15 @@ const MEGABYTES = new Intl.NumberFormat(LOCALE, {
 });
 
 export function formatBytes(size: number): string {
-  if (size < KILO) {
-    return BYTES.format(size);
+  const bytes = Number.isFinite(size) && size > 0 ? Math.round(size) : 0;
+
+  if (bytes < KILO) {
+    return BYTES.format(bytes);
   }
 
-  if (size < MEGA) {
-    return KILOBYTES.format(size / KILO);
+  if (bytes < SMALLEST_ROUNDED_MEGABYTE) {
+    return KILOBYTES.format(bytes / KILO);
   }
 
-  return MEGABYTES.format(size / MEGA);
+  return MEGABYTES.format(bytes / MEGA);
 }

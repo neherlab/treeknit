@@ -11,7 +11,7 @@ describe("formatElapsed", () => {
     expect(formatElapsed(3_725_000)).toBe("62:05");
   });
 
-  test("writes a negative span as zero", () => {
-    expect(formatElapsed(-5000)).toBe("0:00");
+  test("writes a negative or non-finite span as zero", () => {
+    expect([-5000, Number.NaN, Number.POSITIVE_INFINITY].map(formatElapsed)).toStrictEqual(["0:00", "0:00", "0:00"]);
   });
 });

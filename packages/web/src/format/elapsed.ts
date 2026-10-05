@@ -1,5 +1,7 @@
 import { Duration } from "luxon";
 
 export function formatElapsed(milliseconds: number): string {
-  return Duration.fromMillis(Math.max(0, milliseconds)).toFormat("m:ss");
+  const span = Number.isFinite(milliseconds) && milliseconds > 0 ? milliseconds : 0;
+
+  return Duration.fromMillis(span).toFormat("m:ss");
 }
