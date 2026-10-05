@@ -597,6 +597,8 @@ pub struct AuspiceMeta {
   /// Keys of the colorings that Auspice offers as filters.
   pub filters: Vec<String>,
   pub display_defaults: AuspiceDisplayDefaults,
+  /// What the download panel of Auspice offers.
+  pub sharing: AuspiceSharing,
 }
 
 /// A panel of the Auspice view.
@@ -626,6 +628,15 @@ pub struct AuspiceColoring {
 #[serde(rename_all = "lowercase")]
 pub enum AuspiceColoringKind {
   Categorical,
+}
+
+/// What the download panel of Auspice offers besides the trees.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceSharing {
+  /// Offer the genetic diversity data (TSV); always `false`, because the datasets have no
+  /// sequences, so they have no entropy to download.
+  pub entropy: bool,
 }
 
 /// The settings that Auspice starts with.

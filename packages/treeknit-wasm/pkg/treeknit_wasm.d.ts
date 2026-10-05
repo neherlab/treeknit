@@ -938,6 +938,10 @@ export interface AuspiceMeta {
      */
     filters: string[];
     display_defaults: AuspiceDisplayDefaults;
+    /**
+     * What the download panel of Auspice offers.
+     */
+    sharing: AuspiceSharing;
 }
 
 /**
@@ -1329,6 +1333,17 @@ export type AuspiceSchema = "v2";
  * Version of the trees of a pair: input, resolved, or imputed.
  */
 export type TreeVersion = "input" | "resolved" | "imputed";
+
+/**
+ * What the download panel of Auspice offers besides the trees.
+ */
+export interface AuspiceSharing {
+    /**
+     * Offer the genetic diversity data (TSV); always `false`, because the datasets have no
+     * sequences, so they have no entropy to download.
+     */
+    entropy: boolean;
+}
 
 /**
  * When leaf labels are drawn.

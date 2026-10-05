@@ -4,7 +4,7 @@ use super::pair::pair_layout;
 use super::{
   AuspiceBranchAttrs, AuspiceBranchLabels, AuspiceColoring, AuspiceColoringKind, AuspiceDataset,
   AuspiceDisplayDefaults, AuspiceMeta, AuspiceNode, AuspiceNodeAttrs, AuspicePair, AuspicePanel, AuspiceSchema,
-  AuspiceValue, DrawTree, Scale, TreeVersion,
+  AuspiceSharing, AuspiceValue, DrawTree, Scale, TreeVersion,
 };
 use crate::palette::palette;
 use crate::run::RunResult;
@@ -21,7 +21,8 @@ const MCC_LABEL: &str = "MCC";
 /// slots. Each node with an MCC has the attribute `mcc` with the MCC's number (its index in
 /// `MCCs.json` plus 1), and each reassortment branch the label `MCC` with that number. Both
 /// datasets hold the whole MCC coloring, in the light theme's colors, because Auspice has no
-/// dark theme.
+/// dark theme. They turn off the genetic diversity download of Auspice, because they have no
+/// sequences. The `auspice_<label>.json` files of the command line keep their own fields.
 pub fn auspice_view(run: &RunResult, pair: usize, version: TreeVersion, scale: Scale) -> Option<AuspicePair> {
   let (layout, slots) = pair_layout(run, pair, version)?;
   let scale = layout.shown_scale(scale);
@@ -45,6 +46,7 @@ pub fn auspice_view(run: &RunResult, pair: usize, version: TreeVersion, scale: S
       color_by: MCC_KEY.to_owned(),
       branch_label: MCC_LABEL.to_owned(),
     },
+    sharing: AuspiceSharing { entropy: false },
   };
   let dataset = |tree: &DrawTree| AuspiceDataset {
     version: AuspiceSchema::V2,
@@ -169,6 +171,7 @@ mod tests {
         color_by: "mcc".to_owned(),
         branch_label: "MCC".to_owned(),
       },
+      sharing: AuspiceSharing { entropy: false },
     }
   }
 
@@ -297,6 +300,7 @@ mod tests {
         "colorings": [{"key": "mcc", "title": "MCC", "type": "categorical", "scale": [["1", colors[0]], ["2", colors[1]]]}],
         "filters": ["mcc"],
         "display_defaults": {"color_by": "mcc", "branch_label": "MCC"},
+        "sharing": {"entropy": false},
       }),
       value["meta"]
     );
