@@ -11,12 +11,18 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit"
   },
   "dependencies": {
+    "@deck.gl/core": "catalog:",
+    "@deck.gl/extensions": "catalog:",
+    "@deck.gl/layers": "catalog:",
+    "@deck.gl/react": "catalog:",
     "@fontsource/ibm-plex-mono": "catalog:",
     "@fontsource/ibm-plex-sans": "catalog:",
     "@fontsource/ibm-plex-sans-condensed": "catalog:",
     "@neherlab/treeknit-wasm": "workspace:*",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
+    "@tanstack/react-table": "catalog:",
+    "@tanstack/react-virtual": "catalog:",
     "class-variance-authority": "catalog:",
     "cn": "catalog:",
     "comlink": "catalog:",
