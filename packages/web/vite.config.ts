@@ -5,7 +5,9 @@ import { defineConfig } from "vite";
 
 import { contentSecurityPolicyMeta } from "./build/content-security-policy.ts";
 
-const port = Number(process.env["TREEKNIT_WEB_PORT"] ?? "6180");
+const webPort = Number(process.env["TREEKNIT_WEB_PORT"] ?? "6180");
+
+const servePort = Number(process.env["TREEKNIT_SERVE_PORT"] ?? "7180");
 
 const ICON_SIZE = "1.25em";
 
@@ -27,6 +29,6 @@ export default defineConfig(({ mode }) => ({
   clearScreen: false,
   build: { target: "es2024", minify: mode === "production", sourcemap: mode !== "production" },
   worker: { format: "es" },
-  server: { port, strictPort: true },
-  preview: { port, strictPort: true },
+  server: { port: webPort, strictPort: true },
+  preview: { port: servePort, strictPort: true },
 }));

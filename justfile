@@ -370,12 +370,12 @@ generated-check:
     wasm-bindgen --target=web --out-dir="${out}" {{ quote(CARGO_TARGET_DIR / "wasm32-unknown-unknown" / "debug" / "treeknit_wasm.wasm") }}
     diff -u {{ wasm_types }} "${out}/treeknit_wasm.d.ts" || { printf '%s is stale; run `just gen` and commit it\n' {{ quote(wasm_types) }} >&2; exit 1; }
 
-# Run the web app in the foreground until Ctrl-C, on the port of this checkout: just run-web <dev|prod>; dev: Vite dev server with hot reload (`just build-wasm release` after a Rust change); prod: the shipped build, served
+# Run the web app in the foreground until Ctrl-C, on the port of this checkout and mode: just run-web <dev|prod>; dev: Vite dev server with hot reload (`just build-wasm release` after a Rust change); prod: the shipped build, served
 [arg("mode", pattern="dev|prod")]
 [group("app")]
 run-web mode: _js (build-wasm (if mode == "dev" { "release" } else { "prod" }))
     if [[ {{ quote(mode) }} == prod ]]; then bun run --silent build:web --mode production; fi
-    TREEKNIT_WEB_PORT="$(dev/web-port)" bun run --silent {{ if mode == "dev" { "dev:web" } else { "preview:web" } }}
+    TREEKNIT_WEB_PORT="$(dev/web-port dev)" TREEKNIT_SERVE_PORT="$(dev/web-port prod)" bun run --silent {{ if mode == "dev" { "dev:web" } else { "preview:web" } }}
 
 # Run all benchmarks (bench profile: the shipped dist settings)
 [group("bench")]

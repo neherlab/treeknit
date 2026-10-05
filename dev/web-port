@@ -1,22 +1,30 @@
 #!/usr/bin/env bash
 #
-# Usage: $0
+# Usage: $0 <dev|prod>
 #
-# Print the port of the web app dev and preview servers of this checkout:
-# TREEKNIT_WEB_PORT when set, 6180 in the main checkout, and a port in 6181-6679
-# derived from the checkout path in a linked worktree, so the servers of
-# parallel worktrees do not collide.
+# Print the port of the web app server of this checkout for a mode:
+#
+#   dev    Vite dev server: TREEKNIT_WEB_PORT when set, else 6180 + offset
+#   prod   Server of the shipped build: TREEKNIT_SERVE_PORT when set, else 7180 + offset
+#
+# The offset (0-511) is derived from the checkout path, so the servers of
+# parallel worktrees do not collide, and the two modes of one checkout run side
+# by side.
 #
 set -euo pipefail
 shopt -s inherit_errexit
 
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+dev_base_port=6180
+prod_base_port=7180
 
-if [[ -n "${TREEKNIT_WEB_PORT:-}" ]]; then
-  printf '%s\n' "${TREEKNIT_WEB_PORT}"
-elif [[ "$(git -C "${root}" rev-parse --path-format=absolute --git-common-dir)" == "$(git -C "${root}" rev-parse --path-format=absolute --git-dir)" ]]; then
-  printf '6180\n'
-else
-  hash="$(printf '%s' "${root}" | cksum | cut -d ' ' -f 1)"
-  printf '%s\n' "$((6181 + hash % 499))"
-fi
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+offset="$(($(printf '%s' "${root}" | cksum | cut -d ' ' -f 1) % 512))"
+
+case "${1:-}" in
+dev) printf '%s\n' "${TREEKNIT_WEB_PORT:-$((dev_base_port + offset))}" ;;
+prod) printf '%s\n' "${TREEKNIT_SERVE_PORT:-$((prod_base_port + offset))}" ;;
+*)
+  printf 'Usage: %s <dev|prod>\n' "$0" >&2
+  exit 1
+  ;;
+esac
