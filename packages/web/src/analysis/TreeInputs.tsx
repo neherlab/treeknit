@@ -1,30 +1,39 @@
 import type { TreeText } from "@neherlab/treeknit-wasm";
-import { useCallback, useState } from "react";
-import { FileTrigger } from "react-aria-components";
+import { useMutation } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { FileTrigger, Header, Menu, MenuItem, MenuSection, MenuTrigger, Popover } from "react-aria-components";
 import { useFieldArray } from "react-hook-form";
+import ChevronIcon from "~icons/lucide/chevron-down";
 
 import { Button } from "../ui/Button";
-import { exampleTrees } from "./example";
+import { optionClassName, popoverClassName } from "../ui/fieldStyles";
+import { EXAMPLE_GROUPS, type Example } from "./example";
 import { type AnalysisForm, readTrees } from "./request";
 
 const NEWICK_FILE_TYPES = [".nwk", ".newick", ".tre", ".tree", ".txt"];
 
 export function TreeInputs() {
   const { fields, replace } = useFieldArray<AnalysisForm, "trees">({ name: "trees" });
-  const [readError, setReadError] = useState<string>();
+  const { mutate, error } = useMutation<TreeText[], Error, TreeSource>({ mutationFn: async (read) => read() });
+
+  const load = useCallback(
+    (read: TreeSource) => {
+      mutate(read, {
+        onSuccess: (trees) => {
+          replace(trees);
+        },
+      });
+    },
+    [mutate, replace],
+  );
 
   const selectFiles = useCallback(
     (list: FileList | null) => {
-      setReadError(undefined);
-      void readInto(Array.from(list ?? []), replace, setReadError);
+      const files = Array.from(list ?? []);
+      load(async () => readTrees(files));
     },
-    [replace],
+    [load],
   );
-
-  const loadExample = useCallback(() => {
-    setReadError(undefined);
-    replace(exampleTrees());
-  }, [replace]);
 
   return (
     <fieldset className="flex flex-col gap-3">
@@ -34,13 +43,11 @@ export function TreeInputs() {
         <FileTrigger allowsMultiple acceptedFileTypes={NEWICK_FILE_TYPES} onSelect={selectFiles}>
           <Button>Choose files</Button>
         </FileTrigger>
-        <Button variant="quiet" onPress={loadExample}>
-          Load example
-        </Button>
+        <ExampleMenu onSelect={load} />
       </div>
-      {readError === undefined ? null : (
+      {error === null ? null : (
         <p role="alert" className="text-danger text-sm">
-          {readError}
+          {error.message}
         </p>
       )}
       {fields.length === 0 ? null : (
@@ -54,14 +61,48 @@ export function TreeInputs() {
   );
 }
 
-async function readInto(
-  files: readonly File[],
-  replace: (trees: TreeText[]) => void,
-  setError: (message: string) => void,
-): Promise<void> {
-  try {
-    replace(await readTrees(files));
-  } catch (error) {
-    setError(error instanceof Error ? error.message : String(error));
-  }
+type TreeSource = () => Promise<TreeText[]>;
+
+function ExampleMenu({ onSelect }: ExampleMenuProps) {
+  return (
+    <MenuTrigger>
+      <Button variant="quiet">
+        Load example
+        <ChevronIcon aria-hidden />
+      </Button>
+      <Popover className={popoverClassName}>
+        <Menu className="max-h-[inherit] overflow-auto outline-none">
+          {EXAMPLE_GROUPS.map((group) => (
+            <MenuSection key={group.id} id={group.id}>
+              <Header className="text-ink-muted px-3 pt-2 pb-1 text-xs font-semibold">{group.name}</Header>
+              {group.examples.map((example) => (
+                <ExampleItem key={example.id} example={example} onSelect={onSelect} />
+              ))}
+            </MenuSection>
+          ))}
+        </Menu>
+      </Popover>
+    </MenuTrigger>
+  );
+}
+
+interface ExampleMenuProps {
+  onSelect: (read: TreeSource) => void;
+}
+
+function ExampleItem({ example, onSelect }: ExampleItemProps) {
+  const select = useCallback(() => {
+    onSelect(example.load);
+  }, [example, onSelect]);
+
+  return (
+    <MenuItem id={example.id} onAction={select} className={optionClassName}>
+      {example.name}
+    </MenuItem>
+  );
+}
+
+interface ExampleItemProps {
+  example: Example;
+  onSelect: (read: TreeSource) => void;
 }

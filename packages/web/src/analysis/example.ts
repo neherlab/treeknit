@@ -1,8 +1,72 @@
 import type { TreeText } from "@neherlab/treeknit-wasm";
+import { entries, groupBy, map, pipe, sortBy } from "remeda";
 
-export function exampleTrees(): TreeText[] {
+import { treeLabel } from "./request";
+
+const SIMULATED_TREE_FILES = import.meta.glob<string>("../../../../fixtures/sim/*/*.nwk", {
+  query: "?raw",
+  import: "default",
+});
+
+export const EXAMPLE_GROUPS: readonly ExampleGroup[] = [
+  {
+    id: "small",
+    name: "Small",
+    examples: [{ id: "small", name: "5 leaves", load: () => Promise.resolve(smallTrees()) }],
+  },
+  {
+    id: "simulated",
+    name: "Simulated (ARGTools)",
+    examples: simulatedExamples(SIMULATED_TREE_FILES),
+  },
+];
+
+export function simulatedExamples(files: TreeFileReaders): Example[] {
+  return pipe(
+    entries(files),
+    groupBy(([path]) => pathParts(path).directory),
+    entries(),
+    sortBy(([directory]) => directory),
+    map(([directory, treeFiles]) => ({
+      id: `simulated/${directory}`,
+      name: directory,
+      load: async () => readTreeFiles(treeFiles),
+    })),
+  );
+}
+
+export interface ExampleGroup {
+  id: string;
+  name: string;
+  examples: readonly Example[];
+}
+
+export interface Example {
+  id: string;
+  name: string;
+  load: () => Promise<TreeText[]>;
+}
+
+export type TreeFileReaders = Record<string, () => Promise<string>>;
+
+function smallTrees(): TreeText[] {
   return [
     { label: "ha", newick: "((A,B),(C,(D,X)));" },
     { label: "na", newick: "((A,(B,X)),(C,D));" },
   ];
+}
+
+async function readTreeFiles(treeFiles: readonly (readonly [string, () => Promise<string>])[]): Promise<TreeText[]> {
+  return Promise.all(
+    sortBy(treeFiles, ([path]) => path).map(async ([path, read]) => ({
+      label: treeLabel(pathParts(path).file),
+      newick: await read(),
+    })),
+  );
+}
+
+function pathParts(path: string) {
+  const parts = path.split("/");
+
+  return { directory: parts.at(-2) ?? "", file: parts.at(-1) ?? path };
 }
