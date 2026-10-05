@@ -5,6 +5,12 @@
 //! fraction of the current pair (see `iterations_done`). The work after the last round (topology
 //! matching, sorting, attachment) reports no intermediate progress, so it gets the rest up to 1,
 //! which only the end of the run reports.
+//!
+//! [`PAIRS_SHARE`] is a display heuristic, not an estimate of time: the fraction is not
+//! proportional to elapsed or remaining time. The work after the last round can take most of a
+//! run (topology matching on large trees) or almost none of it, so the fraction can stay at its
+//! value for a long time and then jump to 1. Consumers show an indeterminate indicator during
+//! [`Phase::Matching`] instead of the fraction; the web app does so.
 
 /// Share of a run's fraction that pair inference and resolution cover: the fraction at the end
 /// of the last pair. It is below 1 so that a fraction of 1 always means that the run is done.
