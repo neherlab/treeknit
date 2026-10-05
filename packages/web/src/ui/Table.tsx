@@ -37,7 +37,7 @@ export function columnStyle(align: CellAlign): string {
 
 export function cellStyle(align: CellAlign): string {
   return cn(
-    "border-rule h-8 border-b px-2 align-middle group-last/row:border-b-0",
+    "border-rule h-8 border-b px-2 align-middle whitespace-nowrap group-last/row:border-b-0",
     align === "end" ? "text-right" : "text-left",
   );
 }
