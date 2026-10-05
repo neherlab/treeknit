@@ -451,25 +451,29 @@ mod tests {
   }
 
   #[test]
-  fn command_line_of_the_web_app_writes_the_web_file_set() {
+  fn command_line_of_the_web_app_agrees_with_the_web_file_set() {
     // The command that the web app shows, run on its session file, writes every file of the web
-    // file set with the same bytes, except `log.txt`, whose lines carry times.
+    // file set with the same bytes, except `log.txt`, whose lines carry times, into a directory
+    // of its own, and keeps the extracted files.
     let dir = TempDir::new("web-file-set");
     let results = dir.path().join(treeknit_io::output::RESULTS_DIR);
     std::fs::create_dir_all(&results).unwrap();
     let request = write_request(&results, &serde_json::json!({"seed": 3}));
     let command = treeknit_io::output::command_line();
     let args: Vec<&str> = command.split(' ').skip(1).collect();
-    let out = dir.path().join("out");
+    let out = dir.path().join("treeknit_results_cli");
     let status = Command::new(env!("CARGO_BIN_EXE_treeknit"))
       .args(&args)
-      .arg("-o")
-      .arg(&out)
       .args(["--verbosity-level", "-1"])
       .current_dir(dir.path())
       .status()
       .unwrap();
     assert!(status.success());
+    let extracted: Vec<_> = std::fs::read_dir(&results)
+      .unwrap()
+      .map(|e| e.unwrap().file_name())
+      .collect();
+    assert_eq!(vec![std::ffi::OsString::from("treeknit_request.json")], extracted);
     let parsed = treeknit_io::analysis::read_request(&std::fs::read_to_string(&request).unwrap()).unwrap();
     let opts = treeknit_io::analysis::options(&parsed.settings, 2, true).unwrap();
     let texts = treeknit_io::analysis::parse_trees(&parsed.trees).unwrap();

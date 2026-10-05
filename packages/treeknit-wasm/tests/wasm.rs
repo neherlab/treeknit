@@ -575,7 +575,8 @@ mod tests {
   fn session_command_line_runs_the_session_file() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     assert_eq!(
-      "treeknit --request treeknit_results/treeknit_request.json --impute --auspice-view --plot",
+      "treeknit --request treeknit_results/treeknit_request.json --outdir treeknit_results_cli --impute --auspice-view \
+       --plot",
       session.command_line()
     );
   }

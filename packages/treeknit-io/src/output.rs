@@ -578,12 +578,16 @@ pub fn request_file(request: &AnalysisRequest) -> OutputFile {
   OutputFile::new(REQUEST_FILE.to_owned(), format!("{json}\n"))
 }
 
+/// Results directory of `command_line`, next to the extracted `treeknit_results/`, so that the
+/// command keeps the files it reproduces and the two sets can be compared.
+pub const COMMAND_LINE_RESULTS_DIR: &str = "treeknit_results_cli";
+
 /// The command that writes the file set of the web app (`web_files`), run in the directory where
-/// its ZIP archive was extracted: the session file in `treeknit_results/`, with the flags of
-/// `OutputOptions::web`.
+/// its ZIP archive was extracted: the session file in `treeknit_results/`, the results directory
+/// `treeknit_results_cli/`, and the flags of `OutputOptions::web`.
 pub fn command_line() -> String {
   let flags = OutputOptions::web(0).flags().join(" ");
-  format!("treeknit --request {RESULTS_DIR}/{REQUEST_FILE} {flags}")
+  format!("treeknit --request {RESULTS_DIR}/{REQUEST_FILE} --outdir {COMMAND_LINE_RESULTS_DIR} {flags}")
 }
 
 /// Path of a tree file: `<dir><label><suffix><ext>`, such as `ARG/ha_liberal_resolved.nwk`.
@@ -1142,7 +1146,8 @@ mod tests {
   #[test]
   fn command_line_runs_the_session_file_of_the_extracted_archive() {
     assert_eq!(
-      "treeknit --request treeknit_results/treeknit_request.json --impute --auspice-view --plot",
+      "treeknit --request treeknit_results/treeknit_request.json --outdir treeknit_results_cli --impute --auspice-view \
+       --plot",
       command_line()
     );
   }
