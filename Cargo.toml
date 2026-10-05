@@ -1,11 +1,17 @@
 [workspace]
-resolver = "2"
+resolver = "3"
 members = ["packages/treeknit-core", "packages/treeknit-io", "packages/treeknit-cli"]
 
 [workspace.package]
+description = "Inference of reassortment from segment trees"
 version = "0.1.0"
-edition = "2021"
+repository = "https://github.com/neherlab/treeknit-rs"
+homepage = "https://github.com/neherlab/treeknit-rs"
+edition = "2024"
+rust-version = "1.98"
 license = "MIT"
+publish = false
+keywords = ["biology", "evolution", "phylogenetics", "reassortment", "virus"]
 
 [workspace.dependencies]
 treeknit-core = { path = "packages/treeknit-core" }

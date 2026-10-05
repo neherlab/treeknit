@@ -3,6 +3,11 @@ name = "treeknit-core"
 description = "TreeKnit algorithms: maximally compatible clades and reassortment graphs"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish.workspace = true
+keywords.workspace = true
 license.workspace = true
 
 [dependencies]
