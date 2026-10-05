@@ -108,9 +108,12 @@ function CodeLineRow({ line, lineNumber, revealKey }: CodeLineRowProps) {
           <mark
             key={revealKey}
             ref={revealKey === undefined ? undefined : revealMark}
-            className="bg-danger/25 text-ink decoration-danger rounded-[2px] underline decoration-2 underline-offset-2"
+            className={cn(
+              "bg-danger/25 text-ink decoration-danger rounded-[2px] underline decoration-2 underline-offset-2",
+              line.marked === "" && "inline-block h-lh w-2 align-top",
+            )}
           >
-            {line.marked === "" ? " " : line.marked}
+            {line.marked}
           </mark>
         )}
         {line.after}

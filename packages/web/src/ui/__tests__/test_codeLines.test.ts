@@ -104,6 +104,29 @@ describe("codeLines", () => {
       { number: 2, before: "(A,C);", marked: undefined, after: "" },
     ]);
   });
+
+  test("gives one empty line for empty code", () => {
+    expect(codeLines("", undefined)).toStrictEqual([{ number: 1, before: "", marked: undefined, after: "" }]);
+  });
+
+  test("marks an empty caret in empty code", () => {
+    expect(codeLines("", characterRange({ line: 1, column: 1 }))).toStrictEqual([
+      { number: 1, before: "", marked: "", after: "" },
+    ]);
+  });
+
+  test.each([0, -1])("marks an empty caret at the line start for column %i", (column) => {
+    expect(codeLines("abc", characterRange({ line: 1, column }))).toStrictEqual([
+      { number: 1, before: "", marked: "", after: "abc" },
+    ]);
+  });
+
+  test.each([0, -1])("marks nothing for a range on line %i", (line) => {
+    expect(codeLines("abc\ndef", characterRange({ line, column: 1 }))).toStrictEqual([
+      { number: 1, before: "abc", marked: undefined, after: "" },
+      { number: 2, before: "def", marked: undefined, after: "" },
+    ]);
+  });
 });
 
 describe("codeLines with the positions of Rust newick::line_column", () => {
@@ -135,18 +158,37 @@ describe("codeLines with the positions of Rust newick::line_column", () => {
 
 describe("codeLines properties", () => {
   const position = fc.record({ line: fc.integer({ min: -1, max: 6 }), column: fc.integer({ min: -1, max: 12 }) });
-  const range = fc.option(fc.record({ start: position, end: position }), { nil: undefined });
+  const definedRange = fc.record({ start: position, end: position });
+  const range = fc.option(definedRange, { nil: undefined });
+
+  function expectedLastMarkedLine({ start, end: requestedEnd }: TextRange, lineCount: number) {
+    const endsBeforeStart =
+      requestedEnd.line < start.line || (requestedEnd.line === start.line && requestedEnd.column < start.column);
+
+    const end = endsBeforeStart ? start : requestedEnd;
+    const endLine = end.line > start.line && end.column <= 1 ? end.line - 1 : end.line;
+    const lastLine = Math.min(Math.max(start.line, endLine), lineCount);
+
+    return Math.max(start.line, 1) <= lastLine ? lastLine : undefined;
+  }
+
+  const lineText = fc.string({ unit: "grapheme", maxLength: 10 });
+  const lineEnd = fc.constantFrom("\n", "\r\n");
 
   const code = fc
-    .array(fc.string({ unit: "grapheme", maxLength: 10 }), { maxLength: 5 })
-    .map((lines) => lines.join("\n"));
+    .tuple(fc.array(fc.tuple(lineText, lineEnd), { maxLength: 4 }), lineText)
+    .map(([lines, last]) => lines.map(([text, end]) => text + end).join("") + last);
 
-  test("splits the code into its lines and preserves the text of each line", () => {
+  function withoutCarriageReturn(line: string) {
+    return line.endsWith("\r") ? line.slice(0, -1) : line;
+  }
+
+  test("splits the code into its lines and preserves the text of each line without its carriage return", () => {
     fc.assert(
       fc.property(code, range, (text, highlight) => {
         const rebuilt = codeLines(text, highlight).map(({ before, marked, after }) => before + (marked ?? "") + after);
 
-        const lines = text.split("\n");
+        const lines = text.split("\n").map(withoutCarriageReturn);
         const lastLineMarked = codeLines(`${text}x`, highlight).at(-1)?.marked !== undefined;
         const dropsLastLine = lines.length > 1 && lines.at(-1) === "" && !lastLineMarked;
 
@@ -166,6 +208,17 @@ describe("codeLines properties", () => {
 
         expect(marked.slice(0, 1)).toStrictEqual(expected);
         expect(marked).toStrictEqual(marked.map((_, index) => (marked[0] ?? 0) + index));
+      }),
+    );
+  });
+
+  test("ends the marked block on the end line, or on the line before an end at its first column", () => {
+    fc.assert(
+      fc.property(code, definedRange, (text, highlight) => {
+        const lines = codeLines(text, highlight);
+        const marked = lines.filter((line) => line.marked !== undefined).map((line) => line.number);
+
+        expect(marked.at(-1)).toBe(expectedLastMarkedLine(highlight, lines.length));
       }),
     );
   });
