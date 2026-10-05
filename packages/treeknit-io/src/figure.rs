@@ -55,20 +55,34 @@ impl Default for FigureOptions {
   }
 }
 
-/// Check `options`: the width and the row height must be finite and positive. Each error names
-/// the field of `FigureOptions` as it is serialized, such as `rowHeight`.
+/// Largest figure width, in px.
+pub const MAX_FIGURE_WIDTH: f64 = 100_000.0;
+/// Largest row height, in px.
+pub const MAX_ROW_HEIGHT: f64 = 1_000.0;
+
+/// Check `options`: the width and the row height must be positive and at most
+/// `MAX_FIGURE_WIDTH` and `MAX_ROW_HEIGHT` px, so that every coordinate of a figure is a finite
+/// number. Each error names the field of `FigureOptions` as it is serialized, such as
+/// `rowHeight`.
 pub fn check_figure_options(options: &FigureOptions) -> Vec<ValidationError> {
-  let positive = |field: &str, name: &str, value: f64| {
-    (!(value.is_finite() && value > 0.0)).then(|| ValidationError {
+  let bounded = |field: &str, name: &str, value: f64, max: f64| {
+    let message = if !(value.is_finite() && value > 0.0) {
+      format!("{name} must be a positive number, got {value}")
+    } else if value > max {
+      format!("{name} must be at most {max} px, got {value}")
+    } else {
+      return None;
+    };
+    Some(ValidationError {
       field: Some(field.to_owned()),
-      message: format!("{name} must be a positive number, got {value}"),
+      message,
       line: None,
       column: None,
     })
   };
   [
-    positive("width", "figure width", options.width),
-    positive("rowHeight", "row height", options.row_height),
+    bounded("width", "figure width", options.width, MAX_FIGURE_WIDTH),
+    bounded("rowHeight", "row height", options.row_height, MAX_ROW_HEIGHT),
   ]
   .into_iter()
   .flatten()
@@ -484,6 +498,37 @@ mod tests {
       error("rowHeight", "row height must be a positive number, got -1"),
     ];
     assert_eq!(expected, errors);
+  }
+
+  #[test]
+  fn tanglegram_svg_rejects_options_above_the_bounds() {
+    let errors = tanglegram_svg(
+      &example_view(Scale::Div),
+      &options(1e308, 1000.5, Scale::Div, LabelMode::Auto),
+    )
+    .unwrap_err();
+    let expected = vec![
+      error("width", &format!("figure width must be at most 100000 px, got {}", 1e308)),
+      error("rowHeight", "row height must be at most 1000 px, got 1000.5"),
+    ];
+    assert_eq!(expected, errors);
+  }
+
+  #[test]
+  fn tanglegram_svg_at_the_bounds_has_finite_numbers() {
+    let svg = tanglegram_svg(
+      &example_view(Scale::Div),
+      &options(MAX_FIGURE_WIDTH, MAX_ROW_HEIGHT, Scale::Div, LabelMode::On),
+    )
+    .unwrap();
+    let root = elements(&svg).into_iter().find(|e| e.name == "svg").unwrap();
+    // Oracle: 52 px above the rows, 5 rows of 1000 px, then the legend band of 16 + 20 px and
+    // the 16 px margin.
+    assert_eq!(
+      (Some("100000"), Some("5104")),
+      (root.attribute("width"), root.attribute("height"))
+    );
+    assert!(!svg.contains("inf") && !svg.contains("NaN"), "{svg}");
   }
 
   #[test]
