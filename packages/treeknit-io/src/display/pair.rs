@@ -145,39 +145,61 @@ fn links(left: &DrawTree, right: &DrawTree) -> Vec<Link> {
 }
 
 /// Runs of links of one MCC whose leaves are consecutive in both trees, in left order: each next
-/// leaf follows the previous one in the left tree, and its right row is the previous one plus
+/// leaf follows the previous one in the left tree, and its right rank is the previous one plus
 /// or minus 1, in the same direction throughout the block.
-#[expect(
-  clippy::float_cmp,
-  reason = "leaf rows are whole numbers far below 2^53, so steps of 1 are exact"
-)]
 fn blocks(left: &DrawTree, right: &DrawTree, links: &[Link]) -> Vec<Block> {
-  // Each block: its MCC, the rows of its first and last leaf on both sides, and its direction.
-  let mut runs: Vec<(usize, [f64; 2], [f64; 2], Option<bool>)> = Vec::new();
-  for link in links {
-    let (l, r) = (left.nodes[link.left].y, right.nodes[link.right].y);
-    if let Some((mcc, ls, rs, down)) = runs.last_mut() {
-      let step_down = r == rs[1] + 1.0;
-      let step_up = r == rs[1] - 1.0;
+  let (left_rank, right_rank) = (leaf_ranks(left), leaf_ranks(right));
+  // Each block: its MCC, its first and last link, and its direction.
+  let mut runs: Vec<(usize, usize, usize, Option<bool>)> = Vec::new();
+  for (k, link) in links.iter().enumerate() {
+    let (l, r) = (left_rank[link.left], right_rank[link.right]);
+    if let Some((mcc, _, last, down)) = runs.last_mut() {
+      let previous = &links[*last];
+      let (pl, pr) = (left_rank[previous.left], right_rank[previous.right]);
+      let step_down = r == pr + 1;
+      let step_up = r + 1 == pr;
       let extends = *mcc == link.mcc
-        && l == ls[1] + 1.0
+        && l == pl + 1
         && match *down {
           None => step_down || step_up,
           Some(true) => step_down,
           Some(false) => step_up,
         };
       if extends {
-        ls[1] = l;
-        rs[1] = r;
+        *last = k;
         *down = Some(step_down);
         continue;
       }
     }
-    runs.push((link.mcc, [l, l], [r, r], None));
+    runs.push((link.mcc, k, k, None));
   }
   runs
     .into_iter()
-    .map(|(mcc, left, right, _)| Block { mcc, left, right })
+    .map(|(mcc, first, last, _)| {
+      let (first, last) = (&links[first], &links[last]);
+      Block {
+        mcc,
+        left: [left.nodes[first.left].y, left.nodes[last.left].y],
+        right: [right.nodes[first.right].y, right.nodes[last.right].y],
+      }
+    })
+    .collect()
+}
+
+/// The rank of each leaf of `tree` in display order, by node index; 0 for an internal node. The
+/// nodes are in preorder with children in display order, so the leaves come in display order.
+fn leaf_ranks(tree: &DrawTree) -> Vec<usize> {
+  let mut next = 0;
+  tree
+    .nodes
+    .iter()
+    .map(|n| {
+      if !n.leaf {
+        return 0;
+      }
+      next += 1;
+      next - 1
+    })
     .collect()
 }
 
