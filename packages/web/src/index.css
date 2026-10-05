@@ -1,41 +1,70 @@
 @import "tailwindcss";
 
-@theme {
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme static {
+  --font-*: initial;
   --font-sans: "IBM Plex Sans", ui-sans-serif, sans-serif;
+  --font-condensed: "IBM Plex Sans Condensed", "IBM Plex Sans", ui-sans-serif, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
-  --radius-sm: 2px;
-  --radius-md: 4px;
+  --text-*: initial;
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
+  --text-lg: 21px;
+  --text-lg--line-height: 28px;
 
-  --color-paper: oklch(97.5% 0.004 230);
-  --color-panel: oklch(99.5% 0.002 230);
-  --color-ink: oklch(24% 0.03 250);
-  --color-ink-muted: oklch(46% 0.025 250);
-  --color-rule: oklch(86% 0.01 240);
-  --color-accent: oklch(55% 0.15 38);
-  --color-accent-strong: oklch(48% 0.15 38);
-  --color-accent-ink: oklch(98% 0.01 60);
-  --color-clade: oklch(46% 0.07 200);
-  --color-danger: oklch(50% 0.17 25);
+  --radius-*: initial;
+  --radius-control: 4px;
+
+  --color-*: initial;
+  --color-ground: #f3f5f4;
+  --color-pane: #e4eae8;
+  --color-rule: #c5d0cc;
+  --color-ink: #1f2b30;
+  --color-ink-muted: #55656b;
+  --color-signal: #b0265e;
+  --color-focus: #2457c5;
+  --color-danger: #9c3b1e;
+  --color-segment-a: #3e6a8a;
+  --color-segment-b: #8a6a3e;
+
+  --color-mcc-0: #2f4b9a;
+  --color-mcc-1: #c9a227;
+  --color-mcc-2: #2c8c83;
+  --color-mcc-3: #5e3c82;
+  --color-mcc-4: #7a5537;
+  --color-mcc-5: #7d8f3a;
+  --color-mcc-6: #d07a1e;
+  --color-mcc-7: #5b7c99;
+  --color-mcc-none: #9aa5a2;
 }
 
 @layer base {
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --color-paper: oklch(20% 0.015 250);
-      --color-panel: oklch(24% 0.018 250);
-      --color-ink: oklch(92% 0.01 240);
-      --color-ink-muted: oklch(72% 0.015 240);
-      --color-rule: oklch(36% 0.02 250);
-      --color-accent: oklch(70% 0.14 45);
-      --color-accent-strong: oklch(76% 0.13 50);
-      --color-accent-ink: oklch(20% 0.02 40);
-      --color-clade: oklch(78% 0.07 200);
-      --color-danger: oklch(72% 0.15 25);
-    }
+  :root {
+    color-scheme: light;
+  }
+
+  :root.dark {
+    color-scheme: dark;
+
+    --color-ground: #162024;
+    --color-pane: #1e2b30;
+    --color-rule: #34454b;
+    --color-ink: #dce4e1;
+    --color-ink-muted: #9aaaa6;
+    --color-signal: #e0619a;
+    --color-focus: #7da2f0;
+    --color-danger: #e07a5a;
+    --color-segment-a: #406e8f;
+    --color-segment-b: #8a6a3e;
   }
 
   body {
-    @apply bg-paper text-ink font-sans antialiased;
+    @apply bg-ground text-ink font-sans text-base tabular-nums antialiased;
   }
 }
