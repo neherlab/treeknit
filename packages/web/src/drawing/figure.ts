@@ -1,6 +1,7 @@
-import type { Figure, FigureOptions, FileEntry } from "@neherlab/treeknit-wasm";
+import type { Figure, FigureDownload, FigureOptions, FileEntry } from "@neherlab/treeknit-wasm";
 import { isDeepEqual } from "remeda";
 
+import type { FileContent } from "../download";
 import type { WorkspaceSearch } from "../workspace/search";
 
 export const FIGURE_LISTING = "Listing the files of this run.";
@@ -47,4 +48,11 @@ export function figureFile({ data, error }: ListedFiles, figure: Figure): Figure
   const entry = data.find((file) => isDeepEqual(file.figure, figure));
 
   return entry === undefined ? { disabledReason: FIGURE_MISSING } : { entry };
+}
+
+export function figureContent(
+  { fileName, text }: FigureDownload,
+  { mediaType }: Pick<FileEntry, "mediaType">,
+): FileContent {
+  return { name: fileName, mediaType, content: text };
 }

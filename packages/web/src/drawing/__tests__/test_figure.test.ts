@@ -1,7 +1,7 @@
 import type { Figure, FileEntry } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
-import { FIGURE_LISTING, FIGURE_MISSING, FIGURE_UNLISTED, figureFile, figureMutation } from "../figure";
+import { FIGURE_LISTING, FIGURE_MISSING, FIGURE_UNLISTED, figureContent, figureFile, figureMutation } from "../figure";
 
 const SVG = "image/svg+xml";
 
@@ -73,6 +73,12 @@ describe("figure downloads", () => {
       figureFile({ data: undefined, error: null }, { kind: "arg" }),
       figureFile({ data: undefined, error: new Error("worker stopped") }, { kind: "arg" }),
     ]).toStrictEqual([{ disabledReason: FIGURE_LISTING }, { disabledReason: FIGURE_UNLISTED }]);
+  });
+
+  test("save the figure under the file name that Rust gives its options, with the media type of its file entry", () => {
+    expect(
+      figureContent({ fileName: "tanglegram_ha_na_imputed_depth_w800.svg", text: "<svg/>" }, { mediaType: SVG }),
+    ).toStrictEqual({ name: "tanglegram_ha_na_imputed_depth_w800.svg", mediaType: SVG, content: "<svg/>" });
   });
 });
 

@@ -8,18 +8,13 @@ import { useSessionFiles } from "../analysis/queries";
 import { downloadFile } from "../download";
 import type { FigureButtonProps } from "./DrawingControls";
 import type { DrawingFailure } from "./DrawingPanel";
-import { figureFile, figureMutation } from "./figure";
+import { figureContent, figureFile, figureMutation } from "./figure";
 
 const FIGURE_FAILED = "The figure could not be made.";
 
 export interface FigureDownload {
   button: FigureButtonProps;
   failure: DrawingFailure | undefined;
-}
-
-interface RenderedFigure {
-  entry: FileEntry;
-  figure: NamedFigure;
 }
 
 export function useFigureDownload(
@@ -32,10 +27,7 @@ export function useFigureDownload(
   const file = figureFile(files, figure);
 
   const mutation = useMutation({
-    mutationFn: async (entry: FileEntry): Promise<RenderedFigure> => ({
-      entry,
-      figure: await render(client, sessionId),
-    }),
+    mutationFn: async (entry: FileEntry) => figureContent(await render(client, sessionId), entry),
   });
 
   const { mutate, reset } = mutation;
@@ -43,7 +35,7 @@ export function useFigureDownload(
 
   const download = useCallback(() => {
     if (entry !== undefined) {
-      mutate(entry, { onSuccess: saveFigure });
+      mutate(entry, { onSuccess: downloadFile });
     }
   }, [entry, mutate]);
 
@@ -55,8 +47,4 @@ export function useFigureDownload(
   const failure = error === null ? undefined : { title: FIGURE_FAILED, message: error.message, onDismiss: reset };
 
   return { button, failure };
-}
-
-function saveFigure({ entry, figure }: RenderedFigure): void {
-  downloadFile({ name: figure.fileName, mediaType: entry.mediaType, content: figure.text });
 }
