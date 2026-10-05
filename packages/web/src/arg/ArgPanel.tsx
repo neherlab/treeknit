@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 
 import { useArgView } from "../analysis/queries";
-import { CanvasBoundary, useLazyCanvas } from "../canvas/CanvasBoundary";
+import { CanvasBoundary } from "../canvas/CanvasBoundary";
+import { lazyCanvas, useLazyCanvas } from "../canvas/lazyCanvas";
 import { ZoomControls } from "../canvas/ZoomControls";
 import { FigureButton, LabelModeSelect, ScaleToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
@@ -16,7 +17,7 @@ import { useWorkspace } from "../workspace/context";
 import type { RunResult } from "../workspace/store";
 import { argFailure } from "./outcome";
 
-const loadArgCanvas = async () => import("./ArgCanvas");
+const ARG_CANVAS = lazyCanvas(async () => import("./ArgCanvas"));
 
 const ARG_FIGURE = { kind: "arg" } as const;
 
@@ -27,7 +28,7 @@ export function ArgPanel() {
 }
 
 function Arg({ result }: { result: RunResult }) {
-  const [ArgCanvas, reloadArgCanvas] = useLazyCanvas(loadArgCanvas);
+  const [ArgCanvas, reloadArgCanvas] = useLazyCanvas(ARG_CANVAS);
   const { search, selection, select, clear, chooseScale, chooseLabels } = useDrawingSearch();
   const { x, labels } = search;
   const query = useArgView(result.sessionId, x);

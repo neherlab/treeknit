@@ -1,19 +1,12 @@
-import {
-  type ComponentType,
-  lazy,
-  type LazyExoticComponent,
-  type ReactNode,
-  Suspense,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { QueryErrorResetBoundary, useQueryErrorResetBoundary } from "@tanstack/react-query";
+import { type ReactNode, Suspense, useCallback, useMemo } from "react";
 import { ErrorBoundary, type FallbackProps, getErrorMessage } from "react-error-boundary";
 import RetryIcon from "~icons/lucide/rotate-ccw";
 
 import { Button } from "../ui/Button";
 import { InlineNotice } from "../ui/InlineNotice";
 import { ProgressBar } from "../ui/ProgressBar";
+import { DrawingCodeError } from "./lazyCanvas";
 
 const LOADING = (
   <div className="flex h-full items-center justify-center p-6">
@@ -27,26 +20,28 @@ export interface CanvasBoundaryProps {
   children: ReactNode;
 }
 
-export function CanvasBoundary({ resultKey, onReset, children }: CanvasBoundaryProps) {
-  const resetKeys = useMemo(() => [resultKey], [resultKey]);
-
+export function CanvasBoundary(props: CanvasBoundaryProps) {
   return (
-    <ErrorBoundary FallbackComponent={DrawingFailed} resetKeys={resetKeys} onReset={onReset}>
-      <Suspense fallback={LOADING}>{children}</Suspense>
-    </ErrorBoundary>
+    <QueryErrorResetBoundary>
+      <CanvasErrorBoundary {...props} />
+    </QueryErrorResetBoundary>
   );
 }
 
-export function useLazyCanvas<P extends object>(
-  load: () => Promise<{ default: ComponentType<P> }>,
-): readonly [LazyExoticComponent<ComponentType<P>>, () => void] {
-  const [Canvas, setCanvas] = useState(() => lazy(load));
+function CanvasErrorBoundary({ resultKey, onReset, children }: CanvasBoundaryProps) {
+  const resetKeys = useMemo(() => [resultKey], [resultKey]);
+  const { reset } = useQueryErrorResetBoundary();
 
-  const reload = useCallback(() => {
-    setCanvas(() => lazy(load));
-  }, [load]);
+  const resetAll = useCallback(() => {
+    reset();
+    onReset();
+  }, [reset, onReset]);
 
-  return [Canvas, reload];
+  return (
+    <ErrorBoundary FallbackComponent={DrawingFailed} resetKeys={resetKeys} onReset={resetAll}>
+      <Suspense fallback={LOADING}>{children}</Suspense>
+    </ErrorBoundary>
+  );
 }
 
 function DrawingFailed({ error, resetErrorBoundary }: FallbackProps) {
@@ -66,6 +61,9 @@ function DrawingFailed({ error, resetErrorBoundary }: FallbackProps) {
   return (
     <InlineNotice tone="danger" title="The drawing could not be shown" action={action}>
       <p>{getErrorMessage(error) ?? String(error)}</p>
+      {error instanceof DrawingCodeError ? (
+        <p>Check the connection and try again. If that fails again, reload the page.</p>
+      ) : null}
       <p>The tables and files are still available.</p>
     </InlineNotice>
   );
