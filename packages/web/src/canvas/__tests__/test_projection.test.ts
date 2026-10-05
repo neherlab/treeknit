@@ -1,9 +1,10 @@
 import { describe, expect, test } from "vitest";
 
+import type { Bezier, Point } from "@neherlab/treeknit-wasm";
+
 import {
   type Column,
   columnPixel,
-  type CubicBezier,
   cubicPoint,
   projectPath,
   sampleCubic,
@@ -14,19 +15,9 @@ const LEFT: Column = { start: 10, end: 210, mirrored: false };
 
 const RIGHT: Column = { start: 600, end: 800, mirrored: true };
 
-const LINK: CubicBezier = [
-  { x: 0, y: 2 },
-  { x: 0.5, y: 2 },
-  { x: 0.5, y: 7 },
-  { x: 1, y: 7 },
-];
+const LINK: Bezier = { from: [0, 2], c1: [0.5, 2], c2: [0.5, 7], to: [1, 7] };
 
-const BACK: CubicBezier = [
-  { x: 1, y: 7 },
-  { x: 0.5, y: 7 },
-  { x: 0.5, y: 2 },
-  { x: 0, y: 2 },
-];
+const BACK: Bezier = { from: [1, 7], c1: [0.5, 7], c2: [0.5, 2], to: [0, 2] };
 
 describe("columnPixel", () => {
   test("maps 0 and 1 to the column edges, root side first", () => {
@@ -39,10 +30,10 @@ describe("columnPixel", () => {
 });
 
 describe("projectPath", () => {
-  const elbow = [
-    { x: 0, y: 0.5 },
-    { x: 0, y: 1 },
-    { x: 0.5, y: 1 },
+  const elbow: Point[] = [
+    [0, 0.5],
+    [0, 1],
+    [0.5, 1],
   ];
 
   test("puts pixels on x and rows on y on the wide layout", () => {
@@ -67,18 +58,18 @@ describe("sampleCubic", () => {
     const points = sampleCubic(LINK, 16);
 
     expect(points).toHaveLength(17);
-    expect(points[0]).toStrictEqual(LINK[0]);
-    expect(points.at(-1)).toStrictEqual(LINK[3]);
+    expect(points[0]).toStrictEqual(LINK.from);
+    expect(points.at(-1)).toStrictEqual(LINK.to);
   });
 
   test("passes through the midpoint of the S-curve at x = 0.5", () => {
-    expect(sampleCubic(LINK, 2)[1]).toStrictEqual({ x: 0.5, y: 4.5 });
+    expect(sampleCubic(LINK, 2)[1]).toStrictEqual([0.5, 4.5]);
   });
 
   test("keeps every sample between the endpoints of a monotone S-curve, in increasing x", () => {
     const points = sampleCubic(LINK, 32);
-    const xs = points.map((point) => point.x);
-    const ys = points.map((point) => point.y);
+    const xs = points.map(([x]) => x);
+    const ys = points.map(([, y]) => y);
 
     expect(xs).toStrictEqual(xs.toSorted((left, right) => left - right));
     expect(Math.min(...ys)).toBe(2);
@@ -86,7 +77,7 @@ describe("sampleCubic", () => {
   });
 
   test("evaluates the Bernstein form at quarter points", () => {
-    expect(cubicPoint(LINK, 0.25)).toStrictEqual({ x: 0.296875, y: 2 + 5 * 0.15625 });
+    expect(cubicPoint(LINK, 0.25)).toStrictEqual([0.296875, 2 + 5 * 0.15625]);
   });
 });
 
@@ -95,7 +86,7 @@ describe("sampleCubicChain", () => {
     const points = sampleCubicChain([LINK, BACK], 4);
 
     expect(points).toHaveLength(9);
-    expect(points[4]).toStrictEqual(LINK[3]);
+    expect(points[4]).toStrictEqual(LINK.to);
     expect(points[0]).toStrictEqual(points.at(-1));
   });
 

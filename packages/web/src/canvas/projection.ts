@@ -1,11 +1,6 @@
+import type { Bezier, Point } from "@neherlab/treeknit-wasm";
+
 import { type LeafAxis, worldPosition } from "./viewState";
-
-export interface NormalizedPoint {
-  x: number;
-  y: number;
-}
-
-export type CubicBezier = readonly [NormalizedPoint, NormalizedPoint, NormalizedPoint, NormalizedPoint];
 
 export interface Column {
   start: number;
@@ -21,35 +16,35 @@ export function columnPixel({ start, end, mirrored }: Column, x: number): number
   return mirrored ? end - x * (end - start) : start + x * (end - start);
 }
 
-export function projectPoint(point: NormalizedPoint, column: Column, leafAxis: LeafAxis): WorldPosition {
-  return worldPosition(leafAxis, columnPixel(column, point.x), point.y);
+export function projectPoint([x, y]: Point, column: Column, leafAxis: LeafAxis): WorldPosition {
+  return worldPosition(leafAxis, columnPixel(column, x), y);
 }
 
-export function projectPath(points: readonly NormalizedPoint[], column: Column, leafAxis: LeafAxis): WorldPosition[] {
+export function projectPath(points: readonly Point[], column: Column, leafAxis: LeafAxis): WorldPosition[] {
   return points.map((point) => projectPoint(point, column, leafAxis));
 }
 
-export function cubicPoint([p0, p1, p2, p3]: CubicBezier, t: number): NormalizedPoint {
+export function cubicPoint({ from, c1, c2, to }: Bezier, t: number): Point {
   const u = 1 - t;
   const w0 = u * u * u;
   const w1 = 3 * u * u * t;
   const w2 = 3 * u * t * t;
   const w3 = t * t * t;
 
-  return {
-    x: w0 * p0.x + w1 * p1.x + w2 * p2.x + w3 * p3.x,
-    y: w0 * p0.y + w1 * p1.y + w2 * p2.y + w3 * p3.y,
-  };
+  return [
+    w0 * from[0] + w1 * c1[0] + w2 * c2[0] + w3 * to[0],
+    w0 * from[1] + w1 * c1[1] + w2 * c2[1] + w3 * to[1],
+  ];
 }
 
-export function sampleCubic(curve: CubicBezier, samples = CURVE_SAMPLES): NormalizedPoint[] {
+export function sampleCubic(curve: Bezier, samples = CURVE_SAMPLES): Point[] {
   const count = Math.max(1, Math.round(samples));
   const points = Array.from({ length: count - 1 }, (_, index) => cubicPoint(curve, (index + 1) / count));
 
-  return [curve[0], ...points, curve[3]];
+  return [curve.from, ...points, curve.to];
 }
 
-export function sampleCubicChain(curves: readonly CubicBezier[], samples = CURVE_SAMPLES): NormalizedPoint[] {
+export function sampleCubicChain(curves: readonly Bezier[], samples = CURVE_SAMPLES): Point[] {
   return curves.flatMap((curve, index) => {
     const points = sampleCubic(curve, samples);
 
