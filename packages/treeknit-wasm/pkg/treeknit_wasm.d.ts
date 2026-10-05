@@ -871,9 +871,9 @@ export interface Leader {
 
 /**
  * The drawing rules that the consumer applies, because they depend on the drawn size: the
- * thresholds of the row height, and the columns of a drawing. The label width that the columns
- * take is measured by the consumer: the interactive views measure the rendered text, the SVG
- * figures estimate it.
+ * thresholds of the row height, the columns of a drawing, and the strokes and marks in px. The
+ * label width that the columns take is measured by the consumer: the interactive views measure
+ * the rendered text, the SVG figures estimate it.
  *
  * A drawing has a margin of `margin_px` on each side; the inner width is the rest. A label
  * column is as wide as its longest label plus `label_gap_px` on each side, at most a share of
@@ -921,6 +921,46 @@ export interface DrawingRules {
      * Largest share of the inner width that the label column of an ARG takes.
      */
     argLabelColumnMaxShare: number;
+    /**
+     * Stroke width of a branch, in px.
+     */
+    branchWidthPx: number;
+    /**
+     * Stroke width of a reassortment branch, in px.
+     */
+    reassortmentWidthPx: number;
+    /**
+     * Stroke width of a link, in px.
+     */
+    linkWidthPx: number;
+    /**
+     * Stroke width of a leader from a leaf tip to its label, in px.
+     */
+    leaderWidthPx: number;
+    /**
+     * Opacity of a leader.
+     */
+    leaderOpacity: number;
+    /**
+     * Radius of a mark ring, in px.
+     */
+    markRadiusPx: number;
+    /**
+     * Stroke width of a mark ring, in px.
+     */
+    markLinePx: number;
+    /**
+     * Opacity of the fill of a ribbon.
+     */
+    ribbonOpacity: number;
+    /**
+     * Dash and gap of a dashed line (added nodes, reticulations), in px.
+     */
+    dashPx: [number, number];
+    /**
+     * Dash and gap of a dotted line (leaders), in px.
+     */
+    dotPx: [number, number];
 }
 
 /**

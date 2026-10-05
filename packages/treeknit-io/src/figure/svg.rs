@@ -22,8 +22,9 @@ const LEGEND_GAP: f64 = 16.0;
 const LEGEND_LINE: f64 = 20.0;
 /// Width of a legend symbol, in px.
 const SYMBOL_WIDTH: f64 = 24.0;
-/// Space between a legend symbol and its text, and between legend entries, in px.
+/// Space between a legend symbol and its text, in px.
 const SYMBOL_GAP: f64 = 6.0;
+/// Space between two legend entries on a line, in px.
 const ENTRY_GAP: f64 = 20.0;
 /// Average advance of a character in em. SVG text has no measured width before a viewer lays it
 /// out, so widths are estimated: 0.5625 em covers IBM Plex Sans Condensed and the wider Helvetica
@@ -37,18 +38,36 @@ const FONT_FAMILY: &str = "IBM Plex Sans, Helvetica, Arial, sans-serif";
 /// Fonts of the leaf labels: the condensed cut first, as in the interactive views.
 pub(super) const LABEL_FONT_FAMILY: &str = "IBM Plex Sans Condensed, IBM Plex Sans, Helvetica, Arial, sans-serif";
 
-/// Stroke widths and mark sizes in px, those of the interactive views.
-pub(super) const BRANCH_WIDTH: f64 = 1.5;
-pub(super) const REASSORTMENT_WIDTH: f64 = 2.0;
-pub(super) const LINK_WIDTH: f64 = 1.0;
-pub(super) const LEADER_WIDTH: f64 = 1.0;
-pub(super) const LEADER_OPACITY: f64 = 0.5;
-pub(super) const MARK_RADIUS: f64 = 3.5;
-pub(super) const MARK_WIDTH: f64 = 1.5;
-pub(super) const RIBBON_OPACITY: f64 = 0.55;
+/// Strokes and marks of the drawing rules.
+pub(super) const BRANCH_WIDTH: f64 = DRAWING_RULES.branch_width_px;
+pub(super) const REASSORTMENT_WIDTH: f64 = DRAWING_RULES.reassortment_width_px;
+pub(super) const LINK_WIDTH: f64 = DRAWING_RULES.link_width_px;
+pub(super) const LEADER_WIDTH: f64 = DRAWING_RULES.leader_width_px;
+pub(super) const LEADER_OPACITY: f64 = DRAWING_RULES.leader_opacity;
+pub(super) const MARK_RADIUS: f64 = DRAWING_RULES.mark_radius_px;
+pub(super) const MARK_WIDTH: f64 = DRAWING_RULES.mark_line_px;
+pub(super) const RIBBON_OPACITY: f64 = DRAWING_RULES.ribbon_opacity;
 /// Dash patterns: dashed branches and reticulations, dotted leaders.
-pub(super) const DASH: &str = "4 3";
-pub(super) const DOT: &str = "1 3";
+pub(super) const DASH: [f64; 2] = DRAWING_RULES.dash_px;
+pub(super) const DOT: [f64; 2] = DRAWING_RULES.dot_px;
+
+/// The position of the ring in a legend symbol, as a fraction of the symbol width: a
+/// reassortment ring at the middle of its branch, an imputed ring at the tip of a leaf branch with
+/// the label gap after it, and a hybrid ring at the end of its reticulation curve. The legend of
+/// the interactive views places the first two alike.
+pub(super) const RING_AT_BRANCH_MIDDLE: f64 = 0.5;
+pub(super) const RING_AT_LEAF_TIP: f64 = 0.75;
+pub(super) const RING_AT_CURVE_END: f64 = 1.0;
+/// Vertical travel of the S-curve of the link symbol across a legend symbol, in px.
+const SYMBOL_CURVE_RISE: f64 = 8.0;
+/// Height of the ribbon symbol, and its vertical travel across a legend symbol, in px. The curve
+/// and the ribbon have the size of those in the legend of the interactive views.
+const SYMBOL_RIBBON_HEIGHT: f64 = 6.0;
+const SYMBOL_RIBBON_RISE: f64 = 4.0;
+/// Shift from the middle of a text line to its baseline, in em: half the cap height of the label
+/// fonts (about 0.7 em in IBM Plex Sans, Helvetica, and Arial), so capitals are centered on
+/// their row.
+const BASELINE_SHIFT_EM: f64 = 0.35;
 
 /// An SVG document under construction, written with indentation.
 pub(super) struct Svg {
@@ -160,13 +179,13 @@ impl Svg {
   }
 
   fn legend_symbol(&mut self, symbol: &Symbol, x: f64, mid: f64) {
-    let line = |dash: Option<&str>, color: &str, width: f64| {
+    let line = |dash: Option<[f64; 2]>, color: &str, width: f64| {
       let mut attributes = vec![
         ("fill", "none".to_owned()),
         ("stroke", color.to_owned()),
         ("stroke-width", num(width)),
       ];
-      attributes.extend(dash.map(|d| ("stroke-dasharray", d.to_owned())));
+      attributes.extend(dash.map(|d| ("stroke-dasharray", dash_array(d))));
       attributes
     };
     match symbol {
@@ -175,13 +194,16 @@ impl Svg {
         self.path(&d, &line(*dash, color, *width));
       },
       Symbol::Curve { color, dash } => {
-        let curve = s_curve([x, mid - 4.0], [x + SYMBOL_WIDTH, mid + 4.0]);
+        let rise = SYMBOL_CURVE_RISE / 2.0;
+        let curve = s_curve([x, mid - rise], [x + SYMBOL_WIDTH, mid + rise]);
         self.path(&Path::new().curve(&curve), &line(*dash, color, BRANCH_WIDTH));
       },
       Symbol::Ribbon { color } => {
-        let top = s_curve([x, mid - 5.0], [x + SYMBOL_WIDTH, mid - 1.0]);
-        let bottom = s_curve([x + SYMBOL_WIDTH, mid + 5.0], [x, mid + 1.0]);
-        let d = Path::new().curve(&top).v(mid + 5.0).curve_to(&bottom).close();
+        let (rise, half) = (SYMBOL_RIBBON_RISE / 2.0, SYMBOL_RIBBON_HEIGHT / 2.0);
+        let (left, right) = (mid - rise, mid + rise);
+        let top = s_curve([x, left - half], [x + SYMBOL_WIDTH, right - half]);
+        let bottom = s_curve([x + SYMBOL_WIDTH, right + half], [x, left + half]);
+        let d = Path::new().curve(&top).v(right + half).curve_to(&bottom).close();
         self.path(&d, &[("fill", color.clone()), ("fill-opacity", num(RIBBON_OPACITY))]);
       },
       Symbol::Ring { stroke, ground, at } => {
@@ -228,9 +250,14 @@ pub(super) fn legend_top(rows: usize, row_height: f64) -> f64 {
   drawing_top() + count(rows) * row_height + LEGEND_GAP
 }
 
-/// The baseline of text centered on `y`: about a third of the font size below it.
+/// The baseline of text centered on `y`.
 pub(super) fn baseline(y: f64) -> f64 {
-  y + 0.35 * FONT_SIZE
+  y + BASELINE_SHIFT_EM * FONT_SIZE
+}
+
+/// The `stroke-dasharray` value of the dash and gap `pattern`.
+pub(super) fn dash_array([dash, gap]: [f64; 2]) -> String {
+  format!("{} {}", num(dash), num(gap))
 }
 
 /// The estimated width of `text` in px at the label font size.
@@ -424,10 +451,10 @@ pub(super) enum Symbol {
   Line {
     color: String,
     width: f64,
-    dash: Option<&'static str>,
+    dash: Option<[f64; 2]>,
   },
   /// An S-curve across the symbol.
-  Curve { color: String, dash: Option<&'static str> },
+  Curve { color: String, dash: Option<[f64; 2]> },
   /// A ribbon across the symbol.
   Ribbon { color: String },
   /// A mark ring at the fraction `at` of the symbol width.

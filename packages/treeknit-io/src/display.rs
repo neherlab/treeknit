@@ -41,6 +41,16 @@ pub const DRAWING_RULES: DrawingRules = DrawingRules {
   link_zone_min_share: 0.15,
   tanglegram_label_column_max_share: 0.25,
   arg_label_column_max_share: 0.25,
+  branch_width_px: 1.5,
+  reassortment_width_px: 2.0,
+  link_width_px: 1.0,
+  leader_width_px: 1.0,
+  leader_opacity: 0.5,
+  mark_radius_px: 3.5,
+  mark_line_px: 1.5,
+  ribbon_opacity: 0.55,
+  dash_px: [4.0, 3.0],
+  dot_px: [1.0, 3.0],
 };
 
 /// The longest label of the drawing rules, in characters.
@@ -50,9 +60,9 @@ pub(crate) fn label_max_chars() -> usize {
 }
 
 /// The drawing rules that the consumer applies, because they depend on the drawn size: the
-/// thresholds of the row height, and the columns of a drawing. The label width that the columns
-/// take is measured by the consumer: the interactive views measure the rendered text, the SVG
-/// figures estimate it.
+/// thresholds of the row height, the columns of a drawing, and the strokes and marks in px. The
+/// label width that the columns take is measured by the consumer: the interactive views measure
+/// the rendered text, the SVG figures estimate it.
 ///
 /// A drawing has a margin of `margin_px` on each side; the inner width is the rest. A label
 /// column is as wide as its longest label plus `label_gap_px` on each side, at most a share of
@@ -84,6 +94,26 @@ pub struct DrawingRules {
   pub tanglegram_label_column_max_share: f64,
   /// Largest share of the inner width that the label column of an ARG takes.
   pub arg_label_column_max_share: f64,
+  /// Stroke width of a branch, in px.
+  pub branch_width_px: f64,
+  /// Stroke width of a reassortment branch, in px.
+  pub reassortment_width_px: f64,
+  /// Stroke width of a link, in px.
+  pub link_width_px: f64,
+  /// Stroke width of a leader from a leaf tip to its label, in px.
+  pub leader_width_px: f64,
+  /// Opacity of a leader.
+  pub leader_opacity: f64,
+  /// Radius of a mark ring, in px.
+  pub mark_radius_px: f64,
+  /// Stroke width of a mark ring, in px.
+  pub mark_line_px: f64,
+  /// Opacity of the fill of a ribbon.
+  pub ribbon_opacity: f64,
+  /// Dash and gap of a dashed line (added nodes, reticulations), in px.
+  pub dash_px: [f64; 2],
+  /// Dash and gap of a dotted line (leaders), in px.
+  pub dot_px: [f64; 2],
 }
 
 /// A point `[x, y]` in normalized units.
@@ -549,7 +579,9 @@ mod tests {
     let expected = json!({
       "labelAutoMinRowPx": 10, "linkMinRowPx": 6, "labelMaxChars": 40, "marginPx": 16.0, "labelGapPx": 6.0,
       "linkZoneShare": 0.2, "linkZoneMinShare": 0.15, "tanglegramLabelColumnMaxShare": 0.25,
-      "argLabelColumnMaxShare": 0.25,
+      "argLabelColumnMaxShare": 0.25, "branchWidthPx": 1.5, "reassortmentWidthPx": 2.0, "linkWidthPx": 1.0,
+      "leaderWidthPx": 1.0, "leaderOpacity": 0.5, "markRadiusPx": 3.5, "markLinePx": 1.5, "ribbonOpacity": 0.55,
+      "dashPx": [4.0, 3.0], "dotPx": [1.0, 3.0],
     });
     assert_eq!(expected, serde_json::to_value(DRAWING_RULES).unwrap());
   }

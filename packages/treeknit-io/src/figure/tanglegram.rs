@@ -3,8 +3,8 @@
 
 use super::svg::{
   BRANCH_WIDTH, Column, DASH, DOT, LABEL_FONT_FAMILY, LABEL_GAP, LEADER_OPACITY, LEADER_WIDTH, LINK_WIDTH, LegendEntry,
-  MARGIN, Path, REASSORTMENT_WIDTH, RIBBON_OPACITY, Rows, Svg, Symbol, baseline, drawing_top, figure_height,
-  label_column, legend_top, num,
+  MARGIN, Path, REASSORTMENT_WIDTH, RIBBON_OPACITY, RING_AT_BRANCH_MIDDLE, RING_AT_LEAF_TIP, Rows, Svg, Symbol,
+  baseline, dash_array, drawing_top, figure_height, label_column, legend_top, num,
 };
 use super::{FigureOptions, labels_shown};
 use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes, shorten};
@@ -172,7 +172,7 @@ impl TreeDrawing<'_> {
         ("stroke", self.colors.ink_muted.clone()),
         ("stroke-opacity", num(LEADER_OPACITY)),
         ("stroke-width", num(LEADER_WIDTH)),
-        ("stroke-dasharray", DOT.to_owned()),
+        ("stroke-dasharray", dash_array(DOT)),
       ],
     );
     for leader in leaders {
@@ -200,7 +200,7 @@ impl TreeDrawing<'_> {
         &self.rows.elbow(self.column, &elbow.points),
         &[
           ("stroke", self.colors.ink_muted.clone()),
-          ("stroke-dasharray", DASH.to_owned()),
+          ("stroke-dasharray", dash_array(DASH)),
         ],
       );
     }
@@ -267,7 +267,7 @@ fn legend(view: &PairView, layout: &Layout, colors: &ThemeColors) -> Vec<LegendE
     ground: colors.ground.clone(),
     at,
   };
-  let line = |color: &str, width: f64, dash: Option<&'static str>| Symbol::Line {
+  let line = |color: &str, width: f64, dash: Option<[f64; 2]>| Symbol::Line {
     color: color.to_owned(),
     width,
     dash,
@@ -278,7 +278,7 @@ fn legend(view: &PairView, layout: &Layout, colors: &ThemeColors) -> Vec<LegendE
     entries.push(LegendEntry {
       symbol: vec![
         line(&colors.signal, REASSORTMENT_WIDTH, None),
-        ring(&colors.signal, 0.5),
+        ring(&colors.signal, RING_AT_BRANCH_MIDDLE),
       ],
       label: "Reassortment branch".to_owned(),
     });
@@ -291,7 +291,7 @@ fn legend(view: &PairView, layout: &Layout, colors: &ThemeColors) -> Vec<LegendE
   }
   if marks().any(|m| m.kind == MarkKind::Imputed) {
     entries.push(LegendEntry {
-      symbol: vec![line(&mcc_color, BRANCH_WIDTH, None), ring(&mcc_color, 0.75)],
+      symbol: vec![line(&mcc_color, BRANCH_WIDTH, None), ring(&mcc_color, RING_AT_LEAF_TIP)],
       label: "Imputed leaf".to_owned(),
     });
   }
