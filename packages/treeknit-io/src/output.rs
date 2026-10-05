@@ -1,5 +1,6 @@
 //! Output files of a run, as the command line writes them and the web app lists them.
 
+use crate::analysis::AnalysisRequest;
 use crate::run::RunResult;
 use crate::{analysis, arg, auspice, mccs, newick};
 use serde::Serialize;
@@ -16,6 +17,10 @@ use zip::{CompressionMethod, DateTime, ZipWriter};
 /// Default results directory of the command line, and the directory of the files in the ZIP
 /// archive.
 pub const RESULTS_DIR: &str = "treeknit_results";
+
+/// File name of the session file: the analysis request that the web app saves and the command
+/// line runs with `--request`.
+pub const REQUEST_FILE: &str = "treeknit_request.json";
 
 /// A result file with its text, at its path in the results directory of the command line.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -154,6 +159,24 @@ pub fn zip_archive(files: &[OutputFile]) -> Result<Vec<u8>, ZipError> {
     zip.write_all(f.text.as_bytes())?;
   }
   Ok(zip.finish()?.into_inner())
+}
+
+/// The session file of `request`, `treeknit_request.json`: its trees and settings as pretty
+/// JSON, which `analysis::read_request` reads back.
+pub fn request_file(request: &AnalysisRequest) -> OutputFile {
+  #[expect(
+    clippy::expect_used,
+    reason = "a request has string keys and serde_json writes a non-finite number as null"
+  )]
+  let json = serde_json::to_string_pretty(request).expect("a request serializes to JSON");
+  OutputFile::new(REQUEST_FILE.to_owned(), format!("{json}\n"))
+}
+
+/// The command that writes the file set of the web app, run in the directory where its ZIP
+/// archive was extracted: the session file in `treeknit_results/`, with imputed trees and
+/// Auspice files.
+pub fn command_line() -> String {
+  format!("treeknit --request {RESULTS_DIR}/{REQUEST_FILE} --impute --auspice-view")
 }
 
 fn params_json(o: &Options, seed: u64) -> Value {
@@ -384,6 +407,42 @@ mod tests {
     assert_eq!(
       (json!(3.5), json!(7), json!("matched")),
       (v["gamma"].clone(), v["seed"].clone(), v["resolution"].clone())
+    );
+  }
+
+  #[test]
+  fn request_file_round_trips_through_read_request() {
+    let request = AnalysisRequest {
+      trees: vec![
+        TreeText {
+          label: "ha".to_owned(),
+          newick: HA.to_owned(),
+        },
+        TreeText {
+          label: "na".to_owned(),
+          newick: NA.to_owned(),
+        },
+      ],
+      settings: Settings {
+        seq_lengths: Some(vec![1700.0, 1400.0]),
+        seed: analysis::MAX_SEED,
+        ..Settings::default()
+      },
+    };
+    let file = request_file(&request);
+    assert_eq!(
+      ("treeknit_request.json", "application/json"),
+      (file.path.as_str(), file.media_type.as_str())
+    );
+    assert!(file.text.ends_with("}\n"));
+    assert_eq!(Ok(request), analysis::read_request(&file.text));
+  }
+
+  #[test]
+  fn command_line_runs_the_session_file_of_the_extracted_archive() {
+    assert_eq!(
+      "treeknit --request treeknit_results/treeknit_request.json --impute --auspice-view",
+      command_line()
     );
   }
 
