@@ -34,4 +34,4 @@ The workspace enables the Clippy `restriction` group, plus `unwrap_used`, `expec
 
 - `just lint-rs` passes without the module attribute
 - `just test-rs` passes, including the exact comparison with the TreeKnit.jl fixtures in `packages/treeknit-io/tests/fixtures.rs`
-- For changes of map types on hot paths (`anneal.rs`, `splitgraph.rs`, `pair.rs`), compare run times of `just build-dist` binaries on the simulated fixtures before and after with `hyperfine`
+- For changes of map types on hot paths (`anneal.rs`, `splitgraph.rs`, `pair.rs`), compare run times of `just build prod` binaries on the simulated fixtures before and after with `hyperfine`
