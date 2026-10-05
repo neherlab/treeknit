@@ -56,19 +56,26 @@ impl Default for FigureOptions {
   }
 }
 
-/// Largest figure width, in px.
+/// Smallest figure width, in px: the two margins and one px between them, so that the drawing
+/// has a width.
+pub const MIN_FIGURE_WIDTH: f64 = 2.0 * DRAWING_RULES.margin_px + 1.0;
+/// Largest figure width, in px: a bound against mistyped values, a hundred times the default.
 pub const MAX_FIGURE_WIDTH: f64 = 100_000.0;
-/// Largest row height, in px.
+/// Smallest row height, in px: the figures write coordinates with two decimals, so rows closer
+/// than 0.01 px would fall on one y; one px keeps every row apart.
+pub const MIN_ROW_HEIGHT: f64 = 1.0;
+/// Largest row height, in px: a bound against mistyped values, far above the 12 px of a label.
 pub const MAX_ROW_HEIGHT: f64 = 1_000.0;
 
-/// Check `options`: the width and the row height must be positive and at most
-/// `MAX_FIGURE_WIDTH` and `MAX_ROW_HEIGHT` px, so that every coordinate of a figure is a finite
-/// number. Each error names the field of `FigureOptions` as it is serialized, such as
-/// `rowHeight`.
+/// Check `options`: the width and the row height must be finite numbers from `MIN_FIGURE_WIDTH`
+/// to `MAX_FIGURE_WIDTH` and from `MIN_ROW_HEIGHT` to `MAX_ROW_HEIGHT` px. Each error names the
+/// field of `FigureOptions` as it is serialized, such as `rowHeight`.
 pub fn check_figure_options(options: &FigureOptions) -> Vec<ValidationError> {
-  let bounded = |field: &str, name: &str, value: f64, max: f64| {
+  let bounded = |field: &str, name: &str, value: f64, [min, max]: [f64; 2]| {
     let message = if !(value.is_finite() && value > 0.0) {
       format!("{name} must be a positive number, got {value}")
+    } else if value < min {
+      format!("{name} must be at least {min} px, got {value}")
     } else if value > max {
       format!("{name} must be at most {max} px, got {value}")
     } else {
@@ -82,8 +89,18 @@ pub fn check_figure_options(options: &FigureOptions) -> Vec<ValidationError> {
     })
   };
   [
-    bounded("width", "figure width", options.width, MAX_FIGURE_WIDTH),
-    bounded("rowHeight", "row height", options.row_height, MAX_ROW_HEIGHT),
+    bounded(
+      "width",
+      "figure width",
+      options.width,
+      [MIN_FIGURE_WIDTH, MAX_FIGURE_WIDTH],
+    ),
+    bounded(
+      "rowHeight",
+      "row height",
+      options.row_height,
+      [MIN_ROW_HEIGHT, MAX_ROW_HEIGHT],
+    ),
   ]
   .into_iter()
   .flatten()
@@ -730,7 +747,10 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::width_smallest_positive((f64::MIN_POSITIVE, 12.0),     vec![])]
+  #[case::width_smallest(         (33.0,              1.0),      vec![])]
+  #[case::width_below_margins(    (32.5,              12.0),     vec![error("width", "figure width must be at least 33 px, got 32.5")])]
+  #[case::width_tiny(             (f64::MIN_POSITIVE, 12.0),     vec![error("width", &format!("figure width must be at least 33 px, got {}", f64::MIN_POSITIVE))])]
+  #[case::row_height_below_px(    (1200.0,            0.004),    vec![error("rowHeight", "row height must be at least 1 px, got 0.004")])]
   #[case::width_zero(             (0.0,               12.0),     vec![error("width", "figure width must be a positive number, got 0")])]
   #[case::width_negative(         (-1.0,              12.0),     vec![error("width", "figure width must be a positive number, got -1")])]
   #[case::width_nan(              (f64::NAN,          12.0),     vec![error("width", "figure width must be a positive number, got NaN")])]
