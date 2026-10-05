@@ -36,6 +36,10 @@ export function SettingsForm() {
   const commitSteps = useCallback((value: number) => actions.setNumber("nMcmcIt", value), [actions]);
 
   const newSeed = useCallback(() => {
+    if (seedMax === null) {
+      return;
+    }
+
     const seed = drawSeed(seedMax);
 
     setValue("seed", seed);
@@ -114,7 +118,7 @@ export function SettingsForm() {
           label="New seed"
           icon={DicesIcon}
           variant="secondary"
-          isDisabled={!fields.seed.applies}
+          isDisabled={!fields.seed.applies || seedMax === null}
           onPress={newSeed}
           className="mt-6.5"
         />

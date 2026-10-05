@@ -4,10 +4,12 @@ const WORD_RANGE = 2 ** 32;
 
 const HIGH_WORD_RANGE = 2 ** 21;
 
-const UNBOUNDED_MAX = WORD_RANGE - 1;
+export function randomSeed(draw: () => number, max: number): number {
+  if (!Number.isSafeInteger(max) || max < 0) {
+    throw new RangeError(`The largest seed ${String(max)} is not a whole number from 0 to 2^53 - 1`);
+  }
 
-export function randomSeed(draw: () => number, max: number | null): number {
-  const count = (max ?? UNBOUNDED_MAX) + 1;
+  const count = max + 1;
   const limit = DRAW_RANGE - (DRAW_RANGE % count);
   let value = draw();
 
@@ -18,7 +20,7 @@ export function randomSeed(draw: () => number, max: number | null): number {
   return value % count;
 }
 
-export function drawSeed(max: number | null): number {
+export function drawSeed(max: number): number {
   return randomSeed(drawUniform, max);
 }
 

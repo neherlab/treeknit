@@ -36,8 +36,10 @@ describe("new seed", () => {
     expect(randomSeed(draws(LARGEST_DRAW - 2), 2)).toBe(2);
   });
 
-  test("uses the 32-bit range without an upper bound", () => {
-    expect(randomSeed(draws(2 ** 32 + 12), null)).toBe(12);
+  test("rejects a largest seed that is not a safe whole number, which would draw forever or give fractions", () => {
+    expect(() => randomSeed(draws(0), 2 ** 53)).toThrow(RangeError);
+    expect(() => randomSeed(draws(0), 2.5)).toThrow(RangeError);
+    expect(() => randomSeed(draws(0), -1)).toThrow(RangeError);
   });
 
   test("returns a whole number from zero to the largest seed for any draw", () => {
