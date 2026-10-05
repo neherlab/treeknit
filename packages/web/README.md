@@ -96,8 +96,8 @@ The tanglegram (`src/tanglegram/`) and the ARG (`src/arg/`) draw the shapes of `
 ## Inspector and tables
 
 - **Inspector** (`src/shell/Inspector.tsx`, with the pure `src/inspector/subject.ts`): shows the selected node (tree or ARG), else the selected leaf (its copies, MCC, attachment, and its MCC in every pair as links), else the selected MCC (size, members, "Zoom to MCC"), else the MCC list of the pair. Long lists are React Aria list boxes inside a `Virtualizer`
-- **MCC table** (`src/tables/MccTablePanel.tsx`): TanStack Table for sorting and the leaf-name filter, TanStack Virtual for the rows; a row button selects its MCC and the arrow button shows it in the tanglegram
-- **Constellation** (`src/tables/ConstellationPanel.tsx`): one row per leaf with a sticky leaf column and one column per pair; a cell opens that pair's tanglegram with the leaf selected
+- **MCC table** (`src/tables/MccTablePanel.tsx`): TanStack Table for the columns, sorting, and the leaf-name filter, TanStack Virtual for the rows (`useVirtualRows` measures each rendered row and starts below the sticky header); the table elements take the class strings and the sort indicator of `ui/Table`, and the headers state their sort order in `aria-sort`; a row button selects its MCC and the arrow button shows it in the tanglegram
+- **Constellation** (`src/tables/ConstellationPanel.tsx`): one row per leaf with a sticky leaf column and one column per pair (`pairColumns`), virtualized like the MCC table; it has no sorting or filter, so it uses no TanStack Table; a cell opens that pair's tanglegram with the leaf selected
 
 ## Data from Rust
 
