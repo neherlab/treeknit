@@ -1,0 +1,81 @@
+name: "Build CLI"
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cli-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+env:
+  KACHE_STORE: ${{ github.workspace }}/.cache/kache
+  FORCE_COLOR: "1"
+
+jobs:
+  # The shipped CLI (dist profile) for each release target of dev/cross/targets,
+  # built in the cross image of the target, checked for libraries that user
+  # systems lack, run on a simulated case under QEMU or Wine where the image
+  # can run it, and uploaded as an artifact.
+  build-cli:
+    name: "Build CLI (${{ matrix.target }})"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-apple-darwin
+          - aarch64-unknown-linux-gnu
+          - aarch64-unknown-linux-musl
+          - x86_64-apple-darwin
+          - x86_64-pc-windows-gnu
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+
+    env:
+      CROSS_COMPILE: ${{ matrix.target }}
+
+    steps:
+      - name: "Check out"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: "Prepare the build container"
+        uses: ./.github/actions/prepare
+        with:
+          image: ${{ matrix.target }}
+          cache: cross
+          dockerhub-username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ github.event_name == 'push' && secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN || '' }}
+
+      - name: "Build"
+        run: dev/docker/run dev/cross/build --profile=dist treeknit
+
+      - name: "Check linkage"
+        run: dev/docker/run dev/cross/check treeknit
+
+      - name: "Run on a simulated case"
+        if: ${{ !endsWith(matrix.target, '-apple-darwin') }}
+        run: |
+          example="fixtures/sim/sim_k2_n50_r0.02"
+          dev/docker/run dev/cross/run treeknit "${CROSS_COMPILE}" \
+            "${example}/tree1.nwk" "${example}/tree2.nwk" --seed=1 --outdir="tmp/cross/run-${CROSS_COMPILE}"
+
+      - name: "Upload"
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: treeknit-${{ matrix.target }}
+          path: .out/treeknit-${{ matrix.target }}*
+          # The action skips paths under a directory whose name starts with a dot, such as .out/.
+          include-hidden-files: true
+          if-no-files-found: error
