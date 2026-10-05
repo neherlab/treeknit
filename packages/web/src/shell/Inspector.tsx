@@ -4,7 +4,7 @@ import type { Key } from "react-aria-components";
 import { match } from "ts-pattern";
 import ZoomIcon from "~icons/lucide/scan-search";
 
-import { useArgView, useConstellation, usePairView } from "../analysis/queries";
+import { currentData, useArgView, useConstellation, usePairView } from "../analysis/queries";
 import { requestFocus } from "../drawing/focus";
 import { formatBranchLength, leafCount, mccSummary, mccTitle } from "../drawing/format";
 import { leafInPair, mccInTanglegram } from "../drawing/navigation";
@@ -41,8 +41,8 @@ function ResultInspector({ result }: { result: RunResult }) {
   const { search, update } = useWorkspaceSearch();
   const { sessionId } = result;
   const selection = useMemo(() => selectionOf(search), [search]);
-  const pair = usePairView(sessionId, search.pair, search.version, search.x).data;
-  const arg = useArgView(selection.node?.side === "arg" ? sessionId : null, search.x).data;
+  const pair = currentData(usePairView(sessionId, search.pair, search.version, search.x));
+  const arg = currentData(useArgView(selection.node?.side === "arg" ? sessionId : null, search.x));
   const constellation = useConstellation(selection.leaf === undefined ? null : sessionId).data;
 
   const subject = useMemo(

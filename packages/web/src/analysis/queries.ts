@@ -219,6 +219,13 @@ export function useConstellation(sessionId: number | null): Answer<SessionResult
   });
 }
 
+export function currentData<T>({
+  data,
+  isPlaceholderData,
+}: Pick<UseQueryResult<T>, "data" | "isPlaceholderData">): T | undefined {
+  return isPlaceholderData ? undefined : data;
+}
+
 export function sharesScope(previous: QueryKey | undefined, scope: QueryKey): boolean {
   return previous !== undefined && isDeepEqual(previous.slice(0, scope.length), scope);
 }

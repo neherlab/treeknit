@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { analysisKeys, sameTexts, sharesScope } from "../queries";
+import { analysisKeys, currentData, sameTexts, sharesScope } from "../queries";
 
 describe("analysis query keys", () => {
   test("nest every session query under the key of its session", () => {
@@ -86,5 +86,14 @@ describe("validation placeholders", () => {
       edited: sameTexts(previous, [1, 3]),
       none: sameTexts(undefined, [1, 2]),
     }).toStrictEqual({ renamed: true, settings: true, reordered: false, removed: false, edited: false, none: false });
+  });
+});
+
+describe("currentData", () => {
+  test("hides the data of the previous key while the next key loads", () => {
+    expect([
+      currentData({ data: "previous pair", isPlaceholderData: true }),
+      currentData({ data: "this pair", isPlaceholderData: false }),
+    ]).toStrictEqual([undefined, "this pair"]);
   });
 });
