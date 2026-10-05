@@ -53,13 +53,13 @@ export function CenterViews({ onOpenRail, onOpenInspector }: CenterViewsProps) {
       onSelectionChange={selectView}
       className="min-h-0 flex-1"
     >
-      <div className="border-rule flex h-10 shrink-0 items-center gap-2 border-b px-2">
+      <div className="border-rule box-content flex h-10 shrink-0 items-center gap-2 border-b px-2">
         {onOpenRail === undefined ? null : (
           <Button variant="quiet" size="sm" icon={PanelLeftIcon} onPress={onOpenRail}>
             {RAIL_TITLE}
           </Button>
         )}
-        <TabList aria-label="Views" items={tabs} className="min-w-0 flex-1 overflow-x-auto border-b-0">
+        <TabList aria-label="Views" items={tabs} className="min-w-0 flex-1 border-b-0">
           {(tab) => (
             <Tab id={tab.view}>
               {tab.view === "diagnostics" ? <DiagnosticsTabLabel label={tab.label} /> : tab.label}

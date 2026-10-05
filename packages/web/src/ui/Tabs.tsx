@@ -34,6 +34,7 @@ export function TabList<T extends object>({ className, ...props }: TabListProps<
         cn(
           "border-rule flex shrink-0 gap-1",
           "data-[orientation=horizontal]:border-b data-[orientation=vertical]:flex-col data-[orientation=vertical]:border-r",
+          "[scrollbar-width:none] data-[orientation=horizontal]:overflow-x-auto data-[orientation=horizontal]:overflow-y-hidden",
           custom,
         ),
       )}
@@ -51,7 +52,7 @@ export function Tab({ className, ...props }: TabProps) {
         cn(
           "text-ink-muted relative flex h-10 cursor-default items-center gap-1.5 px-2.5 text-sm whitespace-nowrap select-none",
           "transition-colors duration-150 motion-reduce:transition-none [&_svg]:shrink-0",
-          "after:absolute after:inset-x-2.5 after:-bottom-px after:h-0.5 after:bg-transparent",
+          "after:absolute after:inset-x-2.5 after:bottom-0 after:h-0.5 after:bg-transparent",
           "data-hovered:text-ink data-selected:text-ink data-selected:after:bg-ink",
           "data-disabled:text-ink-muted/60 data-disabled:cursor-not-allowed",
           "data-focus-visible:outline-focus outline-hidden -outline-offset-2 data-focus-visible:outline-2",
