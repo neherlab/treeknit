@@ -209,7 +209,7 @@ pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationErro
         ValidationError::at(
           "trees",
           format!(
-            "trees {:?} and {:?} share fewer than two leaves",
+            "trees {:?} and {:?} share fewer than {MIN_SHARED_LEAVES} leaves",
             trees[p.i].label, trees[p.j].label
           ),
         )
@@ -700,8 +700,8 @@ mod tests {
   fn pairs_sharing_fewer_than_two_leaves_are_rejected(#[case] newick: &str) {
     let errors = check_trees(&trees(&[("ha", T), ("na", T), ("pb2", newick)]));
     let expected = vec![
-      error("trees", "trees \"ha\" and \"pb2\" share fewer than two leaves"),
-      error("trees", "trees \"na\" and \"pb2\" share fewer than two leaves"),
+      error("trees", "trees \"ha\" and \"pb2\" share fewer than 2 leaves"),
+      error("trees", "trees \"na\" and \"pb2\" share fewer than 2 leaves"),
     ];
     assert_eq!(expected, errors);
   }

@@ -82,7 +82,7 @@ mod tests {
     ] {
       let (code, stderr, results) = fail(name, &[HA, other], args);
       assert_eq!(Some(1), code, "{name}");
-      assert!(stderr.contains("trees \"t0\" and \"t1\" share fewer than two leaves"), "{name}: {stderr}");
+      assert!(stderr.contains("trees \"t0\" and \"t1\" share fewer than 2 leaves"), "{name}: {stderr}");
       assert!(!results, "{name}: result files written");
     }
   }
