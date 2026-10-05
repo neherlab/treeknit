@@ -122,9 +122,9 @@ export function tanglegramCurves(
   curveRowPx: number,
 ): TanglegramCurves {
   return {
-    links: view.shapes.links.map(({ link, slot, curve }) => ({
+    links: view.shapes.links.map(({ link, mcc, slot, curve }) => ({
       link,
-      mcc: itemAt(view.links, link, "link").mcc,
+      mcc,
       slot,
       path: projectPath(
         sampleCubic(curve, wangSegmentCount(curve, columns.links, curveRowPx)),
@@ -132,9 +132,9 @@ export function tanglegramCurves(
         leafAxis,
       ),
     })),
-    ribbons: view.shapes.ribbons.map(({ block, slot, outline }) => ({
+    ribbons: view.shapes.ribbons.map(({ block, mcc, slot, outline }) => ({
       block,
-      mcc: itemAt(view.blocks, block, "block").mcc,
+      mcc,
       slot,
       polygon: projectPath(sampleCubicChain(outline, columns.links, curveRowPx), columns.links, leafAxis),
     })),
@@ -177,22 +177,18 @@ function treeGeometry(view: PairView, side: TreeSide, column: Column, leafAxis: 
   const branch = (elbow: Elbow): BranchItem => ({
     side,
     node: elbow.node,
-    mcc: itemAt(tree.nodes, elbow.node, "node").mcc,
+    mcc: elbow.mcc,
     slot: elbow.slot,
     path: projectPath(elbow.points, column, leafAxis),
   });
 
-  const mark = ({ node, at }: Mark): MarkItem => {
-    const { mcc } = itemAt(tree.nodes, node, "node");
-
-    return {
-      side,
-      node,
-      mcc,
-      slot: mcc === null ? null : itemAt(view.mccs, mcc, "MCC").slot,
-      position: projectPoint(at, column, leafAxis),
-    };
-  };
+  const mark = ({ node, mcc, slot, at }: Mark): MarkItem => ({
+    side,
+    node,
+    mcc,
+    slot,
+    position: projectPoint(at, column, leafAxis),
+  });
 
   const branches = (keep: (elbow: Elbow) => boolean) => elbows.flatMap((elbow) => (keep(elbow) ? [branch(elbow)] : []));
   const marksOf = (kind: Mark["kind"]) => marks.flatMap((item) => (item.kind === kind ? [mark(item)] : []));

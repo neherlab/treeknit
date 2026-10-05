@@ -9,7 +9,6 @@ import {
   type WorldPosition,
 } from "../canvas/projection";
 import { type LeafAxis, worldPosition } from "../canvas/viewState";
-import { itemAt } from "../drawing/lookup";
 import { type LayerPicks, pickTarget } from "../drawing/picking";
 import type { ArgTarget } from "../drawing/selection";
 import { DRAWING_MARGIN_PX } from "../drawing/spacing";
@@ -87,17 +86,15 @@ export function argFrame(view: ArgView, column: Column, leafAxis: LeafAxis): Omi
 }
 
 export function argCurves(view: ArgView, column: Column, leafAxis: LeafAxis, curveRowPx: number): ArgCurves {
-  const item = ({ edge, path }: DrawnEdge): EdgeItem => ({
+  const item = ({ edge, segments, path }: DrawnEdge): EdgeItem => ({
     edge,
-    segments: itemAt(view.edges, edge, "edge").segments,
+    segments,
     path: projectPath(edgePoints(path, column, curveRowPx), column, leafAxis),
   });
 
-  const reticulation = (drawn: DrawnEdge) => itemAt(view.edges, drawn.edge, "edge").reticulation;
-
   return {
-    edges: view.shapes.edges.flatMap((drawn) => (reticulation(drawn) ? [] : [item(drawn)])),
-    reticulations: view.shapes.edges.flatMap((drawn) => (reticulation(drawn) ? [item(drawn)] : [])),
+    edges: view.shapes.edges.flatMap((drawn) => (drawn.reticulation ? [] : [item(drawn)])),
+    reticulations: view.shapes.edges.flatMap((drawn) => (drawn.reticulation ? [item(drawn)] : [])),
   };
 }
 
