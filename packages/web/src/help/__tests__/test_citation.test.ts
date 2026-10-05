@@ -3,7 +3,6 @@ import { describe, expect, test } from "vitest";
 import {
   type Author,
   bibtexEntry,
-  inlineAuthors,
   paperLinks,
   type Publication,
   referenceHtml,
@@ -110,20 +109,6 @@ describe("author list of the Chicago reference", () => {
     },
   ] satisfies { case: string; authors: Author[]; start: string }[])("writes $case", ({ authors, start }) => {
     expect(referenceText(withAuthors(authors)).slice(0, start.length)).toBe(start);
-  });
-});
-
-describe("inline author form", () => {
-  test.each([
-    { case: "one author by family name", authors: [author("Lee")], expected: "Lee" },
-    { case: "two authors joined with and", authors: [author("Lee"), author("Kim")], expected: "Lee and Kim" },
-    {
-      case: "three or more authors shortened to et al.",
-      authors: [author("Lee"), author("Kim"), author("Ng")],
-      expected: "Lee et al.",
-    },
-  ] satisfies { case: string; authors: Author[]; expected: string }[])("names $case", ({ authors, expected }) => {
-    expect(inlineAuthors(withAuthors(authors))).toBe(expected);
   });
 });
 

@@ -5,7 +5,9 @@ const AUSPICE_SOURCE =
 
 export const AUSPICE_ENTRIES = [
   "auspice/src/actions/recomputeReduxState",
+  "auspice/src/actions/tree",
   "auspice/src/actions/types",
+  "auspice/src/components/controls/annotatedTitle",
   "auspice/src/components/controls/choose-branch-labelling",
   "auspice/src/components/controls/choose-layout",
   "auspice/src/components/controls/choose-metric",
@@ -17,10 +19,12 @@ export const AUSPICE_ENTRIES = [
   "auspice/src/components/controls/styles",
   "auspice/src/components/controls/toggle-focus",
   "auspice/src/components/controls/toggle-tangle",
-  "auspice/src/components/download/downloadButtons",
   "auspice/src/components/download/downloadModal",
+  "auspice/src/components/download/helperFunctions",
+  "auspice/src/components/info/datasetSummary",
   "auspice/src/components/info/filtersSummary",
   "auspice/src/components/tree",
+  "auspice/src/components/tree/phyloTree/helpers",
   "auspice/src/middleware/performanceFlags",
   "auspice/src/middleware/scatterplot",
   "auspice/src/reducers/browserDimensions",
@@ -33,7 +37,6 @@ export const AUSPICE_ENTRIES = [
   "auspice/src/reducers/notifications",
   "auspice/src/reducers/tree",
   "auspice/src/reducers/tree/treeToo",
-  "auspice/src/util/computeResponsive",
 ] as const;
 
 const SHARED_PACKAGES = ["react", "react-dom"];

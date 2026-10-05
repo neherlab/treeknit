@@ -1,11 +1,13 @@
 import type { AuspicePair } from "@neherlab/treeknit-wasm";
 import { createStateFromQueryOrJSONs } from "auspice/src/actions/recomputeReduxState";
 import { CLEAN_START } from "auspice/src/actions/types";
-import { useEffect, useMemo } from "react";
+import { useEffect, useState } from "react";
 
 import type { Selection } from "../drawing/selection";
 import { selectionMiddleware } from "./selection";
 import { type AuspiceStore, createAuspiceStore } from "./store";
+
+export const START_QUERY = { legend: "closed" } as const satisfies Readonly<Record<string, string>>;
 
 export interface AuspiceInput {
   datasets: AuspicePair;
@@ -13,13 +15,13 @@ export interface AuspiceInput {
   onSelect: (selection: Selection) => void;
 }
 
-export function useAuspiceStore({ datasets, labels: [left, right], onSelect }: AuspiceInput): AuspiceStore {
-  const { store, listeners } = useMemo(() => {
+export function useAuspiceStore({ datasets, labels, onSelect }: AuspiceInput): AuspiceStore {
+  const [{ store, listeners }] = useState(() => {
     const selected = new Set<(selection: Selection) => void>();
 
     const loaded = loadAuspiceStore({
       datasets,
-      labels: [left, right],
+      labels,
       onSelect: (selection) => {
         for (const listener of selected) {
           listener(selection);
@@ -28,7 +30,7 @@ export function useAuspiceStore({ datasets, labels: [left, right], onSelect }: A
     });
 
     return { store: loaded, listeners: selected };
-  }, [datasets, left, right]);
+  });
 
   useEffect(() => {
     listeners.add(onSelect);
@@ -49,7 +51,7 @@ export function loadAuspiceStore({ datasets, labels: [mainTreeName, secondTreeNa
     secondTreeDataset: structuredClone(datasets.right),
     mainTreeName,
     secondTreeName,
-    query: {},
+    query: { ...START_QUERY },
     dispatch: store.dispatch,
   });
 

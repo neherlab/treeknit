@@ -85,6 +85,33 @@ index a73fe7bf478e18e97a194de0243718e9d2cb53bf..2f6e543fc7865d0f3b5004787a70b09e
  `;
  
  
+diff --git a/src/components/download/helperFunctions.js b/src/components/download/helperFunctions.js
+index 92481937541295671b2780c356c5ba6a6f5bd116..27e156888caaf2756291c04ff91e9377e4175756 100644
+--- a/src/components/download/helperFunctions.js
++++ b/src/components/download/helperFunctions.js
+@@ -643,9 +643,11 @@ const writeSVGPossiblyIncludingMap = (dispatch, filePrefix, panelsInDOM, panelLa
+   }
+ };
+ 
+-export const SVG = (dispatch, t, metadata, nodes, visibility, filePrefix, panelsInDOM, panelLayout, publications) => {
+-  /* make the text strings */
+-  const textStrings = [];
++export const SVG = (dispatch, t, metadata, nodes, visibility, filePrefix, panelsInDOM, panelLayout, publications, caption = undefined) => {
++  /* make the text strings. An embedding app may give its own lines (HTML), which replace the dataset, attribution,
++  license and publication lines written for nextstrain datasets */
++  const textStrings = caption ? [...caption] : [];
++  if (!caption) {
+   textStrings.push(metadata.title);
+   textStrings.push(`Last updated ${metadata.updated}`);
+   const address = window.location.href.replace(/&/g, '&amp;');
+@@ -663,6 +665,7 @@ export const SVG = (dispatch, t, metadata, nodes, visibility, filePrefix, panels
+   publications.forEach((pub) => {
+     textStrings.push(`<a href="${pub.href}">${pub.author}, ${pub.title}, ${pub.journal} (${pub.year})</a>`);
+   });
++  }
+ 
+   /* downloading the map tiles is an async call */
+   if (panelsInDOM.indexOf("map") !== -1) {
 diff --git a/src/components/info/filterBadge.js b/src/components/info/filterBadge.js
 index 5c1e69c62ab2328fd2c5ca71e17bc951bd724101..7a76b88e3a29fce33b8074dd27d358171daadb9d 100644
 --- a/src/components/info/filterBadge.js

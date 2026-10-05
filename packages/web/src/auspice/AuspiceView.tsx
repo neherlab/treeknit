@@ -1,3 +1,5 @@
+import type { AuspiceFiles } from "@neherlab/treeknit-wasm";
+import { AnnotatedTitle } from "auspice/src/components/controls/annotatedTitle";
 import ChooseBranchLabelling from "auspice/src/components/controls/choose-branch-labelling";
 import ChooseLayout from "auspice/src/components/controls/choose-layout";
 import ChooseMetric from "auspice/src/components/controls/choose-metric";
@@ -9,121 +11,132 @@ import { TreeInfo } from "auspice/src/components/controls/miscInfoText";
 import { ControlsContainer } from "auspice/src/components/controls/styles";
 import { ToggleFocus } from "auspice/src/components/controls/toggle-focus";
 import ToggleTangle from "auspice/src/components/controls/toggle-tangle";
-import { DownloadButtons } from "auspice/src/components/download/downloadButtons";
-import { publications } from "auspice/src/components/download/downloadModal";
-import FiltersSummary from "auspice/src/components/info/filtersSummary";
 import Tree from "auspice/src/components/tree";
-import { calcUsableWidth } from "auspice/src/util/computeResponsive";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { I18nextProvider } from "react-i18next";
 import { Provider } from "react-redux";
 import { ThemeProvider } from "styled-components";
-import DownloadIcon from "~icons/lucide/download";
 
 import { useMeasuredSize } from "../canvas/useMeasuredSize";
 import type { MeasuredSize } from "../canvas/viewState";
-import { doiUrl, inlineAuthors, TREEKNIT_PUBLICATION } from "../help/citation";
-import { Button } from "../ui/Button";
+import { usePaneOpen } from "../shell/paneStore";
+import { CollapsiblePane } from "../ui/CollapsiblePane";
+import { AuspiceHeader } from "./AuspiceHeader";
 import { AUSPICE_I18N } from "./i18n";
+import { SIDEBAR_WIDTH_PX, sidebarOverlays, treeSize } from "./layout";
 import { type AuspiceInput, useAuspiceStore } from "./useAuspiceStore";
 
+const SIDEBAR = <AuspiceSidebar />;
+
 const SIDEBAR_THEME = {
-  background: "var(--color-pane)",
-  color: "var(--color-ink)",
+  background: "#F2F2F2",
+  color: "#000",
   "font-family": "var(--font-sans)",
-  sidebarBoxShadow: "rgba(0, 0, 0, 0.15)",
-  selectedColor: "var(--color-focus)",
-  unselectedColor: "var(--color-ink-muted)",
-  alternateBackground: "var(--color-ground)",
+  sidebarBoxShadow: "rgba(0, 0, 0, 0.2)",
+  selectedColor: "#5097BA",
+  unselectedColor: "#333",
+  alternateBackground: "#888",
 };
 
-const TREEKNIT_AUSPICE_PUBLICATION = {
-  author: inlineAuthors(TREEKNIT_PUBLICATION),
-  title: TREEKNIT_PUBLICATION.title,
-  journal: TREEKNIT_PUBLICATION.journal,
-  year: TREEKNIT_PUBLICATION.year,
-  href: doiUrl(TREEKNIT_PUBLICATION),
-};
-
-const RELEVANT_PUBLICATIONS = [TREEKNIT_AUSPICE_PUBLICATION, publications.nextstrain];
-
-const MIN_TREE_WIDTH = 320;
-
-const MIN_TREE_HEIGHT = 480;
-
-export default function AuspiceView(input: AuspiceInput) {
+export default function AuspiceView({ files, treeLabels, axisTitle, ...input }: AuspiceViewProps) {
   const store = useAuspiceStore(input);
-  const [downloadsOpen, setDownloadsOpen] = useState(false);
-
-  const toggleDownloads = useCallback(() => {
-    setDownloadsOpen((open) => !open);
-  }, []);
 
   return (
     <I18nextProvider i18n={AUSPICE_I18N}>
       <ThemeProvider theme={SIDEBAR_THEME}>
         <Provider store={store}>
-          <div className="light-scope bg-ground text-ink @container absolute inset-0 overflow-auto">
-            <div className="grid min-h-full grid-cols-1 @[900px]:grid-cols-[260px_minmax(0,1fr)]">
-              <aside
-                aria-label="Auspice controls"
-                className="border-rule bg-pane border-b **:box-content @[900px]:border-r @[900px]:border-b-0"
-              >
-                <ControlsContainer>
-                  <ControlHeader title="Color By" tooltip={ColorByInfo} />
-                  <ColorBy />
-                  <ControlHeader title="Filter Data" tooltip={FilterInfo} />
-                  <FilterData measurementsOn={false} />
-                  <ControlHeader title="Tree" tooltip={TreeInfo} />
-                  <ChooseLayout />
-                  <ChooseMetric />
-                  <ToggleFocus />
-                  <ChooseBranchLabelling />
-                  <ChooseTipLabel />
-                  <ToggleTangle />
-                </ControlsContainer>
-              </aside>
-              <div className="flex min-w-0 flex-col">
-                <div className="flex items-start gap-2 px-3 pt-2">
-                  <div className="min-w-0 flex-1 **:box-content">
-                    <FiltersSummary />
-                  </div>
-                  <Button
-                    variant="quiet"
-                    size="sm"
-                    icon={DownloadIcon}
-                    aria-expanded={downloadsOpen}
-                    onPress={toggleDownloads}
-                  >
-                    {downloadsOpen ? "Hide downloads" : "Download figure and data"}
-                  </Button>
-                </div>
-                {downloadsOpen ? (
-                  <div className="bg-ink text-ground rounded-control mx-3 mt-2 px-4 py-3 **:box-content">
-                    <DownloadButtons relevantPublications={RELEVANT_PUBLICATIONS} />
-                  </div>
-                ) : null}
-                <SizedTree />
-              </div>
-            </div>
-          </div>
+          <AuspiceLayout files={files} treeLabels={treeLabels} axisTitle={axisTitle} />
         </Provider>
       </ThemeProvider>
     </I18nextProvider>
   );
 }
 
-function SizedTree() {
+export interface AuspiceViewProps extends AuspiceInput {
+  files: AuspiceFiles | undefined;
+  treeLabels: readonly string[];
+  axisTitle: string | undefined;
+}
+
+function AuspiceLayout({ files, treeLabels, axisTitle }: Omit<AuspiceViewProps, keyof AuspiceInput>) {
   const [size, setSize] = useState<MeasuredSize | null>(null);
-  const { areaRef, canvasRef } = useMeasuredSize(setSize);
-  const width = size === null ? 0 : Math.floor(calcUsableWidth(size.canvas.width, 1));
-  const height = Math.max(MIN_TREE_HEIGHT, size?.canvas.height ?? 0);
+  const { areaRef, canvasRef } = useMeasuredSize(setSize, { beforePaint: true });
+  const isOverlay = size !== null && sidebarOverlays(size.areaWidth);
+  const [isOpen, setOpen] = usePaneOpen("auspice", isOverlay);
 
   return (
-    <div ref={areaRef} className="relative min-h-120 min-w-0 flex-1">
-      <div ref={canvasRef} className="absolute inset-0 **:box-content">
-        {width >= MIN_TREE_WIDTH ? <Tree width={width} height={height} /> : null}
-      </div>
+    <div ref={areaRef} className="light-scope absolute inset-0 isolate flex overflow-hidden bg-[#fff] text-[#000]">
+      <CollapsiblePane
+        side="left"
+        width={SIDEBAR_WIDTH_PX}
+        title="Auspice controls"
+        name="Auspice controls"
+        isOpen={isOpen}
+        onOpenChange={setOpen}
+        isOverlay={isOverlay}
+        look="auspice"
+        pane={SIDEBAR}
+      >
+        <div className="flex min-h-0 flex-1 pl-4">
+          <div ref={canvasRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden [contain:size]">
+            <SizedTree size={size} files={files} treeLabels={treeLabels} axisTitle={axisTitle} />
+          </div>
+        </div>
+      </CollapsiblePane>
     </div>
+  );
+}
+
+function SizedTree({
+  size,
+  files,
+  treeLabels,
+  axisTitle,
+}: { size: MeasuredSize | null } & Omit<AuspiceViewProps, keyof AuspiceInput>) {
+  const fitted = size === null ? null : treeSize(size.canvas);
+
+  if (fitted === null) {
+    return null;
+  }
+
+  return (
+    <div className="relative">
+      <div className="auspice-card">
+        <Tree
+          width={fitted.width}
+          height={fitted.height}
+          axisTitle={axisTitle}
+          showTreeButtons={false}
+          showNodeClickedPanel={false}
+        />
+      </div>
+      <AuspiceHeader files={files} treeLabels={treeLabels} />
+    </div>
+  );
+}
+
+function AuspiceSidebar() {
+  return (
+    <ControlsContainer className="auspice-controls auspice-badges">
+      <ControlHeader title="Color By" tooltip={ColorByInfo} />
+      <ColorBy />
+      <ControlHeader title="Filter Data" tooltip={FilterInfo} />
+      <FilterData measurementsOn={false} />
+      <div className="h-2.5 shrink-0" />
+      <div className="flex flex-col">
+        <div className="mt-2 border-t-[0.5px] border-[#495057] pt-4 pb-2">
+          <AnnotatedTitle title="Tree" tooltip={TreeInfo} />
+        </div>
+        <ChooseLayout />
+        <ToggleFocus />
+        <div className="h-2.5 shrink-0" />
+        <ChooseMetric />
+        <ChooseBranchLabelling />
+        <div className="h-[25px] shrink-0" />
+        <ChooseTipLabel />
+        <div className="h-2.5 shrink-0" />
+        <ToggleTangle />
+      </div>
+    </ControlsContainer>
   );
 }

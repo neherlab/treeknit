@@ -133,16 +133,6 @@ export function bibtexEntry(publication: Publication): string {
   return `@article{${bibtexKey(publication)},\n${body}\n}`;
 }
 
-export function inlineAuthors(publication: Publication): string {
-  const [first, second, ...others] = publication.authors;
-
-  if (second === undefined) {
-    return first.family;
-  }
-
-  return others.length === 0 ? `${first.family} and ${second.family}` : `${first.family} et al.`;
-}
-
 export function paperLinks(publication: Publication): PaperLink[] {
   return [
     {
@@ -172,6 +162,10 @@ export function paperLinks(publication: Publication): PaperLink[] {
   ];
 }
 
+export function escapeHtml(text: string): string {
+  return text.replaceAll(/[&<>"]/gu, (character) => HTML_ESCAPES.get(character) ?? character);
+}
+
 function chicagoAuthors(publication: Publication): string {
   const names = publication.authors.map(({ family, given }, index) =>
     index === 0 ? `${family}, ${given}` : `${given} ${family}`,
@@ -196,10 +190,6 @@ function segmentHtml({ text, italic = false, href }: ReferenceSegment): string {
   const styled = italic ? `<i>${escapeHtml(text)}</i>` : escapeHtml(text);
 
   return href === undefined ? styled : `<a href="${escapeHtml(href)}">${styled}</a>`;
-}
-
-function escapeHtml(text: string): string {
-  return text.replaceAll(/[&<>"]/gu, (character) => HTML_ESCAPES.get(character) ?? character);
 }
 
 function bibtexKey(publication: Publication): string {

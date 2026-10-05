@@ -39,7 +39,7 @@ describe("auspice store", () => {
     },
   );
 
-  test("a pair shows the right tree next to the left one, rectangular, colored by MCC, with one line per shared tip", () => {
+  test("a pair shows the right tree next to the left one, rectangular, colored by MCC, with the legend closed and one line per shared tip", () => {
     const { store } = loadedPair();
     const { controls, tree, treeToo } = store.getState();
 
@@ -49,6 +49,7 @@ describe("auspice store", () => {
       showTangle: controls.showTangle,
       layout: controls.layout,
       colorBy: controls.colorBy,
+      legendOpen: controls.legendOpen,
       tangleLines: treeToo.tangleTipLookup?.length,
     }).toStrictEqual({
       mainTree: "a",
@@ -56,6 +57,7 @@ describe("auspice store", () => {
       showTangle: true,
       layout: "rect",
       colorBy: "mcc",
+      legendOpen: false,
       tangleLines: 5,
     });
   });

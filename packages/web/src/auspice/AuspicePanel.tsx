@@ -1,8 +1,9 @@
-import { type ReactNode, Suspense, useCallback, useMemo } from "react";
+import type { AuspicePair } from "@neherlab/treeknit-wasm";
+import { type ReactNode, Suspense, useCallback, useMemo, useState } from "react";
 import { ErrorBoundary, type FallbackProps, getErrorMessage } from "react-error-boundary";
 import RetryIcon from "~icons/lucide/rotate-ccw";
 
-import { useAuspiceView } from "../analysis/queries";
+import { useAuspiceFiles, useAuspiceView } from "../analysis/queries";
 import { lazyCanvas, useLazyCanvas } from "../canvas/lazyCanvas";
 import { PairSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
@@ -33,6 +34,7 @@ function Auspice({ result }: { result: RunResult }) {
   const { search, select, clear, choosePair, chooseVersion, chooseScale } = useDrawingSearch();
   const { pair, version, x } = search;
   const query = useAuspiceView(result.sessionId, pair, version, x);
+  const files = useAuspiceFiles(result.sessionId, pair, version, x, "both").data;
   const pairs = result.summary.pairs;
   const labels = pairs[pair]?.labels;
 
@@ -59,12 +61,42 @@ function Auspice({ result }: { result: RunResult }) {
             resultKey={`${String(result.sessionId)}:${String(pair)}:${version}:${x}`}
             onReset={reloadAuspiceView}
           >
-            <AuspiceView datasets={datasets} labels={labels} onSelect={select} />
+            <KeyedAuspiceView datasets={datasets}>
+              {(key) => (
+                <AuspiceView
+                  key={key}
+                  datasets={datasets}
+                  labels={labels}
+                  onSelect={select}
+                  files={files}
+                  treeLabels={labels}
+                  axisTitle={undefined}
+                />
+              )}
+            </KeyedAuspiceView>
           </AuspiceBoundary>
         )
       }
     </DrawingPanel>
   );
+}
+
+function KeyedAuspiceView({ datasets, children }: { datasets: AuspicePair; children: (key: number) => ReactNode }) {
+  return children(useDatasetsGeneration(datasets));
+}
+
+function useDatasetsGeneration(datasets: AuspicePair): number {
+  const [shown, setShown] = useState({ datasets, generation: 0 });
+
+  if (shown.datasets !== datasets) {
+    const next = { datasets, generation: shown.generation + 1 };
+
+    setShown(next);
+
+    return next.generation;
+  }
+
+  return shown.generation;
 }
 
 function AuspiceBoundary({ resultKey, onReset, children }: AuspiceBoundaryProps) {
