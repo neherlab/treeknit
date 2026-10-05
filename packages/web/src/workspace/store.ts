@@ -116,25 +116,25 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
   const pendingAdds = { queue: Promise.resolve() };
   const revisions = { replacement: 0, seqLengthToggle: 0 };
 
+  const labelNewTrees = async (newTrees: readonly NewTree[], trees: WorkspaceTree[]): Promise<LabelledTrees> => {
+    const automatic = newTrees.filter((tree) => tree.label === undefined);
+    const explicitLabels = newTrees.flatMap((tree) => (tree.label === undefined ? [] : [tree.label]));
+    const existingLabels = [...trees.map((tree) => tree.label), ...explicitLabels];
+
+    const labels = await services.treeLabels(
+      automatic.map((tree) => sourceFileName(tree.source)),
+      existingLabels,
+    );
+
+    return { trees, labelled: assignLabels(newTrees, labels) };
+  };
+
   return createStore<WorkspaceState>()(
     immer((set, get) => {
       const isCurrent = (basis: WorkspaceBasis): boolean => {
         const state = get();
 
         return state.trees === basis.trees && state.settings === basis.settings;
-      };
-
-      const labelNewTrees = async (newTrees: readonly NewTree[], trees: WorkspaceTree[]): Promise<LabelledTrees> => {
-        const automatic = newTrees.filter((tree) => tree.label === undefined);
-        const explicitLabels = newTrees.flatMap((tree) => (tree.label === undefined ? [] : [tree.label]));
-        const existingLabels = [...trees.map((tree) => tree.label), ...explicitLabels];
-
-        const labels = await services.treeLabels(
-          automatic.map((tree) => sourceFileName(tree.source)),
-          existingLabels,
-        );
-
-        return { trees, labelled: assignLabels(newTrees, labels) };
       };
 
       const addNow = async (
