@@ -269,6 +269,25 @@ mod tests {
     );
   }
 
+  #[test]
+  fn files_with_one_stem_give_resolved_trees_named_by_label() {
+    // Both files are named `ha.nwk`, so their labels get the directory: `ha_a` and `ha_b`.
+    let dir = TempDir::new("stems-dirs");
+    for (sub, newick) in [("a", HA), ("b", NA)] {
+      std::fs::create_dir_all(dir.path().join(sub)).unwrap();
+      write_trees(&dir.path().join(sub), &[("ha", newick)]);
+    }
+    let out = dir.path().join("out");
+    let a = dir.path().join("a/ha.nwk");
+    let b = dir.path().join("b/ha.nwk");
+    run(&[a.to_str().unwrap(), b.to_str().unwrap()], &out);
+    let resolved: Vec<bool> = ["ha_a_resolved.nwk", "ha_b_resolved.nwk", "ha_resolved.nwk"]
+      .iter()
+      .map(|f| out.join(f).exists())
+      .collect();
+    assert_eq!(vec![true, true, false], resolved);
+  }
+
   fn mccs(out: &Path) -> serde_json::Value {
     serde_json::from_str(&std::fs::read_to_string(out.join("MCCs.json")).unwrap()).unwrap()
   }
