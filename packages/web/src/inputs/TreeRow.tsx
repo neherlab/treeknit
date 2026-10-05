@@ -108,10 +108,13 @@ export function TreeRow({
             ))}
           </p>
         )}
-        {status.messages.map((message) => (
-          <p key={message} className={cn(errorStyle, "wrap-anywhere", status.kind === "warning" && "text-ink-muted")}>
-            {status.kind === "warning" ? <WarningIcon aria-hidden /> : <ErrorIcon aria-hidden />}
-            <span>{message}</span>
+        {status.messages.map(({ severity, text }) => (
+          <p
+            key={`${severity}:${text}`}
+            className={cn(errorStyle, "wrap-anywhere", severity === "warning" && "text-ink-muted")}
+          >
+            {severity === "warning" ? <WarningIcon aria-hidden /> : <ErrorIcon aria-hidden />}
+            <span>{text}</span>
           </p>
         ))}
         {seqLength === null ? null : (
