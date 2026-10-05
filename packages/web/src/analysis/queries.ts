@@ -1,5 +1,6 @@
 import type { ArgView, TreeInspection, TreeText } from "@neherlab/treeknit-wasm";
-import { keepPreviousData, useQueries, useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { keepPreviousData, type QueryKey, useQueries, useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { isDeepEqual } from "remeda";
 
 import { useAnalysisClient } from "./context";
 import type { SessionArgs, SessionResult, StatelessArgs, StatelessResult } from "./protocol";
@@ -7,6 +8,10 @@ import type { SessionArgs, SessionResult, StatelessArgs, StatelessResult } from 
 type Answer<Result> = UseQueryResult<Awaited<Result>>;
 
 const INPUT_QUERY_GC_MS = 5000;
+
+const PAIR_SCOPE = 4;
+
+const SESSION_SCOPE = 3;
 
 export const analysisKeys = {
   defaultSettings: () => ["defaultSettings"] as const,
@@ -116,19 +121,25 @@ export function useCommandLine(sessionId: number): Answer<SessionResult<"command
 
 export function usePairView(sessionId: number, ...args: SessionArgs<"pairView">): Answer<SessionResult<"pairView">> {
   const client = useAnalysisClient();
+  const queryKey = analysisKeys.pairView(sessionId, ...args);
 
   return useQuery({
-    queryKey: analysisKeys.pairView(sessionId, ...args),
+    queryKey,
     queryFn: async () => client.pairView(sessionId, ...args),
+    placeholderData: (previous, previousQuery) =>
+      sharesScope(previousQuery?.queryKey, queryKey, PAIR_SCOPE) ? previous : undefined,
   });
 }
 
 export function useArgView(sessionId: number, ...args: SessionArgs<"argView">): UseQueryResult<ArgView | null> {
   const client = useAnalysisClient();
+  const queryKey = analysisKeys.argView(sessionId, ...args);
 
   return useQuery({
-    queryKey: analysisKeys.argView(sessionId, ...args),
+    queryKey,
     queryFn: async () => (await client.argView(sessionId, ...args)) ?? null,
+    placeholderData: (previous, previousQuery) =>
+      sharesScope(previousQuery?.queryKey, queryKey, SESSION_SCOPE) ? previous : undefined,
   });
 }
 
@@ -139,6 +150,10 @@ export function useConstellation(sessionId: number): Answer<SessionResult<"const
     queryKey: analysisKeys.constellation(sessionId),
     queryFn: async () => client.constellation(sessionId),
   });
+}
+
+export function sharesScope(previous: QueryKey | undefined, next: QueryKey, depth: number): boolean {
+  return previous !== undefined && isDeepEqual(previous.slice(0, depth), next.slice(0, depth));
 }
 
 function inspectionData(results: readonly UseQueryResult<TreeInspection>[]): (TreeInspection | undefined)[] {

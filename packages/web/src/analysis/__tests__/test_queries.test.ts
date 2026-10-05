@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { analysisKeys } from "../queries";
+import { analysisKeys, sharesScope } from "../queries";
 
 describe("analysis query keys", () => {
   test("nest every session query under the key of its session", () => {
@@ -41,5 +41,27 @@ describe("analysis query keys", () => {
       ["settingsSchema", 2, { gamma: 2 }],
       ["validate", { trees: [] }],
     ]);
+  });
+});
+
+describe("view placeholders", () => {
+  test("keep the previous pair view only within the same session and pair", () => {
+    const next = analysisKeys.pairView(1, 0, "resolved", "depth");
+
+    expect([
+      sharesScope(analysisKeys.pairView(1, 0, "input", "div"), next, 4),
+      sharesScope(analysisKeys.pairView(1, 1, "resolved", "depth"), next, 4),
+      sharesScope(analysisKeys.pairView(2, 0, "resolved", "depth"), next, 4),
+      sharesScope(undefined, next, 4),
+    ]).toStrictEqual([true, false, false, false]);
+  });
+
+  test("keep the previous ARG view only within the same session", () => {
+    const next = analysisKeys.argView(1, "depth");
+
+    expect([
+      sharesScope(analysisKeys.argView(1, "div"), next, 3),
+      sharesScope(analysisKeys.argView(2, "div"), next, 3),
+    ]).toStrictEqual([true, false]);
   });
 });
