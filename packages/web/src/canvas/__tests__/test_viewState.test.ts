@@ -47,9 +47,9 @@ describe("fitViewState", () => {
   test("shows every row, each half-row margin included, across the leaf axis", () => {
     const state = fitViewState(WIDE);
 
-    expect(project(state, WIDE, 0, -0.5)[1]).toBeCloseTo(0, 9);
-    expect(project(state, WIDE, 0, 299.5)[1]).toBeCloseTo(600, 9);
-    expect(rowPixels(state)).toBeCloseTo(2, 12);
+    expect(Math.abs(project(state, WIDE, 0, -0.5)[1] ?? Number.NaN)).toBeLessThan(1e-16);
+    expect(Math.abs((project(state, WIDE, 0, 299.5)[1] ?? Number.NaN) - 600)).toBeLessThan(1e-16);
+    expect(Math.abs(rowPixels(state) - 2)).toBeLessThan(1e-16);
   });
 
   test("maps world x one to one onto pixels on the wide layout", () => {
@@ -61,8 +61,8 @@ describe("fitViewState", () => {
 
     expect(state.zoomAxis).toBe("X");
     expect(state.zoomY).toBe(0);
-    expect(project(state, NARROW, 0, -0.5)[0]).toBeCloseTo(0, 9);
-    expect(project(state, NARROW, 0, 299.5)[0]).toBeCloseTo(500, 9);
+    expect(Math.abs(project(state, NARROW, 0, -0.5)[0] ?? Number.NaN)).toBeLessThan(1e-13);
+    expect(Math.abs((project(state, NARROW, 0, 299.5)[0] ?? Number.NaN) - 500)).toBeLessThan(1e-16);
     expect(crossSpan(state, NARROW)).toStrictEqual([0, 700]);
   });
 });
@@ -98,20 +98,20 @@ describe("view-state update", () => {
   test("zooms the leaf axis by the toolbar factor", () => {
     const zoomed = zoomViewState(fitViewState(WIDE), WIDE, 2);
 
-    expect(rowPixels(zoomed)).toBeCloseTo(4, 12);
+    expect(Math.abs(rowPixels(zoomed) - 4)).toBeLessThan(1e-16);
   });
 
   test("never zooms out beyond the fitted view", () => {
     const state = zoomViewState(fitViewState(WIDE), WIDE, 1 / 16);
 
-    expect(rowPixels(state)).toBeCloseTo(2, 12);
+    expect(Math.abs(rowPixels(state) - 2)).toBeLessThan(1e-16);
     expect(visibleLeafRange(state, WIDE)).toStrictEqual([-0.5, 299.5]);
   });
 
   test("stops zooming in at the largest row height", () => {
     const state = zoomViewState(fitViewState(WIDE), WIDE, 1024);
 
-    expect(rowPixels(state)).toBeCloseTo(MAX_ROW_PX, 9);
+    expect(Math.abs(rowPixels(state) - MAX_ROW_PX)).toBeLessThan(1e-16);
   });
 
   test("clamps a pan so the drawing edge stays at the canvas edge", () => {
@@ -119,8 +119,8 @@ describe("view-state update", () => {
     const [top] = visibleLeafRange(panViewState(zoomed, WIDE, -1_000), WIDE);
     const [, bottom] = visibleLeafRange(panViewState(zoomed, WIDE, 1_000), WIDE);
 
-    expect(top).toBeCloseTo(-0.5, 9);
-    expect(bottom).toBeCloseTo(299.5, 9);
+    expect(Math.abs(top + 0.5)).toBeLessThan(1e-16);
+    expect(Math.abs(bottom - 299.5)).toBeLessThan(1e-16);
   });
 
   test("keeps a drawing smaller than the canvas centered", () => {
@@ -159,9 +159,9 @@ describe("fitRowsViewState", () => {
     const state = fitRowsViewState(WIDE, { first: 40, last: 59 });
     const [low, high] = visibleLeafRange(state, WIDE);
 
-    expect(low).toBeCloseTo(39.5, 9);
-    expect(high).toBeCloseTo(59.5, 9);
-    expect(rowPixels(state)).toBeCloseTo(30, 9);
+    expect(Math.abs(low - 39.5)).toBeLessThan(1e-16);
+    expect(Math.abs(high - 59.5)).toBeLessThan(1e-16);
+    expect(Math.abs(rowPixels(state) - 30)).toBeLessThan(1e-14);
   });
 
   test("accepts the rows in either order", () => {
@@ -173,7 +173,7 @@ describe("fitRowsViewState", () => {
   test("centers a subtree too small to fill the canvas at the largest row height", () => {
     const state = fitRowsViewState(WIDE, { first: 100, last: 101 });
 
-    expect(rowPixels(state)).toBeCloseTo(MAX_ROW_PX, 9);
+    expect(Math.abs(rowPixels(state) - MAX_ROW_PX)).toBeLessThan(1e-16);
     expect(state.target[1]).toBe(100.5);
   });
 
@@ -181,7 +181,7 @@ describe("fitRowsViewState", () => {
     const state = fitRowsViewState(WIDE, { first: 299, last: 299 });
     const [, high] = visibleLeafRange(state, WIDE);
 
-    expect(high).toBeCloseTo(299.5, 9);
+    expect(Math.abs(high - 299.5)).toBeLessThan(1e-16);
   });
 });
 
@@ -216,19 +216,20 @@ describe("minimap", () => {
     const [left = Number.NaN, top = Number.NaN] = viewport.project(worldPosition(frame.leafAxis, 0, -0.5));
     const [right = Number.NaN, bottom = Number.NaN] = viewport.project(worldPosition(frame.leafAxis, cross, 1_999.5));
 
-    expect(Math.abs(left - 0)).toBeLessThan(1e-12);
-    expect(Math.abs(top - 0)).toBeLessThan(1e-12);
-    expect(Math.abs(right - size.width)).toBeLessThan(1e-12);
-    expect(Math.abs(bottom - size.height)).toBeLessThan(1e-12);
+    expect(Math.abs(left)).toBeLessThan(1e-14);
+    expect(Math.abs(top)).toBeLessThan(1e-14);
+    expect(Math.abs(right - size.width)).toBeLessThan(1e-13);
+    expect(Math.abs(bottom - size.height)).toBeLessThan(1e-16);
   });
 
   test("frames the visible rows of the main view across the whole width", () => {
     const state = fitRowsViewState(LARGE, { first: 500, last: 999 });
     const corners = visibleWorldRect(state, LARGE).flat();
+    const expected = [0, 499.5, 900, 499.5, 900, 999.5, 0, 999.5];
+    const errors = expected.map((value, index) => Math.abs((corners[index] ?? Number.NaN) - value));
 
-    expect(corners.map((value) => Math.round(value * 1e9) / 1e9)).toStrictEqual([
-      0, 499.5, 900, 499.5, 900, 999.5, 0, 999.5,
-    ]);
+    expect(corners).toHaveLength(expected.length);
+    expect(Math.max(...errors)).toBeLessThan(1e-16);
   });
 
   test.each([

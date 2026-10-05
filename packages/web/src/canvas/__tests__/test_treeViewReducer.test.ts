@@ -50,8 +50,11 @@ describe("treeViewReducer", () => {
     const panned = treeViewReducer(zoomed, { ...DRAWING, type: "pan", leaf: 1_000 });
     const fitted = treeViewReducer(panned, { ...DRAWING, type: "fit" });
 
-    expect(zoomed === undefined ? 0 : rowPixels(zoomed.viewState)).toBeCloseTo(8, 12);
-    expect(panned === undefined ? [] : visibleLeafRange(panned.viewState, panned.frame)[1]).toBeCloseTo(299.5, 9);
+    const zoomedRowPx = zoomed === undefined ? Number.NaN : rowPixels(zoomed.viewState);
+    const pannedEnd = panned === undefined ? Number.NaN : visibleLeafRange(panned.viewState, panned.frame)[1];
+
+    expect(Math.abs(zoomedRowPx - 8)).toBeLessThan(1e-16);
+    expect(Math.abs(pannedEnd - 299.5)).toBeLessThan(1e-16);
     expect(fitted?.viewState).toStrictEqual(sized().viewState);
   });
 
