@@ -148,6 +148,16 @@ run-cross mode target *args:
 example name *args:
     cargo run --locked --release --example {{ quote(name) }} -- "${@:2}"
 
+# Prepare a release and push it after confirmation: set the version, rename the Unreleased section of CHANGELOG.md to it, run every check, commit, and tag (host only, main checkout): just release <version>
+[group("release")]
+release version:
+    dev/release "$@"
+
+# Start a nightly in GitHub Actions (host only, needs gh): just trigger-nightly [--force] [--only <cli|web|all>]
+[group("release")]
+trigger-nightly *args:
+    dev/trigger-nightly "$@"
+
 # Rust tests (nextest); arguments are nextest filters and options
 [group("test")]
 test-rs *args:

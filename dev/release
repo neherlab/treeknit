@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+#
+# Usage: $0 <version>
+#
+# Prepare a release and push it: set the workspace version, rename the
+# '## Unreleased' section of CHANGELOG.md to '## <version>', run every check,
+# commit, tag 'v<version>', and push the commit and the tag after a
+# confirmation. The pushed tag starts .github/workflows/release.yml, which
+# builds the CLI for every release target and publishes the binaries as a
+# release, with the section of the version in CHANGELOG.md as its notes.
+#
+# Runs on the host, in the main checkout on the branch main, and needs Docker
+# (the checks and cargo run in the build container) and yq. Write the
+# '## Unreleased' section of CHANGELOG.md first; it may be the only uncommitted
+# change.
+#
+# Arguments:
+#   <version>   Version to release, MAJOR.MINOR.PATCH, newer than the current one
+#
+# Options:
+#   -h, --help  Show this help
+#
+# Examples:
+#   $0 0.2.0
+#
+set -euo pipefail
+trap "exit" INT
+
+THIS_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+ROOT="$(dirname "${THIS_DIR}")"
+
+ask_yes_no() {
+  local prompt="${1}" choice=""
+  while true; do
+    read -r -p "${prompt} [y/n] " choice
+    case "${choice}" in
+    y | Y) return 0 ;;
+    n | N)
+      printf "Aborted. The release commit and tag stay local; remove them with: git tag -d %s && git reset --keep HEAD~1\n" "${2}"
+      exit 0
+      ;;
+    *) printf "Type 'y' or 'n'.\n" ;;
+    esac
+  done
+}
+
+fail() {
+  printf "\n%s\n" "${1}" >&2
+  exit 1
+}
+
+main() {
+  show_help() {
+    sed -n '2,${/^#/!q; s/^# \?//p}' "${BASH_SOURCE[0]}" | sed "s|\$0|${0##*/}|g"
+  }
+
+  [[ "${1:-}" =~ ^(-h|--help)$ ]] && {
+    show_help
+    exit 0
+  }
+  if (($# != 1)); then
+    show_help >&2
+    exit 1
+  fi
+
+  local version="${1}"
+  local tag="v${version}"
+  pushd "${ROOT}" >/dev/null
+
+  printf "Pre-check: version format... "
+  [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Invalid version '${version}': expected MAJOR.MINOR.PATCH"
+  printf "✅\n"
+
+  printf "Pre-check: required tools (git, docker, yq)... "
+  local tool
+  for tool in git docker yq; do
+    command -v "${tool}" >/dev/null || fail "Required command not found: ${tool}"
+  done
+  printf "✅\n"
+
+  printf "Pre-check: main checkout on branch main... "
+  [[ "$(git rev-parse --path-format=absolute --git-common-dir)" == "$(git rev-parse --path-format=absolute --git-dir)" ]] ||
+    fail "Run the release in the main checkout, not in a worktree"
+  local branch
+  branch="$(git branch --show-current)"
+  [[ "${branch}" == "main" ]] || fail "Not on the branch main (current: ${branch:-detached HEAD})"
+  printf "✅\n"
+
+  printf "Pre-check: no uncommitted changes except CHANGELOG.md... "
+  if ! git diff --quiet -- ':!CHANGELOG.md' || ! git diff --cached --quiet -- ':!CHANGELOG.md'; then
+    fail "Uncommitted changes outside CHANGELOG.md. Commit or stash them before releasing"
+  fi
+  printf "✅\n"
+
+  printf "Pre-check: main contains origin/main... "
+  git fetch --quiet origin
+  git merge-base --is-ancestor origin/main HEAD || fail "Local main is behind origin/main or has diverged from it. Pull first"
+  printf "✅\n"
+
+  printf "Pre-check: tag %s exists neither locally nor on origin... " "${tag}"
+  ! git rev-parse --quiet --verify "refs/tags/${tag}" >/dev/null || fail "Tag ${tag} exists locally"
+  [[ -z "$(git ls-remote --tags origin "refs/tags/${tag}")" ]] || fail "Tag ${tag} exists on origin"
+  printf "✅\n"
+
+  printf "Pre-check: version is newer than the current one... "
+  local current
+  current="$(yq -p toml -o yaml '.workspace.package.version' Cargo.toml)"
+  [[ "${version}" != "${current}" && "$(printf "%s\n%s\n" "${current}" "${version}" | sort -V | tail -n 1)" == "${version}" ]] ||
+    fail "Version ${version} is not newer than the current version ${current}"
+  printf "✅ (%s -> %s)\n" "${current}" "${version}"
+
+  printf "Pre-check: CHANGELOG.md has a '## Unreleased' section... "
+  grep -qx '## Unreleased' CHANGELOG.md || fail "CHANGELOG.md has no '## Unreleased' line. Describe the changes under it and retry"
+  printf "✅\n"
+
+  printf "\nRunning every check (just check-all)...\n"
+  dev/docker/run just check-all
+  printf "Checks: ✅\n\n"
+
+  printf "Setting the workspace version to %s...\n" "${version}"
+  dev/docker/run cargo set-version --workspace --offline "${version}"
+  [[ "$(yq -p toml -o yaml '.workspace.package.version' Cargo.toml)" == "${version}" ]] || fail "Failed to set the version in Cargo.toml"
+
+  printf "Renaming '## Unreleased' to '## %s' in CHANGELOG.md... " "${version}"
+  sed "s/^## Unreleased\$/## ${version}/" CHANGELOG.md >CHANGELOG.md.new
+  mv CHANGELOG.md.new CHANGELOG.md
+  grep -qx "## ${version}" CHANGELOG.md || fail "Failed to update CHANGELOG.md"
+  printf "✅\n"
+
+  printf "\nRelease commit:\n\n"
+  git --no-pager diff -- Cargo.toml Cargo.lock CHANGELOG.md
+  printf "\n"
+
+  printf "Committing and tagging %s... " "${tag}"
+  git add Cargo.toml Cargo.lock CHANGELOG.md
+  git commit --quiet -m "chore: release ${version}"
+  git tag "${tag}"
+  printf "✅\n"
+
+  printf "\nRelease %s is ready locally.\n" "${version}"
+  ask_yes_no "Push main and ${tag} to origin?" "${tag}"
+  git push --atomic --quiet origin main "${tag}"
+  printf "Pushed. GitHub Actions now builds and publishes %s: https://github.com/%s/actions/workflows/release.yml\n" \
+    "${tag}" "$(git remote get-url origin | sed 's|.*github\.com[:/]||; s|\.git$||')"
+  popd >/dev/null
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
