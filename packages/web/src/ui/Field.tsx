@@ -57,7 +57,7 @@ export type FieldProps = FieldText & (VisibleFieldLabel | HiddenFieldLabel);
 interface FieldText {
   label: string;
   description?: ReactNode;
-  errorMessage?: string;
+  errorMessage?: string | undefined;
 }
 
 interface VisibleFieldLabel {

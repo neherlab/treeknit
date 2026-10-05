@@ -19,7 +19,7 @@ import { Menu, MenuItem, MenuSeparator } from "../ui/Menu";
 import { errorStyle } from "../ui/styles";
 import { TextField } from "../ui/TextField";
 import { useWorkspaceStore } from "../workspace/context";
-import { errorProps, type FieldErrors, fieldMessage, seqLengthField, treeField } from "../workspace/fieldErrors";
+import { type FieldErrors, fieldMessage, seqLengthField, treeField } from "../workspace/fieldErrors";
 import type { WorkspaceTree } from "../workspace/store";
 import { isGridNavigationKey, treeFacts } from "./treeFacts";
 import { TREE_STATUS_LABELS, type TreeStatus, type TreeStatusKind, treeStatus } from "./treeStatus";
@@ -79,7 +79,7 @@ export function TreeRow({
             labelHidden
             value={tree.label}
             onChange={rename}
-            {...errorProps(fieldMessage(errors, treeField(index, "label")))}
+            errorMessage={fieldMessage(errors, treeField(index, "label"))}
             className="flex-1"
           />
           <StatusButton status={status} onPress={viewNewick} />
