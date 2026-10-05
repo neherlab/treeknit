@@ -3,25 +3,25 @@ import { useCallback, useState } from "react";
 import { Dialog } from "../ui/Dialog";
 import { CenterViews } from "./CenterViews";
 import { Inspector } from "./Inspector";
-import { INSPECTOR_TITLE, RAIL_TITLE } from "./layout";
+import { INSPECTOR_TITLE, keepSheetOpen, type PanePlacement, RAIL_TITLE } from "./layout";
 import { Rail } from "./Rail";
 import { RunBar } from "./RunBar";
 import { useShellLayout } from "./useShellLayout";
 
 export function Workspace() {
   const layout = useShellLayout();
-  const [railOpen, setRailOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [railOpen, setRailOpen] = useSheetOpen(layout.rail);
+  const [inspectorOpen, setInspectorOpen] = useSheetOpen(layout.inspector);
   const railSheet = layout.rail === "sheet";
   const inspectorSheet = layout.inspector === "sheet";
 
   const openRail = useCallback(() => {
     setRailOpen(true);
-  }, []);
+  }, [setRailOpen]);
 
   const openInspector = useCallback(() => {
     setInspectorOpen(true);
-  }, []);
+  }, [setInspectorOpen]);
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -51,17 +51,28 @@ export function Workspace() {
           <Inspector />
         </aside>
       )}
-      <Dialog title={RAIL_TITLE} placement="left" isOpen={railOpen && railSheet} onOpenChange={setRailOpen}>
+      <Dialog title={RAIL_TITLE} placement="left" isOpen={railOpen} onOpenChange={setRailOpen}>
         <Rail />
       </Dialog>
       <Dialog
         title={INSPECTOR_TITLE}
         placement="right"
-        isOpen={inspectorOpen && inspectorSheet}
+        isOpen={inspectorOpen}
         onOpenChange={setInspectorOpen}
       >
         <Inspector />
       </Dialog>
     </div>
   );
+}
+
+function useSheetOpen(placement: PanePlacement): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = useState(false);
+  const kept = keepSheetOpen(open, placement);
+
+  if (kept !== open) {
+    setOpen(kept);
+  }
+
+  return [kept, setOpen];
 }

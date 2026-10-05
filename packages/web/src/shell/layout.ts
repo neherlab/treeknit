@@ -27,6 +27,10 @@ export function shellLayout(viewportWidthPx: number): ShellLayout {
   return NARROW;
 }
 
+export function keepSheetOpen(open: boolean, placement: PanePlacement): boolean {
+  return open && placement === "sheet";
+}
+
 export const SHELL_MEDIA_QUERIES = [RAIL_PANE_MIN_WIDTH_PX, INSPECTOR_PANE_MIN_WIDTH_PX].map(
   (widthPx) => `(min-width: ${widthPx}px)`,
 );

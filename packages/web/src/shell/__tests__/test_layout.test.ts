@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import { INSPECTOR_PANE_MIN_WIDTH_PX, RAIL_PANE_MIN_WIDTH_PX, SHELL_MEDIA_QUERIES, shellLayout } from "../layout";
+import {
+  INSPECTOR_PANE_MIN_WIDTH_PX,
+  keepSheetOpen,
+  RAIL_PANE_MIN_WIDTH_PX,
+  SHELL_MEDIA_QUERIES,
+  shellLayout,
+} from "../layout";
 
 describe("shellLayout", () => {
   test.each([
@@ -32,5 +38,21 @@ describe("shellLayout", () => {
       `(min-width: ${RAIL_PANE_MIN_WIDTH_PX}px)`,
       `(min-width: ${INSPECTOR_PANE_MIN_WIDTH_PX}px)`,
     ]);
+  });
+});
+
+describe("keepSheetOpen", () => {
+  test("closes a sheet that became a pane, so it stays closed when it turns back into a sheet", () => {
+    const narrow = shellLayout(390).rail;
+    const wide = shellLayout(1920).rail;
+
+    const afterWide = keepSheetOpen(true, wide);
+    const afterNarrow = keepSheetOpen(afterWide, narrow);
+
+    expect([afterWide, afterNarrow]).toStrictEqual([false, false]);
+  });
+
+  test("keeps an open sheet open while it stays a sheet", () => {
+    expect(keepSheetOpen(true, "sheet")).toBe(true);
   });
 });
