@@ -27,7 +27,8 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
   const leafAxis = frame?.leafAxis ?? "y";
   const crossPx = frame === undefined ? 0 : crossExtent(frame);
   const names = useMemo(() => argLeafNames(data), [data]);
-  const leafLabels = useLeafLabels(names, leafAxis === "y" && labels !== "off", rules.labelMaxChars);
+  const labelsShown = leafAxis === "y" && labelsVisible(labels, rowPx, rules);
+  const leafLabels = useLeafLabels(names, labelsShown, rules.labelMaxChars);
 
   const column = useMemo(
     () => argColumn(crossPx, labelColumnPx(innerWidthPx(crossPx), leafLabels.longestPx)),
@@ -45,11 +46,11 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
     () => ({
       colors,
       emphasis: argEmphasis(data, selection),
-      labels: leafAxis === "y" && labelsVisible(labels, rowPx, rules),
+      labels: labelsShown,
       fontReady: leafLabels.fontReady,
       labelMaxChars: rules.labelMaxChars,
     }),
-    [colors, data, selection, leafAxis, labels, rowPx, rules, leafLabels.fontReady],
+    [colors, data, selection, labelsShown, rules, leafLabels.fontReady],
   );
 
   const layers = useMemo(() => argLayers(geometry, style), [geometry, style]);

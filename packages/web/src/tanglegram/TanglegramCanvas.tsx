@@ -38,7 +38,8 @@ export default function TanglegramCanvas({
   const leafAxis = frame?.leafAxis ?? "y";
   const crossPx = frame === undefined ? 0 : crossExtent(frame);
   const names = useMemo(() => pairLeafNames(data), [data]);
-  const leafLabels = useLeafLabels(names, leafAxis === "y" && labels !== "off", rules.labelMaxChars);
+  const labelsShown = leafAxis === "y" && labelsVisible(labels, rowPx, rules);
+  const leafLabels = useLeafLabels(names, labelsShown, rules.labelMaxChars);
 
   const columns = useMemo(
     () => tanglegramColumns(crossPx, labelColumnPx(innerWidthPx(crossPx) / 2, leafLabels.longestPx)),
@@ -58,12 +59,12 @@ export default function TanglegramCanvas({
       colorByMcc,
       emphasis: pairEmphasis(data, selection),
       ribbons: ribbonsShown(rowPx, rules),
-      labels: leafAxis === "y" && labelsVisible(labels, rowPx, rules),
+      labels: labelsShown,
       fontReady: leafLabels.fontReady,
       labelMaxChars: rules.labelMaxChars,
       fade,
     }),
-    [colors, colorByMcc, data, selection, rowPx, rules, leafAxis, labels, leafLabels.fontReady, fade],
+    [colors, colorByMcc, data, selection, rowPx, rules, labelsShown, leafLabels.fontReady, fade],
   );
 
   const layers = useMemo(() => tanglegramLayers(geometry, style), [geometry, style]);
