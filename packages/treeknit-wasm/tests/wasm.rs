@@ -395,6 +395,11 @@ mod tests {
       json!(keys(elbow))
     );
     assert_eq!(json!("reassortment"), view["shapes"]["left"]["marks"][0]["kind"]);
+    assert_eq!(5, view["shapes"]["right"]["leaders"].as_array().unwrap().len());
+    assert_eq!(
+      json!(["node", "from", "to"]),
+      json!(keys(&view["shapes"]["left"]["leaders"][0]))
+    );
   }
 
   #[wasm_bindgen_test]

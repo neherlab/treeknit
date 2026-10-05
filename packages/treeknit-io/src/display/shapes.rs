@@ -2,8 +2,8 @@
 //! shape, y in leaf rows. The SVG figures and the interactive views draw only these shapes.
 
 use super::{
-  ArgEdge, ArgEdgeShape, ArgNodeView, ArgShapes, Bezier, Block, DrawNode, DrawTree, EdgePath, Elbow, Link, LinkCurve,
-  Mark, MarkKind, PairShapes, Point, Ribbon, Scale, TreeShapes,
+  ArgEdge, ArgEdgeShape, ArgNodeView, ArgShapes, Bezier, Block, DrawNode, DrawTree, EdgePath, Elbow, Leader, Link,
+  LinkCurve, Mark, MarkKind, PairShapes, Point, Ribbon, Scale, TreeShapes,
 };
 
 /// Half a leaf row: a ribbon extends each y range of its block by this much.
@@ -47,8 +47,12 @@ fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
   let x = normalized(tree.nodes.iter().map(|n| scaled(n, scale)));
   let mut elbows = Vec::new();
   let mut marks = Vec::new();
+  let mut leaders = Vec::new();
   for (i, node) in tree.nodes.iter().enumerate() {
     let at = [x[i], node.y];
+    if node.leaf {
+      leaders.push(leader(i, at));
+    }
     if let Some(p) = node.parent {
       let from = [x[p], tree.nodes[p].y];
       elbows.push(Elbow {
@@ -74,7 +78,7 @@ fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
       });
     }
   }
-  TreeShapes { elbows, marks }
+  TreeShapes { elbows, marks, leaders }
 }
 
 /// The edges and hybrid rings of an ARG: an elbow per edge, and an S-curve per reticulation
@@ -112,6 +116,21 @@ pub(super) fn arg_shapes(nodes: &[ArgNodeView], edges: &[ArgEdge], scale: Scale)
         at: point(i),
       })
       .collect(),
+    leaders: nodes
+      .iter()
+      .enumerate()
+      .filter(|(_, n)| n.leaf)
+      .map(|(i, _)| leader(i, point(i)))
+      .collect(),
+  }
+}
+
+/// The leader of leaf `node` from its tip `at` to the label edge.
+fn leader(node: usize, at: Point) -> Leader {
+  Leader {
+    node,
+    from: at,
+    to: [1.0, at[1]],
   }
 }
 
@@ -201,7 +220,7 @@ mod tests {
   #[test]
   fn tree_shapes_of_three_leaves_are_elbows_in_column_units() {
     // ((A:1,B:3):1,C:2): root at x 0, AB at 1, A at 2, B at 4, C at 2; normalized by 4.
-    let tree = DrawTree {
+    let mut tree = DrawTree {
       label: "t".to_owned(),
       nodes: vec![
         node(None, 0.0, 1.25),
@@ -211,6 +230,9 @@ mod tests {
         node(Some(0), 2.0, 2.0),
       ],
     };
+    for leaf in &mut tree.nodes[2..] {
+      leaf.leaf = true;
+    }
     let shapes = tree_shapes(&tree, &[3], Scale::Div);
     let points: Vec<(usize, [Point; 3])> = shapes.elbows.iter().map(|e| (e.node, e.points)).collect();
     let expected = vec![
@@ -221,6 +243,13 @@ mod tests {
     ];
     assert_eq!(expected, points);
     assert!(shapes.elbows.iter().all(|e| e.slot == Some(3)));
+    let leaders: Vec<(usize, Point, Point)> = shapes.leaders.iter().map(|l| (l.node, l.from, l.to)).collect();
+    let expected = vec![
+      (2, [0.5, 0.0], [1.0, 0.0]),
+      (3, [1.0, 1.0], [1.0, 1.0]),
+      (4, [0.5, 2.0], [1.0, 2.0]),
+    ];
+    assert_eq!(expected, leaders);
     assert_eq!(Vec::<Mark>::new(), shapes.marks);
   }
 

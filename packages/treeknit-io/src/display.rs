@@ -206,6 +206,22 @@ pub struct TreeShapes {
   /// One elbow per non-root node.
   pub elbows: Vec<Elbow>,
   pub marks: Vec<Mark>,
+  /// One leader per leaf, in node order.
+  pub leaders: Vec<Leader>,
+}
+
+/// The dotted line from a leaf tip to the label edge of its tree column, at x = 1, so that the
+/// labels align when the tips do not. A leaf at the label edge has a leader of length 0.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct Leader {
+  /// Index of the leaf.
+  pub node: usize,
+  /// The tip of the leaf.
+  pub from: Point,
+  /// The label edge, at the leaf's row.
+  pub to: Point,
 }
 
 /// The rectangular branch above a node: from (parent x, parent y) to (parent x, node y) to
@@ -367,6 +383,8 @@ pub struct ArgShapes {
   pub edges: Vec<ArgEdgeShape>,
   /// Hybrid rings.
   pub marks: Vec<Mark>,
+  /// One leader per leaf, in node order.
+  pub leaders: Vec<Leader>,
 }
 
 /// The shape of one ARG edge.
