@@ -28,6 +28,7 @@ export interface PairStyle {
   ribbons: boolean;
   labels: boolean;
   fontReady: boolean;
+  labelMaxChars: number;
   fade: number;
 }
 
@@ -138,7 +139,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       fontReady: style.fontReady,
       visible: style.labels,
       getPosition: (item) => item.position,
-      getText: (item) => shortenLabel(item.name),
+      getText: (item) => shortenLabel(item.name, style.labelMaxChars),
       getColor: (item) => labelColor(item.mcc, style),
       anchor: "start",
       offsetPx: [LABEL_GAP_PX, 0],
@@ -151,7 +152,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       fontReady: style.fontReady,
       visible: style.labels,
       getPosition: (item) => item.position,
-      getText: (item) => shortenLabel(item.name),
+      getText: (item) => shortenLabel(item.name, style.labelMaxChars),
       getColor: (item) => labelColor(item.mcc, style),
       anchor: "end",
       offsetPx: [-LABEL_GAP_PX, 0],

@@ -13,6 +13,7 @@ export type StatelessApi = Pick<
   | "treeLabels"
   | "version"
   | "palette"
+  | "drawingRules"
 >;
 
 export type SessionApi = Omit<Session, "free" | typeof Symbol.dispose>;

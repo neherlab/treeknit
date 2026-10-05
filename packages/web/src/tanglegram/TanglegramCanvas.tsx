@@ -2,6 +2,7 @@ import type { PickingInfo } from "@deck.gl/core";
 import type { LabelMode, PairView } from "@neherlab/treeknit-wasm";
 import { useCallback, useMemo } from "react";
 
+import { useDrawingRules } from "../analysis/queries";
 import { useDrawingColors } from "../canvas/drawingColors";
 import { labelCharacters, labelsVisible, ribbonsShown, useLabelFontReady } from "../canvas/labels";
 import { useFadeIn } from "../canvas/motion";
@@ -37,6 +38,7 @@ export default function TanglegramCanvas({
   label,
 }: TanglegramCanvasProps) {
   const colors = useDrawingColors();
+  const rules = useDrawingRules();
   const labelText = useMemo(() => labelCharacters([...leafNames(data.left), ...leafNames(data.right)]), [data]);
   const fontReady = useLabelFontReady(labelText);
   const fade = useFadeIn(resultKey);
@@ -52,8 +54,11 @@ export default function TanglegramCanvas({
 
     const measure = canvasTextMeasure();
 
-    return Math.max(longestLabelPx(leafNames(data.left), measure), longestLabelPx(leafNames(data.right), measure));
-  }, [data, labelled, fontReady]);
+    return Math.max(
+      longestLabelPx(leafNames(data.left), measure, rules.labelMaxChars),
+      longestLabelPx(leafNames(data.right), measure, rules.labelMaxChars),
+    );
+  }, [data, labelled, fontReady, rules]);
 
   const columns = useMemo(
     () => tanglegramColumns(crossPx, labelColumnPx(crossPx, longestLabel)),
@@ -68,8 +73,8 @@ export default function TanglegramCanvas({
   );
 
   const emphasis = useMemo(() => pairEmphasis(data, selection), [data, selection]);
-  const ribbons = ribbonsShown(rowPx);
-  const labelsShown = leafAxis === "y" && labelsVisible(labels, rowPx);
+  const ribbons = ribbonsShown(rowPx, rules);
+  const labelsShown = leafAxis === "y" && labelsVisible(labels, rowPx, rules);
 
   const layers = useMemo(
     () =>
@@ -80,9 +85,10 @@ export default function TanglegramCanvas({
         ribbons,
         labels: labelsShown,
         fontReady,
+        labelMaxChars: rules.labelMaxChars,
         fade,
       }),
-    [geometry, colors, colorByMcc, emphasis, ribbons, labelsShown, fontReady, fade],
+    [geometry, colors, colorByMcc, emphasis, ribbons, labelsShown, fontReady, rules, fade],
   );
 
   const minimapLayers = useMemo(
@@ -94,9 +100,10 @@ export default function TanglegramCanvas({
         ribbons: true,
         labels: false,
         fontReady: false,
+        labelMaxChars: rules.labelMaxChars,
         fade: 1,
       }),
-    [geometry, colors, colorByMcc, data],
+    [geometry, colors, colorByMcc, data, rules],
   );
 
   const targetOf = useCallback(

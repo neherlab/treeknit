@@ -29,6 +29,7 @@ export interface AnalysisClient {
   treeLabels(...args: StatelessArgs<"treeLabels">): StatelessResult<"treeLabels">;
   version(): StatelessResult<"version">;
   palette(): StatelessResult<"palette">;
+  drawingRules(): StatelessResult<"drawingRules">;
   startRun(request: AnalysisRequest, onProgress: (progress: Progress) => void): RunHandle;
   cancel(): void;
   summary(sessionId: number): SessionResult<"summary">;
@@ -127,6 +128,10 @@ export class WorkerAnalysisClient implements AnalysisClient {
 
   async palette(): StatelessResult<"palette"> {
     return this.#stateless((remote) => remote.palette());
+  }
+
+  async drawingRules(): StatelessResult<"drawingRules"> {
+    return this.#stateless((remote) => remote.drawingRules());
   }
 
   startRun(request: AnalysisRequest, onProgress: (progress: Progress) => void): RunHandle {

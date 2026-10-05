@@ -1,3 +1,4 @@
+import type { DrawingRules } from "@neherlab/treeknit-wasm";
 import { useCallback, useSyncExternalStore } from "react";
 
 export type LabelMode = "auto" | "on" | "off";
@@ -8,25 +9,19 @@ export const LABEL_FONT_WEIGHT = 400;
 
 export const LABEL_FONT_SIZE_PX = 12;
 
-export const LABEL_AUTO_MIN_ROW_PX = 10;
-
-export const LABEL_MAX_LENGTH = 40;
-
-export const RIBBON_MAX_ROW_PX = 6;
-
 const ELLIPSIS = "…";
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
-export function labelsVisible(mode: LabelMode, rowPx: number): boolean {
-  return mode === "on" || (mode === "auto" && rowPx >= LABEL_AUTO_MIN_ROW_PX);
+export function labelsVisible(mode: LabelMode, rowPx: number, rules: DrawingRules): boolean {
+  return mode === "on" || (mode === "auto" && rowPx >= rules.labelAutoMinRowPx);
 }
 
-export function ribbonsShown(rowPx: number): boolean {
-  return rowPx < RIBBON_MAX_ROW_PX;
+export function ribbonsShown(rowPx: number, rules: DrawingRules): boolean {
+  return rowPx < rules.linkMinRowPx;
 }
 
-export function shortenLabel(name: string, maxLength = LABEL_MAX_LENGTH): string {
+export function shortenLabel(name: string, maxLength: number): string {
   const parts = Array.from(graphemes.segment(name), ({ segment }) => segment);
 
   if (parts.length <= maxLength) {

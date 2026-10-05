@@ -1,17 +1,17 @@
+import type { DrawingRules } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
 import {
   type FontStore,
-  LABEL_AUTO_MIN_ROW_PX,
   LABEL_FONT,
-  LABEL_MAX_LENGTH,
   labelCharacters,
   labelFontStore,
   labelsVisible,
-  RIBBON_MAX_ROW_PX,
   ribbonsShown,
   shortenLabel,
 } from "../labels";
+
+const RULES: DrawingRules = { labelAutoMinRowPx: 10, linkMinRowPx: 6, labelMaxChars: 40 };
 
 function graphemeCount(text: string): number {
   return Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text)).length;
@@ -20,14 +20,14 @@ function graphemeCount(text: string): number {
 describe("labelsVisible", () => {
   test.each([
     ["auto", 9.99, false],
-    ["auto", LABEL_AUTO_MIN_ROW_PX, true],
+    ["auto", 10, true],
     ["auto", 30, true],
     ["on", 0.5, true],
     ["on", 30, true],
     ["off", 0.5, false],
     ["off", 30, false],
   ] as const)("mode %s at %f px per row shows labels: %s", (mode, rowPx, visible) => {
-    expect(labelsVisible(mode, rowPx)).toBe(visible);
+    expect(labelsVisible(mode, rowPx, RULES)).toBe(visible);
   });
 });
 
@@ -35,30 +35,30 @@ describe("ribbonsShown", () => {
   test.each([
     [0.1, true],
     [5.99, true],
-    [RIBBON_MAX_ROW_PX, false],
+    [6, false],
     [30, false],
   ] as const)("at %f px per row draws ribbons: %s", (rowPx, ribbons) => {
-    expect(ribbonsShown(rowPx)).toBe(ribbons);
+    expect(ribbonsShown(rowPx, RULES)).toBe(ribbons);
   });
 });
 
 describe("shortenLabel", () => {
   test("keeps a label of exactly the maximum length", () => {
-    const name = "A".repeat(LABEL_MAX_LENGTH);
+    const name = "A".repeat(40);
 
-    expect(shortenLabel(name)).toBe(name);
+    expect(shortenLabel(name, 40)).toBe(name);
   });
 
   test("keeps a short strain name unchanged", () => {
-    expect(shortenLabel("A/New York/392/2004")).toBe("A/New York/392/2004");
+    expect(shortenLabel("A/New York/392/2004", 40)).toBe("A/New York/392/2004");
   });
 
   test("shortens a longer label in the middle to the maximum length", () => {
     const name = "A/Hong Kong/1-0123456789/2004|EPI_ISL_000000|H3N2|2004-01-02";
-    const short = shortenLabel(name);
+    const short = shortenLabel(name, 40);
 
     expect(short).toBe("A/Hong Kong/1-012345…000|H3N2|2004-01-02");
-    expect(graphemeCount(short)).toBe(LABEL_MAX_LENGTH);
+    expect(graphemeCount(short)).toBe(40);
   });
 
   test("never splits a letter with a combining mark or a surrogate pair", () => {

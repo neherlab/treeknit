@@ -1,4 +1,4 @@
-import type { ArgView, TreeInspection, TreeText } from "@neherlab/treeknit-wasm";
+import type { ArgView, DrawingRules, TreeInspection, TreeText } from "@neherlab/treeknit-wasm";
 import {
   keepPreviousData,
   type QueryKey,
@@ -6,6 +6,7 @@ import {
   type SkipToken,
   useQueries,
   useQuery,
+  useSuspenseQuery,
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { isDeepEqual } from "remeda";
@@ -26,6 +27,7 @@ const NO_SESSION = ["session", null] as const;
 export const analysisKeys = {
   defaultSettings: () => ["defaultSettings"] as const,
   palette: () => ["palette"] as const,
+  drawingRules: () => ["drawingRules"] as const,
   version: () => ["version"] as const,
   inspectTree: (...args: StatelessArgs<"inspectTree">) => ["inspectTree", ...args] as const,
   overlap: (trees: readonly TreeText[]) => ["overlap", trees] as const,
@@ -50,6 +52,12 @@ export function usePalette(): Answer<StatelessResult<"palette">> {
   const client = useAnalysisClient();
 
   return useQuery({ queryKey: analysisKeys.palette(), queryFn: async () => client.palette() });
+}
+
+export function useDrawingRules(): DrawingRules {
+  const client = useAnalysisClient();
+
+  return useSuspenseQuery({ queryKey: analysisKeys.drawingRules(), queryFn: async () => client.drawingRules() }).data;
 }
 
 export function useVersion(): Answer<StatelessResult<"version">> {

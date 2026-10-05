@@ -2,6 +2,7 @@ import type { PickingInfo } from "@deck.gl/core";
 import type { ArgView, LabelMode } from "@neherlab/treeknit-wasm";
 import { useCallback, useMemo } from "react";
 
+import { useDrawingRules } from "../analysis/queries";
 import { useDrawingColors } from "../canvas/drawingColors";
 import { labelCharacters, labelsVisible, useLabelFontReady } from "../canvas/labels";
 import { curveRowPx } from "../canvas/projection";
@@ -20,6 +21,7 @@ import { argLayers } from "./layers";
 
 export default function ArgCanvas({ data, view, labels, selection, onSelect, segments, label }: ArgCanvasProps) {
   const colors = useDrawingColors();
+  const rules = useDrawingRules();
   const names = useMemo(() => data.nodes.flatMap((node) => (node.leaf ? [node.label] : [])), [data]);
   const labelText = useMemo(() => labelCharacters(names), [names]);
   const fontReady = useLabelFontReady(labelText);
@@ -33,8 +35,8 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
       return 0;
     }
 
-    return longestLabelPx(names, canvasTextMeasure());
-  }, [names, labelled, fontReady]);
+    return longestLabelPx(names, canvasTextMeasure(), rules.labelMaxChars);
+  }, [names, labelled, fontReady, rules]);
 
   const column = useMemo(() => argColumn(crossPx, longestLabel), [crossPx, longestLabel]);
   const sampledRowPx = curveRowPx(rowPx);
@@ -45,16 +47,23 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
   );
 
   const emphasis = useMemo(() => argEmphasis(data, selection), [data, selection]);
-  const labelsShown = leafAxis === "y" && labelsVisible(labels, rowPx);
+  const labelsShown = leafAxis === "y" && labelsVisible(labels, rowPx, rules);
 
   const layers = useMemo(
-    () => argLayers(geometry, { colors, emphasis, labels: labelsShown, fontReady }),
-    [geometry, colors, emphasis, labelsShown, fontReady],
+    () => argLayers(geometry, { colors, emphasis, labels: labelsShown, fontReady, labelMaxChars: rules.labelMaxChars }),
+    [geometry, colors, emphasis, labelsShown, fontReady, rules],
   );
 
   const minimapLayers = useMemo(
-    () => argLayers(geometry, { colors, emphasis: argEmphasis(data, {}), labels: false, fontReady: false }),
-    [geometry, colors, data],
+    () =>
+      argLayers(geometry, {
+        colors,
+        emphasis: argEmphasis(data, {}),
+        labels: false,
+        fontReady: false,
+        labelMaxChars: rules.labelMaxChars,
+      }),
+    [geometry, colors, data, rules],
   );
 
   const targetOf = useCallback(

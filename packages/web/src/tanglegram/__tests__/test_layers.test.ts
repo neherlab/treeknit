@@ -54,6 +54,7 @@ const STYLE: PairStyle = {
   ribbons: false,
   labels: true,
   fontReady: true,
+  labelMaxChars: 40,
   fade: 1,
 };
 

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import { LABEL_MAX_LENGTH } from "../../canvas/labels";
 import { longestLabelPx } from "../labelWidth";
 import { LEAF_SEARCH_LIMIT, matchingLeaves } from "../leafSearch";
 
@@ -35,10 +34,10 @@ describe("longestLabelPx", () => {
   test("measures the shortened form of each label", () => {
     const long = "x".repeat(60);
 
-    expect(longestLabelPx(["ab", long, "abcd"], (text) => text.length)).toBe(LABEL_MAX_LENGTH);
+    expect(longestLabelPx(["ab", long, "abcd"], (text) => text.length, 40)).toBe(40);
   });
 
   test("is zero without labels", () => {
-    expect(longestLabelPx([], (text) => text.length)).toBe(0);
+    expect(longestLabelPx([], (text) => text.length, 40)).toBe(0);
   });
 });

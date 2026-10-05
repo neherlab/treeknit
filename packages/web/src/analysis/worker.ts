@@ -1,5 +1,6 @@
 import {
   defaultSettings,
+  drawingRules,
   initSync,
   inspectTree,
   overlap,
@@ -29,6 +30,7 @@ class AnalysisWorker implements WorkerApi {
   readonly treeLabels = treeLabels;
   readonly version = version;
   readonly palette = palette;
+  readonly drawingRules = drawingRules;
   #session: Session | undefined;
 
   init(module: WebAssembly.Module): void {

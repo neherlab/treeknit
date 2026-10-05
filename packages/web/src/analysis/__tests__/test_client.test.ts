@@ -446,6 +446,7 @@ function fakeApi(overrides: Partial<FakeApi>): FakeApi {
     treeLabels: missing,
     version: missing,
     palette: missing,
+    drawingRules: missing,
     run: missing,
     summary: missing,
     files: missing,

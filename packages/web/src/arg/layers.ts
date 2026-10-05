@@ -15,6 +15,7 @@ export interface ArgStyle {
   emphasis: ArgEmphasis;
   labels: boolean;
   fontReady: boolean;
+  labelMaxChars: number;
 }
 
 export function argEdgeColor(
@@ -73,7 +74,7 @@ export function argLayers(geometry: ArgGeometry, style: ArgStyle): LayersList {
       fontReady: style.fontReady,
       visible: style.labels,
       getPosition: (item) => item.position,
-      getText: (item) => shortenLabel(item.name),
+      getText: (item) => shortenLabel(item.name, style.labelMaxChars),
       getColor: colors.ink,
       anchor: "start",
       offsetPx: [LABEL_GAP_PX, 0],
