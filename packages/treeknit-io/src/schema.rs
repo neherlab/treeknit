@@ -374,9 +374,9 @@ mod tests {
   #[case::gamma_min(     |f: &SettingFields| f.gamma.min,              0.0,                     (Settings { gamma: 0.0, ..three() },                                    Settings { gamma: -f64::MIN_POSITIVE, ..three() }))]
   #[case::seq_length_min(|f: &SettingFields| f.seq_lengths.min,        0.0,                     (Settings { seq_lengths: Some(vec![f64::from_bits(1); 3]), ..three() }, Settings { seq_lengths: Some(vec![0.0, 1.0, 1.0]), ..three() }))]
   #[case::mcmc_min(      |f: &SettingFields| f.n_mcmc_it.min,          1.0,                     (Settings { n_mcmc_it: 1, ..three() },                                  Settings { n_mcmc_it: 0, ..three() }))]
-  #[case::mcmc_max(      |f: &SettingFields| f.n_mcmc_it.max.unwrap(), 4_294_967_295.0,         (Settings { n_mcmc_it: 4_294_967_295, ..three() },                      Settings { n_mcmc_it: 4_294_967_296, ..three() }))]
+  #[case::mcmc_max(      |f: &SettingFields| f.n_mcmc_it.max.unwrap(), 4_294_967_295.0,         (Settings { n_mcmc_it: 0xFFFF_FFFF, ..three() },                      Settings { n_mcmc_it: 0x1_0000_0000, ..three() }))]
   #[case::rounds_min(    |f: &SettingFields| f.rounds.min,             1.0,                     (Settings { rounds: 1, ..three() },                                     Settings { rounds: 0, ..three() }))]
-  #[case::rounds_max(    |f: &SettingFields| f.rounds.max.unwrap(),    4_294_967_294.0,         (Settings { rounds: 4_294_967_294, ..three() },                         Settings { rounds: 4_294_967_295, ..three() }))]
+  #[case::rounds_max(    |f: &SettingFields| f.rounds.max.unwrap(),    4_294_967_294.0,         (Settings { rounds: 0xFFFF_FFFE, ..three() },                         Settings { rounds: 0xFFFF_FFFF, ..three() }))]
   #[case::seed_max(      |f: &SettingFields| f.seed.max.unwrap(),      9_007_199_254_740_991.0, (Settings { seed: MAX_SEED, ..three() },                                Settings { seed: MAX_SEED + 1, ..three() }))]
   #[trace]
   fn schema_bound_separates_the_last_valid_value_from_the_first_invalid_one(
@@ -391,9 +391,8 @@ mod tests {
     // and `MAX_SEED`, written out; the settings are those of strict resolution with three trees,
     // which adds a final round on top of `rounds`.
     let f = settings_schema(3, &three()).settings;
-    assert_eq!(expected_bound, bound(&f));
     let accepted = (check_settings(&last_valid, 3).is_empty(), check_settings(&first_invalid, 3).is_empty());
-    assert_eq!((true, false), accepted);
+    assert_eq!((expected_bound, (true, false)), (bound(&f), accepted));
   }
 
   #[test]
@@ -427,7 +426,7 @@ mod tests {
     // Oracle: `run_observed` in `treeknit_core::pipeline` changes the trees between rounds only
     // when it resolves, and `infer` returns `naive_mccs` of the trees without random numbers;
     // inference uses a new seed in every round (`mix`), so its result depends on the rounds.
-    let s = Settings { naive, resolve, ..Settings::default() };
+    let s = Settings { resolve, naive, ..Settings::default() };
     assert_eq!(applies, settings_schema(3, &s).settings.rounds.applies);
   }
 

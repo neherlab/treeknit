@@ -21,11 +21,11 @@ pub const MAX_SEED: u64 = (1 << 53) - 1;
 /// counts end at 2^32 - 1, and a run with more than two trees can add a final round on top of
 /// `rounds`. The command line applies the same bound, so that a request one surface accepts the
 /// other accepts too.
-pub const MAX_ROUNDS: usize = 4_294_967_294;
+pub const MAX_ROUNDS: usize = 0xFFFF_FFFE;
 
 /// Largest number of MCMC steps per leaf: 2^32 - 1, the largest count of 32-bit WebAssembly,
 /// for the reason of [`MAX_ROUNDS`].
-pub const MAX_MCMC_IT: usize = 4_294_967_295;
+pub const MAX_MCMC_IT: usize = 0xFFFF_FFFF;
 
 /// Fewest leaves a pair of trees must share. With fewer, the pair has no MCCs to infer.
 pub const MIN_SHARED_LEAVES: usize = 2;
@@ -892,10 +892,10 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::largest_rounds(  Settings { rounds: 4_294_967_294, ..Settings::default() },    vec![])]
-  #[case::too_many_rounds( Settings { rounds: 4_294_967_295, ..Settings::default() },    vec![error("settings.rounds", "rounds must be at most 4294967294, got 4294967295")])]
-  #[case::largest_mcmc(    Settings { n_mcmc_it: 4_294_967_295, ..Settings::default() }, vec![])]
-  #[case::too_many_mcmc(   Settings { n_mcmc_it: 4_294_967_296, ..Settings::default() }, vec![error("settings.nMcmcIt", "MCMC steps per leaf must be at most 4294967295, got 4294967296")])]
+  #[case::largest_rounds(  Settings { rounds: 0xFFFF_FFFE, ..Settings::default() },    vec![])]
+  #[case::too_many_rounds( Settings { rounds: 0xFFFF_FFFF, ..Settings::default() },    vec![error("settings.rounds", "rounds must be at most 4294967294, got 4294967295")])]
+  #[case::largest_mcmc(    Settings { n_mcmc_it: 0xFFFF_FFFF, ..Settings::default() }, vec![])]
+  #[case::too_many_mcmc(   Settings { n_mcmc_it: 0x1_0000_0000, ..Settings::default() }, vec![error("settings.nMcmcIt", "MCMC steps per leaf must be at most 4294967295, got 4294967296")])]
   #[trace]
   fn counts_are_checked_at_their_maximum(#[case] s: Settings, #[case] expected: Vec<ValidationError>) {
     let s = Settings { resolve: ResolveMode::Strict, ..s };
