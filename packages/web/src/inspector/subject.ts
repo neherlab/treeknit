@@ -96,7 +96,7 @@ function leafSubject(name: string, { pair, constellation }: InspectorData): Insp
     name,
     copies,
     mcc,
-    ambiguous: mcc !== undefined && mcc.ambiguous && mcc.imputedLeaves.includes(name),
+    ambiguous: mcc?.ambiguousLeaves.includes(name) ?? false,
     pairs: leafPairs(constellation, name),
   };
 }

@@ -38,6 +38,13 @@ describe("inspectorSubject", () => {
     });
   });
 
+  test("marks a leaf ambiguous only when its own attachment is ambiguous", () => {
+    const mccs = PAIR.mccs.map((mcc) => (mcc.index === 1 ? { ...mcc, ambiguousLeaves: [] } : mcc));
+    const subject = inspectorSubject({ leaf: "X" }, { ...DATA, pair: { ...PAIR, mccs } });
+
+    expect(subject).toMatchObject({ kind: "leaf", ambiguous: false });
+  });
+
   test("shows a node of a tree with its clade size and MCC", () => {
     expect(inspectorSubject({ mcc: 0, node: { side: "right", name: "NODE_3" } }, DATA)).toStrictEqual({
       kind: "node",
