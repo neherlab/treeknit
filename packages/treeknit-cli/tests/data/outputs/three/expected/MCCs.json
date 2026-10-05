@@ -1,0 +1,81 @@
+{
+  "MCC_dict": {
+    "1": {
+      "trees": [
+        "seg0",
+        "seg1"
+      ],
+      "mccs": [
+        [
+          "X"
+        ],
+        [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "P"
+        ]
+      ],
+      "imputed": [
+        {
+          "leaf": "P",
+          "tree": "seg1",
+          "mcc": 1,
+          "ambiguous": false
+        }
+      ]
+    },
+    "2": {
+      "trees": [
+        "seg0",
+        "seg2"
+      ],
+      "mccs": [
+        [
+          "D"
+        ],
+        [
+          "A",
+          "B",
+          "C",
+          "E",
+          "P",
+          "X"
+        ]
+      ],
+      "imputed": [
+        {
+          "leaf": "P",
+          "tree": "seg2",
+          "mcc": 1,
+          "ambiguous": false
+        }
+      ]
+    },
+    "3": {
+      "trees": [
+        "seg1",
+        "seg2"
+      ],
+      "mccs": [
+        [
+          "C"
+        ],
+        [
+          "P"
+        ],
+        [
+          "X"
+        ],
+        [
+          "A",
+          "B",
+          "D",
+          "E"
+        ]
+      ]
+    }
+  }
+}

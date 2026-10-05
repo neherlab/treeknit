@@ -25,6 +25,8 @@ treeknit-core.workspace = true
 treeknit-io.workspace = true
 
 [dev-dependencies]
+pretty_assertions.workspace = true
+rstest.workspace = true
 serde_json.workspace = true
 
 [lints]

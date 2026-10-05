@@ -1,0 +1,11 @@
+ARGNode_1,NODE_1,NODE_1
+ARGNode_2,NODE_2,NODE_2
+A,A,A
+ARGNode_4,Singleton_1,NODE_3
+B,B,B
+ARGNode_6,NODE_3,NODE_4
+C,C,C
+ARGNode_8,NODE_4,Singleton_2
+D,D,D
+ARGNode_10, , 
+X,X,X

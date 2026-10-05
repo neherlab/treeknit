@@ -8,6 +8,7 @@ export default defineConfig({
     "dev/lints/oxlint-anti-slop",
     "fixtures",
     "kb",
+    "packages/treeknit-cli/tests/data",
     "packages/treeknit-wasm/pkg",
     "ref",
   ],

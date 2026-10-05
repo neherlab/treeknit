@@ -1,0 +1,3 @@
+# Expected outputs carry the exact bytes the command line writes: no final newline in some
+# files, a trailing space in ARG/nodes.dat.
+* -text

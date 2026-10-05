@@ -1,0 +1,4 @@
+# Expected outputs carry the exact bytes the command line writes.
+[*]
+insert_final_newline = false
+trim_trailing_whitespace = false

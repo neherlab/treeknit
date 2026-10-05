@@ -2,6 +2,9 @@
 
 #[cfg(test)]
 mod tests {
+  use pretty_assertions::assert_eq;
+  use rstest::rstest;
+  use std::collections::BTreeMap;
   use std::path::{Path, PathBuf};
   use std::process::Command;
 
@@ -211,6 +214,57 @@ mod tests {
     texts.push("Former options are still accepted".to_owned());
     let missing: Vec<&String> = texts.iter().filter(|t| !help.contains(t.as_str())).collect();
     assert_eq!(Vec::<&String>::new(), missing, "{help}");
+  }
+
+  /// Every file under `dir` except `log.txt`, by its path relative to `dir` with `/` separators.
+  fn files_below(dir: &Path) -> BTreeMap<String, Vec<u8>> {
+    let mut files = BTreeMap::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+      for entry in std::fs::read_dir(&d).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+          stack.push(path);
+          continue;
+        }
+        let relative = path.strip_prefix(dir).unwrap().to_string_lossy().replace('\\', "/");
+        if relative != "log.txt" {
+          files.insert(relative, std::fs::read(&path).unwrap());
+        }
+      }
+    }
+    files
+  }
+
+  /// The text of each file, so a failure shows a line diff.
+  fn readable(files: BTreeMap<String, Vec<u8>>) -> BTreeMap<String, String> {
+    files
+      .into_iter()
+      .map(|(k, v)| (k, String::from_utf8(v).unwrap()))
+      .collect()
+  }
+
+  #[rstest]
+  #[case::two_trees("two", &["ha.nwk", "na.nwk"], &[])]
+  #[case::three_trees_imputed_auspice("three", &["seg0.nwk", "seg1.nwk", "seg2.newick"], &["--impute", "--auspice-view"])]
+  #[trace]
+  fn output_files_keep_their_bytes(#[case] case: &str, #[case] inputs: &[&str], #[case] flags: &[&str]) {
+    // Oracle: the output directories that the command line wrote before its writers moved to
+    // `treeknit_io`, captured from the same inputs and flags, without `log.txt` (its lines carry
+    // times).
+    let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/outputs").join(case);
+    let dir = TempDir::new(&format!("bytes-{case}"));
+    let out = dir.path().join("out");
+    let paths: Vec<String> = inputs
+      .iter()
+      .map(|f| data.join("input").join(f).to_string_lossy().into_owned())
+      .collect();
+    let args: Vec<&str> = paths.iter().map(String::as_str).chain(flags.iter().copied()).collect();
+    run(&args, &out);
+    assert_eq!(
+      readable(files_below(&data.join("expected"))),
+      readable(files_below(&out))
+    );
   }
 
   fn mccs(out: &Path) -> serde_json::Value {
