@@ -128,9 +128,13 @@ export interface ArgNodeView {
 export interface NumberSetting {
     default: number;
     /**
-     * Smallest accepted value; validation states whether the bound itself is accepted.
+     * Smallest accepted value, or, with `min_exclusive`, the bound that values must exceed.
      */
     min: number;
+    /**
+     * Values must be greater than `min`, not equal to it.
+     */
+    minExclusive: boolean;
     /**
      * Largest accepted value; `None` without an upper bound.
      */
