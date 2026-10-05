@@ -1,30 +1,36 @@
-import type { DOMAttributes } from "react";
-import { useKeyboard } from "react-aria";
-import type { KeyboardEvent } from "react-aria-components";
+import { type RefObject, useEffect, useEffectEvent } from "react";
 
 import { useRunAnalysis } from "../workspace/useRunAnalysis";
-import { isRunShortcut } from "./runControl";
+import { isBehindModal, isRunShortcut } from "./runControl";
 import { useRunReadiness } from "./useRunReadiness";
 
-export function useRunShortcut(): DOMAttributes<HTMLElement> {
+export function useRunShortcut(workspace: RefObject<HTMLElement | null>): void {
   const { run } = useRunAnalysis();
   const { blockedReason } = useRunReadiness();
 
-  const { keyboardProps } = useKeyboard({
-    onKeyDown(event: KeyboardEvent) {
-      if (!isRunShortcut(event.key, event.ctrlKey, event.metaKey)) {
-        event.continuePropagation();
+  const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    const root = workspace.current;
 
-        return;
-      }
+    if (!isRunShortcut(event) || root === null || isBehindModal(root)) {
+      return;
+    }
 
-      event.preventDefault();
+    event.preventDefault();
 
-      if (blockedReason === null) {
-        run();
-      }
-    },
+    if (blockedReason === null) {
+      run();
+    }
   });
 
-  return keyboardProps;
+  useEffect(() => {
+    const listener = (event: KeyboardEvent): void => {
+      onKeyDown(event);
+    };
+
+    document.addEventListener("keydown", listener, { capture: true });
+
+    return () => {
+      document.removeEventListener("keydown", listener, { capture: true });
+    };
+  }, []);
 }

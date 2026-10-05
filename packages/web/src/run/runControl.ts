@@ -66,6 +66,15 @@ function roundAndPair({ round, rounds, pair, pairs }: Progress): string {
   return `Round ${String(round)} of ${String(rounds)}, pair ${String(pair)} of ${String(pairs)}`;
 }
 
-export function isRunShortcut(key: string, ctrlKey: boolean, metaKey: boolean): boolean {
-  return key === "Enter" && (ctrlKey || metaKey);
+export type ShortcutKey = Pick<
+  KeyboardEvent,
+  "key" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey" | "repeat" | "isComposing"
+>;
+
+export function isRunShortcut({ key, ctrlKey, metaKey, altKey, shiftKey, repeat, isComposing }: ShortcutKey): boolean {
+  return key === "Enter" && ctrlKey !== metaKey && !altKey && !shiftKey && !repeat && !isComposing;
+}
+
+export function isBehindModal(element: Element): boolean {
+  return element.closest("[inert]") !== null;
 }

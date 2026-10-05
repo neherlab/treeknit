@@ -10,6 +10,7 @@ import {
   progressLabel,
   progressPercent,
   runBlockedReason,
+  type ShortcutKey,
   STARTING_RUN,
   visibleGeneralErrors,
 } from "../runControl";
@@ -72,12 +73,37 @@ describe("run control", () => {
     }).toStrictEqual({ start: null, pairs: 43, matching: null, done: 100 });
   });
 
-  test("runs on Ctrl+Enter and Cmd+Enter only", () => {
-    expect([
-      isRunShortcut("Enter", true, false),
-      isRunShortcut("Enter", false, true),
-      isRunShortcut("Enter", false, false),
-      isRunShortcut("Escape", true, false),
-    ]).toStrictEqual([true, true, false, false]);
+  test("runs on exactly Ctrl+Enter or Cmd+Enter", () => {
+    const key: ShortcutKey = {
+      key: "Enter",
+      ctrlKey: false,
+      metaKey: false,
+      altKey: false,
+      shiftKey: false,
+      repeat: false,
+      isComposing: false,
+    };
+
+    expect({
+      ctrl: isRunShortcut({ ...key, ctrlKey: true }),
+      cmd: isRunShortcut({ ...key, metaKey: true }),
+      plain: isRunShortcut(key),
+      escape: isRunShortcut({ ...key, key: "Escape", ctrlKey: true }),
+      ctrlCmd: isRunShortcut({ ...key, ctrlKey: true, metaKey: true }),
+      ctrlShift: isRunShortcut({ ...key, ctrlKey: true, shiftKey: true }),
+      ctrlAlt: isRunShortcut({ ...key, ctrlKey: true, altKey: true }),
+      repeated: isRunShortcut({ ...key, ctrlKey: true, repeat: true }),
+      composing: isRunShortcut({ ...key, ctrlKey: true, isComposing: true }),
+    }).toStrictEqual({
+      ctrl: true,
+      cmd: true,
+      plain: false,
+      escape: false,
+      ctrlCmd: false,
+      ctrlShift: false,
+      ctrlAlt: false,
+      repeated: false,
+      composing: false,
+    });
   });
 });
