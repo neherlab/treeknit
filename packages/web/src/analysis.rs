@@ -1,6 +1,3 @@
-//! Analysis requests and results exchanged with the web page, independent of the JavaScript
-//! bindings so that they can be tested natively.
-
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -8,7 +5,6 @@ use treeknit_core::arg::arg_from_trees;
 use treeknit_core::{Options, PairResult, Resolution, Taxa, Tree};
 use treeknit_io::{arg, mccs, newick};
 
-/// Run TreeKnit on the request's trees.
 pub fn analyze(request: &Request) -> Result<Analysis, String> {
     let k = request.trees.len();
     if k < 2 {
@@ -36,7 +32,6 @@ pub fn analyze(request: &Request) -> Result<Analysis, String> {
     })
 }
 
-/// Input trees and settings of one analysis.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Request {
@@ -45,7 +40,6 @@ pub struct Request {
     pub settings: Settings,
 }
 
-/// A labelled tree in Newick format.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TreeText {
@@ -53,27 +47,17 @@ pub struct TreeText {
     pub newick: String,
 }
 
-/// Settings of the `treeknit` command line; missing fields take its defaults.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct Settings {
-    /// Cost γ of a reassortment (removing an MCC).
     pub gamma: f64,
-    /// Sequence length of each segment, for the branch-length tie-break (default: all equal).
     pub seq_lengths: Option<Vec<f64>>,
-    /// MCMC steps per leaf.
     pub n_mcmc_it: usize,
     pub resolve: ResolveMode,
-    /// Before inference, add to each tree the splits of other trees compatible with all trees.
     pub pre_resolve: bool,
-    /// Rounds of pair inference.
     pub rounds: usize,
-    /// With strict or liberal resolution and more than two trees, re-infer MCCs without
-    /// resolution in a final round.
     pub final_round: bool,
-    /// Break ties between configurations with branch lengths.
     pub likelihood: bool,
-    /// Naive MCCs (γ → ∞).
     pub naive: bool,
     pub seed: u64,
 }
@@ -96,7 +80,6 @@ impl Default for Settings {
     }
 }
 
-/// How trees are resolved (see `treeknit --help-resolve`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ResolveMode {
@@ -118,21 +101,15 @@ impl From<ResolveMode> for Resolution {
     }
 }
 
-/// Results of one analysis, matching the output files of the `treeknit` command line.
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Analysis {
-    /// MCCs of every tree pair, in the format of `MCCs.json`.
     pub mccs: Value,
-    /// Input trees after resolution, in input order.
     pub resolved: Vec<TreeText>,
-    /// Resolved trees with the leaves missing from them placed by imputation.
     pub imputed: Vec<TreeText>,
-    /// For two trees with MCCs, the ancestral reassortment graph.
     pub arg: Option<ArgOutcome>,
 }
 
-/// Ancestral reassortment graph, or why it could not be built.
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ArgOutcome {
@@ -140,16 +117,12 @@ pub enum ArgOutcome {
     Failed { message: String },
 }
 
-/// Ancestral reassortment graph of two trees.
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArgText {
-    /// Extended Newick.
     pub newick: String,
-    /// Node table (`nodes.dat`).
     pub nodes: String,
     pub reassortments: usize,
-    /// The liberally resolved trees the graph was built from.
     pub trees: Vec<TreeText>,
 }
 
@@ -166,8 +139,7 @@ fn check_labels(trees: &[TreeText]) -> Result<(), String> {
     Ok(())
 }
 
-/// Core options for `k` trees. Rejects settings on which `treeknit_core::run` would panic, since
-/// a panic aborts the WebAssembly instance.
+/// Rejects settings on which the core panics: a panic aborts the WebAssembly instance.
 fn options(s: &Settings, k: usize) -> Result<Options, String> {
     if !(s.gamma.is_finite() && s.gamma >= 0.0) {
         return Err(format!("gamma must be a non-negative number, got {}", s.gamma));
@@ -193,8 +165,7 @@ fn options(s: &Settings, k: usize) -> Result<Options, String> {
     o.final_unresolved_round = s.final_round;
     o.likelihood_sort = s.likelihood;
     o.naive = s.naive;
-    // WebAssembly in the browser has no threads by default; rayon would fall back to the
-    // calling thread anyway, the sequential path avoids it altogether.
+    // No threads in the browser.
     o.parallel = false;
     Ok(o)
 }
@@ -251,7 +222,6 @@ mod tests {
         }
     }
 
-    /// Non-root clades of a Newick tree, as sets of leaf names.
     fn clades(newick: &str) -> BTreeSet<BTreeSet<String>> {
         let t = newick::parse(newick, "t").unwrap();
         t.internals()
@@ -284,8 +254,7 @@ mod tests {
 
     #[test]
     fn moved_leaf_matches_reference() {
-        // `fixtures/doc_mccs_1.json`: TreeKnit.jl finds X in its own MCC in all seeded runs,
-        // with one reassortment in the ARG.
+        // Oracle: fixtures/doc_mccs_1.json (TreeKnit.jl)
         let r = request(
             &[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")],
             Settings::default(),
@@ -335,7 +304,7 @@ mod tests {
             }}}),
             a.mccs
         );
-        // P joins na as sister of D, where ha has it.
+        // Oracle: P is sister of D in ha.
         assert_eq!(clades("((A,B),(C,(D,P)));"), clades(&a.imputed[1].newick));
         assert_eq!(clades("((A,B),(C,D));"), clades(&a.resolved[1].newick));
     }
@@ -345,8 +314,7 @@ mod tests {
     #[case::none(ResolveMode::None, BTreeSet::new())]
     #[trace]
     fn resolve_mode_controls_resolution(#[case] resolve: ResolveMode, #[case] expected: BTreeSet<BTreeSet<String>>) {
-        // The polytomy of ha is compatible with na: one MCC, within which matched resolution
-        // copies na's splits into ha.
+        // Matched resolution copies na's splits into ha's polytomy.
         let r = request(
             &[("ha", "(A,B,C,D);"), ("na", "((A,B),(C,D));")],
             Settings {
