@@ -15,7 +15,7 @@ import type {
   ValidationError,
   TreeVersion,
 } from "@neherlab/treeknit-wasm";
-import { keepPreviousData, useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery, type UseQueryResult } from "@tanstack/react-query";
 
 import { useAnalysisClient } from "./context";
 
@@ -61,6 +61,18 @@ export function useInspectTree(label: string, text: string): UseQueryResult<Tree
     queryKey: analysisKeys.inspectTree(label, text),
     queryFn: async () => client.inspectTree(label, text),
     placeholderData: keepPreviousData,
+  });
+}
+
+export function useInspectTrees(trees: readonly TreeText[]): (TreeInspection | undefined)[] {
+  const client = useAnalysisClient();
+
+  return useQueries({
+    queries: trees.map(({ label, newick }) => ({
+      queryKey: analysisKeys.inspectTree(label, newick),
+      queryFn: async () => client.inspectTree(label, newick),
+    })),
+    combine: inspectionData,
   });
 }
 
@@ -139,4 +151,8 @@ export function useConstellation(sessionId: number): UseQueryResult<Constellatio
     queryKey: analysisKeys.constellation(sessionId),
     queryFn: async () => client.constellation(sessionId),
   });
+}
+
+function inspectionData(results: readonly UseQueryResult<TreeInspection>[]): (TreeInspection | undefined)[] {
+  return results.map(({ data }) => data);
 }

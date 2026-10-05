@@ -50,3 +50,7 @@ export function fieldMessage(errors: FieldErrors, field: string): string | undef
 
   return messages.length === 0 ? undefined : messages.join("; ");
 }
+
+export function errorProps(message: string | undefined): { errorMessage: string } | undefined {
+  return message === undefined ? undefined : { errorMessage: message };
+}
