@@ -105,6 +105,10 @@ equivalents:
 | `treeknit-io` | Newick, MCC JSON, extended Newick, node table, auspice JSON. |
 | `treeknit-cli` | The `treeknit` binary. |
 
+## Development
+
+[`docs/dev/developer_guide.md`](docs/dev/developer_guide.md) describes the build container, the `just` recipes, the checks that must pass before merging, and the build profiles.
+
 ## Testing against the Julia implementation
 
 `ref/` holds Julia scripts that write reference outputs of TreeKnit.jl 0.5.8 to `fixtures/`, using the branch `fix/issues-from-rust-port` of the Julia code, which fixes the bugs found during the port. The cases come from the docs, the test suite, real data (NY H3N2, the examples) and ARGTools simulations; `ref/README.md` has the commands.
