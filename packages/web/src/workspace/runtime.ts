@@ -52,8 +52,10 @@ export async function startWorkspace(client: AnalysisClient, queryClient: QueryC
     store.getState().resultLost(sessionId);
   });
 
-  globalThis.addEventListener("pagehide", () => {
-    void persistence.saveNow();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      void persistence.saveNow();
+    }
   });
 
   return { store, persistence };
