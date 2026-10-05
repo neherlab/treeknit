@@ -180,6 +180,7 @@ impl Session {
     }
     let records: Vec<Diagnostic> = unavailable.into_iter().chain(log_capture::take()).collect();
     let files = output::web_files(&request, &result, seed, &records)
+      .map_err(|e| JsError::new(&e.to_string()))?
       .into_iter()
       .map(|f| match f {
         WebFile::Text(file) => SessionFile::Text(file),

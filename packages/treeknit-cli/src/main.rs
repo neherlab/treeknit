@@ -271,7 +271,7 @@ fn main() -> Result<()> {
   );
 
   log::info!("writing results in {}", cli.outdir.display());
-  for file in output::output_files(&result, &output_options) {
+  for file in output::output_files(&result, &output_options)? {
     write_file(&cli.outdir, &file)?;
   }
   Ok(())

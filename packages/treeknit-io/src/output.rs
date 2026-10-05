@@ -176,139 +176,214 @@ pub fn media_type(path: &str) -> &'static str {
   }
 }
 
+/// A file of the output set, by what it holds; `file_kinds` lists them in the order of the set,
+/// and `FileKind::path` and `FileKind::text` make their paths and texts, so the paths of a run
+/// that has not happened yet and the files of a finished run follow one list.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FileKind {
+  /// `MCCs.json`.
+  Mccs,
+  /// The MCCs of pair `pair` (pipeline order) of the trees `i` and `j`, one per line.
+  MccLines { pair: usize, i: usize, j: usize },
+  /// The resolved tree `tree`.
+  Resolved { tree: usize },
+  /// The imputed tree `tree`.
+  Imputed { tree: usize },
+  /// The Auspice JSON of tree `tree`.
+  Auspice { tree: usize },
+  /// `ARG/arg.nwk`.
+  ArgNewick,
+  /// `ARG/nodes.dat`.
+  ArgNodes,
+  /// The liberally resolved tree `tree` of the ARG.
+  ArgTree { tree: usize },
+  /// A figure, tanglegram `i` and `j` of a pair or the ARG.
+  Figure { figure: Figure, i: usize, j: usize },
+}
+
+/// The files of a run of `k` trees with `options`, in their order; `arg` lists the ARG files.
+fn file_kinds(k: usize, options: &OutputOptions, arg: bool) -> Vec<FileKind> {
+  let pairs: Vec<(usize, usize, usize)> = (0..k)
+    .flat_map(|i| (i + 1..k).map(move |j| (i, j)))
+    .enumerate()
+    .map(|(pair, (i, j))| (pair, i, j))
+    .collect();
+  let mut kinds = vec![FileKind::Mccs];
+  kinds.extend(pairs.iter().map(|&(pair, i, j)| FileKind::MccLines { pair, i, j }));
+  kinds.extend((0..k).map(|tree| FileKind::Resolved { tree }));
+  if options.imputed {
+    kinds.extend((0..k).map(|tree| FileKind::Imputed { tree }));
+  }
+  if options.auspice {
+    kinds.extend((0..k).map(|tree| FileKind::Auspice { tree }));
+  }
+  if arg {
+    kinds.extend([FileKind::ArgNewick, FileKind::ArgNodes]);
+    kinds.extend((0..k).map(|tree| FileKind::ArgTree { tree }));
+  }
+  if options.figures {
+    kinds.extend(pairs.iter().map(|&(pair, i, j)| FileKind::Figure {
+      figure: Figure::Pair { pair },
+      i,
+      j,
+    }));
+    if arg {
+      kinds.push(FileKind::Figure {
+        figure: Figure::Arg,
+        i: 0,
+        j: 1,
+      });
+    }
+  }
+  kinds
+}
+
+impl FileKind {
+  /// The path of the file for the trees labeled `labels`.
+  fn path(self, labels: &[&str], options: &OutputOptions) -> String {
+    let tree = |dir: &str, suffix: &str, i: usize| tree_path(dir, labels[i], suffix, options.extension(i));
+    match self {
+      FileKind::Mccs => MCCS_JSON.to_owned(),
+      FileKind::MccLines { i, j, .. } => mccs_lines_path(labels.len(), labels[i], labels[j]),
+      FileKind::Resolved { tree: i } => tree("", "_resolved", i),
+      FileKind::Imputed { tree: i } => tree("", "_imputed", i),
+      FileKind::Auspice { tree: i } => auspice_path(labels[i]),
+      FileKind::ArgNewick => ARG_NEWICK.to_owned(),
+      FileKind::ArgNodes => ARG_NODES.to_owned(),
+      FileKind::ArgTree { tree: i } => tree("ARG/", "_liberal_resolved", i),
+      FileKind::Figure {
+        figure: Figure::Pair { .. },
+        i,
+        j,
+      } => tanglegram_path(labels[i], labels[j]),
+      FileKind::Figure {
+        figure: Figure::Arg, ..
+      } => ARG_FIGURE.to_owned(),
+    }
+  }
+
+  /// The text of the file of `run`, with the bytes the command line writes; `None` when `run`
+  /// lacks the pair or the ARG of the file.
+  fn text(self, run: &RunResult) -> Option<String> {
+    let RunResult {
+      trees,
+      taxa,
+      pairs,
+      imputed,
+      ..
+    } = run;
+    let newick = |t: &Tree| format!("{}\n", newick::write(t));
+    Some(match self {
+      FileKind::Mccs => format!("{:#}\n", mccs::to_json(pairs, trees, taxa)),
+      FileKind::MccLines { pair, .. } => {
+        let names: Vec<Vec<String>> = pairs.get(pair)?.mccs.iter().map(|m| taxa.names_of(m)).collect();
+        mccs::to_lines(&names)
+      },
+      FileKind::Resolved { tree } => newick(trees.get(tree)?),
+      FileKind::Imputed { tree } => newick(imputed.get(tree)?),
+      FileKind::Auspice { tree } => format!("{:#}", auspice::auspice_json(tree, trees, pairs, taxa)),
+      FileKind::ArgNewick => format!("{}\n", arg::extended_newick(run.built_arg()?)),
+      FileKind::ArgNodes => format!("{}\n", arg::node_table(run.built_arg()?)),
+      FileKind::ArgTree { tree } => newick(run.built_arg()?.trees.get(tree)?),
+      FileKind::Figure { figure, .. } => figure_text(run, figure)?,
+    })
+  }
+}
+
+/// The labels of the trees of `run`.
+fn run_labels(run: &RunResult) -> Vec<&str> {
+  run.trees.iter().map(|t| t.label.as_str()).collect()
+}
+
+/// The files of `run` with `options`, each at its path with the kind of file it is.
+fn run_files(run: &RunResult, options: &OutputOptions) -> Vec<(FileKind, String)> {
+  let labels = run_labels(run);
+  file_kinds(labels.len(), options, run.built_arg().is_some())
+    .into_iter()
+    .map(|kind| (kind, kind.path(&labels, options)))
+    .collect()
+}
+
+/// A listed file of a run whose text cannot be made, because the run lacks its pair or its ARG.
+#[derive(Debug, PartialEq, Eq)]
+pub struct MissingFile {
+  pub path: String,
+}
+
+impl fmt::Display for MissingFile {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "the run has no data for the output file {}", self.path)
+  }
+}
+
+impl std::error::Error for MissingFile {}
+
 /// Every output file of `run` except `parameters.json` and `log.txt`, at its path in the results
 /// directory, with the bytes the command line writes: the MCCs as JSON and as lines, the
 /// resolved trees, the imputed trees and Auspice files when `options` asks for them, for two
 /// trees the ARG files, and the figures when `options` asks for them. File names follow the tree
-/// labels.
-pub fn output_files(run: &RunResult, options: &OutputOptions) -> Vec<OutputFile> {
-  let RunResult {
-    trees,
-    taxa,
-    pairs,
-    imputed,
-    ..
-  } = run;
-  let tree_file = |dir: &str, suffix: &str, i: usize, t: &Tree| {
-    OutputFile::new(
-      tree_path(dir, &t.label, suffix, options.extension(i)),
-      format!("{}\n", newick::write(t)),
-    )
-  };
-  let mut files = vec![OutputFile::new(
-    MCCS_JSON.to_owned(),
-    format!("{:#}\n", mccs::to_json(pairs, trees, taxa)),
-  )];
-  files.extend(pairs.iter().map(|p| {
-    let path = mccs_lines_path(trees.len(), &trees[p.i].label, &trees[p.j].label);
-    let names: Vec<Vec<String>> = p.mccs.iter().map(|m| taxa.names_of(m)).collect();
-    OutputFile::new(path, mccs::to_lines(&names))
-  }));
-  files.extend(trees.iter().enumerate().map(|(i, t)| tree_file("", "_resolved", i, t)));
-  if options.imputed {
-    files.extend(imputed.iter().enumerate().map(|(i, t)| tree_file("", "_imputed", i, t)));
-  }
-  if options.auspice {
-    files.extend(trees.iter().enumerate().map(|(i, t)| {
-      OutputFile::new(
-        auspice_path(&t.label),
-        format!("{:#}", auspice::auspice_json(i, trees, pairs, taxa)),
-      )
-    }));
-  }
-  if let Some(a) = run.built_arg() {
-    files.push(OutputFile::new(
-      ARG_NEWICK.to_owned(),
-      format!("{}\n", arg::extended_newick(a)),
-    ));
-    files.push(OutputFile::new(
-      ARG_NODES.to_owned(),
-      format!("{}\n", arg::node_table(a)),
-    ));
-    files.extend(
-      a.trees
-        .iter()
-        .enumerate()
-        .map(|(i, t)| tree_file("ARG/", "_liberal_resolved", i, t)),
-    );
-  }
-  if options.figures {
-    files.extend(figure_files(run).into_iter().map(|f| {
-      #[expect(
-        clippy::expect_used,
-        reason = "`figure_files` lists only figures that `run` has, so each has a text"
-      )]
-      let text = figure_text(run, f.figure).expect("a listed figure has a text");
-      OutputFile::new(f.path, text)
-    }));
-  }
-  files
+/// labels. The run of a request that passed `analysis::prepare` has every file it lists, so the
+/// error marks a broken run.
+pub fn output_files(run: &RunResult, options: &OutputOptions) -> Result<Vec<OutputFile>, MissingFile> {
+  run_files(run, options)
+    .into_iter()
+    .map(|(kind, path)| match kind.text(run) {
+      Some(text) => Ok(OutputFile::new(path, text)),
+      None => Err(MissingFile { path }),
+    })
+    .collect()
 }
 
 /// The figures of `run`: the tanglegram of each pair, `tanglegram_<a>_<b>.svg`, then for two
 /// trees with a built ARG `ARG/arg.svg`.
 pub fn figure_files(run: &RunResult) -> Vec<FigureFile> {
-  let pairs = run.pairs.iter().enumerate().map(|(i, p)| FigureFile {
-    path: tanglegram_path(&run.trees[p.i].label, &run.trees[p.j].label),
-    figure: Figure::Pair { pair: i },
-  });
-  let arg = run.built_arg().map(|_| FigureFile {
-    path: ARG_FIGURE.to_owned(),
-    figure: Figure::Arg,
-  });
-  pairs.chain(arg).collect()
+  let options = OutputOptions {
+    imputed: false,
+    auspice: false,
+    ..OutputOptions::web(run.trees.len())
+  };
+  run_files(run, &options)
+    .into_iter()
+    .filter_map(|(kind, path)| match kind {
+      FileKind::Figure { figure, .. } => Some(FigureFile { path, figure }),
+      _ => None,
+    })
+    .collect()
 }
 
 /// The file set of a run of the web app for `request`, in order: the session file, the files of
-/// `output_files` with `OutputOptions::web`, the figures of `figure_files`, `parameters.json`,
-/// and `log.txt` of `records`. `command_line` writes the same files. `seed` is the seed of the
-/// run.
-pub fn web_files(request: &AnalysisRequest, run: &RunResult, seed: u64, records: &[Diagnostic]) -> Vec<WebFile> {
-  let options = OutputOptions {
-    figures: false,
-    ..OutputOptions::web(run.trees.len())
-  };
+/// `output_files` with `OutputOptions::web`, the figures as `FigureFile`s, `parameters.json`, and
+/// `log.txt` of `records`. `command_line` writes the same files. `seed` is the seed of the run.
+pub fn web_files(
+  request: &AnalysisRequest,
+  run: &RunResult,
+  seed: u64,
+  records: &[Diagnostic],
+) -> Result<Vec<WebFile>, MissingFile> {
   let mut files = vec![WebFile::Text(request_file(request))];
-  files.extend(output_files(run, &options).into_iter().map(WebFile::Text));
-  files.extend(figure_files(run).into_iter().map(WebFile::Figure));
+  for (kind, path) in run_files(run, &OutputOptions::web(run.trees.len())) {
+    files.push(match kind {
+      FileKind::Figure { figure, .. } => WebFile::Figure(FigureFile { path, figure }),
+      _ => match kind.text(run) {
+        Some(text) => WebFile::Text(OutputFile::new(path, text)),
+        None => return Err(MissingFile { path }),
+      },
+    });
+  }
   files.push(WebFile::Text(parameters_file(&run.opts, seed)));
   files.push(WebFile::Text(log_file(records)));
-  files
+  Ok(files)
 }
 
 /// Every path that a run of the trees labeled `labels` can write with `options`, in the order of
 /// `output_files`, followed by `parameters.json`, `log.txt`, and the session file. For two trees
 /// the ARG files are listed, although a run writes them only when the ARG is built.
 pub fn output_paths(labels: &[String], options: &OutputOptions) -> Vec<String> {
-  let k = labels.len();
-  let pairs: Vec<(&str, &str)> = (0..k)
-    .flat_map(|i| (i + 1..k).map(move |j| (labels[i].as_str(), labels[j].as_str())))
+  let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
+  let mut paths: Vec<String> = file_kinds(labels.len(), options, labels.len() == 2)
+    .into_iter()
+    .map(|kind| kind.path(&labels, options))
     .collect();
-  let trees = |dir: &'static str, suffix: &'static str| {
-    labels
-      .iter()
-      .enumerate()
-      .map(move |(i, l)| tree_path(dir, l, suffix, options.extension(i)))
-  };
-  let mut paths = vec![MCCS_JSON.to_owned()];
-  paths.extend(pairs.iter().map(|(a, b)| mccs_lines_path(k, a, b)));
-  paths.extend(trees("", "_resolved"));
-  if options.imputed {
-    paths.extend(trees("", "_imputed"));
-  }
-  if options.auspice {
-    paths.extend(labels.iter().map(|l| auspice_path(l)));
-  }
-  if k == 2 {
-    paths.extend([ARG_NEWICK.to_owned(), ARG_NODES.to_owned()]);
-    paths.extend(trees("ARG/", "_liberal_resolved"));
-  }
-  if options.figures {
-    paths.extend(pairs.iter().map(|(a, b)| tanglegram_path(a, b)));
-    if k == 2 {
-      paths.push(ARG_FIGURE.to_owned());
-    }
-  }
   paths.extend([PARAMETERS_FILE, LOG_FILE, REQUEST_FILE].map(str::to_owned));
   paths
 }
@@ -707,7 +782,7 @@ mod tests {
 
   /// The output files of the trees `trees` with `options`.
   fn files_of(trees: &[(&str, &str)], options: &OutputOptions) -> Vec<OutputFile> {
-    output_files(&run_trees(trees), options)
+    output_files(&run_trees(trees), options).unwrap()
   }
 
   fn all_files(k: usize) -> OutputOptions {
@@ -940,17 +1015,45 @@ mod tests {
         .collect(),
       settings: Settings::default(),
     };
-    let files = web_files(&request, &r, 1, &[]);
-    let options = OutputOptions {
-      figures: false,
-      ..OutputOptions::web(2)
-    };
-    let mut expected = vec![WebFile::Text(request_file(&request))];
-    expected.extend(output_files(&r, &options).into_iter().map(WebFile::Text));
-    expected.extend(figure_files(&r).into_iter().map(WebFile::Figure));
-    expected.push(WebFile::Text(parameters_file(r.options(), 1)));
-    expected.push(WebFile::Text(log_file(&[])));
-    assert_eq!(expected, files);
+    let files = web_files(&request, &r, 1, &[]).unwrap();
+    let listed: Vec<(&str, Option<Figure>)> = files
+      .iter()
+      .map(|f| match f {
+        WebFile::Text(f) => (f.path.as_str(), None),
+        WebFile::Figure(f) => (f.path.as_str(), Some(f.figure)),
+      })
+      .collect();
+    let plain = |path| (path, None);
+    let expected = vec![
+      plain("treeknit_request.json"),
+      plain("MCCs.json"),
+      plain("MCCs.dat"),
+      plain("ha_resolved.nwk"),
+      plain("na_resolved.nwk"),
+      plain("ha_imputed.nwk"),
+      plain("na_imputed.nwk"),
+      plain("auspice_ha.json"),
+      plain("auspice_na.json"),
+      plain("ARG/arg.nwk"),
+      plain("ARG/nodes.dat"),
+      plain("ARG/ha_liberal_resolved.nwk"),
+      plain("ARG/na_liberal_resolved.nwk"),
+      ("tanglegram_ha_na.svg", Some(Figure::Pair { pair: 0 })),
+      ("ARG/arg.svg", Some(Figure::Arg)),
+      plain("parameters.json"),
+      plain("log.txt"),
+    ];
+    assert_eq!(expected, listed);
+    // The texts are those of the command line with the web options.
+    let texts: Vec<&OutputFile> = files
+      .iter()
+      .filter_map(|f| match f {
+        WebFile::Text(f) => Some(f),
+        WebFile::Figure(_) => None,
+      })
+      .collect();
+    assert_eq!(&request_file(&request), texts[0]);
+    assert_eq!(text(&files_of(&trees, &all_files(2)), "MCCs.json"), texts[1].text);
   }
 
   #[test]
@@ -983,7 +1086,7 @@ mod tests {
       ..all_files(2)
     };
     let r = run_trees(&trees);
-    let files = output_files(&r, &options);
+    let files = output_files(&r, &options).unwrap();
     let without = files_of(&trees, &all_files(2));
     // The files without figures keep their bytes, and the figures follow them.
     assert_eq!(without, files[..without.len()]);

@@ -543,6 +543,7 @@ mod tests {
     // Oracle: the files of the command line with the web options, figures included, from the
     // same run without WebAssembly. The session file and the log are plain texts of the session.
     let native: Vec<OutputFile> = output::output_files(&r, &output::OutputOptions::web(2))
+      .unwrap()
       .into_iter()
       .chain([output::parameters_file(r.options(), request.settings.seed)])
       .collect();

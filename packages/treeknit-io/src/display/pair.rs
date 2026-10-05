@@ -258,6 +258,7 @@ mod tests {
       figures: false,
     };
     let file = output::output_files(r, &options)
+      .unwrap()
       .into_iter()
       .find(|f| f.path == path)
       .unwrap();

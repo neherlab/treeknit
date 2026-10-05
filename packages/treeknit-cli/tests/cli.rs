@@ -479,6 +479,7 @@ mod tests {
     let texts = treeknit_io::analysis::parse_trees(&parsed.trees).unwrap();
     let run = treeknit_io::run::run(texts, &opts, parsed.settings.seed, &|_| {});
     let expected: BTreeMap<String, String> = treeknit_io::output::web_files(&parsed, &run, parsed.settings.seed, &[])
+      .unwrap()
       .into_iter()
       .map(|f| match f {
         treeknit_io::output::WebFile::Text(f) => (f.path, f.text),
