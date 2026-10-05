@@ -100,7 +100,7 @@ TypeScript is linted by oxlint with type information (`oxlint.config.ts`): the c
 
 ## Build modes
 
-The build and run recipes take the mode as their first argument: `just build <mode>`, `just run <mode> [CLI args]`, `just build-wasm <mode>`, `just build-web <dev|prod>`, `just run-web <dev|prod>`, `just build-cross <dev|release|prod>`, `just run-cross <dev|release|prod> <target> [CLI args]`. The commands are the same in the main checkout and in a worktree. Each mode is a cargo profile:
+The build and run recipes take the mode as their first argument: `just build <mode>`, `just run <mode> [CLI args]`, `just build-wasm <mode>`, `just build-web <dev|prod>`, `just run-web <dev|prod>`, `just build-cross <dev|release|prod>`, `just run-cross <dev|release|prod> <target> [CLI args]`, `just test-distros <dev|release|prod> <target>`. The commands are the same in the main checkout and in a worktree. Each mode is a cargo profile:
 
 - `dev` (the tests): unoptimized workspace crates, dependencies at `opt-level = 2`, full debug info
 - `dev-opt`: `dev` with optimized workspace crates, for long runs on real datasets; rebuilds are slower
@@ -143,6 +143,17 @@ The macOS binaries carry the ad-hoc signature of the linker and no Developer ID 
 
 The cross images are built from `dev/docker/cross-linux.dockerfile` and `dev/docker/cross-darwin.dockerfile`, with the build arguments that `dev/docker/run` sets for each target. They share the base image of the development image, and the toolchains come from the release archives that the scripts in `dev/docker/files/` download and verify.
 
+### Linux distribution tests
+
+`just test-distros <mode> <target>` (on the host, needs Docker) builds the CLI for a Linux x86_64 target and runs it in many Linux distribution images at once, on a simulated case from `fixtures/sim/` with a fixed seed. Every image must finish and write the same `MCCs.json`: the glibc binary takes libm from the image, so a libm that rounds differently would change the result. The target selects the images:
+
+- `x86_64-unknown-linux-gnu`: the images of `dev/cross/distros-glibc`, which have glibc 2.17 or newer: Debian 8 and newer, Ubuntu 14.04 and newer, Amazon Linux, CentOS 7 and 8, Fedora, Oracle Linux, Red Hat UBI, openSUSE, and Arch Linux
+- `x86_64-unknown-linux-musl`: the images of `dev/cross/distros-other`, which the glibc binary cannot run on: images without a C library (an empty image, distroless), with musl (Alpine, Void, Chimera, Gentoo, OpenWrt), with BusyBox on glibc, musl, or uClibc, and with a glibc older than 2.17 (Debian 4 to 7, CentOS 5 and 6, Ubuntu 12.04)
+
+Options: `--image=<ref>` runs in one image instead of the list (repeat for several), and arguments after `--` replace the simulated case, for example `just test-distros release x86_64-unknown-linux-musl --image=centos:5 -- --help`; then only the exit status counts. Each container runs as the current user, without network access or capabilities, and sees the checkout read-only; the output of each image goes to `tmp/cross/distros/<target>/<image>/`, its log next to it. To test a binary that is already in `.out/`, run `./dev/cross/test-distros treeknit <target>`.
+
+A run pulls every image of its list, most of them from Docker Hub, which limits the pulls of an IP address without login, and of an account; log in with `docker login` before repeated runs.
+
 ## Reports
 
 These recipes produce reports and are never a gate:
@@ -170,6 +181,6 @@ The dependency recipes run in the main checkout only.
 
 `.github/workflows/ci.yml` runs on pull requests and on pushes to `main`: the check groups of `just check-all` (`format`, `clippy`, `tests`, `typescript`) in parallel jobs, each in the build container.
 
-`.github/workflows/cli-build.yml` runs on the same events and builds the shipped CLI for every release target, one job per target in its cross image: it builds, checks the libraries the binary needs, runs it on a simulated case (except on macOS), and uploads it as the artifact `treeknit-<target>`.
+`.github/workflows/cli-build.yml` runs on the same events and builds the shipped CLI for every release target, one job per target in its cross image: it builds, checks the libraries the binary needs, runs it on a simulated case (except on macOS), and uploads it as the artifact `treeknit-<target>`. On pushes to `main` and manual runs, two more jobs download the Linux x86_64 binaries and run `dev/cross/test-distros` on them, logged in to Docker Hub when the secrets are available; pull requests skip them to stay within the Docker Hub pull limits.
 
 The CI jobs pull the container image from Docker Hub by the hash of its build inputs, and build it when the inputs changed. Only pushes to `main` publish images, and only when the Docker Hub secrets are available to the repository.
