@@ -97,8 +97,13 @@ fn pipeline_pairs(k: usize) -> Vec<(usize, usize)> {
 /// The run sorts every pair that shares at least two leaves, in pipeline order, once: in the
 /// last round, or after `Matched` resolution. A pair `(i, j)` reorders tree `j`, and tree `i`
 /// when it ladderizes it (`i == 0`) or sorts strictly (see [`sort_strictness`]).
+///
+/// # Panics
+///
+/// If `tree` is not an index of `trees`.
 pub fn last_sorting_pair(trees: &[Tree], opts: &Options, n: usize, tree: usize) -> Option<(usize, usize)> {
   let k = trees.len();
+  assert!(tree < k, "tree {tree} is not one of the {k} trees");
   let (rounds, _) = schedule(opts, k);
   if rounds == 0 && opts.resolution != Resolution::Matched {
     return None;
@@ -112,7 +117,16 @@ pub fn last_sorting_pair(trees: &[Tree], opts: &Options, n: usize, tree: usize) 
 /// Whether the run left trees `i` and `j` in the order of its sort of the pair `(i, j)`: the
 /// run sorted the pair, and no later sort changed either tree. The view of that pair then uses
 /// the run's trees as they are; other pairs sort copies with [`sort_for_pair`].
+///
+/// # Panics
+///
+/// Unless `i < j < trees.len()`.
 pub fn keeps_run_order(trees: &[Tree], opts: &Options, n: usize, i: usize, j: usize) -> bool {
+  assert!(
+    i < j && j < trees.len(),
+    "({i}, {j}) is not a pair i < j of the {} trees",
+    trees.len()
+  );
   shared_leaves(&trees[i], &trees[j], n).is_some()
     && [i, j]
       .iter()
@@ -1046,6 +1060,34 @@ mod tests {
       ..Options::for_trees(2)
     };
     assert_eq!((vec![None, None], vec![]), sorting(&ts, &taxa, &o));
+  }
+
+  #[test]
+  #[should_panic(expected = "tree 2 is not one of the 2 trees")]
+  fn last_sorting_pair_rejects_a_tree_out_of_range() {
+    let (ts, taxa) = same_leaves(2);
+    last_sorting_pair(&ts, &Options::for_trees(2), taxa.len(), 2);
+  }
+
+  #[test]
+  #[should_panic(expected = "(1, 0) is not a pair i < j of the 2 trees")]
+  fn keeps_run_order_rejects_a_reversed_pair() {
+    let (ts, taxa) = same_leaves(2);
+    keeps_run_order(&ts, &Options::for_trees(2), taxa.len(), 1, 0);
+  }
+
+  #[test]
+  #[should_panic(expected = "(0, 0) is not a pair i < j of the 2 trees")]
+  fn keeps_run_order_rejects_a_tree_paired_with_itself() {
+    let (ts, taxa) = same_leaves(2);
+    keeps_run_order(&ts, &Options::for_trees(2), taxa.len(), 0, 0);
+  }
+
+  #[test]
+  #[should_panic(expected = "(0, 2) is not a pair i < j of the 2 trees")]
+  fn keeps_run_order_rejects_a_tree_out_of_range() {
+    let (ts, taxa) = same_leaves(2);
+    keeps_run_order(&ts, &Options::for_trees(2), taxa.len(), 0, 2);
   }
 
   /// Progress events of a run of `nwks` with `opts` and seed 1.
