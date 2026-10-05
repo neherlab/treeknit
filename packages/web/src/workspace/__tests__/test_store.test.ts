@@ -237,6 +237,29 @@ describe("workspace store", () => {
     });
   });
 
+  test("counts the resets of clear, load, and undo, but not ordinary edits, and records why the workspace was replaced", async () => {
+    const store = await storeWith(["ha.nwk", "na.nwk"]);
+    const revisions = [store.getState().resetRevision];
+
+    store.getState().setSettings({ ...DEFAULTS, gamma: 3 });
+    store.getState().renameTree("tree-1", "first");
+    revisions.push(store.getState().resetRevision);
+    store.getState().clear();
+    revisions.push(store.getState().resetRevision);
+    const clearReason = replacementReason(store);
+
+    store.getState().restoreUndo();
+    revisions.push(store.getState().resetRevision);
+    store.getState().loadRequest({ trees: [{ label: "x", newick: HA }] });
+    revisions.push(store.getState().resetRevision);
+
+    expect({ revisions, clearReason, loadReason: replacementReason(store) }).toStrictEqual({
+      revisions: [0, 0, 1, 2, 3],
+      clearReason: "clear",
+      loadReason: "session",
+    });
+  });
+
   test("a result is stale exactly when the current request differs from the one that ran", async () => {
     const store = await storeWith(["ha.nwk", "na.nwk"]);
 
@@ -410,6 +433,12 @@ function newStore(): WorkspaceStore {
 function finishRun(store: WorkspaceStore, runId: number): void {
   store.getState().runStarted(runId, selectRequest(store.getState()), 0);
   store.getState().runFinished(runId, { status: "succeeded", sessionId: runId, summary: SUMMARY });
+}
+
+function replacementReason(store: WorkspaceStore): string | null {
+  const undo = store.getState().undo;
+
+  return undo?.kind === "workspace" ? undo.reason : null;
 }
 
 function fakeServices(): FakeServices {

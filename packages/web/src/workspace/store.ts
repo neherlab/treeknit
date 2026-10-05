@@ -33,7 +33,9 @@ export interface RunResult {
 
 export type UndoEntry =
   | { kind: "tree"; tree: WorkspaceTree; index: number; seqLength: number | null }
-  | { kind: "workspace"; trees: WorkspaceTree[]; settings: Settings; result: RunResult | null };
+  | { kind: "workspace"; reason: WorkspaceReplacement; trees: WorkspaceTree[]; settings: Settings; result: RunResult | null };
+
+export type WorkspaceReplacement = "clear" | "session";
 
 export interface WorkspaceData {
   trees: WorkspaceTree[];
@@ -44,6 +46,7 @@ export interface WorkspaceData {
   restored: boolean;
   persistence: boolean;
   nextTreeNumber: number;
+  resetRevision: number;
 }
 
 export interface WorkspaceActions {
@@ -131,6 +134,7 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
         restored: start.restored !== null,
         persistence: false,
         nextTreeNumber: restoredTrees.length + 1,
+        resetRevision: 0,
 
         async addTrees(newTrees) {
           const task = pendingAdds.queue.then(async () => addNow(newTrees));
@@ -231,6 +235,7 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
               })
               .exhaustive();
             state.undo = null;
+            state.resetRevision += 1;
           });
         },
 
@@ -262,7 +267,7 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
 
         clear() {
           set((state) => {
-            replaceWorkspace(state, [], defaults);
+            replaceWorkspace(state, "clear", [], defaults);
           });
         },
 
@@ -271,7 +276,7 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
             const trees = sessionTrees(request, [], state.nextTreeNumber);
 
             state.nextTreeNumber += trees.length;
-            replaceWorkspace(state, trees, mergeSettings(defaults, request.settings));
+            replaceWorkspace(state, "session", trees, mergeSettings(defaults, request.settings));
           });
         },
 
@@ -378,12 +383,18 @@ function mergeSettings(defaults: Settings, settings: Settings | undefined): Sett
   return { ...defaults, ...settings };
 }
 
-function replaceWorkspace(state: WorkspaceData, trees: WorkspaceTree[], settings: Settings): void {
-  state.undo = { kind: "workspace", trees: state.trees, settings: state.settings, result: state.result };
+function replaceWorkspace(
+  state: WorkspaceData,
+  reason: WorkspaceReplacement,
+  trees: WorkspaceTree[],
+  settings: Settings,
+): void {
+  state.undo = { kind: "workspace", reason, trees: state.trees, settings: state.settings, result: state.result };
   state.trees = trees;
   state.settings = settings;
   state.result = null;
   state.restored = false;
+  state.resetRevision += 1;
 }
 
 function markEdited(state: WorkspaceData): void {
