@@ -7,8 +7,8 @@ import { useErrorBoundary } from "react-error-boundary";
 
 import { InlineNotice } from "../ui/InlineNotice";
 import { Minimap } from "./Minimap";
-import { useMeasuredSize } from "./useMeasuredSize";
 import { selectionZoomRange } from "./selectionZoomKey";
+import { useMeasuredSize } from "./useMeasuredSize";
 import type { TreeView } from "./useTreeView";
 import { type MeasuredSize, minimapShown, type RowRange } from "./viewState";
 import { browserSupportsWebGl2, WEBGL2_MISSING } from "./webgl";

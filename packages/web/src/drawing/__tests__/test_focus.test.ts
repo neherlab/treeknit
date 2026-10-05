@@ -26,7 +26,6 @@ describe("focusRows", () => {
   });
 });
 
-
 describe("revealLeafRows", () => {
   function recorded(range: RowRange) {
     const calls: [string, number | RowRange][] = [];
