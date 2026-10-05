@@ -234,20 +234,26 @@ pub fn internal_clades(t: &Tree, n: usize) -> std::collections::HashSet<Bits> {
     .collect()
 }
 
-/// Leaves common to trees `i` and `j`, and both trees restricted to them (borrowed if no
-/// restriction is needed).
-fn restrict_pair<'a>(trees: &'a [Tree], i: usize, j: usize, n: usize) -> (Bits, Cow<'a, Tree>, Cow<'a, Tree>) {
-  let (li, lj) = (trees[i].leaf_set(n), trees[j].leaf_set(n));
-  let shared = bits::and(&li, &lj);
-  let r = |t: &'a Tree, l: &Bits| {
-    if *l == shared {
+/// Leaves common to trees `i` and `j`, or `None` if they share fewer than two leaves.
+///
+/// This is the only check of the shared-leaf count: a pair without two shared leaves has no
+/// MCCs, and resolution and sorting leave its trees unchanged.
+fn shared_leaves(trees: &[Tree], i: usize, j: usize, n: usize) -> Option<Bits> {
+  let shared = bits::and(&trees[i].leaf_set(n), &trees[j].leaf_set(n));
+  (shared.count_ones(..) >= 2).then_some(shared)
+}
+
+/// Trees `i` and `j` restricted to their `shared` leaves (borrowed if no restriction is
+/// needed). `shared` comes from `shared_leaves`, so it holds at least two leaves.
+fn restrict_pair<'a>(trees: &'a [Tree], i: usize, j: usize, shared: &Bits, n: usize) -> (Cow<'a, Tree>, Cow<'a, Tree>) {
+  let r = |t: &'a Tree| {
+    if t.leaf_set(n) == *shared {
       Cow::Borrowed(t)
     } else {
-      Cow::Owned(t.restricted(&shared).expect("no shared leaves"))
+      Cow::Owned(t.restricted(shared).expect("shared leaves are in both trees"))
     }
   };
-  let (ri, rj) = (r(&trees[i], &li), r(&trees[j], &lj));
-  (shared, ri, rj)
+  (r(&trees[i]), r(&trees[j]))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -261,25 +267,21 @@ fn infer(
   seed: u64,
   round: usize,
 ) -> Vec<Mcc> {
-  let (shared, ti, tj) = restrict_pair(trees, i, j, n);
-  let n_shared = shared.count_ones(..);
-  log::info!(
-    "inferring MCCs for {} and {} ({n_shared} shared leaves)",
-    trees[i].label,
-    trees[j].label
-  );
-  if n_shared < 2 {
+  let Some(shared) = shared_leaves(trees, i, j, n) else {
     log::warn!(
       "trees {} and {} share fewer than two leaves: skipped",
       trees[i].label,
       trees[j].label
     );
-    return if n_shared == 1 {
-      vec![shared.ones().collect()]
-    } else {
-      vec![]
-    };
-  }
+    return Vec::new();
+  };
+  log::info!(
+    "inferring MCCs for {} and {} ({} shared leaves)",
+    trees[i].label,
+    trees[j].label,
+    shared.count_ones(..)
+  );
+  let (ti, tj) = restrict_pair(trees, i, j, &shared, n);
   let m = if opts.naive {
     naive_mccs(&[&ti, &tj], n)
   } else {
@@ -308,10 +310,14 @@ fn mix(seed: u64, round: usize, i: usize, j: usize) -> u64 {
   z ^ (z >> 31)
 }
 
-/// Resolve trees `i` and `j` with their MCCs (computed on shared leaves).
+/// Resolve trees `i` and `j` with their MCCs (computed on shared leaves). A pair that shares
+/// fewer than two leaves is left unchanged.
 /// Returns the number of splits added to the two trees.
 fn resolve_pair(trees: &mut [Tree], i: usize, j: usize, mccs: &[Mcc], n: usize, strict: bool) -> usize {
-  let (shared, ti, tj) = restrict_pair(trees, i, j, n);
+  let Some(shared) = shared_leaves(trees, i, j, n) else {
+    return 0;
+  };
+  let (ti, tj) = restrict_pair(trees, i, j, &shared, n);
   let (mut ti, mut tj) = (ti.into_owned(), tj.into_owned());
   let [mut si, mut sj] = resolve_with_mccs(&mut ti, &mut tj, mccs, n, strict);
   log::debug!(
@@ -326,12 +332,16 @@ fn resolve_pair(trees: &mut [Tree], i: usize, j: usize, mccs: &[Mcc], n: usize, 
   si.len() + sj.len()
 }
 
-/// Ladderize the first tree and order polytomies so that MCCs face each other.
+/// Ladderize the first tree and order polytomies so that MCCs face each other. A pair that
+/// shares fewer than two leaves is left unchanged.
 fn sort_pair(trees: &mut [Tree], i: usize, j: usize, mccs: &[Mcc], n: usize, strict: bool) {
+  let Some(shared) = shared_leaves(trees, i, j, n) else {
+    return;
+  };
   if i == 0 {
     trees[0].ladderize();
   }
-  let (_, ti, tj) = restrict_pair(trees, i, j, n);
+  let (ti, tj) = restrict_pair(trees, i, j, &shared, n);
   let full = matches!((&ti, &tj), (Cow::Borrowed(_), Cow::Borrowed(_)));
   let (mut ti, mut tj) = (ti.into_owned(), tj.into_owned());
   if strict {
