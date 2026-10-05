@@ -94,3 +94,8 @@ export const optionStyle = [
   "flex cursor-pointer items-center gap-2 rounded-control px-2 py-1.5 text-sm text-ink outline-hidden select-none",
   "data-focused:bg-pane data-pressed:bg-pane data-selected:font-semibold data-disabled:text-ink-muted data-disabled:cursor-not-allowed",
 ].join(" ");
+
+export const inlineButtonStyle = [
+  "rounded-inner inline-flex cursor-pointer items-center data-hovered:text-ink data-disabled:cursor-not-allowed",
+  focusRing,
+].join(" ");

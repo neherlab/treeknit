@@ -11,7 +11,7 @@ import { counted, formatCount } from "../format/count";
 import { InfoButton } from "../ui/InfoButton";
 import { MccSwatch } from "../ui/MccSwatch";
 import { QueryState } from "../ui/QueryState";
-import { focusRing } from "../ui/styles";
+import { inlineButtonStyle } from "../ui/styles";
 import { cellStyle, columnStyle, nativeRowStyle, tableHeaderStyle, tableStyle } from "../ui/Table";
 import { useVirtualRows } from "../ui/useVirtualRows";
 import { VirtualGap } from "../ui/VirtualGap";
@@ -151,7 +151,7 @@ function PairCell({ cell, leaf, pair, title, onOpen }: PairCellProps) {
     <Button
       aria-label={cellLabel(cell, leaf, title)}
       onPress={open}
-      className={cn("rounded-inner data-hovered:text-ink inline-flex items-center gap-1.5 tabular-nums", focusRing)}
+      className={cn(inlineButtonStyle, "gap-1.5 tabular-nums")}
     >
       <MccSwatch slot={cell.slot} />
       {formatCount(cell.size)}

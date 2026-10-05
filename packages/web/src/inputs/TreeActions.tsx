@@ -47,7 +47,7 @@ export function TreeActions({ input, variant = "secondary", size = "sm" }: TreeA
 
   const examplesTrigger = useMemo(
     () => (
-      <Button variant={variant} size={size} icon={FlaskIcon}>
+      <Button variant={variant} size={size} icon={FlaskIcon} tooltip="Add an example dataset">
         Examples
       </Button>
     ),
