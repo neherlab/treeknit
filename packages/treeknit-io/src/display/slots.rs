@@ -1,5 +1,10 @@
 //! Color slots of the MCCs of a pair: a deterministic greedy coloring of the graph whose edges
 //! join MCCs with neighboring blocks.
+//!
+//! Among the slots that no colored neighbor uses, an MCC takes the slot used least so far in the
+//! pair, not the lowest one. Taking the lowest free slot would give most MCCs the first two or
+//! three colors, because few MCCs have many neighbors; spreading the slots uses all eight colors
+//! and keeps the guarantee that neighbors differ.
 
 use super::{Block, MCC_SLOTS};
 use std::collections::BTreeSet;
@@ -29,23 +34,29 @@ fn low(range: [f64; 2]) -> f64 {
 }
 
 /// One slot in `0..MCC_SLOTS` per MCC, from the MCC sizes and the neighbor sets. MCCs are
-/// visited by size, largest first, then by index; each takes the lowest slot that no colored
-/// neighbor uses, or, when every slot is used, the slot used least among its colored neighbors
-/// (the lowest on ties). Neighbors therefore share a slot only when an MCC has at least
-/// `MCC_SLOTS` colored neighbors.
+/// visited by size, largest first, then by index; each takes, of the slots that no colored
+/// neighbor uses, the slot used least by the MCCs colored so far (the lowest on ties), or, when
+/// its colored neighbors use every slot, the slot used least among them (the lowest on ties).
+/// Neighbors therefore share a slot only when an MCC has at least `MCC_SLOTS` colored neighbors.
 pub(super) fn color_slots(sizes: &[usize], neighbors: &[BTreeSet<usize>]) -> Vec<usize> {
   let mut order: Vec<usize> = (0..sizes.len()).collect();
   order.sort_by_key(|&m| (std::cmp::Reverse(sizes[m]), m));
   let mut slot = vec![0; sizes.len()];
   let mut colored = vec![false; sizes.len()];
+  // Uses of each slot by the MCCs colored so far.
+  let mut total = [0_usize; MCC_SLOTS];
   for m in order {
     let mut uses = [0_usize; MCC_SLOTS];
     for &b in neighbors[m].iter().filter(|&&b| colored[b]) {
       uses[slot[b]] += 1;
     }
-    // The first slot with the fewest uses: an unused slot has the least uses of all.
-    slot[m] = (1..MCC_SLOTS).fold(0, |best, s| if uses[s] < uses[best] { s } else { best });
+    // Ordered by uses among the neighbors, so a free slot comes first, then by uses in the pair,
+    // then by slot; the first slot of this order wins.
+    let key = |s: usize| (uses[s], if uses[s] == 0 { total[s] } else { 0 }, s);
+    let best = (1..MCC_SLOTS).fold(0, |best, s| if key(s) < key(best) { s } else { best });
+    slot[m] = best;
     colored[m] = true;
+    total[best] += 1;
   }
   slot
 }
@@ -95,9 +106,26 @@ mod tests {
 
   #[test]
   fn color_slots_visit_the_largest_mcc_first() {
-    // MCC 1 is largest and takes slot 0; MCC 0 and MCC 2 neighbor it and take slot 1.
+    // MCC 1 is largest and takes slot 0. MCC 0 neighbors it and takes the free slot 1, then MCC
+    // 2, which neighbors MCC 1 only, takes slot 2, the lowest of the free slots that no MCC uses.
     let slots = color_slots(&[1, 5, 1], &graph(3, &[(0, 1), (1, 2)]));
-    assert_eq!(vec![1, 0, 1], slots);
+    assert_eq!(vec![1, 0, 2], slots);
+  }
+
+  #[test]
+  fn color_slots_give_the_eight_largest_mccs_without_neighbors_eight_slots() {
+    // Oracle: with no neighbors every slot is free, and each MCC takes the slot used least so
+    // far: slots 0 to 7 in size order, then slot 0 again for the ninth.
+    let slots = color_slots(&[2, 9, 8, 7, 6, 5, 4, 3, 1], &graph(9, &[]));
+    assert_eq!(vec![7, 0, 1, 2, 3, 4, 5, 6, 0], slots);
+  }
+
+  #[test]
+  fn color_slots_prefer_a_free_slot_used_least_in_the_pair() {
+    // MCCs 0 and 1 (no neighbors) take slots 0 and 1. MCC 2 neighbors MCC 0, so slots 1 to 7
+    // are free; slot 1 is used once, slot 2 not at all: MCC 2 takes slot 2.
+    let slots = color_slots(&[9, 8, 7], &graph(3, &[(0, 2)]));
+    assert_eq!(vec![0, 1, 2], slots);
   }
 
   #[test]
