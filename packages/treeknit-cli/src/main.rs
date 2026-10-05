@@ -206,7 +206,7 @@ fn main() -> Result<()> {
   if let Ok(p) = &parsed {
     report_overlap(&p.trees, &p.taxa);
   }
-  let (ParsedTrees { mut trees, taxa }, opts) = match (parsed, options(&cli, texts.len())?) {
+  let (ParsedTrees { mut trees, taxa }, opts) = match (parsed, options(&cli, texts.len())) {
     (Ok(p), Ok(o)) => (p, o),
     (parsed, opts) => {
       let mut errors = parsed.err().unwrap_or_default();
@@ -309,19 +309,17 @@ fn fail<T>(errors: &[ValidationError]) -> Result<T> {
   )
 }
 
-/// Options of the flags for `k` trees, or the errors of the shared settings checks. Independent
-/// pairs run in parallel.
-fn options(cli: &Cli, k: usize) -> Result<Result<Options, Vec<ValidationError>>> {
-  let seq_lengths = cli
-    .seq_lengths
-    .as_ref()
-    .map(|s| {
-      s.split_whitespace()
-        .map(|x| x.parse::<f64>())
-        .collect::<Result<Vec<_>, _>>()
-        .context("--seq-lengths should look like \"1500 2000\"")
-    })
-    .transpose()?;
+/// Options of the flags for `k` trees, or every error of the flags and of the shared settings
+/// checks. Independent pairs run in parallel.
+fn options(cli: &Cli, k: usize) -> Result<Options, Vec<ValidationError>> {
+  let mut errors = Vec::new();
+  let seq_lengths = match cli.seq_lengths.as_deref().map(parse_lengths).transpose() {
+    Ok(v) => v,
+    Err(e) => {
+      errors.push(e);
+      None
+    },
+  };
   if !uses_former_options(cli) {
     let s = Settings {
       gamma: cli.gamma,
@@ -335,14 +333,24 @@ fn options(cli: &Cli, k: usize) -> Result<Result<Options, Vec<ValidationError>>>
       naive: cli.naive,
       seed: cli.seed,
     };
-    return Ok(analysis::options(&s, k, true));
+    return match analysis::options(&s, k, true) {
+      Ok(o) if errors.is_empty() => Ok(o),
+      result => {
+        errors.extend(result.err().unwrap_or_default());
+        Err(errors)
+      },
+    };
   }
   if cli.resolve.is_some() || cli.pre_resolve || cli.no_final_round {
-    bail!(
-      "former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, \
-               --resolve-all-rounds, --no-pre-resolve, --match-topologies) cannot be combined with \
-               --resolve, --pre-resolve or --no-final-round; see --help-resolve"
-    );
+    errors.push(ValidationError {
+      field: None,
+      message: "former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, \
+                --resolve-all-rounds, --no-pre-resolve, --match-topologies) cannot be combined with \
+                --resolve, --pre-resolve or --no-final-round; see --help-resolve"
+        .to_owned(),
+      line: None,
+      column: None,
+    });
   }
   // The former options have no settings of their own; the values they share with the
   // settings get the same checks. The other fields keep valid defaults, and the rounds of a
@@ -355,11 +363,11 @@ fn options(cli: &Cli, k: usize) -> Result<Result<Options, Vec<ValidationError>>>
     seed: cli.seed,
     ..Settings::default()
   };
-  let errors = analysis::check_settings(&shared, k);
+  errors.extend(analysis::check_settings(&shared, k));
   if !errors.is_empty() {
-    return Ok(Err(errors));
+    return Err(errors);
   }
-  let mut o = former_options(cli, k)?;
+  let mut o = former_options(cli, k);
   o.gamma = cli.gamma;
   o.n_mcmc = cli.n_mcmc_it;
   o.likelihood_sort = !cli.no_likelihood;
@@ -367,7 +375,20 @@ fn options(cli: &Cli, k: usize) -> Result<Result<Options, Vec<ValidationError>>>
   if let Some(v) = shared.seq_lengths {
     o.seq_lengths = v;
   }
-  Ok(Ok(o))
+  Ok(o)
+}
+
+/// Sequence lengths of `--seq-lengths`, numbers separated by whitespace.
+fn parse_lengths(s: &str) -> Result<Vec<f64>, ValidationError> {
+  s.split_whitespace()
+    .map(str::parse::<f64>)
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| ValidationError {
+      field: Some("settings.seqLengths".to_owned()),
+      message: format!("--seq-lengths should look like \"1500 2000\", got {s:?}: {e}"),
+      line: None,
+      column: None,
+    })
 }
 
 fn log_options(o: &Options, k: usize) {
@@ -395,7 +416,7 @@ fn uses_former_options(cli: &Cli) -> bool {
 /// Options for the former command line (TreeKnit.jl semantics), which reproduce its results:
 /// method presets depending on the number of trees, `--rounds` counting all rounds, and
 /// `--resolve-all-rounds` resolving in the final round too.
-fn former_options(cli: &Cli, k: usize) -> Result<Options> {
+fn former_options(cli: &Cli, k: usize) -> Options {
   for (used, flag) in [
     (cli.better_trees, "--better-trees"),
     (cli.better_mccs, "--better-MCCs"),
@@ -473,7 +494,7 @@ fn former_options(cli: &Cli, k: usize) -> Result<Options> {
   } else {
     (mode, rounds, false)
   };
-  Ok(o)
+  o
 }
 
 fn params_json(o: &Options, seed: u64) -> serde_json::Value {

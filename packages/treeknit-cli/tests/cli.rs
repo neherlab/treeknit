@@ -73,6 +73,18 @@ mod tests {
     }
   }
 
+  #[test]
+  fn every_flag_error_is_reported_with_the_tree_errors() {
+    let args = ["--better-MCCs", "--resolve", "none", "--seq-lengths", "x 1", "--gamma=-1"];
+    let (code, stderr, results) = fail("all-errors", &[HA, NA], &args);
+    let expected = "Error: --seq-lengths should look like \"1500 2000\", got \"x 1\": invalid float literal\n\
+      former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, \
+      --resolve-all-rounds, --no-pre-resolve, --match-topologies) cannot be combined with \
+      --resolve, --pre-resolve or --no-final-round; see --help-resolve\n\
+      gamma must be a non-negative number, got -1\n";
+    assert_eq!((Some(1), expected, false), (code, stderr.as_str(), results));
+  }
+
   #[rustfmt::skip]
   #[test]
   fn pairs_sharing_fewer_than_two_leaves_exit_with_their_message() {
