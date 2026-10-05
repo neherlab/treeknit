@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useMemo, useRef } from "react";
 import { FormProvider, useForm, useFormContext, useWatch } from "react-hook-form";
 
 import { useWorkspace } from "../workspace/context";
-import { draftFromSettings, hasDraft, type SettingsDraft, syncDraft } from "./draft";
+import { draftFromSettings, hasDraft, nextDraft, type SettingsDraft } from "./draft";
 
 export function SettingsFormProvider({ children }: SettingsFormProviderProps) {
   const settings = useWorkspace((state) => state.settings);
@@ -16,7 +16,7 @@ export function SettingsFormProvider({ children }: SettingsFormProviderProps) {
     const replaced = syncedRevision.current !== resetRevision;
 
     syncedRevision.current = resetRevision;
-    form.reset(replaced ? draftFromSettings(settings, treeIds) : syncDraft(form.getValues(), settings, treeIds));
+    form.reset(nextDraft(form.getValues(), settings, treeIds, replaced));
   }, [form, settings, treeIds, resetRevision]);
 
   return <FormProvider {...form}>{children}</FormProvider>;

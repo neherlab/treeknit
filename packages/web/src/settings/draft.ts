@@ -30,6 +30,15 @@ export function draftFromSettings(settings: Settings, treeIds: readonly string[]
   };
 }
 
+export function nextDraft(
+  draft: SettingsDraft,
+  settings: Settings,
+  treeIds: readonly string[],
+  replaced: boolean,
+): SettingsDraft {
+  return replaced ? draftFromSettings(settings, treeIds) : syncDraft(draft, settings, treeIds);
+}
+
 export function syncDraft(draft: SettingsDraft, settings: Settings, treeIds: readonly string[]): SettingsDraft {
   const stored = draftFromSettings(settings, treeIds);
 

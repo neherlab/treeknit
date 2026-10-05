@@ -7,6 +7,7 @@ import {
   draftFromSettings,
   ENTER_A_NUMBER,
   hasDraft,
+  nextDraft,
   syncDraft,
   withNumberSetting,
   withSeqLength,
@@ -101,6 +102,19 @@ describe("settings draft", () => {
       message: draftError(Number.NaN),
       noMessage: draftError(0),
     }).toStrictEqual({ clean: false, gamma: true, length: true, message: ENTER_A_NUMBER, noMessage: undefined });
+  });
+
+  test("discards drafts when the workspace was replaced, and keeps them through other changes", () => {
+    const draft = { ...draftFromSettings(SETTINGS, IDS), seed: Number.NaN };
+    const loaded = { ...SETTINGS, gamma: 5, seed: 11 };
+
+    expect({
+      edited: nextDraft(draft, loaded, IDS, false).seed,
+      replaced: nextDraft(draft, loaded, IDS, true),
+    }).toStrictEqual({
+      edited: Number.NaN,
+      replaced: { gamma: 5, nMcmcIt: 25, rounds: 1, seed: 11, seqLengths: {} },
+    });
   });
 });
 
