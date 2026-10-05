@@ -10,7 +10,7 @@ import {
 } from "react-aria-components";
 import ChevronIcon from "~icons/lucide/chevron-down";
 
-import { fieldClassName, inputClassName, labelClassName } from "./fieldStyles";
+import { fieldClassName, inputClassName, labelClassName, optionClassName, popoverClassName } from "./fieldStyles";
 
 export function Select<K extends string>({ label, options, value, onChange }: SelectProps<K>) {
   return (
@@ -20,7 +20,7 @@ export function Select<K extends string>({ label, options, value, onChange }: Se
         <SelectValue />
         <ChevronIcon aria-hidden />
       </AriaButton>
-      <Popover className="border-rule bg-panel min-w-(--trigger-width) rounded-md border py-1 shadow-md">
+      <Popover className={popoverClassName}>
         <ListBox items={options} className="outline-none">
           {renderOption}
         </ListBox>
@@ -43,10 +43,7 @@ export interface SelectOption<K extends string> {
 
 function renderOption<K extends string>(option: SelectOption<K>) {
   return (
-    <ListBoxItem
-      id={option.id}
-      className="text-ink data-focused:bg-accent data-focused:text-accent-ink cursor-default px-3 py-1 font-mono text-sm outline-none data-selected:font-medium"
-    >
+    <ListBoxItem id={option.id} className={optionClassName}>
       {option.name}
     </ListBoxItem>
   );
