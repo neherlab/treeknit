@@ -9,7 +9,7 @@ import type {
 } from "@neherlab/treeknit-wasm";
 
 import type { Selection } from "../drawing/selection";
-import { cladeSize, leafIndex, nodeIndex, TREE_SIDES, type TreeSide } from "../drawing/trees";
+import { leafIndex, nodeIndex, TREE_SIDES, type TreeSide } from "../drawing/trees";
 
 export interface InspectorData {
   pair: PairView | undefined;
@@ -33,7 +33,7 @@ export type InspectorSubject =
   | { kind: "none"; mccs: readonly MccInfo[] }
   | { kind: "leaf"; name: string; copies: LeafCopy[]; mcc: MccInfo | undefined; ambiguous: boolean; pairs: LeafPair[] }
   | { kind: "mcc"; mcc: MccInfo }
-  | { kind: "node"; side: TreeSide; tree: string; node: DrawNode; cladeSize: number; mcc: MccInfo | undefined }
+  | { kind: "node"; side: TreeSide; tree: string; node: DrawNode; mcc: MccInfo | undefined }
   | { kind: "argNode"; node: ArgNodeView };
 
 export function inspectorSubject(selection: Selection, data: InspectorData): InspectorSubject {
@@ -57,7 +57,6 @@ export function inspectorSubject(selection: Selection, data: InspectorData): Ins
         side: node.side,
         tree: tree.label,
         node: drawn,
-        cladeSize: cladeSize(tree.nodes, index),
         mcc: drawn.mcc === null ? undefined : pair.mccs[drawn.mcc],
       };
     }

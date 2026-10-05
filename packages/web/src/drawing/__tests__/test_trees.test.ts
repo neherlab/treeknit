@@ -4,7 +4,6 @@ import {
   argLeafNames,
   argLeafRows,
   argNodePoints,
-  cladeSize,
   leafNames,
   leafRows,
   pairLeafNames,
@@ -89,10 +88,6 @@ describe("leafRows", () => {
 });
 
 describe("tree lookups", () => {
-  test("counts the leaves of a clade", () => {
-    expect(cladeSize(VIEW.left.nodes, 4)).toBe(3);
-  });
-
   test("lists the leaf names in display order", () => {
     expect(leafNames(VIEW.right)).toStrictEqual(["A", "B", "X", "C", "D"]);
   });

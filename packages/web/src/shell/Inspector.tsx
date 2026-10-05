@@ -209,13 +209,13 @@ function LeafPairLink({ name, pair, label }: { name: string; pair: number; label
 }
 
 function NodeDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "node" }> }) {
-  const { tree, node, cladeSize, mcc } = subject;
+  const { tree, node, mcc } = subject;
 
   return (
     <Section title={nodeName(node)} condensed>
       <Facts>
         <Fact term="Tree">{tree}</Fact>
-        <Fact term="Clade size">{leafCount(cladeSize)}</Fact>
+        <Fact term="Clade size">{leafCount(node.cladeSize)}</Fact>
         <Fact term="Added by resolution">{yesNo(node.added)}</Fact>
         <Fact term="Branch length">{formatBranchLength(node.branchLength)}</Fact>
         <Fact term="MCC">

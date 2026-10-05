@@ -56,10 +56,6 @@ export function rowSpan(rows: Iterable<number>): RowRange | null {
   return first > last ? null : { first, last };
 }
 
-export function cladeSize(nodes: readonly { children: readonly number[]; leaf: boolean }[], node: number): number {
-  return descendantLeaves(nodes, node).length;
-}
-
 export function leafIndex(tree: DrawTree, name: string): number | undefined {
   const index = tree.nodes.findIndex((node) => node.leaf && node.name === name);
 

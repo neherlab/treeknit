@@ -45,13 +45,12 @@ describe("inspectorSubject", () => {
     expect(subject).toMatchObject({ kind: "leaf", ambiguous: false });
   });
 
-  test("shows a node of a tree with its clade size and MCC", () => {
+  test("shows a node of a tree with its MCC", () => {
     expect(inspectorSubject({ mcc: 0, node: { side: "right", name: "NODE_3" } }, DATA)).toStrictEqual({
       kind: "node",
       side: "right",
       tree: "na",
       node: PAIR.right.nodes[6],
-      cladeSize: 2,
       mcc: PAIR.mccs[0],
     });
   });
