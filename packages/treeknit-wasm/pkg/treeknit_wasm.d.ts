@@ -1094,7 +1094,7 @@ export interface InitOutput {
     readonly session_zip: (a: number) => [number, number, number, number];
     readonly settingsSchema: (a: number, b: any) => [number, number, number];
     readonly start: () => void;
-    readonly treeLabels: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+    readonly treeLabels: (a: number, b: number, c: number, d: number) => [number, number];
     readonly validate: (a: any) => [number, number, number, number];
     readonly version: () => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;

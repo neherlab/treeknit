@@ -69,6 +69,51 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
+  fn read_request_returns_the_plain_request_with_default_settings() {
+    let text = r#"{"trees": [{"label": "ha", "newick": "((A,B"}], "settings": {"gamma": -1}}"#;
+    let expected = json!({
+        "trees": [{"label": "ha", "newick": "((A,B"}],
+        "settings": {
+            "gamma": -1, "seqLengths": null, "nMcmcIt": 50, "resolve": "matched", "preResolve": false,
+            "rounds": 1, "finalRound": true, "likelihood": true, "naive": false, "seed": 1,
+        },
+    });
+    assert_eq!(expected, plain(&treeknit_wasm::read_request(text).unwrap().js_value()));
+  }
+
+  #[wasm_bindgen_test]
+  fn read_request_throws_the_structure_error() {
+    let expected = "not a TreeKnit session file: missing field `trees` at line 1 column 2";
+    match treeknit_wasm::read_request("{}") {
+      Ok(_) => panic!("expected error {expected:?}"),
+      Err(e) => assert_eq!(expected, message(e)),
+    }
+  }
+
+  #[wasm_bindgen_test]
+  fn request_file_returns_the_plain_session_file() {
+    let request = json!({"trees": [{"label": "ha", "newick": "(A,B);"}], "settings": {"seed": 7}});
+    let file = plain(&treeknit_wasm::request_file(&ts(&request)).unwrap().js_value());
+    assert_eq!(
+      (json!("treeknit_request.json"), json!("application/json")),
+      (file["path"].clone(), file["mediaType"].clone())
+    );
+    let text = file["text"].as_str().unwrap();
+    let back = plain(&treeknit_wasm::read_request(text).unwrap().js_value());
+    assert_eq!(
+      (json!("ha"), json!(7)),
+      (back["trees"][0]["label"].clone(), back["settings"]["seed"].clone())
+    );
+  }
+
+  #[wasm_bindgen_test]
+  fn tree_labels_follow_the_web_label_policy() {
+    let names = vec!["ha.nwk".to_owned(), "ha.tree".to_owned()];
+    let existing = vec!["HA".to_owned()];
+    assert_eq!(vec!["ha_2", "ha_3"], treeknit_wasm::tree_labels(names, existing));
+  }
+
+  #[wasm_bindgen_test]
   fn core_parallel_pairs_run_on_the_calling_thread() {
     // Without threads, rayon falls back to the calling thread. Pairs run in parallel only
     // without resolution.

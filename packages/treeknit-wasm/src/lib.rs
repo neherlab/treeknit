@@ -5,7 +5,7 @@ use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, Validatio
 use treeknit_io::display::{ArgView, ConstellationTable, PairView, Scale, TreeVersion};
 use treeknit_io::figure::FigureOptions;
 use treeknit_io::inspect::{self, Overlap, TreeInspection};
-use treeknit_io::output::{FileEntry, OutputFile};
+use treeknit_io::output::{self, FileEntry, OutputFile};
 use treeknit_io::palette::{self, Palette};
 use treeknit_io::progress::Progress;
 use treeknit_io::schema::{self, SettingsSchema};
@@ -70,16 +70,17 @@ pub fn validate(request: &Ts<AnalysisRequest>) -> Result<Vec<Ts<ValidationError>
 /// The request of a session file (`treeknit_request.json`); throws with the messages when its
 /// JSON structure is invalid.
 #[wasm_bindgen(js_name = readRequest)]
-#[expect(unused_variables, reason = "session files are not read yet")]
 pub fn read_request(text: &str) -> Result<Ts<AnalysisRequest>, JsError> {
-  Err(not_implemented("readRequest"))
+  match analysis::read_request(text) {
+    Ok(request) => to_js(&request),
+    Err(errors) => Err(JsError::new(&messages(&errors))),
+  }
 }
 
 /// The session file of a request, `treeknit_request.json`.
 #[wasm_bindgen(js_name = requestFile)]
-#[expect(unused_variables, reason = "session files are not written yet")]
 pub fn request_file(request: &Ts<AnalysisRequest>) -> Result<Ts<OutputFile>, JsError> {
-  Err(not_implemented("requestFile"))
+  to_js(&output::request_file(&from_js("request", request)?))
 }
 
 /// Labels for trees loaded from `fileNames`: the file name without its last extension, with
@@ -87,14 +88,13 @@ pub fn request_file(request: &Ts<AnalysisRequest>) -> Result<Ts<OutputFile>, JsE
 #[wasm_bindgen(js_name = treeLabels)]
 #[expect(
   clippy::needless_pass_by_value,
-  unused_variables,
-  reason = "wasm-bindgen takes JavaScript arrays only by value; the web label policy is not built yet"
+  reason = "wasm-bindgen takes JavaScript arrays only by value"
 )]
 pub fn tree_labels(
   #[wasm_bindgen(js_name = fileNames)] file_names: Vec<String>,
   #[wasm_bindgen(js_name = existingLabels)] existing_labels: Vec<String>,
-) -> Result<Vec<String>, JsError> {
-  Err(not_implemented("treeLabels"))
+) -> Vec<String> {
+  analysis::tree_labels(&file_names, &existing_labels)
 }
 
 /// The TreeKnit version and the source repository.
@@ -199,10 +199,14 @@ impl Session {
 /// A JavaScript `Error` named `ValidationError` whose message joins the messages of `errors`, one
 /// per line, so the caller tells an invalid request from an internal failure.
 fn validation_error(errors: &[ValidationError]) -> JsValue {
-  let message = errors.iter().map(|e| e.message.as_str()).collect::<Vec<_>>().join("\n");
-  let error = Error::new(&message);
+  let error = Error::new(&messages(errors));
   error.set_name("ValidationError");
   error.into()
+}
+
+/// The messages of `errors`, one per line.
+fn messages(errors: &[ValidationError]) -> String {
+  errors.iter().map(|e| e.message.as_str()).collect::<Vec<_>>().join("\n")
 }
 
 fn not_implemented(name: &str) -> JsError {
