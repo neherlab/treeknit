@@ -8,6 +8,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use treeknit_core::{Options, Resolution, Taxa, Tree};
+use treeknit_io::analysis::{self, ParsedTrees, Settings, TreeText, ValidationError};
 use treeknit_io::{arg, auspice, mccs, newick};
 
 const RESOLVE_HELP: &str = "\
@@ -48,13 +49,13 @@ enum ResolveMode {
   Matched,
 }
 
-impl From<ResolveMode> for Resolution {
-  fn from(m: ResolveMode) -> Resolution {
+impl From<ResolveMode> for analysis::ResolveMode {
+  fn from(m: ResolveMode) -> analysis::ResolveMode {
     match m {
-      ResolveMode::None => Resolution::None,
-      ResolveMode::Strict => Resolution::Strict,
-      ResolveMode::Liberal => Resolution::Liberal,
-      ResolveMode::Matched => Resolution::Matched,
+      ResolveMode::None => analysis::ResolveMode::None,
+      ResolveMode::Strict => analysis::ResolveMode::Strict,
+      ResolveMode::Liberal => analysis::ResolveMode::Liberal,
+      ResolveMode::Matched => analysis::ResolveMode::Matched,
     }
   }
 }
@@ -77,7 +78,7 @@ struct Cli {
   outdir: PathBuf,
 
   /// Cost γ of a reassortment (removing an MCC).
-  #[arg(short, long, default_value_t = 2.0)]
+  #[arg(short, long, default_value_t = Settings::default().gamma)]
   gamma: f64,
 
   /// Sequence lengths of the segments, e.g. "1500 2000" (used by the likelihood tie-break).
@@ -85,7 +86,7 @@ struct Cli {
   seq_lengths: Option<String>,
 
   /// MCMC steps per leaf.
-  #[arg(long, default_value_t = 50)]
+  #[arg(long, default_value_t = Settings::default().n_mcmc_it)]
   n_mcmc_it: usize,
 
   /// How trees are resolved: matched, strict, liberal or none (see --help-resolve).
@@ -96,8 +97,8 @@ struct Cli {
   #[arg(long)]
   pre_resolve: bool,
 
-  /// Rounds of pair inference [default: 1].
-  #[arg(long)]
+  // No clap default: without the flag, the former options take the rounds of their preset.
+  #[arg(long, help = format!("Rounds of pair inference [default: {}]", Settings::default().rounds))]
   rounds: Option<usize>,
 
   /// With strict or liberal resolution and more than two trees, skip the final round that
@@ -106,7 +107,7 @@ struct Cli {
   no_final_round: bool,
 
   /// Seed of the random number generator.
-  #[arg(long, default_value_t = 1)]
+  #[arg(long, default_value_t = Settings::default().seed)]
   seed: u64,
 
   /// Worker threads for independent tree pairs (0: all cores).
@@ -192,18 +193,29 @@ fn main() -> Result<()> {
   log::info!("results directory: {}", cli.outdir.display());
 
   let labels = tree_labels(&cli.trees)?;
-  let mut trees: Vec<Tree> = Vec::new();
-  for (path, label) in cli.trees.iter().zip(&labels) {
-    let s = fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-    trees.push(newick::parse_first(&s, label).with_context(|| format!("parsing {}", path.display()))?);
+  let texts = cli
+    .trees
+    .iter()
+    .zip(labels)
+    .map(|(path, label)| {
+      let newick = fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+      Ok(TreeText { label, newick })
+    })
+    .collect::<Result<Vec<_>>>()?;
+  let parsed = analysis::parse_trees(&texts);
+  if let Ok(p) = &parsed {
+    report_overlap(&p.trees, &p.taxa);
   }
-  let taxa = Taxa::from_trees(&trees);
-  for t in &mut trees {
-    t.assign_taxa(&taxa).map_err(anyhow::Error::msg)?;
-  }
-  report_overlap(&trees, &taxa);
-
-  let opts = options(&cli, trees.len())?;
+  let (opts, settings_errors) = options(&cli, texts.len())?;
+  let ParsedTrees { mut trees, taxa } = match parsed {
+    Ok(p) if settings_errors.is_empty() => p,
+    Ok(_) => fail(&settings_errors)?,
+    Err(mut errors) => {
+      errors.extend(settings_errors);
+      fail(&errors)?
+    },
+  };
+  log_options(&opts, trees.len());
   log::debug!("parameters: {opts:?}");
   fs::write(
     cli.outdir.join("parameters.json"),
@@ -230,7 +242,7 @@ fn main() -> Result<()> {
     let name = if trees.len() == 2 {
       "MCCs.dat".to_owned()
     } else {
-      format!("MCCs_{}_{}.dat", trees[p.i].label, trees[p.j].label)
+      format!("MCCs_{}.dat", analysis::pair_stem(&trees[p.i].label, &trees[p.j].label))
     };
     let names: Vec<Vec<String>> = p.mccs.iter().map(|m| taxa.names_of(m)).collect();
     fs::write(cli.outdir.join(name), mccs::to_lines(&names))?;
@@ -290,26 +302,51 @@ fn write_arg(cli: &Cli, trees: &[Tree], pair: &treeknit_core::PairResult, taxa: 
   Ok(())
 }
 
-fn options(cli: &Cli, k: usize) -> Result<Options> {
-  let mut o = if uses_former_options(cli) {
-    if cli.resolve.is_some() || cli.pre_resolve || cli.no_final_round {
-      bail!(
-        "former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, \
-                 --resolve-all-rounds, --no-pre-resolve, --match-topologies) cannot be combined with \
-                 --resolve, --pre-resolve or --no-final-round; see --help-resolve"
-      );
-    }
-    former_options(cli, k)?
-  } else {
-    let mut o = Options::for_trees(k);
-    if let Some(m) = cli.resolve {
-      o.resolution = m.into();
-    }
-    o.pre_resolve = cli.pre_resolve;
-    o.final_unresolved_round = !cli.no_final_round;
-    o.rounds = cli.rounds.unwrap_or(1);
-    o
-  };
+/// Stop with every validation error, one per line.
+fn fail<T>(errors: &[ValidationError]) -> Result<T> {
+  bail!(
+    "{}",
+    errors.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n")
+  )
+}
+
+/// Options of the flags for `k` trees, and the errors of the shared settings checks.
+fn options(cli: &Cli, k: usize) -> Result<(Options, Vec<ValidationError>)> {
+  let seq_lengths = cli
+    .seq_lengths
+    .as_ref()
+    .map(|s| {
+      s.split_whitespace()
+        .map(|x| x.parse::<f64>())
+        .collect::<Result<Vec<_>, _>>()
+        .context("--seq-lengths should look like \"1500 2000\"")
+    })
+    .transpose()?;
+  if !uses_former_options(cli) {
+    let s = Settings {
+      gamma: cli.gamma,
+      seq_lengths,
+      n_mcmc_it: cli.n_mcmc_it,
+      resolve: cli.resolve.map_or_else(analysis::ResolveMode::default, Into::into),
+      pre_resolve: cli.pre_resolve,
+      rounds: cli.rounds.unwrap_or_else(|| Settings::default().rounds),
+      final_round: !cli.no_final_round,
+      likelihood: !cli.no_likelihood,
+      naive: cli.naive,
+      seed: cli.seed,
+    };
+    let mut o = analysis::options(&s, k);
+    o.parallel = true;
+    return Ok((o, analysis::check_settings(&s, k)));
+  }
+  if cli.resolve.is_some() || cli.pre_resolve || cli.no_final_round {
+    bail!(
+      "former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, \
+               --resolve-all-rounds, --no-pre-resolve, --match-topologies) cannot be combined with \
+               --resolve, --pre-resolve or --no-final-round; see --help-resolve"
+    );
+  }
+  let mut o = former_options(cli, k)?;
   if o.rounds == 0 {
     bail!("--rounds must be at least 1");
   }
@@ -317,17 +354,23 @@ fn options(cli: &Cli, k: usize) -> Result<Options> {
   o.n_mcmc = cli.n_mcmc_it;
   o.likelihood_sort = !cli.no_likelihood;
   o.naive = cli.naive;
-  if let Some(s) = &cli.seq_lengths {
-    let v: Vec<f64> = s
-      .split_whitespace()
-      .map(|x| x.parse::<f64>())
-      .collect::<Result<_, _>>()
-      .context("--seq-lengths should look like \"1500 2000\"")?;
-    if v.len() != k {
-      bail!("--seq-lengths: got {} values for {k} trees", v.len());
-    }
+  o.parallel = true;
+  // The former options have no settings of their own; the values they share with the
+  // settings get the same checks. The other fields keep valid defaults.
+  let shared = Settings {
+    gamma: cli.gamma,
+    seq_lengths,
+    seed: cli.seed,
+    ..Settings::default()
+  };
+  let errors = analysis::check_settings(&shared, k);
+  if let Some(v) = shared.seq_lengths {
     o.seq_lengths = v;
   }
+  Ok((o, errors))
+}
+
+fn log_options(o: &Options, k: usize) {
   let extra = matches!(o.resolution, Resolution::Strict | Resolution::Liberal) && k > 2 && o.final_unresolved_round;
   log::info!(
     "γ = {}, resolution: {}, pre-resolve: {}, {} round(s){}",
@@ -337,7 +380,6 @@ fn options(cli: &Cli, k: usize) -> Result<Options> {
     o.rounds,
     if extra { " + final round without resolution" } else { "" }
   );
-  Ok(o)
 }
 
 fn uses_former_options(cli: &Cli) -> bool {
