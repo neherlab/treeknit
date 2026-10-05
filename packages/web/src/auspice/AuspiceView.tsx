@@ -59,7 +59,7 @@ export default function AuspiceView(input: AuspiceInput) {
             <div className="grid min-h-full grid-cols-1 @[900px]:grid-cols-[260px_minmax(0,1fr)]">
               <aside
                 aria-label="Auspice controls"
-                className="border-rule bg-pane border-b @[900px]:border-r @[900px]:border-b-0"
+                className="border-rule bg-pane border-b **:box-content @[900px]:border-r @[900px]:border-b-0"
               >
                 <ControlsContainer>
                   <ControlHeader title="Color By" tooltip={ColorByInfo} />
@@ -77,7 +77,7 @@ export default function AuspiceView(input: AuspiceInput) {
               </aside>
               <div className="flex min-w-0 flex-col">
                 <div className="flex items-start gap-2 px-3 pt-2">
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 **:box-content">
                     <FiltersSummary />
                   </div>
                   <Button
@@ -91,7 +91,7 @@ export default function AuspiceView(input: AuspiceInput) {
                   </Button>
                 </div>
                 {downloadsOpen ? (
-                  <div className="bg-ink text-ground rounded-control mx-3 mt-2 px-4 py-3">
+                  <div className="bg-ink text-ground rounded-control mx-3 mt-2 px-4 py-3 **:box-content">
                     <DownloadButtons relevantPublications={RELEVANT_PUBLICATIONS} />
                   </div>
                 ) : null}
@@ -113,7 +113,7 @@ function SizedTree() {
 
   return (
     <div ref={areaRef} className="relative min-h-120 min-w-0 flex-1">
-      <div ref={canvasRef} className="absolute inset-0">
+      <div ref={canvasRef} className="absolute inset-0 **:box-content">
         {width >= MIN_TREE_WIDTH ? <Tree width={width} height={height} /> : null}
       </div>
     </div>
