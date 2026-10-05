@@ -14,6 +14,7 @@ import IncreaseIcon from "~icons/lucide/chevron-up";
 
 import { FieldDescription, FieldErrorMessage, FieldLabel, type FieldProps } from "./Field";
 import { fieldValidity } from "./fieldValidity";
+import { stepTooltip } from "./stepTooltip";
 import { fieldStyle, inputStyle } from "./styles";
 import { TooltipTrigger } from "./TooltipTrigger";
 
@@ -54,7 +55,7 @@ export type NumberFieldProps = Omit<AriaNumberFieldProps, "className" | "childre
   };
 
 function StepButton({ slot, icon: Icon }: StepButtonProps) {
-  const label = useSlottedContext(ButtonContext, slot)?.["aria-label"];
+  const label = stepTooltip(useSlottedContext(ButtonContext, slot)?.["aria-label"]);
 
   const button = (
     <AriaButton
@@ -69,7 +70,7 @@ function StepButton({ slot, icon: Icon }: StepButtonProps) {
     </AriaButton>
   );
 
-  return label === undefined ? (
+  return label === null ? (
     button
   ) : (
     <TooltipTrigger tooltip={label} repeatsName placement="right">
