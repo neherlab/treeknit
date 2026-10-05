@@ -147,12 +147,45 @@ describe("analysis client", () => {
     const client = new WorkerAnalysisClient(host);
     const handle = client.startRun(REQUEST, ignoreProgress);
 
-    host.failToStart("treeknit-job#0");
+    host.raiseError("treeknit-job#0");
 
     expect(await handle.outcome).toStrictEqual({
       status: "failed",
       kind: "start",
       message: "The analysis worker could not start.",
+    });
+    client.dispose();
+  });
+
+  test("settles a run as a start failure when the job worker cannot be constructed", async () => {
+    const host = new FakeHost({ utility: [fakeApi({})], job: [] });
+    const client = new WorkerAnalysisClient(host);
+
+    host.refuseStart("treeknit-job");
+    const handle = client.startRun(REQUEST, ignoreProgress);
+
+    expect(await handle.outcome).toStrictEqual({
+      status: "failed",
+      kind: "start",
+      message: "Worker construction is blocked.",
+    });
+    client.dispose();
+  });
+
+  test("a utility worker that cannot be constructed rejects the call with a start error and starts again", async () => {
+    const host = new FakeHost({
+      utility: [fakeApi({ version: () => ({ version: "0.5.0", repository: "r" }) })],
+      job: [],
+    });
+
+    host.refuseStart("treeknit-utility");
+    const client = new WorkerAnalysisClient(host);
+    const refused = await client.version().catch(errorName);
+    const answered = await client.version();
+
+    expect({ refused, answered }).toStrictEqual({
+      refused: "WorkerStartError",
+      answered: { version: "0.5.0", repository: "r" },
     });
     client.dispose();
   });
@@ -189,6 +222,20 @@ describe("analysis client", () => {
       answered: { version: "0.5.0", repository: "r" },
       terminated: ["treeknit-utility#0"],
     });
+    client.dispose();
+  });
+
+  test("rejects the other calls of a replaced utility worker with the error that replaced it", async () => {
+    const host = new FakeHost({
+      utility: [fakeApi({ version: trap, palette: async () => Promise.withResolvers<never>().promise }), fakeApi({})],
+      job: [],
+    });
+
+    const client = new WorkerAnalysisClient(host);
+    const waiting = client.palette().catch(errorName);
+    const trapped = await client.version().catch(errorName);
+
+    expect({ trapped, waiting: await waiting }).toStrictEqual({ trapped: "RuntimeError", waiting: "RuntimeError" });
     client.dispose();
   });
 
@@ -248,7 +295,7 @@ describe("analysis client", () => {
     });
     const outcome = await client.startRun(REQUEST, ignoreProgress).outcome;
 
-    host.failToStart("treeknit-job#0");
+    host.raiseError("treeknit-job#0");
     const after = await client.summary(sessionId(outcome)).catch(errorName);
 
     expect({ lost, after }).toStrictEqual({ lost: [sessionId(outcome)], after: "SessionUnavailableError" });
@@ -273,6 +320,7 @@ class FakeHost {
   readonly #apis: Record<"utility" | "job", (FakeApi | undefined)[]>;
   readonly #ports = new Map<string, MessagePort>();
   readonly #terminated: string[] = [];
+  readonly #refused = new Set<string>();
   #compileFailure: Error | undefined;
   compiled = 0;
 
@@ -281,6 +329,10 @@ class FakeHost {
   }
 
   start(name: string): AnalysisWorker {
+    if (this.#refused.delete(name)) {
+      throw new TypeError("Worker construction is blocked.");
+    }
+
     const role = name === "treeknit-utility" ? "utility" : "job";
     const index = [...this.#ports.keys()].filter((key) => key.startsWith(`${name}#`)).length;
     const key = `${name}#${String(index)}`;
@@ -317,7 +369,11 @@ class FakeHost {
     this.#compileFailure = error;
   }
 
-  failToStart(key: string): void {
+  refuseStart(name: string): void {
+    this.#refused.add(name);
+  }
+
+  raiseError(key: string): void {
     this.#ports.get(key)?.dispatchEvent(new Event("error"));
   }
 

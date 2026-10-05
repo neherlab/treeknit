@@ -266,7 +266,7 @@ export class WorkerAnalysisClient implements AnalysisClient {
       return await connection.call(operation);
     } catch (error) {
       if (isWorkerFailure(error) && connection === this.#utility) {
-        connection.close();
+        connection.close(asError(error));
         this.#utility = this.#connect("treeknit-utility");
       }
 
@@ -293,7 +293,7 @@ export class WorkerAnalysisClient implements AnalysisClient {
   }
 
   #connect(name: string): Connection {
-    return new Connection(this.#host.start(name), this.#compiled());
+    return new Connection(() => this.#host.start(name), this.#compiled());
   }
 
   #compiled(): Promise<WebAssembly.Module> {
@@ -313,35 +313,36 @@ export class WorkerAnalysisClient implements AnalysisClient {
 }
 
 class Connection {
-  readonly #worker: AnalysisWorker;
-  readonly #remote: Remote<WorkerApi>;
+  readonly #worker: AnalysisWorker | undefined;
   readonly #failed: Promise<never>;
-  readonly #ready: Promise<void>;
+  readonly #ready: Promise<Remote<WorkerApi>>;
   readonly #fail: (error: Error) => void;
   #started = false;
   #closed = false;
   #crashListener: (() => void) | undefined;
 
-  constructor(worker: AnalysisWorker, module: Promise<WebAssembly.Module>) {
+  constructor(start: () => AnalysisWorker, module: Promise<WebAssembly.Module>) {
     const { promise, reject } = Promise.withResolvers<never>();
 
-    this.#worker = worker;
-    this.#remote = wrap<WorkerApi>(worker);
     this.#failed = promise;
     this.#fail = reject;
     promise.catch(ignore);
-    worker.addEventListener("error", () => {
+
+    const opened = openWorker(start);
+
+    this.#worker = opened instanceof WorkerStartError ? undefined : opened;
+    this.#worker?.addEventListener("error", () => {
       this.#onError();
     });
-    this.#ready = this.#init(module);
+    this.#ready = this.#init(opened, module);
     this.#ready.catch(ignore);
   }
 
   async call<T>(operation: (remote: Remote<WorkerApi>) => Promise<T>): Promise<T> {
-    await this.#ready;
+    const remote = await this.#ready;
 
     try {
-      return await Promise.race([operation(this.#remote), this.#failed]);
+      return await Promise.race([operation(remote), this.#failed]);
     } catch (error) {
       throw asError(error);
     }
@@ -351,26 +352,37 @@ class Connection {
     this.#crashListener = listener;
   }
 
-  close(): void {
+  close(reason: Error = new Error("The analysis worker was stopped.")): void {
     if (this.#closed) {
       return;
     }
 
     this.#closed = true;
-    this.#fail(new Error("The analysis worker was stopped."));
-    this.#worker.terminate();
+    this.#fail(reason);
+    this.#worker?.terminate();
   }
 
-  async #init(module: Promise<WebAssembly.Module>): Promise<void> {
+  async #init(
+    opened: AnalysisWorker | WorkerStartError,
+    module: Promise<WebAssembly.Module>,
+  ): Promise<Remote<WorkerApi>> {
+    if (opened instanceof WorkerStartError) {
+      throw opened;
+    }
+
+    const remote = wrap<WorkerApi>(opened);
+
     try {
       const compiled = await Promise.race([module, this.#failed]);
 
-      await Promise.race([this.#remote.init(compiled), this.#failed]);
+      await Promise.race([remote.init(compiled), this.#failed]);
     } catch (error) {
       throw error instanceof WorkerStartError ? error : new WorkerStartError(asError(error).message);
     }
 
     this.#started = true;
+
+    return remote;
   }
 
   #onError(): void {
@@ -405,6 +417,14 @@ const FAILURE_KINDS: ReadonlyMap<string, FailureKind> = new Map([
 
 function runFailure({ name, message }: Error): RunOutcome {
   return { status: "failed", kind: FAILURE_KINDS.get(name) ?? "internal", message };
+}
+
+function openWorker(start: () => AnalysisWorker): AnalysisWorker | WorkerStartError {
+  try {
+    return start();
+  } catch (error) {
+    return new WorkerStartError(asError(error).message);
+  }
 }
 
 function isWorkerFailure(cause: unknown): boolean {
