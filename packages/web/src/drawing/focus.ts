@@ -3,7 +3,7 @@ import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 
 import type { RowRange } from "../canvas/viewState";
-import { leafRow } from "./trees";
+import { leafRow, rowSpan } from "./trees";
 
 export type FocusTarget = { kind: "leaf"; name: string } | { kind: "mcc"; mcc: number };
 
@@ -53,7 +53,5 @@ export function focusRows(view: PairView, target: FocusTarget): RowRange | null 
 }
 
 export function mccRows(view: PairView, mcc: number): RowRange | null {
-  const rows = view.left.nodes.flatMap((node) => (node.leaf && node.mcc === mcc ? [node.y] : []));
-
-  return rows.length === 0 ? null : { first: Math.min(...rows), last: Math.max(...rows) };
+  return rowSpan(view.left.nodes.flatMap((node) => (node.leaf && node.mcc === mcc ? [node.y] : [])));
 }

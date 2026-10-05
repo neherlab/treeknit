@@ -45,9 +45,19 @@ export function leafRows(
   nodes: readonly { children: readonly number[]; leaf: boolean; y: number }[],
   node: number,
 ): RowRange | null {
-  const rows = descendantLeaves(nodes, node).map((leaf) => leaf.y);
+  return rowSpan(descendantLeaves(nodes, node).map((leaf) => leaf.y));
+}
 
-  return rows.length === 0 ? null : { first: Math.min(...rows), last: Math.max(...rows) };
+export function rowSpan(rows: Iterable<number>): RowRange | null {
+  let first = Number.POSITIVE_INFINITY;
+  let last = Number.NEGATIVE_INFINITY;
+
+  for (const row of rows) {
+    first = Math.min(first, row);
+    last = Math.max(last, row);
+  }
+
+  return first > last ? null : { first, last };
 }
 
 export function cladeSize(nodes: readonly { children: readonly number[]; leaf: boolean }[], node: number): number {
@@ -107,7 +117,9 @@ function descendantLeaves<N extends { children: readonly number[]; leaf: boolean
       leaves.push(node);
     }
 
-    stack.push(...node.children);
+    for (const child of node.children) {
+      stack.push(child);
+    }
   }
 
   return leaves;

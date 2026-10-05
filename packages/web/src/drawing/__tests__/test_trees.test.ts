@@ -49,6 +49,25 @@ describe("leafRows", () => {
     expect(leafRows(exampleArgView().nodes, 0)).toStrictEqual({ first: 0, last: 2 });
   });
 
+  test("spans a caterpillar tree deeper than a function call takes arguments", () => {
+    const leaves = 300_000;
+    const nodes = caterpillar(leaves);
+
+    expect(leafRows(nodes, 0)).toStrictEqual({ first: 0, last: leaves - 1 });
+  });
+
+  test("spans a polytomy with more children than a function call takes arguments", () => {
+    const leaves = 300_000;
+    const children = Array.from({ length: leaves }, (_, index) => index + 1);
+
+    const nodes = [
+      { children, leaf: false, y: 0 },
+      ...children.map((_, row) => ({ children: [], leaf: true, y: row })),
+    ];
+
+    expect(leafRows(nodes, 0)).toStrictEqual({ first: 0, last: leaves - 1 });
+  });
+
   test("gives no range for a node outside the tree", () => {
     expect(leafRows(VIEW.left.nodes, 99)).toBeNull();
   });
@@ -71,3 +90,17 @@ describe("tree lookups", () => {
     expect(rowCount(VIEW.left, VIEW.right)).toBe(5);
   });
 });
+
+function caterpillar(leaves: number) {
+  const nodes: { children: number[]; leaf: boolean; y: number }[] = [];
+
+  for (let row = 0; row < leaves - 1; row += 1) {
+    const inner = nodes.length;
+
+    nodes.push({ children: [inner + 1, inner + 2], leaf: false, y: row }, { children: [], leaf: true, y: row });
+  }
+
+  nodes.push({ children: [], leaf: true, y: leaves - 1 });
+
+  return nodes;
+}
