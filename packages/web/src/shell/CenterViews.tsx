@@ -3,24 +3,27 @@ import type { Key } from "react-aria-components";
 import PanelLeftIcon from "~icons/lucide/panel-left";
 import PanelRightIcon from "~icons/lucide/panel-right";
 
+import { Overview } from "../overview/Overview";
+import { DiagnosticsTabLabel } from "../results/DiagnosticsTabLabel";
+import { DiagnosticsView } from "../results/DiagnosticsView";
+import { FilesView } from "../results/FilesView";
 import { Button } from "../ui/Button";
 import { Tab, TabList, TabPanel, Tabs } from "../ui/Tabs";
 import { useWorkspaceAvailability } from "../workspace/availability";
 import { WORKSPACE_VIEWS, type WorkspaceView } from "../workspace/search";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
-import { EmptyCenter } from "./EmptyCenter";
 import { INSPECTOR_TITLE, RAIL_TITLE } from "./layout";
 import { ViewPlaceholder } from "./ViewPlaceholder";
 import { viewTabs } from "./viewTabs";
 
 const VIEW_PANELS: Record<WorkspaceView, ComponentType> = {
-  overview: EmptyCenter,
+  overview: Overview,
   tanglegram: ViewPlaceholder,
   arg: ViewPlaceholder,
   mccs: ViewPlaceholder,
   constellation: ViewPlaceholder,
-  files: ViewPlaceholder,
-  diagnostics: ViewPlaceholder,
+  files: FilesView,
+  diagnostics: DiagnosticsView,
 };
 
 export function CenterViews({ onOpenRail, onOpenInspector }: CenterViewsProps) {
@@ -54,7 +57,11 @@ export function CenterViews({ onOpenRail, onOpenInspector }: CenterViewsProps) {
           </Button>
         )}
         <TabList aria-label="Views" items={tabs} className="min-w-0 flex-1 overflow-x-auto border-b-0">
-          {(tab) => <Tab id={tab.view}>{tab.label}</Tab>}
+          {(tab) => (
+            <Tab id={tab.view}>
+              {tab.view === "diagnostics" ? <DiagnosticsTabLabel label={tab.label} /> : tab.label}
+            </Tab>
+          )}
         </TabList>
         {onOpenInspector === undefined ? null : (
           <Button variant="quiet" size="sm" icon={PanelRightIcon} onPress={onOpenInspector}>
