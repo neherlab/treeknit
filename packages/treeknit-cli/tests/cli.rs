@@ -351,8 +351,9 @@ mod tests {
   #[trace]
   fn output_files_keep_their_bytes(#[case] case: &str, #[case] inputs: &[&str], #[case] flags: &[&str]) {
     // Oracle: the output directories that the command line wrote before its writers moved to
-    // `treeknit_io`, captured from the same inputs and flags, without `log.txt` (its lines carry
-    // times).
+    // `treeknit_io`, without `log.txt` (its lines carry times): the `treeknit` binary of commit
+    // 6db59a4, run in `tests/data/outputs/<case>` as `treeknit <inputs> <flags> -o expected`. The
+    // MCCs of the two-tree case are those of the TreeKnit.jl fixture `doc_mccs_1.json`.
     let data = Path::new(env!("CARGO_MANIFEST_DIR"))
       .join("tests/data/outputs")
       .join(case);
@@ -368,6 +369,103 @@ mod tests {
       readable(files_below(&data.join("expected"))),
       readable(files_below(&out))
     );
+  }
+
+  #[test]
+  fn request_of_the_two_tree_case_keeps_the_bytes_and_adds_the_session_file() {
+    // Oracle: the captured output directory of `output_files_keep_their_bytes`, whose trees carry
+    // the labels of their file stems.
+    let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/outputs/two");
+    let dir = TempDir::new("bytes-request");
+    let tree = |name: &str| serde_json::json!({"label": name, "newick": std::fs::read_to_string(data.join(format!("input/{name}.nwk"))).unwrap()});
+    let request = serde_json::json!({"trees": [tree("ha"), tree("na")]});
+    let path = dir.path().join("treeknit_request.json");
+    std::fs::write(&path, request.to_string()).unwrap();
+    let out = dir.path().join("out");
+    run(&["--request", path.to_str().unwrap()], &out);
+    let mut written = readable(files_below(&out));
+    let session: serde_json::Value = serde_json::from_str(&written.remove("treeknit_request.json").unwrap()).unwrap();
+    assert_eq!(request["trees"], session["trees"]);
+    assert_eq!(readable(files_below(&data.join("expected"))), written);
+  }
+
+  #[test]
+  fn log_of_the_two_tree_case_holds_the_steps_of_the_run_in_order() {
+    let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/outputs/two");
+    let dir = TempDir::new("log-lines");
+    let out = dir.path().join("out");
+    let (ha, na) = (data.join("input/ha.nwk"), data.join("input/na.nwk"));
+    run(&[ha.to_str().unwrap(), na.to_str().unwrap()], &out);
+    let log = std::fs::read_to_string(out.join("log.txt")).unwrap();
+    // The lines without their time, the info lines only (the debug lines carry thread numbers),
+    // with the version and the runtime replaced by `_`.
+    let lines: Vec<String> = log
+      .lines()
+      .map(|l| l.split_once(' ').unwrap().1)
+      .filter(|l| l.starts_with("[INFO]"))
+      .map(
+        |l| match (l.starts_with("[INFO] TreeKnit "), l.split_once(" (runtime ")) {
+          (true, _) => "[INFO] TreeKnit _".to_owned(),
+          (false, Some((head, _))) => format!("{head} (runtime _)"),
+          (false, None) => l.to_owned(),
+        },
+      )
+      .collect();
+    // Oracle: the steps of a two-tree run; the counts are those of the TreeKnit.jl fixture
+    // `doc_mccs_1.json`: five shared leaves, the MCCs [X] and [A,B,C,D], one reassortment.
+    let expected = vec![
+      "[INFO] TreeKnit _".to_owned(),
+      format!("[INFO] input trees: {} {}", ha.display(), na.display()),
+      format!("[INFO] results directory: {}", out.display()),
+      "[INFO] γ = 2, resolution: matched, pre-resolve: false, 1 round(s)".to_owned(),
+      "[INFO] round 1/1 (resolving)".to_owned(),
+      "[INFO] inferring MCCs for ha and na (5 shared leaves)".to_owned(),
+      "[INFO] found 2 MCCs for ha and na".to_owned(),
+      "[INFO] matched topologies within MCCs: 0 splits added, 0 MCCs split".to_owned(),
+      "[INFO] found 1 reassortments in the ARG".to_owned(),
+      "[INFO] found [2] MCCs (runtime _)".to_owned(),
+      format!("[INFO] writing results in {}", out.display()),
+    ];
+    assert_eq!(expected, lines);
+  }
+
+  #[test]
+  fn command_line_of_the_web_app_writes_the_web_file_set() {
+    // The command that the web app shows, run on its session file, writes every file of the web
+    // file set with the same bytes, except `log.txt`, whose lines carry times.
+    let dir = TempDir::new("web-file-set");
+    let results = dir.path().join(treeknit_io::output::RESULTS_DIR);
+    std::fs::create_dir_all(&results).unwrap();
+    let request = write_request(&results, &serde_json::json!({"seed": 3}));
+    let command = treeknit_io::output::command_line();
+    let args: Vec<&str> = command.split(' ').skip(1).collect();
+    let out = dir.path().join("out");
+    let status = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .args(&args)
+      .arg("-o")
+      .arg(&out)
+      .args(["--verbosity-level", "-1"])
+      .current_dir(dir.path())
+      .status()
+      .unwrap();
+    assert!(status.success());
+    let parsed = treeknit_io::analysis::read_request(&std::fs::read_to_string(&request).unwrap()).unwrap();
+    let opts = treeknit_io::analysis::options(&parsed.settings, 2, true).unwrap();
+    let texts = treeknit_io::analysis::parse_trees(&parsed.trees).unwrap();
+    let run = treeknit_io::run::run(texts, &opts, parsed.settings.seed, &|_| {});
+    let expected: BTreeMap<String, String> =
+      treeknit_io::output::web_files(&parsed, &run, &opts, parsed.settings.seed, &[])
+        .into_iter()
+        .map(|f| match f {
+          treeknit_io::output::WebFile::Text(f) => (f.path, f.text),
+          treeknit_io::output::WebFile::Figure(f) => {
+            let text = treeknit_io::output::figure_text(&run, &opts, f.figure).unwrap();
+            (f.path, text)
+          },
+        })
+        .filter(|(path, _)| path != "log.txt")
+        .collect();
+    assert_eq!(expected, readable(files_below(&out)));
   }
 
   /// The file at `path` is an SVG figure; the command line writes the extension in lowercase.
