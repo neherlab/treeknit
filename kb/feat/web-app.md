@@ -16,16 +16,16 @@ TreeKnit.jl has no browser version. `packages/treeknit-wasm` compiles the core a
 
 ## Web app
 
-`packages/web` [[src](../../packages/web/src/analysis/AnalysisPage.tsx#L14-L58)]:
+`packages/web` [[src](../../packages/web/src/main.tsx)] is being rebuilt: the page shows the wordmark only, on the design tokens and fonts of the new visual identity [[src](../../packages/web/src/index.css)].
 
-- [x] **Tree input**: one or more Newick files (`.nwk`, `.newick`, `.tre`, `.tree`, `.txt`). The label is the file name without its last extension. A new selection replaces the list [[src](../../packages/web/src/analysis/TreeInputs.tsx#L15-L62)]
-- [x] **Examples**: the **Load example** menu loads a small pair of trees, one of the real H3N2 tree pairs of `data/`, or one of the simulated cases of `fixtures/sim/`. Vite bundles each tree file as its own chunk and fetches it when its case is picked. Only the latest file or example selection replaces the tree list [[src](../../packages/web/src/analysis/example.ts#L16-L46)]
+- [ ] **Tree input**: no file, paste, or drop input
+- [/] **Examples**: `src/analysis/example.ts` provides a small pair of trees, the real H3N2 tree pairs of `data/`, and the simulated cases of `fixtures/sim/` as file names with Newick texts. Vite bundles each tree file as its own chunk and fetches it when its case is loaded. No menu offers them yet [[src](../../packages/web/src/analysis/example.ts)]
 - [ ] **Newick text input**: there is no field to paste a tree
 - [ ] **Tree list editing**: the label, order, or presence of a single tree cannot be changed
-- [/] **Settings form**: γ, the resolution mode, and the seed. The other settings keep their defaults ([`N-web-app-partial-settings-and-outputs.md`](../issues/N-web-app-partial-settings-and-outputs.md)) [[src](../../packages/web/src/analysis/SettingsFields.tsx#L23-L34)]
-- [x] **Run in a Web Worker**: comlink calls the module in a worker. `AnalysisClient` replaces the worker after a trap or a failed start, so the page stays usable [[src](../../packages/web/src/analysis/client.ts#L10-L47)]
-- [x] **Results**: the ARG summary with the number of reassortments or the failure message, one MCC table per pair, and one download button per output file [[src](../../packages/web/src/results/Results.tsx#L8-L88)]
-- [x] **Errors**: analysis errors appear above the results; a failed start shows "TreeKnit could not start."
+- [ ] **Settings form**: no settings inputs
+- [ ] **Run in a Web Worker**: no analysis client or worker
+- [ ] **Results**: no MCC tables, ARG summary, or downloads. `src/download.ts` saves a file through a Blob and an object URL [[src](../../packages/web/src/download.ts)]
+- [ ] **Errors**: no analysis errors to show
 - [ ] **Drawing**: no tree, tanglegram, or ARG drawing (see [`visualization.md`](visualization.md#arg-viewers))
 - [x] **Local data**: the trees stay in the browser
 - [x] **Self-hosted assets**: the fonts, styles, scripts, and the WebAssembly module are bundled. The Content Security Policy allows WebAssembly compilation with `'wasm-unsafe-eval'`
@@ -34,5 +34,5 @@ TreeKnit.jl has no browser version. `packages/treeknit-wasm` compiles the core a
 ## Tests
 
 - [x] **Rust**: the native tests of `analysis.rs`, and `just test-wasm`, which runs the exported functions in WebAssembly in Node, including the parallel path on one thread
-- [x] **TypeScript**: `vitest` tests of the form-to-request mapping, file reading, the worker client, and the Content Security Policy
+- [x] **TypeScript**: `vitest` tests of the examples, the download helper, and the Content Security Policy
 - [ ] **Browser**: no test runs the app in a browser ([`N-web-app-untested-in-browsers.md`](../issues/N-web-app-untested-in-browsers.md))
