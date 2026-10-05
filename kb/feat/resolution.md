@@ -47,3 +47,4 @@ Counterpart: [`v0/resolution.md`](v0/resolution.md). `packages/treeknit-core/src
 - [x] **Check**: `unmatched_mccs` lists the MCCs whose trees differ inside the MCC [[src](../../packages/treeknit-core/src/pipeline.rs#L197-L211)]. The test `matched_topologies_on_three_segments` checks that the list is empty and that no input split is lost
 - [x] **No extra round**: `Matched` needs no final round without resolution
 - [/] **Pass limit**: after 20 passes the propagation stops without a warning. `resolve_trees` warns in the same case
+- [/] **Large trees**: on a pair of 10,000-leaf trees, matching takes about 3 minutes, probably because `insert_split` recomputes the clades of the whole tree for every split ([`M-matched-topologies-slow-on-large-trees.md`](../issues/M-matched-topologies-slow-on-large-trees.md))
