@@ -90,10 +90,7 @@ describe("labelFontStore", () => {
 
     expect(store.isReady()).toBe(false);
 
-    await Promise.all([
-      firstChange(store),
-      firstChange(store),
-    ]);
+    await Promise.all([firstChange(store), firstChange(store)]);
 
     expect(loaded).toStrictEqual([LABEL_FONT]);
     expect(reports).toStrictEqual([]);

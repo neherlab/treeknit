@@ -37,10 +37,7 @@ export function cubicPoint({ from, c1, c2, to }: Bezier, t: number): Point {
   const w2 = 3 * u * t * t;
   const w3 = t * t * t;
 
-  return [
-    w0 * from[0] + w1 * c1[0] + w2 * c2[0] + w3 * to[0],
-    w0 * from[1] + w1 * c1[1] + w2 * c2[1] + w3 * to[1],
-  ];
+  return [w0 * from[0] + w1 * c1[0] + w2 * c2[0] + w3 * to[0], w0 * from[1] + w1 * c1[1] + w2 * c2[1] + w3 * to[1]];
 }
 
 export function wangSegmentCount({ from, c1, c2, to }: Bezier, column: Column, rowPx = MAX_ROW_PX): number {

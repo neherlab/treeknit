@@ -1,6 +1,5 @@
-import { describe, expect, test } from "vitest";
-
 import type { Bezier, Point } from "@neherlab/treeknit-wasm";
+import { describe, expect, test } from "vitest";
 
 import {
   type Column,

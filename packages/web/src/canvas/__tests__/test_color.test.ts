@@ -1,13 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { parseColor, withOpacity } from "../color";
-import {
-  type CustomProperties,
-  MCC_SLOT_COUNT,
-  mccColor,
-  nextColorReading,
-  readDrawingColors,
-} from "../drawingColors";
+import { type CustomProperties, MCC_SLOT_COUNT, mccColor, nextColorReading, readDrawingColors } from "../drawingColors";
 
 describe("parseColor", () => {
   test.each([
