@@ -85,6 +85,19 @@ mod tests {
     assert_eq!((Some(1), expected, false), (code, stderr.as_str(), results));
   }
 
+  #[test]
+  fn tree_errors_name_the_input_file_and_position() {
+    let (code, stderr, results) = fail("parse", &[HA, "((A,B),\n(C,D)x y);", "((A,A),(C,D));"], &[]);
+    let dir = tmp("parse-in");
+    let expected = format!(
+      "Error: {}:2:8: tree \"t1\": Newick parse error: expected ',' or ')' at byte 15\n\
+       {}: tree \"t2\": Newick parse error: duplicate leaf name A\n",
+      dir.join("t1.nwk").display(),
+      dir.join("t2.nwk").display(),
+    );
+    assert_eq!((Some(1), expected, false), (code, stderr, results));
+  }
+
   #[rustfmt::skip]
   #[test]
   fn pairs_sharing_fewer_than_two_leaves_exit_with_their_message() {

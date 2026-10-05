@@ -211,7 +211,7 @@ fn main() -> Result<()> {
     (parsed, opts) => {
       let mut errors = parsed.err().unwrap_or_default();
       errors.extend(opts.err().unwrap_or_default());
-      fail(&errors)?
+      fail(&errors, &cli.trees)?
     },
   };
   log_options(&opts, trees.len());
@@ -301,12 +301,26 @@ fn write_arg(cli: &Cli, trees: &[Tree], pair: &treeknit_core::PairResult, taxa: 
   Ok(())
 }
 
-/// Stop with every validation error, one per line.
-fn fail<T>(errors: &[ValidationError]) -> Result<T> {
-  bail!(
-    "{}",
-    errors.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n")
-  )
+/// Stop with every validation error, one per line. An error of a tree starts with the path of
+/// its input file in `paths`, and with the line and column in the file when it has them.
+fn fail<T>(errors: &[ValidationError], paths: &[PathBuf]) -> Result<T> {
+  let lines: Vec<String> = errors
+    .iter()
+    .map(|e| {
+      let path = e.field.as_deref().and_then(tree_index).and_then(|i| paths.get(i));
+      match (path, e.line, e.column) {
+        (Some(p), Some(line), Some(column)) => format!("{}:{line}:{column}: {e}", p.display()),
+        (Some(p), ..) => format!("{}: {e}", p.display()),
+        (None, ..) => e.to_string(),
+      }
+    })
+    .collect();
+  bail!("{}", lines.join("\n"))
+}
+
+/// Index `i` of an error field `trees[i]` or `trees[i].<field>`.
+fn tree_index(field: &str) -> Option<usize> {
+  field.strip_prefix("trees[")?.split_once(']')?.0.parse().ok()
 }
 
 /// Options of the flags for `k` trees, or every error of the flags and of the shared settings
