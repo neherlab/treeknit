@@ -58,7 +58,9 @@ export function Select<K extends string>({
           "group-data-invalid/select:border-danger flex cursor-pointer items-center justify-between gap-2 text-left",
         )}
       >
-        <SelectValue className="data-placeholder:text-ink-muted truncate" />
+        <SelectValue className="data-placeholder:text-ink-muted truncate">
+          {({ isPlaceholder, selectedText, defaultChildren }) => (isPlaceholder ? defaultChildren : selectedText)}
+        </SelectValue>
         <ChevronIcon aria-hidden className="text-ink-muted shrink-0" />
       </AriaButton>
       <FieldDescription>{description}</FieldDescription>
