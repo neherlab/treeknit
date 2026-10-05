@@ -1,12 +1,12 @@
 const REVOKE_DELAY_MS = 60_000;
 
-export interface DownloadFile {
+export interface FileContent {
   name: string;
   mediaType: string;
   content: BlobPart;
 }
 
-export function downloadFile(file: DownloadFile): void {
+export function downloadFile(file: FileContent): void {
   const url = URL.createObjectURL(new Blob([file.content], { type: file.mediaType }));
   const anchor = document.createElement("a");
 
