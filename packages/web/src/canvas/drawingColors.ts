@@ -1,8 +1,9 @@
+import type { ThemeColors } from "@neherlab/treeknit-wasm";
 import { useSyncExternalStore } from "react";
 
 import { parseColor, type Rgba } from "./color";
 
-export const MCC_SLOT_COUNT = 8;
+export const MCC_SLOT_COUNT: ThemeColors["mcc"]["length"] = 8;
 
 export interface DrawingColors {
   ground: Rgba;
@@ -61,7 +62,17 @@ export function readDrawingColors(style: CustomProperties): DrawingColors {
 }
 
 export function mccColor(colors: DrawingColors, slot: number | null | undefined): Rgba {
-  return slot === null || slot === undefined ? colors.mccNone : (colors.mcc[slot % MCC_SLOT_COUNT] ?? colors.mccNone);
+  if (slot === null || slot === undefined) {
+    return colors.mccNone;
+  }
+
+  const color = colors.mcc[slot];
+
+  if (color === undefined) {
+    throw new RangeError(`MCC color slot ${String(slot)} is outside the ${String(colors.mcc.length)} palette slots`);
+  }
+
+  return color;
 }
 
 function drawingColorStore() {

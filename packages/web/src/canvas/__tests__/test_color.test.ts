@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { parseColor, withOpacity } from "../color";
-import { type CustomProperties, mccColor, readDrawingColors } from "../drawingColors";
+import { type CustomProperties, MCC_SLOT_COUNT, mccColor, readDrawingColors } from "../drawingColors";
 
 describe("parseColor", () => {
   test.each([
@@ -84,5 +84,13 @@ describe("mccColor", () => {
     expect(mccColor(colors, 2)).toStrictEqual([44, 140, 131, 255]);
     expect(mccColor(colors, null)).toStrictEqual(colors.mccNone);
     expect(mccColor(colors, undefined)).toStrictEqual(colors.mccNone);
+  });
+
+  test("returns the last of the eight palette slots", () => {
+    expect(mccColor(colors, MCC_SLOT_COUNT - 1)).toStrictEqual(colors.mcc.at(-1));
+  });
+
+  test.each([MCC_SLOT_COUNT, -1, 1.5])("rejects slot %d, which breaks the palette contract", (slot) => {
+    expect(() => mccColor(colors, slot)).toThrow(RangeError);
   });
 });
