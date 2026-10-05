@@ -1,6 +1,6 @@
 # Matched resolution is slow on large trees
 
-`Matched` is the default resolution. With it, `fn match_topologies` runs after the last round [[src](../../packages/treeknit-core/src/pipeline.rs#L264-L318)]. On a pair of 10,000-leaf trees this step takes about 198 s of a 201 s run, although it adds no split. MCC inference on the same pair takes about 1 s.
+`Matched` is the default resolution. With it, `fn match_topologies` runs after the last round [[src](../../packages/treeknit-core/src/pipeline.rs#L273-L327)]. On a pair of 10,000-leaf trees this step takes about 198 s of a 201 s run, although it adds no split. MCC inference on the same pair takes about 1 s.
 
 ## Measurements
 
@@ -18,8 +18,8 @@ Each time the number of leaves doubles, the matching time grows by a factor of 5
 
 The cause comes from reading the code. No profile confirms it yet.
 
-- `fn propagate_splits` calls `insert_split` once for every internal node below the root of each MCC, in both directions of the pair [[src](../../packages/treeknit-core/src/pipeline.rs#L320-L352)]. With one large MCC, this is about one call per internal node of the tree, so O(N) calls for N leaves
-- `pub fn insert_split` recomputes `t.clades(n_taxa)` and `t.leaf_of(n_taxa)` for the whole tree on every call, even when the split is already present [[src](../../packages/treeknit-core/src/resolve.rs#L44-L65)]. `clades` allocates one bitset of `n_taxa` bits for every node, so each call costs O(N²/64) word operations [[src](../../packages/treeknit-core/src/tree.rs#L200-L215)]
+- `fn propagate_splits` calls `insert_split` once for every internal node below the root of each MCC, in both directions of the pair [[src](../../packages/treeknit-core/src/pipeline.rs#L329-L361)]. With one large MCC, this is about one call per internal node of the tree, so O(N) calls for N leaves
+- `pub fn insert_split` recomputes `t.clades(n_taxa)` and `t.leaf_of(n_taxa)` for the whole tree on every call, even when the split is already present [[src](../../packages/treeknit-core/src/resolve.rs#L44-L65)]. `clades` allocates one bitset of `n_taxa` bits for every node, so each call costs O(N²/64) word operations [[src](../../packages/treeknit-core/src/tree.rs#L208-L223)]
 - Together, O(N) calls of O(N²/64) each give O(N³/64). This hypothesis agrees with the measured ratios, which lie on both sides of the cubic factor 8
 
 > [!IMPORTANT]

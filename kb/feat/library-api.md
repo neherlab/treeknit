@@ -4,17 +4,17 @@ Counterpart: [`v0/julia-api.md`](v0/julia-api.md). The Rust crates `treeknit-cor
 
 ## Exported names of TreeKnit.jl
 
-- [x] **`run_treeknit!`**: `treeknit_core::run(&mut trees, &taxa, &options, seed)` for any number of trees [[src](../../packages/treeknit-core/src/pipeline.rs#L168-L172)]
+- [x] **`run_treeknit!`**: `treeknit_core::run(&mut trees, &taxa, &options, seed)` for any number of trees [[src](../../packages/treeknit-core/src/pipeline.rs#L177-L181)]
 - [/] **`run_treeknit`**: no form that works on copies. A caller clones the trees first
 - [x] **`OptArgs`**: `Options`, `Options::for_trees`, and `Options::treeknit_jl` (see [`pipeline.md`](pipeline.md#run-options))
-- [/] **`MCC_set`**: `Vec<PairResult>` in pair order. Each `PairResult` has the tree indices `i` and `j`, the MCCs as taxon numbers, and the attached leaves. `PairResult::mcc_of(leaf)` finds the MCC of a leaf, and `PairResult::shared_mccs` gives the MCCs on the shared leaves only [[src](../../packages/treeknit-core/src/pipeline.rs#L28-L73)]. There is no access by tree label, no `add!`, no `iter_pairs`, and no `print`
+- [/] **`MCC_set`**: `Vec<PairResult>` in pair order. Each `PairResult` has the tree indices `i` and `j`, the MCCs as taxon numbers, and the attached leaves. `PairResult::mcc_of(leaf)` finds the MCC of a leaf, and `PairResult::shared_mccs` gives the MCCs on the shared leaves only [[src](../../packages/treeknit-core/src/pipeline.rs#L28-L78)]. There is no access by tree label, no `add!`, no `iter_pairs`, and no `print`
 - [x] **`naive_mccs`**: `treeknit_core::naive_mccs(&trees, n_taxa)` for any number of trees
 - [/] **`resolve!`**: `resolve_trees` (topology only), `resolve_with_mccs` (strict or liberal), and `insert_split` for one split and `insert_all_on` for a list of splits. No `tau` parameter, no conflict mode, no dictionary form (see [`resolution.md`](resolution.md))
 - [x] **`map_mccs`**: `mcc_map::map_mccs(tree, &leaf_mcc_map(mccs, n))` gives the MCC of every node [[src](../../packages/treeknit-core/src/mcc_map.rs#L14-L65)]
 - [ ] **`map_mccs!`**: nodes have no data field to store the result in
 - [x] **`write_mccs`, `read_mccs`**: `mccs::to_lines` and `mccs::from_lines`. New: `mccs::to_json` and `mccs::from_json` for `MCCs.json`
 - [x] **`SRG`**: `treeknit_core::arg` and `treeknit_io::arg` (see [`arg.md`](arg.md))
-- [/] **`inferARG`**: no single function. `run`, then `arg_inputs` and `arg::arg_from_trees`, build the ARG of two trees [[src](../../packages/treeknit-core/src/pipeline.rs#L630-L646)]. The TreeKnit.jl function fails on every call
+- [/] **`inferARG`**: no single function. `run`, then `arg_inputs` and `arg::arg_from_trees`, build the ARG of two trees [[src](../../packages/treeknit-core/src/pipeline.rs#L639-L655)]. The TreeKnit.jl function fails on every call
 - [x] **`parse_newick_string`**: `treeknit_io::newick::parse`
 
 ## Internal functions used in the TreeKnit.jl documentation
@@ -42,7 +42,7 @@ Counterpart: [`v0/julia-api.md`](v0/julia-api.md). The Rust crates `treeknit-cor
 
 ## New in the library
 
-- [x] **Trees and taxa**: arena trees with traversals, restriction to a leaf set, pruning, and ladderizing; clades as bit sets (`fixedbitset`) over one taxon table [[src](../../packages/treeknit-core/src/tree.rs#L1-L454)]
+- [x] **Trees and taxa**: arena trees with traversals, restriction to a leaf set, pruning, and ladderizing; clades as bit sets (`fixedbitset`) over one taxon table [[src](../../packages/treeknit-core/src/tree.rs#L1-L462)]
 - [x] **`match_topologies`, `unmatched_mccs`**: the `matched` resolution and its check
 - [x] **`imputed_trees`, `arg_inputs`**: trees with missing leaves placed, and the inputs of the ARG (see [`partial-overlap.md`](partial-overlap.md))
 - [x] **`sort_for_pair`, `sort_strictness`, `last_sorting_pair`, `keeps_run_order`**: the order of a pair of trees for display, from the run's sort of a pair (see [`pipeline.md`](pipeline.md#display-sort-new))

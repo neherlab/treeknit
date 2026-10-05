@@ -1,6 +1,6 @@
 # Command-line help lists `--match-topologies` as a former TreeKnit.jl option
 
-`--help-resolve` says that the former options keep "their TreeKnit.jl meaning" and lists `--match-topologies` among them, with the equivalent `--resolve matched` ([main.rs#L16-L28](../../packages/treeknit-cli/src/main.rs#L16-L28)). The option exists as a hidden flag ([main.rs#L201-L202](../../packages/treeknit-cli/src/main.rs#L201-L202)), and `fn former_options` handles it. TreeKnit.jl has no such option on any branch, and `kb/feat/v0/cli.md` does not list it. The README table of former options does not list it either.
+`--help-resolve` says that the former options keep "their TreeKnit.jl meaning" and lists `--match-topologies` among them, with the equivalent `--resolve matched` ([main.rs#L16-L28](../../packages/treeknit-cli/src/main.rs#L18-L30)). The option exists as a hidden flag ([main.rs#L201-L202](../../packages/treeknit-cli/src/main.rs#L208-L209)), and `fn former_options` handles it. TreeKnit.jl has no such option on any branch, and `kb/feat/v0/cli.md` does not list it. The README table of former options does not list it either.
 
 A reader of the help text looks for a TreeKnit.jl option that does not exist. The deprecation warning "--match-topologies is deprecated" calls it former too.
 

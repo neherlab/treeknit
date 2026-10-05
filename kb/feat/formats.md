@@ -4,18 +4,18 @@ Counterpart: [`v0/formats.md`](v0/formats.md). `treeknit-io` reads and writes al
 
 ## Input: Newick
 
-`fn parse` and `fn parse_first` [[src](../../packages/treeknit-io/src/newick.rs#L256-L280)]:
+`fn parse` and `fn parse_first` [[src](../../packages/treeknit-io/src/newick.rs#L252-L277)]:
 
 - [/] **Several trees in one file**: the first tree is used, with the warning "<label>: more than one tree in file, using the first". A tree ends at the first `;` outside quoted labels and `[...]` comments, so `('a;b',C);[x;y]` is one tree. The tree inspection of the web app reports the warning also when the first tree does not parse. TreeKnit.jl reads a vector, which its command line does not handle
 - [x] **Terminator**: `;` is required. Whitespace and `\r` after it are accepted; TreeTools.jl rejects them
-- [x] **Branch lengths**: parsed as `f64`. An invalid length becomes missing with the warning "ignoring invalid branch length" [[src](../../packages/treeknit-io/src/newick.rs#L170-L191)]. TreeTools.jl gives no warning
+- [x] **Branch lengths**: parsed as `f64`. An invalid length becomes missing with the warning "ignoring invalid branch length" [[src](../../packages/treeknit-io/src/newick.rs#L166-L187)]. TreeTools.jl gives no warning
 - [x] **Root**: the root branch length is dropped. A root polytomy stays a polytomy
-- [x] **Unnamed internal nodes**: `NODE_<k>`, numbered in pre-order for each tree [[src](../../packages/treeknit-io/src/newick.rs#L297-L328)]
+- [x] **Unnamed internal nodes**: `NODE_<k>`, numbered in pre-order for each tree [[src](../../packages/treeknit-io/src/newick.rs#L294-L325)]
 - [/] **Unnamed leaves**: an error "unnamed leaf". TreeTools.jl names them `NODE_<k>`
 - [/] **Numeric internal labels**: support values such as `87` or `0.95` become `NODE_<k>`, so the output has the same names in every run and loses the support values. TreeTools.jl renames them `<label>__<random>`
 - [x] **Duplicate leaf names**: an error, as in TreeTools.jl
 - [/] **Duplicate internal names**: renamed `NODE_<k>`. TreeTools.jl raises an error
-- [x] **Quoted labels (new)**: `'a b'`, with `''` for a quote character [[src](../../packages/treeknit-io/src/newick.rs#L136-L168)]
+- [x] **Quoted labels (new)**: `'a b'`, with `''` for a quote character [[src](../../packages/treeknit-io/src/newick.rs#L132-L164)]
 - [x] **Comments (new)**: `[...]` is skipped, including annotations such as `[&x=1]`
 - [x] **Whitespace (new)**: allowed between all tokens
 - [x] **Nodes with one child**: accepted without a warning
@@ -38,7 +38,7 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 
 ## Resolved trees
 
-`fn write` [[src](../../packages/treeknit-io/src/newick.rs#L330-L383)]:
+`fn write` [[src](../../packages/treeknit-io/src/newick.rs#L327-L380)]:
 
 - [x] **Order**: children in stored order
 - [x] **Labels**: every node label, including internal nodes
@@ -50,7 +50,7 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 
 ## `parameters.json`
 
-`fn parameters_file` [[src](../../packages/treeknit-io/src/output.rs#L144-L148)]:
+`fn parameters_file` [[src](../../packages/treeknit-io/src/output.rs#L424-L428)]:
 
 - [x] **Time of writing**: before the inference, so the file exists when a run fails
 - [x] **Line end**: no newline after the closing brace
@@ -60,7 +60,7 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 ## `log.txt`
 
 - [/] **Format**: `<RFC 3339 time> [LEVEL] <message>` (see [`cli.md`](cli.md#logging))
-- [x] **Web app (new)**: `fn log_file` writes the records of a run in the same layout, without a thread ID, with the time of the JavaScript clock in UTC with milliseconds [[src](../../packages/treeknit-io/src/output.rs#L150-L159)]
+- [x] **Web app (new)**: `fn log_file` writes the records of a run in the same layout, without a thread ID, with the time of the JavaScript clock in UTC with milliseconds [[src](../../packages/treeknit-io/src/output.rs#L430-L439)]
 
 ## `ARG/arg.nwk`
 
@@ -87,7 +87,7 @@ See [`arg.md`](arg.md#extended-newick-output).
 
 ## Session file (`treeknit_request.json`, new)
 
-The analysis request of the web app: the trees with their labels and Newick texts, and the settings. `fn request_file` writes it [[src](../../packages/treeknit-io/src/output.rs#L176-L185)], and `fn read_request` reads it [[src](../../packages/treeknit-io/src/analysis.rs#L331-L354)].
+The analysis request of the web app: the trees with their labels and Newick texts, and the settings. `fn request_file` writes it [[src](../../packages/treeknit-io/src/output.rs#L511-L520)], and `fn read_request` reads it [[src](../../packages/treeknit-io/src/analysis.rs#L343-L366)].
 
 - [x] **Structure**: `{"trees": [{"label": ..., "newick": ...}], "settings": {...}}`, pretty JSON with a newline at the end. The settings use the camelCase names of the web app (`gamma`, `seqLengths`, `nMcmcIt`, `resolve`, `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed`); a missing setting takes its default
 - [x] **Reading**: checks the structure only: types, required and unknown fields, and a seed of at most 2^53 - 1, which a JavaScript number holds exactly. A file with a broken tree or an out-of-range setting loads, so the web app can show the errors at their fields; the command line applies the shared validation after reading
@@ -95,7 +95,7 @@ The analysis request of the web app: the trees with their labels and Newick text
 
 ## ZIP archive (new)
 
-`fn zip_archive` packs the output files of a web app run [[src](../../packages/treeknit-io/src/output.rs#L161-L174)].
+`fn zip_archive` packs the output files of a web app run [[src](../../packages/treeknit-io/src/output.rs#L441-L487)].
 
 - [x] **Entries**: every file under `treeknit_results/`, the default results directory of the command line, at its path in that directory (`treeknit_results/ARG/arg.nwk`)
 - [x] **Reproducible bytes**: every entry is deflated and dated 1980-01-01 00:00, the earliest ZIP time, so equal files give a byte-identical archive. `log.txt` carries clock times, so the archives of two runs differ in that entry
