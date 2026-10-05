@@ -313,7 +313,7 @@ describe("workspace persistence", () => {
     });
   });
 
-  test("a failed off marker reports it, stops saving, and turning off again writes the marker", async () => {
+  test("a failed off marker reports it and leaves the switch on, still saving, until turning off again succeeds", async () => {
     const storage = new MemoryStorage();
     const tab = new Tab(storage);
 
@@ -328,15 +328,75 @@ describe("workspace persistence", () => {
 
     await tab.persistence.disable();
 
-    expect({ failed, afterChange, record: storage.record, state: tab.persistence.state }).toStrictEqual({
-      failed: {
-        record: workspaceRecord(1, ONE_TREE),
-        state: { enabled: false, problem: { kind: "disable", message: "The database was closed." } },
-      },
-      afterChange: workspaceRecord(1, ONE_TREE),
-      record: { kind: "off", version: 1, generation: 2 },
-      state: { enabled: false, problem: null },
+    expect({ failed, afterChange, record: storage.record, state: tab.persistence.state, switches: tab.switches })
+      .toStrictEqual({
+        failed: {
+          record: workspaceRecord(1, ONE_TREE),
+          state: { enabled: true, problem: { kind: "disable", message: "The database was closed." } },
+        },
+        afterChange: workspaceRecord(1, TWO_TREES),
+        record: { kind: "off", version: 1, generation: 2 },
+        state: { enabled: false, problem: null },
+        switches: [true, false],
+      });
+  });
+
+  test("the switch stays on until the off marker is written", async () => {
+    const storage = new MemoryStorage();
+    const tab = new Tab(storage);
+
+    await tab.persistence.enable(ONE_TREE);
+    storage.holdUpdate();
+    const disabling = tab.persistence.disable();
+
+    await storage.updateStarted();
+    const during = tab.persistence.state.enabled;
+
+    storage.releaseUpdate();
+    await disabling;
+
+    expect({ during, after: tab.persistence.state.enabled }).toStrictEqual({ during: true, after: false });
+  });
+
+  test("a change while the off marker is written is not saved, and is saved after the marker fails", async () => {
+    const storage = new MemoryStorage();
+    const tab = new Tab(storage);
+
+    await tab.persistence.enable(ONE_TREE);
+    storage.holdUpdate();
+    storage.failNextUpdate(new Error("The database was closed."));
+    const disabling = tab.persistence.disable();
+
+    await storage.updateStarted();
+    tab.persistence.changed(TWO_TREES);
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
+    const during = storage.record;
+
+    storage.releaseUpdate();
+    await disabling;
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
+
+    expect({ during, after: storage.record }).toStrictEqual({
+      during: workspaceRecord(1, ONE_TREE),
+      after: workspaceRecord(1, TWO_TREES),
     });
+  });
+
+  test("a change while the off marker is written is dropped once the marker is written", async () => {
+    const storage = new MemoryStorage();
+    const tab = new Tab(storage);
+
+    await tab.persistence.enable(ONE_TREE);
+    storage.holdUpdate();
+    const disabling = tab.persistence.disable();
+
+    await storage.updateStarted();
+    tab.persistence.changed(TWO_TREES);
+    storage.releaseUpdate();
+    await disabling;
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS * 2);
+
+    expect(storage.record).toStrictEqual({ kind: "off", version: 1, generation: 2 });
   });
 
   test("a stored workspace that cannot be read back stays stored, with the switch off and the failure reported", async () => {

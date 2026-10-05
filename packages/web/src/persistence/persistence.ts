@@ -55,6 +55,7 @@ export class WorkspacePersistence {
   #generation: number | null = null;
   #enabling: Enabling | undefined;
   #unsaved: WorkspaceSnapshot | undefined;
+  #disablingEpoch: number | null = null;
   #epoch = 0;
   #timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -126,10 +127,11 @@ export class WorkspacePersistence {
     }
 
     this.#enabling = undefined;
-    this.#switchOff();
     this.#setProblem(null);
 
-    const epoch = this.#epoch;
+    const epoch = this.#invalidate();
+
+    this.#disablingEpoch = epoch;
 
     try {
       const generation = await this.#write(epoch, (current) => ({
@@ -141,9 +143,15 @@ export class WorkspacePersistence {
       if (generation !== null) {
         this.#services.channel?.post({ state: "off", generation });
       }
+
+      if (generation !== null && epoch === this.#epoch) {
+        this.#switchOff();
+      }
     } catch (error) {
       if (epoch === this.#epoch) {
+        this.#disablingEpoch = null;
         this.#report("disable", error);
+        this.#resumeSaving();
       }
     }
   }
@@ -159,6 +167,12 @@ export class WorkspacePersistence {
       return;
     }
 
+    if (this.#disabling) {
+      this.#unsaved = snapshot;
+
+      return;
+    }
+
     const epoch = this.#invalidate();
 
     this.#unsaved = snapshot;
@@ -171,7 +185,7 @@ export class WorkspacePersistence {
   async saveNow(): Promise<void> {
     const snapshot = this.#unsaved;
 
-    if (snapshot === undefined || this.#generation === null) {
+    if (snapshot === undefined || this.#generation === null || this.#disabling) {
       return;
     }
 
@@ -288,6 +302,18 @@ export class WorkspacePersistence {
     });
 
     return written.generation;
+  }
+
+  get #disabling(): boolean {
+    return this.#disablingEpoch === this.#epoch;
+  }
+
+  #resumeSaving(): void {
+    const snapshot = this.#unsaved;
+
+    if (snapshot !== undefined) {
+      this.changed(snapshot);
+    }
   }
 
   #received(message: PersistenceMessage): void {

@@ -32,7 +32,7 @@ const PROBLEM_TEXTS: Record<PersistenceProblemKind, ProblemText> = {
   },
   disable: {
     title: "The workspace could not be removed from this browser.",
-    hint: "It comes back when you reload the page.",
+    hint: "It stays stored in this browser. Try again.",
     canRetry: true,
   },
 };
