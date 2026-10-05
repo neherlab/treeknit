@@ -9,6 +9,7 @@ import {
   sortFn_text,
   tableFeatures,
 } from "@tanstack/react-table";
+import type { SortDirection } from "react-aria-components";
 
 export const MCC_LEAVES_SHOWN = 3;
 
@@ -67,8 +68,6 @@ export function mccColumns(contains: (text: string, substring: string) => boolea
     }),
   ]);
 }
-
-export type SortDirection = "ascending" | "descending";
 
 const SORT_DIRECTIONS = { asc: "ascending", desc: "descending" } as const satisfies Record<string, SortDirection>;
 

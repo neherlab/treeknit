@@ -6,6 +6,7 @@ import {
   type ColumnProps as AriaColumnProps,
   composeRenderProps,
   Row as AriaRow,
+  type SortDirection,
   type RowProps as AriaRowProps,
   Table as AriaTable,
   TableBody as AriaTableBody,
@@ -120,7 +121,7 @@ export interface CellProps extends AriaCellProps {
   align?: CellAlign;
 }
 
-export function SortIndicator({ direction }: { direction: "ascending" | "descending" | undefined }) {
+export function SortIndicator({ direction }: { direction: SortDirection | undefined }) {
   if (direction === undefined) {
     return <ArrowDownIcon aria-hidden className="invisible size-3.5" />;
   }
