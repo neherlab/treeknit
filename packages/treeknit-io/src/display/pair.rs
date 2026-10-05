@@ -13,7 +13,8 @@ use treeknit_core::pipeline::{keeps_run_order, sort_for_pair, sort_strictness};
 use treeknit_core::{PairResult, Tree};
 
 /// The tanglegram of pair `pair` (pipeline order) of `run` in `version`, with the shapes for
-/// `scale`; `None` when the run has no such pair.
+/// `scale`, or for `depth` when `scale` is `div` and a tree of the pair has no branch lengths
+/// (`PairView.scale`); `None` when the run has no such pair.
 ///
 /// The trees of the pair are sorted for it on copies, with the sort of the run (see
 /// `treeknit_core::pipeline::sort_for_pair`). Only the `resolved` version of a pair whose order
@@ -29,6 +30,7 @@ use treeknit_core::{PairResult, Tree};
 pub fn pair_view(run: &RunResult, pair: usize, version: TreeVersion, scale: Scale) -> Option<PairView> {
   let (layout, slots) = pair_layout(run, pair, version)?;
   let mccs = mcc_infos(run, &run.pairs[pair], slots);
+  let scale = layout.shown_scale(scale);
   let shapes = pair_shapes(&layout.left, &layout.right, &layout.links, &layout.blocks, slots, scale);
   Some(PairView {
     left: layout.left,
@@ -36,6 +38,7 @@ pub fn pair_view(run: &RunResult, pair: usize, version: TreeVersion, scale: Scal
     links: layout.links,
     blocks: layout.blocks,
     mccs,
+    scale,
     shapes,
   })
 }
@@ -84,6 +87,13 @@ impl Layout {
       links,
       blocks,
     }
+  }
+
+  /// The scale that a drawing of the layout shows for the requested `scale` (see `Scale::shown`):
+  /// `depth` for `div` when a tree has no branch lengths.
+  pub(super) fn shown_scale(&self, scale: Scale) -> Scale {
+    let flat = |tree: &DrawTree| tree.nodes.iter().all(|n| n.x_div <= 0.0);
+    scale.shown(flat(&self.left) || flat(&self.right))
   }
 
   fn slots(&self, p: &PairResult) -> Vec<usize> {

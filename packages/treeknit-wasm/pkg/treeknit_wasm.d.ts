@@ -372,6 +372,23 @@ export interface MccInfo {
 }
 
 /**
+ * An SVG figure with the name of its file as a download.
+ */
+export interface FigureDownload {
+    /**
+     * The name of the listed figure file (`tanglegram_ha_na.svg`, `arg.svg`) when the figure has
+     * its version and options; otherwise its stem with the version, the shown scale, and every
+     * option that differs from the default, such as `tanglegram_ha_na_imputed_depth_w800.svg`, so
+     * that a figure of other options never takes the name of the listed one.
+     */
+    fileName: string;
+    /**
+     * The SVG text.
+     */
+    text: string;
+}
+
+/**
  * An edge of an `ArgView`, from parent to child.
  */
 export interface ArgEdge {
@@ -819,7 +836,14 @@ export interface ArgView {
      */
     rootCase: RootCase;
     /**
-     * The shapes of the drawing for the requested scale.
+     * The scale of `shapes`: the requested scale, or `depth` for `div` when the ARG has no branch
+     * lengths, because `div` would draw all its nodes at the root. The ARG has branch lengths when
+     * one of its trees has them, because it takes the length of a branch from the other tree where
+     * one tree lacks it.
+     */
+    scale: Scale;
+    /**
+     * The shapes of the drawing for `scale`.
      */
     shapes: ArgShapes;
 }
@@ -1223,7 +1247,12 @@ export interface PairView {
      */
     mccs: MccInfo[];
     /**
-     * The shapes of the drawing for the requested scale.
+     * The scale of `shapes`: the requested scale, or `depth` for `div` when a tree of the pair has
+     * no branch lengths, because `div` would draw all the nodes of that tree at the root.
+     */
+    scale: Scale;
+    /**
+     * The shapes of the drawing for `scale`.
      */
     shapes: PairShapes;
 }
@@ -1256,6 +1285,11 @@ export interface Link {
  * tree and `right` the second tree. Auspice joins the tips of the two trees by name.
  */
 export interface AuspicePair {
+    /**
+     * The scale of the `div` of the nodes, as `PairView.scale`: `depth` for `div` when a tree of
+     * the pair has no branch lengths.
+     */
+    scale: Scale;
     left: AuspiceDataset;
     right: AuspiceDataset;
 }
@@ -1306,13 +1340,17 @@ export class Session {
     free(): void;
     [Symbol.dispose](): void;
     /**
-     * The SVG figure of the ARG with `options`. With the scale `div`, an ARG where a segment has no
-     * branch lengths is drawn as a cladogram. Throws an `Error` named `ValidationError` when
-     * `options` are invalid, and an `Error` for more than two trees or a failed ARG.
+     * The SVG figure of the ARG with `options`, and its file name as a download, as `figure`
+     * gives them. It shows the scale of `argView`: with the scale `div`, an ARG without branch
+     * lengths (neither tree has them) is drawn as a cladogram. Throws an `Error` named
+     * `ValidationError` when `options` are invalid, and an `Error` for more than two trees or a
+     * failed ARG.
      */
-    argFigure(options: FigureOptions): string;
+    argFigure(options: FigureOptions): FigureDownload;
     /**
-     * The ARG laid out with `scale`; `undefined` for more than two trees or a failed ARG.
+     * The ARG laid out with `scale`, or with `depth` when `scale` is `div` and the ARG has no
+     * branch lengths (neither tree has them): `ArgView.scale` tells which. `undefined` for more
+     * than two trees or a failed ARG.
      */
     argView(scale: Scale): ArgView | undefined;
     /**
@@ -1329,12 +1367,13 @@ export class Session {
      */
     constellation(): ConstellationTable;
     /**
-     * The SVG tanglegram of pair `pair` (pipeline order) in `version` with `options`. With the
-     * scale `div`, a pair where a tree has no branch lengths is drawn as cladograms, as in the
-     * figure files. Throws an `Error` named `ValidationError` when `options` are invalid. The
-     * figure files of `files()` keep their default options.
+     * The SVG tanglegram of pair `pair` (pipeline order) in `version` with `options`, and its file
+     * name as a download. It shows the scale of `pairView` for `options.scale`. With the version
+     * and options of the listed figure, the text and the name are those of its file in `files()`;
+     * other figures get a name of their own. Throws an `Error` named `ValidationError` when
+     * `options` are invalid.
      */
-    figure(pair: number, version: TreeVersion, options: FigureOptions): string;
+    figure(pair: number, version: TreeVersion, options: FigureOptions): FigureDownload;
     /**
      * The text of the listed file at `path`. A figure is rendered with the default options on
      * first use and kept.
@@ -1346,7 +1385,9 @@ export class Session {
      */
     files(): FileEntry[];
     /**
-     * The tanglegram of pair `pair` (pipeline order) in `version`, laid out with `scale`.
+     * The tanglegram of pair `pair` (pipeline order) in `version`, laid out with `scale`, or with
+     * `depth` when `scale` is `div` and a tree of the pair has no branch lengths: `PairView.scale`
+     * tells which.
      */
     pairView(pair: number, version: TreeVersion, scale: Scale): PairView;
     /**
@@ -1443,12 +1484,12 @@ export interface InitOutput {
     readonly palette: () => [number, number, number];
     readonly readRequest: (a: number, b: number) => [number, number, number];
     readonly requestFile: (a: any) => [number, number, number];
-    readonly session_argFigure: (a: number, b: any) => [number, number, number, number];
+    readonly session_argFigure: (a: number, b: any) => [number, number, number];
     readonly session_argView: (a: number, b: any) => [number, number, number];
     readonly session_auspiceView: (a: number, b: number, c: any, d: any) => [number, number, number];
     readonly session_commandLine: (a: number) => [number, number];
     readonly session_constellation: (a: number) => [number, number, number];
-    readonly session_figure: (a: number, b: number, c: any, d: any) => [number, number, number, number];
+    readonly session_figure: (a: number, b: number, c: any, d: any) => [number, number, number];
     readonly session_fileText: (a: number, b: number, c: number) => [number, number, number, number];
     readonly session_files: (a: number) => [number, number, number, number];
     readonly session_pairView: (a: number, b: number, c: any, d: any) => [number, number, number];

@@ -386,14 +386,20 @@ mod tests {
       labels: LabelMode::Off,
     };
     let view = display::pair_view(&r, 0, TreeVersion::Imputed, Scale::Depth).unwrap();
-    assert_eq!(
-      figure::tanglegram_svg(&view, &custom).unwrap(),
-      session.figure(0, &ts(&json!("imputed")), &ts(&json!(custom))).unwrap()
-    );
+    let expected = json!({
+      "fileName": "tanglegram_ha_na_imputed_depth_w640_row20_labels-off.svg",
+      "text": figure::tanglegram_svg(&view, &custom).unwrap(),
+    });
+    let figure = session.figure(0, &ts(&json!("imputed")), &ts(&json!(custom))).unwrap();
+    assert_eq!(expected, plain(&figure.js_value()));
     let arg = display::arg_view(&r, Scale::Depth).unwrap();
+    let expected = json!({
+      "fileName": "arg_depth_w640_row20_labels-off.svg",
+      "text": figure::arg_svg(&arg, ["ha", "na"], &custom).unwrap(),
+    });
     assert_eq!(
-      figure::arg_svg(&arg, ["ha", "na"], &custom).unwrap(),
-      session.arg_figure(&ts(&json!(custom))).unwrap()
+      expected,
+      plain(&session.arg_figure(&ts(&json!(custom))).unwrap().js_value())
     );
     // The figure files keep the default options after a custom figure.
     let default = output::figure_text(&r, Figure::Pair { pair: 0 }).unwrap();
@@ -417,18 +423,22 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
-  fn session_figure_with_default_options_equals_the_figure_file() {
+  fn session_figure_with_default_options_is_the_listed_figure_file() {
     // The example trees have no branch lengths, so the default scale `div` falls back to `depth`
     // in both.
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
-    assert_eq!(
-      session.file_text("tanglegram_ha_na.svg").unwrap(),
-      session.figure(0, &ts(&json!("resolved")), &ts(&json!({}))).unwrap()
+    let pair = plain(
+      &session
+        .figure(0, &ts(&json!("resolved")), &ts(&json!({})))
+        .unwrap()
+        .js_value(),
     );
-    assert_eq!(
-      session.file_text("ARG/arg.svg").unwrap(),
-      session.arg_figure(&ts(&json!({}))).unwrap()
+    let arg = plain(&session.arg_figure(&ts(&json!({}))).unwrap().js_value());
+    let expected = (
+      json!({"fileName": "tanglegram_ha_na.svg", "text": session.file_text("tanglegram_ha_na.svg").unwrap()}),
+      json!({"fileName": "arg.svg", "text": session.file_text("ARG/arg.svg").unwrap()}),
     );
+    assert_eq!(expected, (pair, arg));
   }
 
   #[wasm_bindgen_test]

@@ -10,7 +10,7 @@ use treeknit_io::display::{
 };
 use treeknit_io::figure::FigureOptions;
 use treeknit_io::inspect::{self, Overlap, TreeInspection};
-use treeknit_io::output::{self, Archive, FigureFile, FileEntry, OutputFile, OutputOptions, WebFile};
+use treeknit_io::output::{self, Archive, FigureDownload, FigureFile, FileEntry, OutputFile, OutputOptions, WebFile};
 use treeknit_io::palette::{self, Palette};
 use treeknit_io::progress::Progress;
 use treeknit_io::run::{self, RunResult};
@@ -263,7 +263,9 @@ impl Session {
     output::command_line()
   }
 
-  /// The tanglegram of pair `pair` (pipeline order) in `version`, laid out with `scale`.
+  /// The tanglegram of pair `pair` (pipeline order) in `version`, laid out with `scale`, or with
+  /// `depth` when `scale` is `div` and a tree of the pair has no branch lengths: `PairView.scale`
+  /// tells which.
   #[wasm_bindgen(js_name = pairView)]
   pub fn pair_view(&self, pair: usize, version: &Ts<TreeVersion>, scale: &Ts<Scale>) -> Result<Ts<PairView>, JsError> {
     let _log = log_capture::discard();
@@ -289,7 +291,9 @@ impl Session {
     to_js(&view)
   }
 
-  /// The ARG laid out with `scale`; `undefined` for more than two trees or a failed ARG.
+  /// The ARG laid out with `scale`, or with `depth` when `scale` is `div` and the ARG has no
+  /// branch lengths (neither tree has them): `ArgView.scale` tells which. `undefined` for more
+  /// than two trees or a failed ARG.
   #[wasm_bindgen(js_name = argView)]
   pub fn arg_view(&self, scale: &Ts<Scale>) -> Result<Option<Ts<ArgView>>, JsError> {
     let _log = log_capture::discard();
@@ -304,30 +308,40 @@ impl Session {
     to_js(&display::constellation(&self.run))
   }
 
-  /// The SVG tanglegram of pair `pair` (pipeline order) in `version` with `options`. With the
-  /// scale `div`, a pair where a tree has no branch lengths is drawn as cladograms, as in the
-  /// figure files. Throws an `Error` named `ValidationError` when `options` are invalid. The
-  /// figure files of `files()` keep their default options.
+  /// The SVG tanglegram of pair `pair` (pipeline order) in `version` with `options`, and its file
+  /// name as a download. It shows the scale of `pairView` for `options.scale`. With the version
+  /// and options of the listed figure, the text and the name are those of its file in `files()`;
+  /// other figures get a name of their own. Throws an `Error` named `ValidationError` when
+  /// `options` are invalid.
   #[wasm_bindgen]
-  pub fn figure(&self, pair: usize, version: &Ts<TreeVersion>, options: &Ts<FigureOptions>) -> Result<String, JsValue> {
+  pub fn figure(
+    &self,
+    pair: usize,
+    version: &Ts<TreeVersion>,
+    options: &Ts<FigureOptions>,
+  ) -> Result<Ts<FigureDownload>, JsValue> {
     let _log = log_capture::discard();
     let version = from_js("version", version)?;
     let options = from_js("options", options)?;
-    output::pair_figure(&self.run, pair, version, &options)
+    let figure = output::pair_figure(&self.run, pair, version, &options)
       .map_err(|e| validation_error(&e))?
-      .ok_or_else(|| no_pair(&self.run, pair).into())
+      .ok_or_else(|| no_pair(&self.run, pair))?;
+    Ok(to_js(&figure)?)
   }
 
-  /// The SVG figure of the ARG with `options`. With the scale `div`, an ARG where a segment has no
-  /// branch lengths is drawn as a cladogram. Throws an `Error` named `ValidationError` when
-  /// `options` are invalid, and an `Error` for more than two trees or a failed ARG.
+  /// The SVG figure of the ARG with `options`, and its file name as a download, as `figure`
+  /// gives them. It shows the scale of `argView`: with the scale `div`, an ARG without branch
+  /// lengths (neither tree has them) is drawn as a cladogram. Throws an `Error` named
+  /// `ValidationError` when `options` are invalid, and an `Error` for more than two trees or a
+  /// failed ARG.
   #[wasm_bindgen(js_name = argFigure)]
-  pub fn arg_figure(&self, options: &Ts<FigureOptions>) -> Result<String, JsValue> {
+  pub fn arg_figure(&self, options: &Ts<FigureOptions>) -> Result<Ts<FigureDownload>, JsValue> {
     let _log = log_capture::discard();
     let options = from_js("options", options)?;
-    output::arg_figure(&self.run, &options)
+    let figure = output::arg_figure(&self.run, &options)
       .map_err(|e| validation_error(&e))?
-      .ok_or_else(|| JsError::new("the run has no ARG: it needs two trees and a built ARG").into())
+      .ok_or_else(|| JsError::new("the run has no ARG: it needs two trees and a built ARG"))?;
+    Ok(to_js(&figure)?)
   }
 }
 

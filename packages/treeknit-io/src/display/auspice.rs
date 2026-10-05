@@ -15,7 +15,7 @@ const MCC_KEY: &str = "mcc";
 const MCC_LABEL: &str = "MCC";
 
 /// The trees of pair `pair` (pipeline order) of `run` in `version` as Auspice datasets, with
-/// `div` from `scale`; `None` when the run has no such pair.
+/// `div` from the scale that `pair_view` shows for `scale`; `None` when the run has no such pair.
 ///
 /// The trees are those of `pair_view`: the same node names, display order, MCCs, and color
 /// slots. Each node with an MCC has the attribute `mcc` with the MCC's number (its index in
@@ -24,6 +24,7 @@ const MCC_LABEL: &str = "MCC";
 /// dark theme.
 pub fn auspice_view(run: &RunResult, pair: usize, version: TreeVersion, scale: Scale) -> Option<AuspicePair> {
   let (layout, slots) = pair_layout(run, pair, version)?;
+  let scale = layout.shown_scale(scale);
   let colors = palette().light.mcc;
   let coloring = AuspiceColoring {
     key: MCC_KEY.to_owned(),
@@ -51,6 +52,7 @@ pub fn auspice_view(run: &RunResult, pair: usize, version: TreeVersion, scale: S
     tree: auspice_tree(tree, scale),
   };
   Some(AuspicePair {
+    scale,
     left: dataset(&layout.left),
     right: dataset(&layout.right),
   })
@@ -265,6 +267,7 @@ mod tests {
     );
     let right = right_tree([0.0, 3.0, 4.0, 5.0, 1.0, 2.0, 2.0, 3.0, 3.0]);
     let expected = AuspicePair {
+      scale: Scale::Div,
       left: dataset(&meta(), left),
       right: dataset(&meta(), right),
     };
@@ -342,6 +345,8 @@ mod tests {
       let view = auspice_view(&r, 0, version, Scale::Div).unwrap();
       assert_eq!(draw_preorder(&pair.left.nodes), preorder(&view.left.tree));
       assert_eq!(draw_preorder(&pair.right.nodes), preorder(&view.right.tree));
+      // The trees have no branch lengths, so both views show the cladogram.
+      assert_eq!((Scale::Depth, Scale::Depth), (pair.scale, view.scale));
     }
   }
 

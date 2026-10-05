@@ -12,7 +12,8 @@ use treeknit_core::arg::{Anc, Arg};
 /// Label of the synthetic top root, as in `ARG/arg.nwk`.
 const GLOBAL_ROOT: &str = "GlobalRoot";
 
-/// The ARG of `run` laid out with the shapes for `scale`; `None` when the run built no ARG (more
+/// The ARG of `run` laid out with the shapes for `scale`, or for `depth` when `scale` is `div` and
+/// the ARG has no branch lengths (`ArgView.scale`); `None` when the run built no ARG (more
 /// than two trees, or a failed construction).
 pub fn arg_view(run: &RunResult, scale: Scale) -> Option<ArgView> {
   run.built_arg().map(|arg| layout(arg, scale))
@@ -65,12 +66,14 @@ fn layout(arg: &Arg, scale: Scale) -> ArgView {
     })
     .collect();
   let edges = edges(&g, &chain, &nodes);
+  let scale = scale.shown(nodes.iter().all(|n| n.x_div <= 0.0));
   let shapes = arg_shapes(&nodes, &edges, scale);
   ArgView {
     nodes,
     edges,
     root,
     root_case,
+    scale,
     shapes,
   }
 }

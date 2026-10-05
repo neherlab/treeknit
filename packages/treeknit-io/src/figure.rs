@@ -15,7 +15,7 @@ use tsify::Tsify;
 
 /// The SVG tanglegram of `view`, titled with the labels of its two trees, with a legend under
 /// the drawing; the errors of `check_figure_options` when `options` are invalid. The view must be
-/// laid out with `options.scale`.
+/// laid out with `options.scale` by `display::pair_view`; the shapes have the scale `view.scale`.
 pub fn tanglegram_svg(view: &PairView, options: &FigureOptions) -> Result<String, Vec<ValidationError>> {
   checked(options)?;
   Ok(tanglegram::draw(view, options))
@@ -23,7 +23,8 @@ pub fn tanglegram_svg(view: &PairView, options: &FigureOptions) -> Result<String
 
 /// The SVG figure of the ARG `view` of the trees labeled `segments` (segment A, then B), titled
 /// with them, with a legend under the drawing; the errors of `check_figure_options` when
-/// `options` are invalid. The view must be laid out with `options.scale`.
+/// `options` are invalid. The view is laid out with `options.scale` by `display::arg_view`; the
+/// shapes have the scale `view.scale`.
 pub fn arg_svg(view: &ArgView, segments: [&str; 2], options: &FigureOptions) -> Result<String, Vec<ValidationError>> {
   checked(options)?;
   Ok(arg::draw(view, segments, options))
@@ -89,7 +90,7 @@ pub fn check_figure_options(options: &FigureOptions) -> Vec<ValidationError> {
   .collect()
 }
 
-fn checked(options: &FigureOptions) -> Result<(), Vec<ValidationError>> {
+pub(crate) fn checked(options: &FigureOptions) -> Result<(), Vec<ValidationError>> {
   let errors = check_figure_options(options);
   if errors.is_empty() { Ok(()) } else { Err(errors) }
 }

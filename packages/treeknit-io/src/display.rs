@@ -148,6 +148,19 @@ pub enum Scale {
   Depth,
 }
 
+impl Scale {
+  /// The scale that a drawing shows for this requested scale: `depth` instead of `div` when a
+  /// drawn tree has no branch lengths (`flat`), because its divergence is 0 everywhere and `div`
+  /// would draw all its nodes at the root. A tree with some branch lengths keeps `div`. The
+  /// interactive views and the figures apply the same rule, so both show the same drawing.
+  pub(crate) fn shown(self, flat: bool) -> Scale {
+    match self {
+      Scale::Div if flat => Scale::Depth,
+      scale => scale,
+    }
+  }
+}
+
 /// A tree laid out for drawing, with the MCCs of one pair.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
@@ -210,7 +223,10 @@ pub struct PairView {
   pub blocks: Vec<Block>,
   /// The MCCs of the pair; `DrawNode.mcc`, `Link.mcc`, and `Block.mcc` index this list.
   pub mccs: Vec<MccInfo>,
-  /// The shapes of the drawing for the requested scale.
+  /// The scale of `shapes`: the requested scale, or `depth` for `div` when a tree of the pair has
+  /// no branch lengths, because `div` would draw all the nodes of that tree at the root.
+  pub scale: Scale,
+  /// The shapes of the drawing for `scale`.
   pub shapes: PairShapes,
 }
 
@@ -405,7 +421,12 @@ pub struct ArgView {
   pub root: usize,
   /// How the top root relates to the segment roots, as in `ARG/arg.nwk`.
   pub root_case: RootCase,
-  /// The shapes of the drawing for the requested scale.
+  /// The scale of `shapes`: the requested scale, or `depth` for `div` when the ARG has no branch
+  /// lengths, because `div` would draw all its nodes at the root. The ARG has branch lengths when
+  /// one of its trees has them, because it takes the length of a branch from the other tree where
+  /// one tree lacks it.
+  pub scale: Scale,
+  /// The shapes of the drawing for `scale`.
   pub shapes: ArgShapes,
 }
 
@@ -539,6 +560,9 @@ pub struct ConstellationCell {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct AuspicePair {
+  /// The scale of the `div` of the nodes, as `PairView.scale`: `depth` for `div` when a tree of
+  /// the pair has no branch lengths.
+  pub scale: Scale,
   pub left: AuspiceDataset,
   pub right: AuspiceDataset,
 }
