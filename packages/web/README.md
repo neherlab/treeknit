@@ -36,6 +36,7 @@ The commands are the same in the main checkout and in a worktree; `run-web` prin
 
 - `Button`: variants `primary`, `secondary` (default), and `quiet`; sizes `md` (32 px), `sm` (28 px), and `xs` (20 px); an optional leading `icon`
 - `IconButton`: an icon-only button; its required `label` is both its accessible name and its tooltip
+- `DisabledButton`: a button that does nothing and says why: it stays focusable with `aria-disabled`, so its tooltip `reason` reaches keyboard and pointer users, which a disabled React Aria button cannot show
 - `TooltipTrigger`: wraps one focusable trigger and shows `tooltip` after 600 ms. With `repeatsName`, the tooltip text equals the accessible name of the trigger and stays out of its description, so that screen readers say it once; `IconButton`, icon-only toggle buttons, and the step buttons of `NumberField` set it
 - `InfoButton`: the info icon with the label and tooltip "About <topic>"; it opens a popover dialog with a short explanation
 - `TextField` (single line, or `multiline`; `mono` for Newick text, with spell checking, autocorrect, and autocapitalize off), `NumberField` (with step buttons that carry the localized labels of React Aria), `Select` (typed option ids), `RadioGroup` with `Radio`, `Switch`, and `ToggleButtonGroup` with `ToggleButton` (single selection by default; `iconOnly` buttons get a tooltip)
@@ -46,7 +47,10 @@ The commands are the same in the main checkout and in a worktree; `run-web` prin
 - `Dialog`: a modal with a title, a close button, and an optional footer; `placement` `center` (default), or `left` and `right` for a side sheet. Open it from a `DialogTrigger` or with `isOpen` and `onOpenChange`
 - `Disclosure`: a section title that expands its content, with an optional info button
 - `GridList` with `GridListItem`: rows separated by rules; with `onReorder`, each row has a drag handle, and rows move by pointer or keyboard. `reorder` (`src/ui/reorder.ts`) applies the move to a list
-- `Table` with `TableHeader`, `Column`, `TableBody`, `Row`, and `Cell`: a small table in Plex Sans Condensed with a sticky header, sort indicators, and `align="end"` for numbers
+- `Table` with `TableHeader`, `Column`, `TableBody`, `Row`, and `Cell`: a small table in Plex Sans Condensed with a sticky header, sort indicators, and `align="end"` for numbers. Its class strings (`tableStyle`, `tableHeaderStyle`, `columnStyle`, `cellStyle`, `nativeRowStyle`) and `SortIndicator` also style the virtualized HTML tables of `src/tables/`
+- `VirtualList`: a React Aria list box inside a `Virtualizer` with fixed 32 px rows, for long lists of the inspector
+- `MccSwatch`: the square of an MCC color slot; a slot outside the palette is an error
+- `QueryState`: the progress bar while a query has no data, the error notice when it failed, and otherwise its content
 - `Link`: a router link (TanStack Router `createLink` over the React Aria link), so links take `to` and `search`
 - `ExternalLink`: a link to another site, opened in a new tab
 - `EmptyState`: a quiet, left-aligned message with an optional icon, details, and actions
