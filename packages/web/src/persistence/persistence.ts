@@ -71,10 +71,6 @@ export class WorkspacePersistence {
     return this.#state;
   }
 
-  get enabled(): boolean {
-    return this.#generation !== null;
-  }
-
   subscribe(listener: () => void): () => void {
     this.#listeners.add(listener);
 

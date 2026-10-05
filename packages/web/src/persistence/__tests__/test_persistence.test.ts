@@ -97,7 +97,7 @@ describe("workspace persistence", () => {
 
     const restored = await tab.restore();
 
-    expect({ restored, switches: tab.switches, enabled: tab.persistence.enabled }).toStrictEqual({
+    expect({ restored, switches: tab.switches, enabled: tab.persistence.state.enabled }).toStrictEqual({
       restored: { sessionFile: sessionFileText(TWO_TREES.request), sources: TWO_TREES.sources },
       switches: [true],
       enabled: true,
@@ -126,7 +126,7 @@ describe("workspace persistence", () => {
     expect({
       restored: await restored,
       switches: restoring.switches,
-      enabled: restoring.persistence.enabled,
+      enabled: restoring.persistence.state.enabled,
       record: storage.record,
     }).toStrictEqual({
       restored: null,
@@ -214,7 +214,7 @@ describe("workspace persistence", () => {
 
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
 
-    expect({ afterRelease, record: storage.record, enabled: tab.persistence.enabled }).toStrictEqual({
+    expect({ afterRelease, record: storage.record, enabled: tab.persistence.state.enabled }).toStrictEqual({
       afterRelease: workspaceRecord(1, ONE_TREE),
       record: workspaceRecord(1, EMPTY),
       enabled: true,
@@ -370,7 +370,7 @@ describe("workspace persistence", () => {
     tab.files.release();
     await enabling;
 
-    expect({ record: storage.record, switches: tab.switches, enabled: tab.persistence.enabled }).toStrictEqual({
+    expect({ record: storage.record, switches: tab.switches, enabled: tab.persistence.state.enabled }).toStrictEqual({
       record: { kind: "off", version: 1, generation: 4 },
       switches: [],
       enabled: false,
@@ -542,7 +542,11 @@ describe("workspace persistence", () => {
     second.files.release();
     await vi.advanceTimersByTimeAsync(0);
 
-    expect({ record: storage.record, second: second.switches, enabled: second.persistence.enabled }).toStrictEqual({
+    expect({
+      record: storage.record,
+      second: second.switches,
+      enabled: second.persistence.state.enabled,
+    }).toStrictEqual({
       record: { kind: "off", version: 1, generation: 2 },
       second: [true, false],
       enabled: false,
@@ -564,7 +568,7 @@ describe("workspace persistence", () => {
     second.files.release();
     await vi.advanceTimersByTimeAsync(0);
 
-    expect({ record: storage.record, enabled: second.persistence.enabled }).toStrictEqual({
+    expect({ record: storage.record, enabled: second.persistence.state.enabled }).toStrictEqual({
       record: workspaceRecord(3, EMPTY),
       enabled: false,
     });
@@ -605,7 +609,7 @@ describe("workspace persistence", () => {
     expect({
       afterFirst,
       afterSecond: storage.record,
-      enabled: [first.persistence.enabled, second.persistence.enabled],
+      enabled: [first.persistence.state.enabled, second.persistence.state.enabled],
     }).toStrictEqual({
       afterFirst: workspaceRecord(1, ONE_TREE),
       afterSecond: workspaceRecord(1, TWO_TREES),
