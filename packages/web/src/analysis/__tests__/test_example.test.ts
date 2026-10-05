@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { directoryExamples, type TreeFileReaders } from "../example";
+import { directoryExamples, EXAMPLE_GROUPS, type TreeFileReaders } from "../example";
 
 describe("directoryExamples", () => {
   test("makes one example per case directory, sorted by directory name", () => {
@@ -69,6 +69,19 @@ describe("directoryExamples", () => {
 
   test("makes no examples without files", () => {
     expect(directoryExamples("simulated", {})).toStrictEqual([]);
+  });
+});
+
+describe("example groups", () => {
+  test("offers every tree pair of data/ as a real-data example", () => {
+    const real = EXAMPLE_GROUPS.find(({ id }) => id === "real");
+
+    expect(real?.examples.map(({ id }) => id)).toStrictEqual([
+      "real/h3n2-2012-2018",
+      "real/h3n2-2017",
+      "real/h3n2-2017-2018",
+      "real/h3n2-new-york-1999-2004",
+    ]);
   });
 });
 
