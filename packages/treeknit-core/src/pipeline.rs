@@ -174,10 +174,17 @@ pub fn run_observed(
     let (resolve, strict) = round_mode(opts, extra_round && last);
     log::info!("round {round}/{rounds}{}", if resolve { " (resolving)" } else { "" });
     let at = |pair: usize, within: f64| report(Progress::at(round - 1, rounds, pair, pairs.len(), within));
+    let inference = Inference {
+      opts,
+      n,
+      seed,
+      round,
+      resolve,
+    };
     if resolve || !opts.parallel {
       for (p, &(i, j)) in pairs.iter().enumerate() {
         at(p, 0.0);
-        mccs[p] = infer(trees, i, j, n, opts, resolve, seed, round, &|within| at(p, within));
+        mccs[p] = infer(trees, i, j, &inference, &|within| at(p, within));
         if resolve {
           resolve_pair(trees, i, j, &mccs[p], n, strict);
         }
@@ -190,7 +197,7 @@ pub fn run_observed(
       at(0, 0.0);
       mccs = pairs
         .par_iter()
-        .map(|&(i, j)| infer(shared, i, j, n, opts, false, seed, round, &|_| {}))
+        .map(|&(i, j)| infer(shared, i, j, &inference, &|_| {}))
         .collect();
       at(pairs.len() - 1, 1.0);
       if last && !matched {
@@ -374,18 +381,28 @@ fn pair_mut(trees: &mut [Tree], i: usize, j: usize) -> (&mut Tree, &mut Tree) {
   (&mut a[i], &mut b[0])
 }
 
-#[allow(clippy::too_many_arguments)]
-fn infer(
-  trees: &[Tree],
-  i: usize,
-  j: usize,
+/// Settings that all pairs of one round infer their MCCs with.
+struct Inference<'a> {
+  opts: &'a Options,
+  /// Number of taxa.
   n: usize,
-  opts: &Options,
-  resolve: bool,
+  /// Seed of the run, mixed with the round and the pair into the seed of each pair.
   seed: u64,
+  /// Round, 1-based.
   round: usize,
-  on_progress: &dyn Fn(f64),
-) -> Vec<Mcc> {
+  /// Whether the round resolves the trees with the MCCs it infers.
+  resolve: bool,
+}
+
+/// Infer the MCCs of trees `i` and `j` on their shared leaves; none if they share fewer than two.
+fn infer(trees: &[Tree], i: usize, j: usize, inference: &Inference<'_>, on_progress: &dyn Fn(f64)) -> Vec<Mcc> {
+  let &Inference {
+    opts,
+    n,
+    seed,
+    round,
+    resolve,
+  } = inference;
   let Some(shared) = shared_leaves(&trees[i], &trees[j], n) else {
     log::warn!(
       "trees {} and {} share fewer than two leaves: skipped",
