@@ -34,7 +34,7 @@ mod tests {
     let expected = json!([
         {
             "field": "trees[1].newick",
-            "message": "tree na: Newick parse error: expected ',' or ')' at byte 15",
+            "message": "tree \"na\": Newick parse error: expected ',' or ')' at byte 15",
             "line": 2,
             "column": 8,
         },

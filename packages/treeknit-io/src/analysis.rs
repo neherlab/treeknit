@@ -212,7 +212,7 @@ pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationErro
         ValidationError::at(
           "trees",
           format!(
-            "trees {} and {} share fewer than two leaves",
+            "trees {:?} and {:?} share fewer than two leaves",
             trees[p.i].label, trees[p.j].label
           ),
         )
@@ -321,13 +321,13 @@ fn check_labels(trees: &[TreeText]) -> Vec<ValidationError> {
     let message = if l.trim().is_empty() {
       Some(format!("tree {} needs a label", i + 1))
     } else if l.contains(['/', '\\']) {
-      Some(format!("tree label {l} must not contain / or \\"))
+      Some(format!("tree label {l:?} must not contain / or \\"))
     } else if l.chars().any(char::is_control) {
       Some(format!("tree label {l:?} must not contain control characters"))
     } else if l == "." || l == ".." {
-      Some(format!("tree label {l} is not a file name"))
+      Some(format!("tree label {l:?} is not a file name"))
     } else if !seen.insert(l) {
-      Some(format!("tree label {l} is used twice"))
+      Some(format!("tree label {l:?} is used twice"))
     } else {
       None
     };
@@ -348,7 +348,7 @@ fn check_pair_stems(trees: &[TreeText]) -> Vec<ValidationError> {
         Some(&(a, b)) => errors.push(ValidationError::at(
           "trees",
           format!(
-            "tree pairs ({}, {}) and ({}, {}) give the same output file names ({stem}); rename a tree",
+            "tree pairs ({:?}, {:?}) and ({:?}, {:?}) give the same output file names ({stem:?}); rename a tree",
             trees[a].label, trees[b].label, trees[i].label, trees[j].label
           ),
         )),
@@ -365,7 +365,7 @@ fn parse_error(i: usize, t: &TreeText, e: &newick::ParseError) -> ValidationErro
   let position = e.offset.map(|o| newick::line_column(&t.newick, o));
   ValidationError {
     field: Some(format!("trees[{i}].newick")),
-    message: format!("tree {}: {e}", t.label),
+    message: format!("tree {:?}: {e}", t.label),
     line: position.map(|(l, _)| l),
     column: position.map(|(_, c)| c),
   }
@@ -588,14 +588,14 @@ mod tests {
   #[case::one_tree(       &["ha"],                     "trees",           "need at least two trees")]
   #[case::empty_label(    &["ha", ""],                 "trees[1].label",  "tree 2 needs a label")]
   #[case::blank_label(    &["ha", " "],                "trees[1].label",  "tree 2 needs a label")]
-  #[case::duplicate_label(&["ha", "na", "ha"],         "trees[2].label",  "tree label ha is used twice")]
-  #[case::parent_path(    &["ha", "../x"],             "trees[1].label",  "tree label ../x must not contain / or \\")]
-  #[case::slash(          &["a/b", "na"],              "trees[0].label",  "tree label a/b must not contain / or \\")]
-  #[case::backslash(      &["ha", "a\\b"],             "trees[1].label",  "tree label a\\b must not contain / or \\")]
+  #[case::duplicate_label(&["ha", "na", "ha"],         "trees[2].label",  "tree label \"ha\" is used twice")]
+  #[case::parent_path(    &["ha", "../x"],             "trees[1].label",  "tree label \"../x\" must not contain / or \\")]
+  #[case::slash(          &["a/b", "na"],              "trees[0].label",  "tree label \"a/b\" must not contain / or \\")]
+  #[case::backslash(      &["ha", "a\\b"],             "trees[1].label",  "tree label \"a\\\\b\" must not contain / or \\")]
   #[case::control(        &["ha", "a\tb"],             "trees[1].label",  "tree label \"a\\tb\" must not contain control characters")]
-  #[case::dot(            &["ha", "."],                "trees[1].label",  "tree label . is not a file name")]
-  #[case::dot_dot(        &["..", "na"],               "trees[0].label",  "tree label .. is not a file name")]
-  #[case::pair_stems(     &["a_b", "c", "a", "b_c"],   "trees",           "tree pairs (a_b, c) and (a, b_c) give the same output file names (a_b_c); rename a tree")]
+  #[case::dot(            &["ha", "."],                "trees[1].label",  "tree label \".\" is not a file name")]
+  #[case::dot_dot(        &["..", "na"],               "trees[0].label",  "tree label \"..\" is not a file name")]
+  #[case::pair_stems(     &["a_b", "c", "a", "b_c"],   "trees",           "tree pairs (\"a_b\", \"c\") and (\"a\", \"b_c\") give the same output file names (\"a_b_c\"); rename a tree")]
   #[trace]
   fn invalid_labels_are_rejected(#[case] labels: &[&str], #[case] field: &str, #[case] message: &str) {
     assert_eq!(vec![error(field, message)], check_trees(&labeled(labels)));
@@ -616,7 +616,7 @@ mod tests {
     let errors = check_trees(&trees(&[("ha", T), ("na", "((A,B),\n(C,D)x y);")]));
     let expected = vec![ValidationError {
       field: Some("trees[1].newick".to_owned()),
-      message: "tree na: Newick parse error: expected ',' or ')' at byte 15".to_owned(),
+      message: "tree \"na\": Newick parse error: expected ',' or ')' at byte 15".to_owned(),
       line: Some(2),
       column: Some(8),
     }];
@@ -631,8 +631,8 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::no_semicolon(   "((A,B),(C,D))", "tree na: Newick parse error: no ';' found")]
-  #[case::duplicate_leaf( "((A,A),(C,D));", "tree na: Newick parse error: duplicate leaf name A")]
+  #[case::no_semicolon(   "((A,B),(C,D))", "tree \"na\": Newick parse error: no ';' found")]
+  #[case::duplicate_leaf( "((A,A),(C,D));", "tree \"na\": Newick parse error: duplicate leaf name A")]
   #[trace]
   fn parse_error_without_position(#[case] newick: &str, #[case] message: &str) {
     let errors = check_trees(&trees(&[("ha", T), ("na", newick)]));
@@ -648,8 +648,8 @@ mod tests {
   fn pairs_sharing_fewer_than_two_leaves_are_rejected(#[case] newick: &str) {
     let errors = check_trees(&trees(&[("ha", T), ("na", T), ("pb2", newick)]));
     let expected = vec![
-      error("trees", "trees ha and pb2 share fewer than two leaves"),
-      error("trees", "trees na and pb2 share fewer than two leaves"),
+      error("trees", "trees \"ha\" and \"pb2\" share fewer than two leaves"),
+      error("trees", "trees \"na\" and \"pb2\" share fewer than two leaves"),
     ];
     assert_eq!(expected, errors);
   }
