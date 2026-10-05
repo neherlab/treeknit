@@ -1,5 +1,5 @@
 import type { ArgView, PairView } from "@neherlab/treeknit-wasm";
-import { type QueryKey, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 
@@ -25,12 +25,14 @@ export function useWorkspaceAvailability(): WorkspaceAvailability {
     structuralSharing: true,
   });
 
-  const loadedPair = useCachedData<PairView>(
-    sessionId === undefined ? undefined : analysisKeys.pairView(sessionId, pair, version, x),
+  const loadedPair = useCachedData((queryClient) =>
+    sessionId === undefined
+      ? undefined
+      : queryClient.getQueryData<PairView>(analysisKeys.pairView(sessionId, pair, version, x)),
   );
 
-  const loadedArg = useCachedData<ArgView | null>(
-    sessionId === undefined ? undefined : analysisKeys.argView(sessionId, x),
+  const loadedArg = useCachedData((queryClient) =>
+    sessionId === undefined ? undefined : queryClient.getQueryData<ArgView | null>(analysisKeys.argView(sessionId, x)),
   );
 
   return useMemo(
@@ -92,7 +94,7 @@ function nodeInLoadedView(pair: number, node: NodeRef, views: LoadedViews): bool
   return view === undefined || view[node.side].nodes.some(({ name }) => name === node.name);
 }
 
-function useCachedData<T>(queryKey: QueryKey | undefined): T | undefined {
+function useCachedData<T>(read: (queryClient: QueryClient) => T | undefined): T | undefined {
   const queryClient = useQueryClient();
 
   const subscribe = useCallback(
@@ -100,7 +102,5 @@ function useCachedData<T>(queryKey: QueryKey | undefined): T | undefined {
     [queryClient],
   );
 
-  return useSyncExternalStore(subscribe, () =>
-    queryKey === undefined ? undefined : queryClient.getQueryData<T>(queryKey),
-  );
+  return useSyncExternalStore(subscribe, () => read(queryClient));
 }

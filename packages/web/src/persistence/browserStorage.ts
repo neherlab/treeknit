@@ -38,6 +38,7 @@ export function broadcastChannel(): PersistenceChannel | null {
 
   return {
     post(message: PersistenceMessage) {
+      // oxlint-disable-next-line unicorn/require-post-message-target-origin -- BroadcastChannel.postMessage takes no target origin; the channel is same-origin
       channel.postMessage(message);
     },
     listen(listener: (message: PersistenceMessage) => void) {

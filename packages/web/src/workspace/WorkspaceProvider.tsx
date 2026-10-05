@@ -6,10 +6,12 @@ import { InlineNotice } from "../ui/InlineNotice";
 import { WorkspaceContext } from "./context";
 import type { WorkspaceRuntime } from "./runtime";
 
+const STARTING = <Starting />;
+
 export function WorkspaceProvider({ runtime, children }: WorkspaceProviderProps) {
   return (
     <ErrorBoundary FallbackComponent={StartFailure}>
-      <Suspense fallback={<Starting />}>
+      <Suspense fallback={STARTING}>
         <ReadyWorkspace runtime={runtime}>{children}</ReadyWorkspace>
       </Suspense>
     </ErrorBoundary>
@@ -30,11 +32,7 @@ function ReadyWorkspace({ runtime, children }: WorkspaceProviderProps) {
 function Starting() {
   const visible = useDelayedIndicator(true);
 
-  return visible ? (
-    <p role="status" className="text-ink-muted p-6 text-sm">
-      Starting TreeKnit
-    </p>
-  ) : null;
+  return visible ? <output className="text-ink-muted block p-6 text-sm">Starting TreeKnit</output> : null;
 }
 
 function StartFailure({ error }: FallbackProps) {

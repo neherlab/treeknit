@@ -14,7 +14,9 @@ describe("analysis query keys", () => {
       analysisKeys.constellation(3),
     ];
 
-    expect(keys.map((key) => key.slice(0, session.length))).toStrictEqual(keys.map(() => [...session]));
+    expect(new Set(keys.map((key) => JSON.stringify(key.slice(0, session.length))))).toStrictEqual(
+      new Set([JSON.stringify(session)]),
+    );
   });
 
   test("tell sessions, pairs, versions, and scales apart", () => {

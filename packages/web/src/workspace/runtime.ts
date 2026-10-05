@@ -84,7 +84,9 @@ function storageOrNull(): RecordStorage | null {
 }
 
 function unavailableStorage(): RecordStorage {
-  const unavailable = () => Promise.reject(new Error("This browser does not provide IndexedDB storage."));
+  return { read: rejectUnavailable, update: rejectUnavailable };
+}
 
-  return { read: unavailable, update: unavailable };
+function rejectUnavailable(): Promise<never> {
+  return Promise.reject(new Error("This browser does not provide IndexedDB storage."));
 }
