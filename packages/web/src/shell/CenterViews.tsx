@@ -4,6 +4,7 @@ import PanelLeftIcon from "~icons/lucide/panel-left";
 import PanelRightIcon from "~icons/lucide/panel-right";
 
 import { ArgPanel } from "../arg/ArgPanel";
+import { ConstellationPanel } from "../tables/ConstellationPanel";
 import { DiagnosticsTabLabel } from "../results/DiagnosticsTabLabel";
 import { DiagnosticsView } from "../results/DiagnosticsView";
 import { FilesView } from "../results/FilesView";
@@ -24,7 +25,7 @@ const VIEW_PANELS: Record<WorkspaceView, ComponentType> = {
   tanglegram: TanglegramPanel,
   arg: ArgPanel,
   mccs: MccTablePanel,
-  constellation: ViewPlaceholder,
+  constellation: ConstellationPanel,
   files: FilesView,
   diagnostics: DiagnosticsView,
 };
