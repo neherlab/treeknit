@@ -205,6 +205,22 @@ describe("workspace store", () => {
     });
   });
 
+  test("undo after a later run restores the workspace without the result of the replaced session", async () => {
+    const store = await storeWith(["ha.nwk", "na.nwk"]);
+
+    finishRun(store, 1);
+    const before = store.getState().trees;
+
+    store.getState().clear();
+    finishRun(store, 2);
+    store.getState().restoreUndo();
+
+    expect({ trees: store.getState().trees, result: store.getState().result }).toStrictEqual({
+      trees: before,
+      result: null,
+    });
+  });
+
   test("loading a request replaces the workspace with session trees, and undo brings the old one back", async () => {
     const store = await storeWith(["ha.nwk"]);
 

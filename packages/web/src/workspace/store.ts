@@ -313,6 +313,10 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
               .with({ status: "succeeded" }, ({ sessionId, summary }) => {
                 state.result = { sessionId, summary, request: run.request };
                 state.run = { status: "idle" };
+
+                if (state.undo?.kind === "workspace") {
+                  state.undo.result = null;
+                }
               })
               .with({ status: "failed" }, ({ kind, message }) => {
                 state.run = { status: "failed", kind, message };
