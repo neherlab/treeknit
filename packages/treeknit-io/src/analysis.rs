@@ -17,6 +17,16 @@ use tsify::Tsify;
 /// file must pass through the web app unchanged.
 pub const MAX_SEED: u64 = (1 << 53) - 1;
 
+/// Largest number of rounds: 2^32 - 2. The web app runs the core as 32-bit WebAssembly, whose
+/// counts end at 2^32 - 1, and a run with more than two trees can add a final round on top of
+/// `rounds`. The command line applies the same bound, so that a request one surface accepts the
+/// other accepts too.
+pub const MAX_ROUNDS: usize = 4_294_967_294;
+
+/// Largest number of MCMC steps per leaf: 2^32 - 1, the largest count of 32-bit WebAssembly,
+/// for the reason of [`MAX_ROUNDS`].
+pub const MAX_MCMC_IT: usize = 4_294_967_295;
+
 /// Fewest leaves a pair of trees must share. With fewer, the pair has no MCCs to infer.
 pub const MIN_SHARED_LEAVES: usize = 2;
 
@@ -254,17 +264,21 @@ pub fn check_settings(s: &Settings, k: usize) -> Vec<ValidationError> {
   }
   if s.rounds == 0 {
     errors.push(ValidationError::at("settings.rounds", "rounds must be at least 1"));
-  } else if s.rounds.checked_add(1).is_none() {
-    // The core counts the final round without resolution on top of `rounds`.
+  } else if s.rounds > MAX_ROUNDS {
     errors.push(ValidationError::at(
       "settings.rounds",
-      format!("rounds must be less than {}, got {}", usize::MAX, s.rounds),
+      format!("rounds must be at most {MAX_ROUNDS}, got {}", s.rounds),
     ));
   }
   if s.n_mcmc_it == 0 {
     errors.push(ValidationError::at(
       "settings.nMcmcIt",
       "MCMC steps per leaf must be at least 1",
+    ));
+  } else if s.n_mcmc_it > MAX_MCMC_IT {
+    errors.push(ValidationError::at(
+      "settings.nMcmcIt",
+      format!("MCMC steps per leaf must be at most {MAX_MCMC_IT}, got {}", s.n_mcmc_it),
     ));
   }
   if s.seed > MAX_SEED {
@@ -846,19 +860,25 @@ mod tests {
   }
 
   #[test]
-  fn rounds_leave_room_for_the_final_round() {
-    // Strict resolution of three trees adds a final round on top of `rounds`.
-    let s = |rounds| Settings {
-      rounds,
-      resolve: ResolveMode::Strict,
-      ..Settings::default()
-    };
-    let expected = vec![error(
-      "settings.rounds",
-      &format!("rounds must be less than {0}, got {0}", usize::MAX),
-    )];
-    assert_eq!(expected, check_settings(&s(usize::MAX), 3));
-    assert_eq!(Vec::<ValidationError>::new(), check_settings(&s(usize::MAX - 1), 3));
+  fn count_limits_are_the_counts_of_32_bit_webassembly() {
+    // Oracle: u32::MAX is the largest `usize` of wasm32; the final round of strict resolution
+    // with three trees comes on top of `rounds`.
+    assert_eq!(
+      (u32::MAX - 1, u32::MAX),
+      (u32::try_from(MAX_ROUNDS).unwrap(), u32::try_from(MAX_MCMC_IT).unwrap())
+    );
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::largest_rounds(  Settings { rounds: 4_294_967_294, ..Settings::default() },    vec![])]
+  #[case::too_many_rounds( Settings { rounds: 4_294_967_295, ..Settings::default() },    vec![error("settings.rounds", "rounds must be at most 4294967294, got 4294967295")])]
+  #[case::largest_mcmc(    Settings { n_mcmc_it: 4_294_967_295, ..Settings::default() }, vec![])]
+  #[case::too_many_mcmc(   Settings { n_mcmc_it: 4_294_967_296, ..Settings::default() }, vec![error("settings.nMcmcIt", "MCMC steps per leaf must be at most 4294967295, got 4294967296")])]
+  #[trace]
+  fn counts_are_checked_at_their_maximum(#[case] s: Settings, #[case] expected: Vec<ValidationError>) {
+    let s = Settings { resolve: ResolveMode::Strict, ..s };
+    assert_eq!(expected, check_settings(&s, 3));
   }
 
   #[test]
