@@ -8,6 +8,7 @@ use crate::summary::Diagnostic;
 use crate::{analysis, arg, auspice, mccs, newick};
 use serde::Serialize;
 use serde_json::{Value, json};
+use std::fmt::{self, Write as _};
 use std::io::{Cursor, Write};
 use std::path::Path;
 use treeknit_core::{Options, Tree};
@@ -15,7 +16,7 @@ use treeknit_core::{Options, Tree};
 use tsify::Tsify;
 use zip::result::ZipError;
 use zip::write::SimpleFileOptions;
-use zip::{CompressionMethod, DateTime, ZipWriter};
+use zip::{CompressionMethod, DateTime, System, ZipWriter};
 
 /// Default results directory of the command line, and the directory of the files in the ZIP
 /// archive.
@@ -245,27 +246,52 @@ pub fn parameters_file(o: &Options, seed: u64) -> OutputFile {
 /// `log.txt` of the web app: one line `<time> [LEVEL] <message>` per record, the layout of the
 /// command-line log without its thread ID, because the browser runs on one thread.
 pub fn log_file(records: &[Diagnostic]) -> OutputFile {
-  let text = records
-    .iter()
-    .map(|r| format!("{} [{}] {}\n", r.time, r.level, r.message))
-    .collect::<Vec<_>>()
-    .concat();
+  let text = records.iter().fold(String::new(), |mut text, r| {
+    #[expect(clippy::expect_used, reason = "writing to a String does not fail")]
+    writeln!(text, "{} [{}] {}", r.time, r.level, r.message).expect("writing to a String");
+    text
+  });
   OutputFile::new("log.txt".to_owned(), text)
 }
 
-/// A ZIP archive of `files`, each under `treeknit_results/` at its path. Every entry is deflated
-/// and dated 1980-01-01 00:00, the earliest ZIP time, so equal files give a byte-identical
-/// archive. Fails when two files have one path.
-pub fn zip_archive(files: &[OutputFile]) -> Result<Vec<u8>, ZipError> {
+/// A ZIP archive of `files`, each under `treeknit_results/` at its path. Every entry is deflated,
+/// dated 1980-01-01 00:00 (the earliest ZIP time), and made by a Unix system with the permissions
+/// `rw-r--r--`, so equal files give a byte-identical archive on every host. Fails when two files
+/// have one path.
+pub fn zip_archive(files: &[OutputFile]) -> Result<Vec<u8>, ArchiveError> {
   let options = SimpleFileOptions::default()
     .compression_method(CompressionMethod::Deflated)
-    .last_modified_time(DateTime::DEFAULT);
+    .last_modified_time(DateTime::DEFAULT)
+    .system(System::Unix)
+    .unix_permissions(0o644);
   let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
   for f in files {
     zip.start_file(format!("{RESULTS_DIR}/{}", f.path), options)?;
-    zip.write_all(f.text.as_bytes())?;
+    zip.write_all(f.text.as_bytes()).map_err(ZipError::from)?;
   }
   Ok(zip.finish()?.into_inner())
+}
+
+/// Failure to build the ZIP archive of `zip_archive`.
+#[derive(Debug)]
+pub struct ArchiveError(ZipError);
+
+impl fmt::Display for ArchiveError {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "cannot build the ZIP archive: {}", self.0)
+  }
+}
+
+impl std::error::Error for ArchiveError {
+  fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+    Some(&self.0)
+  }
+}
+
+impl From<ZipError> for ArchiveError {
+  fn from(e: ZipError) -> Self {
+    ArchiveError(e)
+  }
 }
 
 /// The session file of `request`, `treeknit_request.json`: its trees and settings as pretty
@@ -683,26 +709,27 @@ mod tests {
   fn zip_archive_holds_every_file_under_the_results_directory() {
     let bytes = zip_archive(&fixed_files()).unwrap();
     let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
-    let entries: Vec<(String, String, Option<DateTime>, CompressionMethod)> = (0..archive.len())
+    let entries: Vec<ZipEntry> = (0..archive.len())
       .map(|i| {
         let mut entry = archive.by_index(i).unwrap();
         let mut text = String::new();
         std::io::Read::read_to_string(&mut entry, &mut text).unwrap();
-        (
-          entry.name().to_owned(),
+        ZipEntry {
+          name: entry.name().to_owned(),
           text,
-          entry.last_modified(),
-          entry.compression(),
-        )
+          modified: entry.last_modified(),
+          compression: entry.compression(),
+          unix_mode: entry.unix_mode(),
+        }
       })
       .collect();
-    let entry = |name: &str, text: &str| {
-      (
-        name.to_owned(),
-        text.to_owned(),
-        Some(DateTime::DEFAULT),
-        CompressionMethod::Deflated,
-      )
+    let entry = |name: &str, text: &str| ZipEntry {
+      name: name.to_owned(),
+      text: text.to_owned(),
+      modified: Some(DateTime::DEFAULT),
+      compression: CompressionMethod::Deflated,
+      // Oracle: a regular file (S_IFREG, 0o100000) with the permissions rw-r--r--.
+      unix_mode: Some(0o100_644),
     };
     let expected = vec![
       entry("treeknit_results/MCCs.json", "{}\n"),
@@ -710,6 +737,34 @@ mod tests {
       entry("treeknit_results/MCCs.dat", "A,B"),
     ];
     assert_eq!(expected, entries);
+  }
+
+  /// An entry of a ZIP archive as `zip::ZipArchive` reads it back.
+  #[derive(Debug, PartialEq)]
+  struct ZipEntry {
+    name: String,
+    text: String,
+    modified: Option<DateTime>,
+    compression: CompressionMethod,
+    unix_mode: Option<u32>,
+  }
+
+  #[test]
+  fn zip_archive_entries_are_made_by_unix_on_every_host() {
+    // Oracle: APPNOTE.TXT 4.3.12 and 4.4.2: a central directory header starts with
+    // `PK\x01\x02`, its byte 5 is the host system of "version made by" (3 for Unix), and bytes
+    // 38 to 41 are the external attributes, which hold the Unix mode in their upper 16 bits.
+    let bytes = zip_archive(&fixed_files()).unwrap();
+    let headers: Vec<(u8, u32)> = bytes
+      .windows(4)
+      .enumerate()
+      .filter(|(_, w)| *w == b"PK\x01\x02")
+      .map(|(i, _)| {
+        let attributes = u32::from_le_bytes(bytes[i + 38..i + 42].try_into().unwrap());
+        (bytes[i + 5], attributes)
+      })
+      .collect();
+    assert_eq!(vec![(3, 0o100_644 << 16); 3], headers);
   }
 
   #[test]
@@ -738,7 +793,12 @@ mod tests {
       OutputFile::new("MCCs.json".to_owned(), String::new()),
       OutputFile::new("MCCs.json".to_owned(), String::new()),
     ];
-    assert!(matches!(zip_archive(&files), Err(ZipError::InvalidArchive(_))));
+    let error = zip_archive(&files).unwrap_err();
+    assert!(matches!(error, ArchiveError(ZipError::InvalidArchive(_))));
+    assert_eq!(
+      "cannot build the ZIP archive: invalid Zip archive: Duplicate filename: treeknit_results/MCCs.json",
+      error.to_string()
+    );
   }
 
   #[rustfmt::skip]
