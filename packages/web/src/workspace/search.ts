@@ -152,8 +152,9 @@ export function selectPair(search: WorkspaceSearch, pair: number): WorkspaceSear
 }
 
 function everyVariantOf<T extends string>() {
-  return <const V extends readonly [T, ...T[]]>(values: V & ([Exclude<T, V[number]>] extends [never] ? unknown : never)) =>
-    values;
+  return <const V extends readonly [T, ...T[]]>(
+    values: V & ([Exclude<T, V[number]>] extends [never] ? unknown : never),
+  ) => values;
 }
 
 function choice<const V extends string>(values: readonly [V, ...V[]], fallback: NoInfer<V>) {
