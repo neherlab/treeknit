@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import CopiedIcon from "~icons/lucide/check";
 import FailedIcon from "~icons/lucide/circle-alert";
@@ -47,6 +48,9 @@ export function CodeBlock({ code, label, errorRange, lineNumbers, className }: C
 
   useEffect(() => feedback.attach(), [feedback]);
 
+  const markedLine = lines.find((line) => line.marked !== undefined)?.number;
+  const overflows = useOverflow(scrollerRef);
+
   useLayoutEffect(() => {
     if (lines.some((line) => line.marked !== undefined)) {
       revealMark(markRef.current, scrollerRef.current);
@@ -68,8 +72,12 @@ export function CodeBlock({ code, label, errorRange, lineNumbers, className }: C
         </Button>
         <output className="sr-only">{copyState === "idle" ? "" : button.label}</output>
       </div>
-      {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the scroller must take focus so keyboard users can scroll long code, and WebKit does not make scroll containers focusable by itself; a landmark role would name the code a second time after the caption */}
-      <div ref={scrollerRef} tabIndex={0} className={cn("rounded-b-control max-h-96 overflow-auto", nativeFocusRing)}>
+      <div
+        ref={scrollerRef}
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scroller with overflow must take focus so keyboard users can scroll long code, and WebKit does not make scroll containers focusable by itself; a landmark role would name the code a second time after the caption
+        tabIndex={overflows ? 0 : undefined}
+        className={cn("rounded-b-control max-h-96 overflow-auto", nativeFocusRing)}
+      >
         <pre className="text-ink px-3 py-2.5 font-mono text-sm">
           <code
             className={cn("grid", showLineNumbers ? "grid-cols-[auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")}
@@ -79,7 +87,7 @@ export function CodeBlock({ code, label, errorRange, lineNumbers, className }: C
                 key={line.number}
                 line={line}
                 lineNumber={showLineNumbers}
-                markRef={line.number === startLine ? markRef : undefined}
+                markRef={line.number === markedLine ? markRef : undefined}
               />
             ))}
           </code>
@@ -95,6 +103,45 @@ export interface CodeBlockProps {
   errorRange?: TextRange;
   lineNumbers?: boolean;
   className?: string;
+}
+
+function useOverflow(ref: RefObject<HTMLElement | null>): boolean {
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const element = ref.current;
+
+      if (element === null) {
+        return () => undefined;
+      }
+
+      const observer = new ResizeObserver(onChange);
+
+      observer.observe(element);
+
+      for (const child of element.children) {
+        observer.observe(child);
+      }
+
+      return () => {
+        observer.disconnect();
+      };
+    },
+    [ref],
+  );
+
+  const overflows = useCallback(() => {
+    const element = ref.current;
+
+    return (
+      element !== null && (element.scrollWidth > element.clientWidth || element.scrollHeight > element.clientHeight)
+    );
+  }, [ref]);
+
+  return useSyncExternalStore(subscribe, overflows, noOverflowOnServer);
+}
+
+function noOverflowOnServer(): boolean {
+  return false;
 }
 
 async function writeClipboard(text: string): Promise<void> {
