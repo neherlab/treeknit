@@ -551,6 +551,47 @@ mod tests {
   }
 
   #[test]
+  fn tanglegram_svg_too_narrow_for_one_character_has_no_labels_or_leaders() {
+    let svg = tanglegram_svg(
+      &example_view(Scale::Depth),
+      &options(100.0, 12.0, Scale::Depth, LabelMode::On),
+    )
+    .unwrap();
+    // Oracle: a label column takes at most 0.25 of half the inner width, 0.25 * 68 / 2 = 8.5 px,
+    // less than its two 6 px gaps.
+    let parsed = elements(&svg);
+    let labels: Vec<&str> = parsed
+      .iter()
+      .filter(|e| e.name == "text")
+      .map(|e| e.text.as_str())
+      .filter(|t| ["A", "B", "C", "D", "X"].contains(t))
+      .collect();
+    let leaders = parsed
+      .iter()
+      .filter(|e| e.attribute("stroke-dasharray") == Some("1 3"))
+      .count();
+    assert_eq!((Vec::<&str>::new(), 0), (labels, leaders));
+  }
+
+  #[test]
+  fn arg_svg_without_reassortment_has_no_rings_or_reassortment_entry() {
+    let (r, _) = run_trees(&[("ha", HA), ("na", HA)]);
+    let view = display::arg_view(&r, Scale::Depth).unwrap();
+    let svg = arg_svg(&view, ["ha", "na"], &options(800.0, 12.0, Scale::Depth, LabelMode::Off)).unwrap();
+    let parsed = elements(&svg);
+    let texts: Vec<&str> = parsed
+      .iter()
+      .filter(|e| e.name == "text")
+      .map(|e| e.text.as_str())
+      .collect();
+    let circles = parsed.iter().filter(|e| e.name == "circle").count();
+    assert_eq!(
+      (vec!["ARG of ha and na", "Segment ha", "Segment na", "Both segments"], 0),
+      (texts, circles)
+    );
+  }
+
+  #[test]
   fn arg_svg_of_the_two_tree_example() {
     let (r, _) = run_trees(&[("ha", HA), ("na", NA)]);
     let view = display::arg_view(&r, Scale::Depth).unwrap();
