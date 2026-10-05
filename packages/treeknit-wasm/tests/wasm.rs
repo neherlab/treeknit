@@ -24,9 +24,13 @@ mod tests {
 
   #[wasm_bindgen_test]
   fn start_installs_the_log_capture_and_accepts_its_own_logger_again() {
-    // Oracle: the doc of `start`: it fails only when another logger is installed.
-    treeknit_wasm::start().unwrap();
-    treeknit_wasm::start().unwrap();
+    treeknit_wasm::start();
+    treeknit_wasm::start();
+    // Oracle: the doc of `start`: a run reports a warning only when another logger is installed.
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let summary = plain(&session.summary().unwrap().js_value());
+    assert_eq!(json!([]), summary["diagnostics"]);
+    assert!(session.file_text("log.txt").unwrap().contains("[INFO] TreeKnit "));
   }
 
   #[wasm_bindgen_test]
@@ -905,7 +909,11 @@ mod tests {
     run::run(parsed, &opts, request.settings.seed, &|_| {})
   }
 
+  /// `v` as an argument of an export. Every test passes its arguments through here, so it also
+  /// installs the log capture, which the start function installs in the web app but
+  /// wasm-bindgen-test does not run.
   fn ts<T: Tsify>(v: &Value) -> Ts<T> {
+    treeknit_wasm::start();
     Ts::new_unchecked(JSON::parse(&v.to_string()).unwrap())
   }
 

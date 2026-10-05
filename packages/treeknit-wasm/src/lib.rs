@@ -21,11 +21,12 @@ use tsify::{Ts, Tsify};
 use wasm_bindgen::prelude::*;
 
 /// Set up the module: panics go to the console, and the log of the Rust code is captured for the
-/// diagnostics and `log.txt` of each run. Throws when another logger is installed.
+/// diagnostics and `log.txt` of each run. When another logger is installed, the module still
+/// loads: the failure goes to the console, and each run reports it as a warning.
 #[wasm_bindgen(start)]
-pub fn start() -> Result<(), JsError> {
+pub fn start() {
   console_error_panic_hook::set_once();
-  log_capture::install().map_err(|e| JsError::new(&e))
+  log_capture::install();
 }
 
 /// The settings that a request without settings uses: the defaults of the command line.
@@ -153,6 +154,7 @@ impl Session {
   ) -> Result<Session, JsValue> {
     let _log = log_capture::discard();
     let request = from_js("request", request)?;
+    let unavailable = log_capture::unavailable();
     log::info!("TreeKnit {}", env!("TREEKNIT_LONG_VERSION"));
     let k = request.trees.len();
     // The checks of `analysis::validate`, in its order, keeping the parsed trees and the options.
@@ -186,7 +188,7 @@ impl Session {
     if let Some(e) = failure.into_inner() {
       return Err(e);
     }
-    let records = log_capture::take();
+    let records: Vec<Diagnostic> = unavailable.into_iter().chain(log_capture::take()).collect();
     let files = output::web_files(&request, &result, seed, &records)
       .into_iter()
       .map(|f| match f {

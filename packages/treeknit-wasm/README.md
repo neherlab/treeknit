@@ -49,7 +49,7 @@ Display data uses normalized units: x from 0 to 1 across the column of a shape (
 
 Analyses run on one thread: browsers give WebAssembly no threads without cross-origin isolation.
 
-The `log` records of a run, of level Debug and above, become `log.txt` with lines `<time> [LEVEL] <message>`, the layout of the command-line log without its thread ID, and its warnings and errors become the diagnostics of `summary()`. The records of every other export are discarded.
+The `log` records of a run, of level Debug and above, become `log.txt` with lines `<time> [LEVEL] <message>`, the layout of the command-line log without its thread ID, and its warnings and errors become the diagnostics of `summary()`. The records of every other export are discarded. The start function of the module installs the capture of these records. When another logger is already installed, the module still loads: the start function writes the failure to the console, and each run reports it as a warning in its diagnostics and `log.txt`.
 
 ## Tests
 

@@ -1457,7 +1457,8 @@ export function settingsSchema(k: number, settings: Settings): SettingsSchema;
 
 /**
  * Set up the module: panics go to the console, and the log of the Rust code is captured for the
- * diagnostics and `log.txt` of each run. Throws when another logger is installed.
+ * diagnostics and `log.txt` of each run. When another logger is installed, the module still
+ * loads: the failure goes to the console, and each run reports it as a warning.
  */
 export function start(): void;
 
