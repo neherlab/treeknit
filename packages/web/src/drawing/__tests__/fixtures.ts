@@ -87,7 +87,6 @@ export function examplePairView(): PairView {
         leaves: ["A", "B", "C", "D"],
         imputedLeaves: [],
         ambiguousLeaves: [],
-        ambiguous: false,
         slot: SLOT_ABCD,
       },
       {
@@ -96,7 +95,6 @@ export function examplePairView(): PairView {
         leaves: ["X"],
         imputedLeaves: ["X"],
         ambiguousLeaves: ["X"],
-        ambiguous: true,
         slot: SLOT_X,
       },
     ],

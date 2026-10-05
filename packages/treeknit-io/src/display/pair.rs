@@ -206,7 +206,6 @@ fn mcc_infos(run: &RunResult, p: &PairResult, slots: &[usize]) -> Vec<MccInfo> {
           .filter(|a| a.ambiguous)
           .flat_map(|a| run.taxa.names_of(&a.leaves))
           .collect(),
-        ambiguous: attached.clone().any(|a| a.ambiguous),
         slot: slots[i],
       }
     })
@@ -495,7 +494,6 @@ mod tests {
     let p_mcc = v.mccs.iter().find(|m| m.leaves.iter().any(|l| l == "P")).unwrap();
     assert_eq!(vec!["P".to_owned()], p_mcc.imputed_leaves);
     assert_eq!(vec!["P".to_owned()], p_mcc.ambiguous_leaves);
-    assert!(p_mcc.ambiguous);
     assert!(
       v.mccs
         .iter()

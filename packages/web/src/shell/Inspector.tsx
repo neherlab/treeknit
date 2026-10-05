@@ -126,7 +126,7 @@ function MccDetails({ mcc, onSelect }: { mcc: MccInfo; onSelect: (selection: Sel
         <Fact term="Imputed members">
           {mcc.imputedLeaves.length === 0 ? "none" : <NameList names={mcc.imputedLeaves} />}
         </Fact>
-        <Fact term="Attachment">{mcc.ambiguous ? "ambiguous for some members" : "unambiguous"}</Fact>
+        <Fact term="Attachment">{mcc.ambiguousLeaves.length > 0 ? "ambiguous for some members" : "unambiguous"}</Fact>
       </Facts>
       <Button size="sm" icon={ZoomIcon} onPress={zoom} className="self-start">
         Zoom to MCC

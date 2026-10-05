@@ -317,10 +317,6 @@ export interface MccInfo {
      */
     ambiguousLeaves: string[];
     /**
-     * An attachment of a member is ambiguous.
-     */
-    ambiguous: boolean;
-    /**
      * Color slot, 0 to 7, the same in every version of the pair.
      */
     slot: number;

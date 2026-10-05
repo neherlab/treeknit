@@ -528,7 +528,7 @@ mod tests {
     assert_eq!(json!(4), x["y"]);
     assert!(x["xDiv"].is_number() && x["xDepth"].is_number());
     assert_eq!(
-      json!({"index": 0, "size": 1, "leaves": ["X"], "imputedLeaves": [], "ambiguousLeaves": [], "ambiguous": false, "slot": 1}),
+      json!({"index": 0, "size": 1, "leaves": ["X"], "imputedLeaves": [], "ambiguousLeaves": [], "slot": 1}),
       view["mccs"][0]
     );
     assert_eq!(json!({"mcc": 0, "left": [4, 4], "right": [2, 2]}), view["blocks"][2]);

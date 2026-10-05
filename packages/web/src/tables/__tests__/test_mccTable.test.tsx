@@ -94,7 +94,6 @@ function mcc(index: number, leaves: string[], imputedLeaves: string[], ambiguous
     leaves,
     imputedLeaves,
     ambiguousLeaves: ambiguous ? imputedLeaves : [],
-    ambiguous,
     slot: index,
   };
 }

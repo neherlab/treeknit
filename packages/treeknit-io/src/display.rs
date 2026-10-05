@@ -194,8 +194,6 @@ pub struct MccInfo {
   /// Names of the attached members whose attachment is ambiguous: their attachment point is in
   /// no MCC, so they joined the MCC whose root is closest to it.
   pub ambiguous_leaves: Vec<String>,
-  /// An attachment of a member is ambiguous.
-  pub ambiguous: bool,
   /// Color slot, 0 to 7, the same in every version of the pair.
   pub slot: usize,
 }

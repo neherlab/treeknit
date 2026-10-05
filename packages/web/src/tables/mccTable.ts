@@ -60,7 +60,7 @@ export function mccColumns(contains: (text: string, substring: string) => boolea
       header: MCC_HEADERS.imputed,
       sortFn: "basic",
     }),
-    column.accessor((mcc) => (mcc.ambiguous ? 1 : 0), {
+    column.accessor((mcc) => (mcc.ambiguousLeaves.length > 0 ? 1 : 0), {
       id: MCC_COLUMN.ambiguous,
       header: MCC_HEADERS.ambiguous,
       sortFn: "basic",

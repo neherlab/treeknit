@@ -213,7 +213,7 @@ function MccRow({ cells, mcc, index, selected, measure, onSelect, onShow }: MccR
     [MCC_COLUMN.size]: leafCount(mcc.size),
     [MCC_COLUMN.leaves]: <span className="block max-w-[48ch] truncate">{leavesPreview(mcc.leaves)}</span>,
     [MCC_COLUMN.imputed]: mcc.imputedLeaves.length === 0 ? "None" : formatCount(mcc.imputedLeaves.length),
-    [MCC_COLUMN.ambiguous]: mcc.ambiguous ? "yes" : "no",
+    [MCC_COLUMN.ambiguous]: mcc.ambiguousLeaves.length > 0 ? "yes" : "no",
   };
 
   return (
