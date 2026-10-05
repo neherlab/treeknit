@@ -1,8 +1,7 @@
 import type { TreeInspection } from "@neherlab/treeknit-wasm";
 
+import { counted } from "../drawing/format";
 import { BRANCH_LENGTH_LABELS } from "./treeStatus";
-
-const COUNT = new Intl.NumberFormat("en");
 
 const GRID_NAVIGATION_KEYS: ReadonlySet<string> = new Set([
   "ArrowUp",
@@ -27,10 +26,6 @@ export function treeFacts(inspection: TreeInspection | undefined, missing: numbe
     ...(inspection.polytomies === 0 ? [] : [counted(inspection.polytomies, "polytomy", "polytomies")]),
     BRANCH_LENGTH_LABELS[inspection.branchLengths],
   ];
-}
-
-export function counted(count: number, one: string, many: string): string {
-  return `${COUNT.format(count)} ${count === 1 ? one : many}`;
 }
 
 export function isGridNavigationKey(key: string, withModifier: boolean): boolean {

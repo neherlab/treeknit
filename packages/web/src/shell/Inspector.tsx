@@ -6,7 +6,7 @@ import ZoomIcon from "~icons/lucide/scan-search";
 
 import { useArgView, useConstellation, usePairView } from "../analysis/queries";
 import { requestFocus } from "../drawing/focus";
-import { formatBranchLength, leafCount, mccTitle } from "../drawing/format";
+import { formatBranchLength, leafCount, mccSummary, mccTitle } from "../drawing/format";
 import { MccSwatch } from "../drawing/MccSwatch";
 import { leafInPair, mccInTanglegram } from "../drawing/navigation";
 import { selectionOf, type Selection, withSelection } from "../drawing/selection";
@@ -260,7 +260,7 @@ function MccValue({ mcc, size, slot }: { mcc: number; size: number; slot: number
   return (
     <span className="inline-flex items-center gap-1.5">
       <MccSwatch slot={slot} />
-      {`${mccTitle(mcc)}, ${leafCount(size)}`}
+      {mccSummary(mcc, size)}
     </span>
   );
 }

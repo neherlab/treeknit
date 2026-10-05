@@ -2,14 +2,13 @@ import { useCallback, useMemo } from "react";
 import BlockedIcon from "~icons/lucide/circle-alert";
 
 import { useInspectTrees, useOverlap } from "../analysis/queries";
+import { formatCount } from "../drawing/format";
 import { BRANCH_LENGTH_VALUES } from "../inputs/treeStatus";
 import { InfoButton } from "../ui/InfoButton";
 import { Cell, Column, Row, Table, TableBody, TableHeader } from "../ui/Table";
 import { useCurrentRequest } from "../workspace/context";
 import { Matrix } from "./Matrix";
 import { type MatrixCell, type OverlapCell, overlapMatrix } from "./overviewModel";
-
-const COUNT = new Intl.NumberFormat("en");
 
 export const BLOCKED_PAIR = "shares fewer than two leaves";
 
@@ -122,5 +121,5 @@ export function InputOverview() {
 }
 
 function format(value: number | undefined): string {
-  return value === undefined ? "" : COUNT.format(value);
+  return value === undefined ? "" : formatCount(value);
 }

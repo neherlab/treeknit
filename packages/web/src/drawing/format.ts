@@ -1,6 +1,16 @@
-const branchLength = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 4 });
+const LOCALE = "en";
 
-const count = new Intl.NumberFormat();
+const BRANCH_LENGTH = new Intl.NumberFormat(LOCALE, { maximumSignificantDigits: 4 });
+
+const COUNT = new Intl.NumberFormat(LOCALE);
+
+export function formatCount(count: number): string {
+  return COUNT.format(count);
+}
+
+export function counted(count: number, one: string, many: string): string {
+  return `${formatCount(count)} ${count === 1 ? one : many}`;
+}
 
 export function mccNumber(index: number): number {
   return index + 1;
@@ -11,7 +21,7 @@ export function mccTitle(index: number): string {
 }
 
 export function leafCount(size: number): string {
-  return `${count.format(size)} ${size === 1 ? "leaf" : "leaves"}`;
+  return counted(size, "leaf", "leaves");
 }
 
 export function mccSummary(index: number, size: number): string {
@@ -19,5 +29,5 @@ export function mccSummary(index: number, size: number): string {
 }
 
 export function formatBranchLength(length: number | null): string {
-  return length === null ? "none" : branchLength.format(length);
+  return length === null ? "none" : BRANCH_LENGTH.format(length);
 }

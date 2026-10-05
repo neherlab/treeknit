@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useMemo } from "react";
 import { match } from "ts-pattern";
 
-import { counted } from "../inputs/treeFacts";
+import { counted, formatCount } from "../drawing/format";
 import { InfoButton } from "../ui/InfoButton";
 import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
 import { Link } from "../ui/Link";
@@ -15,15 +15,13 @@ export const NO_REASSORTMENT_FOUND = "No reassortment found.";
 
 export const ARG_NOT_BUILT = "ARG not built";
 
-const COUNT = new Intl.NumberFormat("en");
-
 export function ResultOverview({ result }: ResultOverviewProps) {
   const labels = useMemo(() => result.request.trees.map(({ label }) => label), [result.request.trees]);
   const overview = useMemo(() => resultOverview(result.summary, labels), [labels, result.summary]);
 
   const renderPairCell = useCallback(
     ({ value }: MatrixCell<PairCell>) =>
-      value === null ? null : <PairLink pair={value.pair}>{COUNT.format(value.mccCount)}</PairLink>,
+      value === null ? null : <PairLink pair={value.pair}>{formatCount(value.mccCount)}</PairLink>,
     [],
   );
 
@@ -36,12 +34,12 @@ export function ResultOverview({ result }: ResultOverviewProps) {
         <dl className="flex flex-wrap gap-x-10 gap-y-4">
           {match(overview.arg)
             .with({ status: "built" }, ({ reassortments }) => (
-              <Figure label="Reassortments" value={COUNT.format(reassortments)} />
+              <Figure label="Reassortments" value={formatCount(reassortments)} />
             ))
             .with({ status: "failed" }, () => null)
             .exhaustive()}
           {overview.rows.map((row) => (
-            <Figure key={row.index} label="MCCs" value={COUNT.format(row.mccCount)} />
+            <Figure key={row.index} label="MCCs" value={formatCount(row.mccCount)} />
           ))}
         </dl>
       )}
@@ -68,11 +66,11 @@ export function ResultOverview({ result }: ResultOverviewProps) {
                     {row.labels[0]} and {row.labels[1]}
                   </PairLink>
                 </Cell>
-                <Cell align="end">{COUNT.format(row.mccCount)}</Cell>
+                <Cell align="end">{formatCount(row.mccCount)}</Cell>
                 <Cell align="end">
-                  {COUNT.format(row.imputedCount)}
+                  {formatCount(row.imputedCount)}
                   {row.ambiguousCount === 0 ? null : (
-                    <span className="text-ink-muted"> ({COUNT.format(row.ambiguousCount)} ambiguous)</span>
+                    <span className="text-ink-muted"> ({formatCount(row.ambiguousCount)} ambiguous)</span>
                   )}
                 </Cell>
               </Row>

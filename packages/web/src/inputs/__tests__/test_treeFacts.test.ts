@@ -1,7 +1,8 @@
 import type { TreeInspection } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
-import { counted, isGridNavigationKey, treeFacts } from "../treeFacts";
+import { counted } from "../../drawing/format";
+import { isGridNavigationKey, treeFacts } from "../treeFacts";
 
 const INSPECTION: TreeInspection = {
   label: "ha",
