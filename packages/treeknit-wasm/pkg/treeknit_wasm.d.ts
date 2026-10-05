@@ -141,9 +141,11 @@ export interface NumberSetting {
      */
     max: number | null;
     /**
-     * Step of the input control.
+     * Step of the input control, or none for any value, as `step="any"` of an HTML number input.
+     * A step also restricts the valid values to `min + n * step`, so real-valued settings have
+     * none.
      */
-    step: number;
+    step: number | null;
     /**
      * Only whole numbers are accepted, such as a count or a seed.
      */

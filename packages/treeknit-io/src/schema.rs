@@ -1,7 +1,7 @@
 //! Settings schema: the defaults, ranges, applicability, and help texts of every setting, so
 //! the web app shows the rules of the command line without a copy of them.
 
-use crate::analysis::{MAX_SEED, ResolveMode, Settings};
+use crate::analysis::{MAX_MCMC_IT, MAX_ROUNDS, MAX_SEED, ResolveMode, Settings};
 use serde::Serialize;
 use treeknit_core::Options;
 #[cfg(feature = "tsify")]
@@ -65,8 +65,10 @@ pub struct NumberSetting {
   pub min_exclusive: bool,
   /// Largest accepted value; `None` without an upper bound.
   pub max: Option<f64>,
-  /// Step of the input control.
-  pub step: f64,
+  /// Step of the input control, or none for any value, as `step="any"` of an HTML number input.
+  /// A step also restricts the valid values to `min + n * step`, so real-valued settings have
+  /// none.
+  pub step: Option<f64>,
   /// Only whole numbers are accepted, such as a count or a seed.
   pub integer: bool,
   /// The setting changes the result of a run with the current settings.
@@ -140,8 +142,9 @@ pub fn modes() -> Vec<ModeInfo> {
 /// The schema of the settings of a request with `k` trees and the settings `s`. Applicability
 /// follows `treeknit_core`: naive mode skips the pair inference, the only user of γ, the MCMC
 /// steps, the likelihood tie-break with its sequence lengths, and the random numbers; the final
-/// round runs only with strict or liberal resolution and more than two trees. Bounds are those
-/// of `analysis::check_settings`.
+/// round runs only with strict or liberal resolution and more than two trees; and naive mode
+/// without resolution infers the same MCCs in every round. Bounds are those of
+/// `analysis::check_settings`.
 pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
   let d = Settings::default();
   let unless = |skip: Option<&str>| (skip.is_none(), skip.map(str::to_owned));
@@ -179,6 +182,8 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
   let seq_lengths_skip =
     naive.or_else(|| (!s.likelihood).then_some("Only the likelihood tie-break uses sequence lengths."));
   let seed_skip = s.naive.then_some("Naive MCCs use no random numbers.");
+  let rounds_skip = (s.naive && s.resolve == ResolveMode::None)
+    .then_some("Without resolution, every round infers the same naive MCCs of the unchanged trees.");
   SettingsSchema {
     settings: SettingFields {
       gamma: number(
@@ -186,7 +191,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         0.0,
         false,
         None,
-        0.1,
+        None,
         false,
         naive,
         "Cost γ of a reassortment, that is of removing an MCC.",
@@ -196,7 +201,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         0.0,
         true,
         None,
-        1.0,
+        None,
         false,
         seq_lengths_skip,
         "Sequence length of each segment, in the order of the trees, used by the likelihood tie-break.",
@@ -205,8 +210,8 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         exact_usize(d.n_mcmc_it),
         1.0,
         false,
-        None,
-        1.0,
+        Some(exact_usize(MAX_MCMC_IT)),
+        Some(1.0),
         true,
         naive,
         "MCMC steps per leaf of the simulated annealing.",
@@ -215,10 +220,10 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         exact_usize(d.rounds),
         1.0,
         false,
-        None,
-        1.0,
+        Some(exact_usize(MAX_ROUNDS)),
+        Some(1.0),
         true,
-        None,
+        rounds_skip,
         "Rounds of pair inference.",
       ),
       seed: number(
@@ -226,7 +231,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         0.0,
         false,
         Some(exact_u64(MAX_SEED)),
-        1.0,
+        Some(1.0),
         true,
         seed_skip,
         "Seed of the random number generator, so that a run can be repeated.",
@@ -256,7 +261,7 @@ fn default_seq_length() -> f64 {
 
 #[expect(
   clippy::as_conversions,
-  reason = "the counts of the settings are far below 2^53, so the conversion is exact"
+  reason = "the counts of the settings are at most MAX_MCMC_IT = 2^32 - 1, which f64 holds exactly"
 )]
 fn exact_usize(n: usize) -> f64 {
   n as f64
@@ -292,6 +297,13 @@ mod tests {
     ]
   }
 
+  fn three() -> Settings {
+    Settings {
+      resolve: ResolveMode::Strict,
+      ..Settings::default()
+    }
+  }
+
   #[test]
   fn schema_defaults_are_the_settings_defaults() {
     // Oracle: `Settings::default()` is the command-line default, and a new tree gets the core
@@ -321,8 +333,8 @@ mod tests {
     let expected = [
       (0.0, false, None),
       (0.0, true, None),
-      (1.0, false, None),
-      (1.0, false, None),
+      (1.0, false, Some(4_294_967_295.0)),
+      (1.0, false, Some(4_294_967_294.0)),
       (0.0, false, Some(9_007_199_254_740_991.0)),
     ];
     let actual = [
@@ -357,15 +369,66 @@ mod tests {
     assert_eq!(expected, actual);
   }
 
+  #[rustfmt::skip]
   #[rstest]
-  #[case::gamma_at_min(Settings { gamma: 0.0, ..Settings::default() }, true)]
-  #[case::seq_length_at_exclusive_min(Settings { seq_lengths: Some(vec![0.0, 1.0]), ..Settings::default() }, false)]
-  #[case::mcmc_at_min(Settings { n_mcmc_it: 1, ..Settings::default() }, true)]
-  #[case::rounds_at_min(Settings { rounds: 1, ..Settings::default() }, true)]
-  #[case::seed_at_max(Settings { seed: MAX_SEED, ..Settings::default() }, true)]
-  #[case::seed_above_max(Settings { seed: MAX_SEED + 1, ..Settings::default() }, false)]
-  fn schema_bounds_agree_with_validation_at_the_bound(#[case] s: Settings, #[case] valid: bool) {
-    assert_eq!(valid, check_settings(&s, 2).is_empty());
+  #[case::gamma_min(     |f: &SettingFields| f.gamma.min,              0.0,                     (Settings { gamma: 0.0, ..three() },                                    Settings { gamma: -f64::MIN_POSITIVE, ..three() }))]
+  #[case::seq_length_min(|f: &SettingFields| f.seq_lengths.min,        0.0,                     (Settings { seq_lengths: Some(vec![f64::from_bits(1); 3]), ..three() }, Settings { seq_lengths: Some(vec![0.0, 1.0, 1.0]), ..three() }))]
+  #[case::mcmc_min(      |f: &SettingFields| f.n_mcmc_it.min,          1.0,                     (Settings { n_mcmc_it: 1, ..three() },                                  Settings { n_mcmc_it: 0, ..three() }))]
+  #[case::mcmc_max(      |f: &SettingFields| f.n_mcmc_it.max.unwrap(), 4_294_967_295.0,         (Settings { n_mcmc_it: 4_294_967_295, ..three() },                      Settings { n_mcmc_it: 4_294_967_296, ..three() }))]
+  #[case::rounds_min(    |f: &SettingFields| f.rounds.min,             1.0,                     (Settings { rounds: 1, ..three() },                                     Settings { rounds: 0, ..three() }))]
+  #[case::rounds_max(    |f: &SettingFields| f.rounds.max.unwrap(),    4_294_967_294.0,         (Settings { rounds: 4_294_967_294, ..three() },                         Settings { rounds: 4_294_967_295, ..three() }))]
+  #[case::seed_max(      |f: &SettingFields| f.seed.max.unwrap(),      9_007_199_254_740_991.0, (Settings { seed: MAX_SEED, ..three() },                                Settings { seed: MAX_SEED + 1, ..three() }))]
+  #[trace]
+  fn schema_bound_separates_the_last_valid_value_from_the_first_invalid_one(
+    #[case]
+    #[notrace]
+    bound: fn(&SettingFields) -> f64,
+    #[case] expected_bound: f64,
+    #[case] (last_valid, first_invalid): (Settings, Settings),
+  ) {
+    // Oracle: the bound values are those of the field types (`f64::from_bits(1)` is the smallest
+    // positive number, `-f64::MIN_POSITIVE` a negative one) and of `MAX_ROUNDS`, `MAX_MCMC_IT`,
+    // and `MAX_SEED`, written out; the settings are those of strict resolution with three trees,
+    // which adds a final round on top of `rounds`.
+    let f = settings_schema(3, &three()).settings;
+    assert_eq!(expected_bound, bound(&f));
+    let accepted = (check_settings(&last_valid, 3).is_empty(), check_settings(&first_invalid, 3).is_empty());
+    assert_eq!((true, false), accepted);
+  }
+
+  #[test]
+  fn schema_steps_restrict_only_the_integer_settings() {
+    // Oracle: γ and the sequence lengths take any real value above their bound, so a step would
+    // reject valid values such as 0.15 or 0.5.
+    let f = settings_schema(2, &Settings::default()).settings;
+    let expected = [None, None, Some(1.0), Some(1.0), Some(1.0)];
+    let actual = [
+      f.gamma.step,
+      f.seq_lengths.step,
+      f.n_mcmc_it.step,
+      f.rounds.step,
+      f.seed.step,
+    ];
+    assert_eq!(expected, actual);
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::naive_none(    true,  ResolveMode::None,    false)]
+  #[case::naive_strict(  true,  ResolveMode::Strict,  true)]
+  #[case::naive_matched( true,  ResolveMode::Matched, true)]
+  #[case::inferred_none( false, ResolveMode::None,    true)]
+  #[trace]
+  fn rounds_apply_unless_naive_mccs_meet_unchanged_trees(
+    #[case] naive: bool,
+    #[case] resolve: ResolveMode,
+    #[case] applies: bool,
+  ) {
+    // Oracle: `run_observed` in `treeknit_core::pipeline` changes the trees between rounds only
+    // when it resolves, and `infer` returns `naive_mccs` of the trees without random numbers;
+    // inference uses a new seed in every round (`mix`), so its result depends on the rounds.
+    let s = Settings { naive, resolve, ..Settings::default() };
+    assert_eq!(applies, settings_schema(3, &s).settings.rounds.applies);
   }
 
   #[test]
@@ -493,7 +556,7 @@ mod tests {
   fn schema_serializes_camel_case_fields() {
     let json = serde_json::to_value(settings_schema(2, &Settings::default())).unwrap();
     let expected = serde_json::json!({
-      "default": 1.0, "min": 0.0, "minExclusive": true, "max": null, "step": 1.0, "integer": false, "applies": true,
+      "default": 1.0, "min": 0.0, "minExclusive": true, "max": null, "step": null, "integer": false, "applies": true,
       "reason": null,
       "help": "Sequence length of each segment, in the order of the trees, used by the likelihood tie-break.",
     });
