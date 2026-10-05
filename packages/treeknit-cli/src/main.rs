@@ -222,7 +222,7 @@ fn main() -> Result<()> {
   let json = mccs::to_json(&pairs, &trees, &taxa);
   fs::write(
     cli.outdir.join("MCCs.json"),
-    serde_json::to_string_pretty(&json)? + "\n",
+    format!("{}\n", serde_json::to_string_pretty(&json)?),
   )?;
   // Legacy text format of TreeKnit.jl < 0.5 (one MCC per line): `MCCs.dat` for two trees,
   // `MCCs_<a>_<b>.dat` per pair otherwise.
@@ -236,12 +236,18 @@ fn main() -> Result<()> {
     fs::write(cli.outdir.join(name), mccs::to_lines(&names))?;
   }
   for (t, path) in trees.iter().zip(&cli.trees) {
-    fs::write(cli.outdir.join(out_name(path, "_resolved")), newick::write(t) + "\n")?;
+    fs::write(
+      cli.outdir.join(out_name(path, "_resolved")),
+      format!("{}\n", newick::write(t)),
+    )?;
   }
   if cli.impute {
     let imputed = treeknit_core::imputed_trees(&trees, &pairs, taxa.len());
     for (t, path) in imputed.iter().zip(&cli.trees) {
-      fs::write(cli.outdir.join(out_name(path, "_imputed")), newick::write(t) + "\n")?;
+      fs::write(
+        cli.outdir.join(out_name(path, "_imputed")),
+        format!("{}\n", newick::write(t)),
+      )?;
     }
   }
   if cli.auspice_view {
@@ -273,10 +279,13 @@ fn write_arg(cli: &Cli, trees: &[Tree], pair: &treeknit_core::PairResult, taxa: 
   log::info!("found {} reassortments in the ARG", arg.n_hybrids());
   let dir = cli.outdir.join("ARG");
   fs::create_dir_all(&dir)?;
-  fs::write(dir.join("arg.nwk"), arg::extended_newick(&arg) + "\n")?;
-  fs::write(dir.join("nodes.dat"), arg::node_table(&arg) + "\n")?;
+  fs::write(dir.join("arg.nwk"), format!("{}\n", arg::extended_newick(&arg)))?;
+  fs::write(dir.join("nodes.dat"), format!("{}\n", arg::node_table(&arg)))?;
   for (t, path) in arg.trees.iter().zip(&cli.trees) {
-    fs::write(dir.join(out_name(path, "_liberal_resolved")), newick::write(t) + "\n")?;
+    fs::write(
+      dir.join(out_name(path, "_liberal_resolved")),
+      format!("{}\n", newick::write(t)),
+    )?;
   }
   Ok(())
 }
@@ -454,7 +463,7 @@ fn tree_labels(paths: &[PathBuf]) -> Result<Vec<String>> {
       .unwrap_or_default()
   };
   let mut labels: Vec<String> = paths.iter().map(|p| stem(p)).collect();
-  let unique = |v: &[String]| v.iter().collect::<std::collections::HashSet<_>>().len() == v.len();
+  let unique = |v: &[String]| v.iter().collect::<std::collections::BTreeSet<_>>().len() == v.len();
   if !unique(&labels) {
     labels = paths
       .iter()
@@ -475,7 +484,7 @@ fn tree_labels(paths: &[PathBuf]) -> Result<Vec<String>> {
 }
 
 fn out_name(path: &Path, suffix: &str) -> String {
-  let stem = path.file_stem().unwrap().to_string_lossy();
+  let stem = path.file_stem().unwrap_or_default().to_string_lossy();
   let ext = path
     .extension()
     .map(|e| format!(".{}", e.to_string_lossy()))

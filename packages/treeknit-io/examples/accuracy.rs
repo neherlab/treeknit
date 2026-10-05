@@ -8,40 +8,48 @@
 use rand::SeedableRng;
 use rand::seq::SliceRandom;
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use treeknit_core::{Options, Taxa, Tree};
 use treeknit_io::newick;
 
 type Partition = Vec<Vec<String>>;
 
 /// Variation of information between two partitions of the same set, divided by ln(n).
+#[expect(
+  clippy::as_conversions,
+  reason = "leaf and run counts become f64 statistics; they stay far below 2^52, so the conversion is exact"
+)]
 fn scaled_vi(a: &Partition, b: &Partition) -> f64 {
-  let la: HashMap<&str, usize> = a
+  let la: BTreeMap<&str, usize> = a
     .iter()
     .enumerate()
     .flat_map(|(i, m)| m.iter().map(move |x| (x.as_str(), i)))
     .collect();
-  let lb: HashMap<&str, usize> = b
+  let lb: BTreeMap<&str, usize> = b
     .iter()
     .enumerate()
     .flat_map(|(i, m)| m.iter().map(move |x| (x.as_str(), i)))
     .collect();
   let n = la.len() as f64;
-  let mut joint: HashMap<(usize, usize), f64> = HashMap::new();
+  let mut joint: BTreeMap<(usize, usize), f64> = BTreeMap::new();
   for (x, &i) in &la {
     *joint.entry((i, lb[x])).or_default() += 1.0;
   }
-  let h = |p: &Partition| -p.iter().map(|m| m.len() as f64 / n).map(|q| q * q.ln()).sum::<f64>();
+  let entropy = |p: &Partition| -p.iter().map(|m| m.len() as f64 / n).map(|q| q * q.ln()).sum::<f64>();
   let mi: f64 = joint
     .iter()
     .map(|(&(i, j), &c)| {
-      let p = c / n;
-      p * (p / (a[i].len() as f64 / n * b[j].len() as f64 / n)).ln()
+      let joint_p = c / n;
+      joint_p * (joint_p / (a[i].len() as f64 / n * b[j].len() as f64 / n)).ln()
     })
     .sum();
-  (h(a) + h(b) - 2.0 * mi) / n.ln()
+  (entropy(a) + entropy(b) - 2.0 * mi) / n.ln()
 }
 
+#[expect(
+  clippy::unwrap_used,
+  reason = "a developer report over the committed fixtures: a panic names the input that failed"
+)]
 fn load(f: &Value) -> (Vec<Tree>, Taxa) {
   let mut ts: Vec<Tree> = f["trees"]
     .as_array()
@@ -55,10 +63,22 @@ fn load(f: &Value) -> (Vec<Tree>, Taxa) {
   (ts, taxa)
 }
 
+#[expect(
+  clippy::as_conversions,
+  reason = "leaf and run counts become f64 statistics; they stay far below 2^52, so the conversion is exact"
+)]
 fn mean(v: &[f64]) -> f64 {
   v.iter().sum::<f64>() / v.len().max(1) as f64
 }
 
+#[expect(
+  clippy::unwrap_used,
+  reason = "a developer report over the committed fixtures: a panic names the input that failed"
+)]
+#[expect(
+  clippy::as_conversions,
+  reason = "leaf and run counts become f64 statistics; they stay far below 2^52, so the conversion is exact"
+)]
 fn main() {
   let drop: f64 = std::env::args().nth(1).map_or(0.2, |s| s.parse().unwrap());
   let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures");
@@ -86,20 +106,20 @@ fn main() {
     let f: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
     let case = path.file_stem().unwrap().to_string_lossy().into_owned();
     let (ts, taxa) = load(&f);
-    let k = ts.len();
-    let truth: HashMap<String, Partition> = serde_json::from_value(f["true_mccs"].clone()).unwrap();
-    let julia: Vec<HashMap<String, Partition>> = if k == 2 {
+    let n_trees = ts.len();
+    let truth: BTreeMap<String, Partition> = serde_json::from_value(f["true_mccs"].clone()).unwrap();
+    let julia: Vec<BTreeMap<String, Partition>> = if n_trees == 2 {
       f["runs"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|r| HashMap::from([("0-1".to_owned(), serde_json::from_value(r.clone()).unwrap())]))
+        .map(|r| BTreeMap::from([("0-1".to_owned(), serde_json::from_value(r.clone()).unwrap())]))
         .collect()
     } else {
       serde_json::from_value(f["multi_runs"].clone()).unwrap()
     };
-    let opts = Options::treeknit_jl(k, None); // as the Julia runs it is compared with
-    let rust: Vec<HashMap<String, Partition>> = (0..julia.len() as u64)
+    let opts = Options::treeknit_jl(n_trees, None); // as the Julia runs it is compared with
+    let rust: Vec<BTreeMap<String, Partition>> = (0..julia.len() as u64)
       .map(|seed| {
         let mut tt = ts.clone();
         treeknit_core::run(&mut tt, &taxa, &opts, seed)
@@ -140,8 +160,8 @@ fn main() {
 
       let (i, j) = key.split_once('-').unwrap();
       let (i, j): (usize, usize) = (i.parse().unwrap(), j.parse().unwrap());
-      let p = res.iter().find(|p| p.i == i && p.j == j).unwrap();
-      let true_of: HashMap<&str, usize> = true_p
+      let pair = res.iter().find(|p| p.i == i && p.j == j).unwrap();
+      let true_of: BTreeMap<&str, usize> = true_p
         .iter()
         .enumerate()
         .flat_map(|(q, m)| m.iter().map(move |x| (x.as_str(), q)))
@@ -149,11 +169,12 @@ fn main() {
       // VI restricted to shared leaves, and placement accuracy of attached leaves: an
       // attached leaf is correct if it shares a true MCC with most of the MCC it joined.
       let shared = |name: &str| {
-        p.attached
+        pair
+          .attached
           .iter()
           .all(|a| a.leaves.iter().all(|&x| taxa.names[x] != name))
       };
-      let inferred_s: Partition = p
+      let inferred_s: Partition = pair
         .mccs
         .iter()
         .map(|m| taxa.names_of(m).into_iter().filter(|x| shared(x)).collect::<Vec<_>>())
@@ -173,17 +194,18 @@ fn main() {
       // (the neighbours it was placed next to). Baseline: join the largest MCC.
       let largest = inferred_s.iter().max_by_key(|m| m.len()).unwrap();
       let majority = |names: &mut dyn Iterator<Item = &str>| {
-        let mut c: HashMap<usize, usize> = HashMap::new();
+        let mut counts: BTreeMap<usize, usize> = BTreeMap::new();
         for x in names {
-          *c.entry(true_of[x]).or_default() += 1;
+          *counts.entry(true_of[x]).or_default() += 1;
         }
-        c.into_iter()
+        counts
+          .into_iter()
           .max_by_key(|&(q, n)| (n, std::cmp::Reverse(q)))
           .map(|(q, _)| q)
       };
       let base_mcc = majority(&mut largest.iter().map(|x| x.as_str()));
       let (mut ok, mut base, mut tot, mut amb) = (0, 0, 0, 0);
-      for a in &p.attached {
+      for a in &pair.attached {
         let anchor_mcc = majority(&mut a.anchor.iter().map(|&y| taxa.names[y].as_str()));
         for &x in &a.leaves {
           let tx = true_of[taxa.names[x].as_str()];

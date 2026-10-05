@@ -7,6 +7,10 @@ use rand::Rng;
 use std::collections::HashSet;
 
 /// Temperatures from `t_max` down to `t_min`.
+#[expect(
+  clippy::float_cmp,
+  reason = "the acos schedule is defined piecewise around exactly x = 0.5, as in TreeKnit.jl"
+)]
 pub fn schedule(cooling: Cooling, t_min: f64, t_max: f64, n_t: usize) -> Vec<f64> {
   assert!(t_min > 0.0 && t_max > t_min, "need 0 < t_min < t_max");
   let lin = |i: usize| if n_t > 1 { i as f64 / (n_t - 1) as f64 } else { 0.0 };
@@ -17,8 +21,10 @@ pub fn schedule(cooling: Cooling, t_min: f64, t_max: f64, n_t: usize) -> Vec<f64
       (0..=n).map(|i| alpha.powi(i) * t_max).collect()
     },
     Cooling::Linear => (0..n_t).map(|i| t_max - (t_max - t_min) * lin(i)).collect(),
-    // 3.14 (not π) as in the Julia implementation.
-    #[allow(clippy::approx_constant)]
+    #[expect(
+      clippy::approx_constant,
+      reason = "TreeKnit.jl uses 3.14, not π, in the acos schedule"
+    )]
     Cooling::Acos => {
       let k: f64 = 1.5;
       let f = |x: f64| {
@@ -75,14 +81,17 @@ impl<R: Rng> Chain<'_, R> {
 
   /// `m` Metropolis steps at temperature `t` from the current state.
   /// Returns the minimal-F configurations visited and the minimal F.
+  #[expect(
+    clippy::float_cmp,
+    reason = "free energies are compared for exact ties, so every configuration of minimal energy is kept"
+  )]
   fn mcmc(&mut self, st: &mut EnergyState, m: usize, t: f64) -> (ConfSet, f64) {
-    let n = self.g.n;
     let mut f = self.free_energy(st);
     let mut fmin = f;
     let mut best = ConfSet::single(st.conf().clone());
     for _ in 0..m {
-      let i = self.rng.gen_range(0..n);
-      st.flip(i);
+      let leaf = self.rng.gen_range(0..self.g.n);
+      st.flip(leaf);
       let fnew = self.free_energy(st);
       if fnew < f || (-(fnew - f) / t).exp() > self.rng.r#gen::<f64>() {
         f = fnew;
@@ -100,6 +109,10 @@ impl<R: Rng> Chain<'_, R> {
   }
 
   /// One annealing run starting from all leaves kept.
+  #[expect(
+    clippy::float_cmp,
+    reason = "free energies are compared for exact ties, so every configuration of minimal energy is kept"
+  )]
   fn anneal(&mut self, trange: &[f64], m: usize) -> (ConfSet, f64) {
     let mut st = EnergyState::new(self.g, bits::full(self.g.n), self.resolve);
     let mut best = ConfSet::single(st.conf().clone());
@@ -118,6 +131,10 @@ impl<R: Rng> Chain<'_, R> {
 }
 
 /// Run `reps` annealing runs; return all distinct configurations of minimal free energy.
+#[expect(
+  clippy::float_cmp,
+  reason = "free energies are compared for exact ties, so every configuration of minimal energy is kept"
+)]
 pub fn optimize(
   g: &Graph,
   gamma: f64,

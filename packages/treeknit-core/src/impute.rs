@@ -72,18 +72,18 @@ fn closest_mcc(
   cand.sort_unstable();
   cand.dedup();
   let key = |m: usize| {
-    let r = t.lca_of(mccs[m].iter().filter_map(|&x| leaf_of[x])).unwrap();
-    let a = t.lca(p, r);
-    let edges = t.depth(p) + t.depth(r) - 2 * t.depth(a);
-    let dist = match (t.divtime(p, a), t.divtime(r, a)) {
-      (Some(x), Some(y)) => x + y,
+    let mcc_root = t.lca_of(mccs[m].iter().filter_map(|&x| leaf_of[x])).unwrap();
+    let ancestor = t.lca(p, mcc_root);
+    let edges = t.depth(p) + t.depth(mcc_root) - 2 * t.depth(ancestor);
+    let dist = match (t.divtime(p, ancestor), t.divtime(mcc_root, ancestor)) {
+      (Some(up), Some(down)) => up + down,
       _ => f64::INFINITY,
     };
     (edges, dist, std::cmp::Reverse(mccs[m].len()), m)
   };
   cand
     .into_iter()
-    .min_by(|&a, &b| key(a).partial_cmp(&key(b)).unwrap())
+    .min_by(|&lhs, &rhs| key(lhs).partial_cmp(&key(rhs)).unwrap())
     .expect("no MCC below attachment point")
 }
 

@@ -8,7 +8,7 @@ use crate::tree::{NodeId, Tree};
 
 pub struct Graph {
   /// Number of leaves.
-  pub n: usize,
+  pub(crate) n: usize,
   colors: Vec<Color>,
 }
 
@@ -167,19 +167,19 @@ impl Color {
     }
     for v in t.preorder() {
       if t.is_leaf(v) {
-        let x = t.taxon(v);
-        c.leaf_anc[x] = idx[t.parent(v).unwrap()];
-        c.leaf_children[c.leaf_anc[x]].push(x);
-        c.leaf_node[x] = v;
+        let taxon = t.taxon(v);
+        c.leaf_anc[taxon] = idx[t.parent(v).unwrap()];
+        c.leaf_children[c.leaf_anc[taxon]].push(taxon);
+        c.leaf_node[taxon] = v;
         continue;
       }
-      let i = c.clade.len();
-      idx[v] = i;
-      let p = t.parent(v).map(|p| idx[p]);
-      if let Some(p) = p {
-        c.children[p].push(i);
+      let index = c.clade.len();
+      idx[v] = index;
+      let parent = t.parent(v).map(|tp| idx[tp]);
+      if let Some(parent) = parent {
+        c.children[parent].push(index);
       }
-      c.parent.push(p);
+      c.parent.push(parent);
       c.children.push(vec![]);
       c.leaf_children.push(vec![]);
       c.tree_node.push(v);

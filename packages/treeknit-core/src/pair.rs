@@ -89,6 +89,10 @@ fn remove_mccs(t1: &Tree, t2: &Tree, n_taxa: usize, p: &PairParams, m: usize, rn
 
 /// Pick one of several optimal configurations: drop the trivial one, then maximise the
 /// branch-length likelihood, then minimise energy, then choose at random.
+#[expect(
+  clippy::float_cmp,
+  reason = "only configurations of exactly the maximal likelihood are kept, as in TreeKnit.jl"
+)]
 fn choose_conf(confs: Vec<Bits>, g: &Graph, trees: &[&Tree], p: &PairParams, rng: &mut impl Rng) -> Bits {
   let mut confs: Vec<Bits> = confs.into_iter().filter(|c| c.count_ones(..) < g.n).collect();
   if confs.len() > 1 && p.likelihood_sort {

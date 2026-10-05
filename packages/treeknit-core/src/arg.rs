@@ -190,8 +190,10 @@ fn shared_nodes(t1: &Tree, t2: &Tree, mccs: &[Mcc], n: usize) -> Result<(StatusM
     };
     for &x in m {
       let (mut n1, mut n2) = (l1[x].unwrap(), l2[x].unwrap());
-      x1.entry(n1).or_insert(st(Kind::Shared, Some(n2), n2 == t2.root, id));
-      x2.entry(n2).or_insert(st(Kind::Shared, Some(n1), n1 == t1.root, id));
+      x1.entry(n1)
+        .or_insert_with(|| st(Kind::Shared, Some(n2), n2 == t2.root, id));
+      x2.entry(n2)
+        .or_insert_with(|| st(Kind::Shared, Some(n1), n1 == t1.root, id));
       while n1 != a1 || n2 != a2 {
         let (p1, p2) = (t1.parent(n1), t2.parent(n2));
         if p1.is_some_and(|p| x1.contains_key(&p)) && p2.is_some_and(|p| x2.contains_key(&p)) {
@@ -202,8 +204,10 @@ fn shared_nodes(t1: &Tree, t2: &Tree, mccs: &[Mcc], n: usize) -> Result<(StatusM
         match (s1, s2) {
           (Some(false), Some(false)) => {
             let (p1, p2) = (p1.unwrap(), p2.unwrap());
-            x1.entry(p1).or_insert(st(Kind::Shared, Some(p2), p2 == t2.root, id));
-            x2.entry(p2).or_insert(st(Kind::Shared, Some(p1), p1 == t1.root, id));
+            x1.entry(p1)
+              .or_insert_with(|| st(Kind::Shared, Some(p2), p2 == t2.root, id));
+            x2.entry(p2)
+              .or_insert_with(|| st(Kind::Shared, Some(p1), p1 == t1.root, id));
             n1 = p1;
             n2 = p2;
             continue;
@@ -398,12 +402,12 @@ impl Builder {
     lm.insert(t.root, r);
     let mut stack: Vec<(usize, NodeId)> = t.children(t.root).iter().rev().map(|&c| (r, c)).collect();
     while let Some((a, tn)) = stack.pop() {
-      let s = x[&tn];
-      let an = if s.kind == Kind::MccRoot && !s.partner_is_root {
-        let h = self.new_node(true);
-        self.graft(a, h, 0);
+      let status = x[&tn];
+      let an = if status.kind == Kind::MccRoot && !status.partner_is_root {
+        let hybrid = self.new_node(true);
+        self.graft(a, hybrid, 0);
         let an = self.new_node(false);
-        self.graft(h, an, 0);
+        self.graft(hybrid, an, 0);
         an
       } else {
         let an = self.new_node(false);
@@ -433,31 +437,31 @@ impl Builder {
     lm.insert(t.root, r);
     let mut stack: Vec<(usize, NodeId)> = t.children(t.root).iter().rev().map(|&c| (r, c)).collect();
     while let Some((a, tn)) = stack.pop() {
-      let s = x[&tn];
-      let an = match s.kind {
+      let status = x[&tn];
+      let an = match status.kind {
         Kind::NonShared => {
           let an = self.new_node(false);
           self.graft(a, an, 1);
           an
         },
         Kind::MccRoot => {
-          let an = lmref[&s.partner.unwrap()];
-          if s.partner_is_root {
+          let an = lmref[&status.partner.unwrap()];
+          if status.partner_is_root {
             self.graft(a, an, 1);
           } else {
-            let Anc::Node(h) = self.nodes[an].anc[0] else {
+            let Anc::Node(hybrid) = self.nodes[an].anc[0] else {
               return Err(ArgError("MCC root without hybrid parent".into()));
             };
-            if !self.nodes[h].hybrid {
+            if !self.nodes[hybrid].hybrid {
               return Err(ArgError("MCC root without hybrid parent".into()));
             }
-            self.graft(a, h, 1);
-            self.graft(h, an, 1);
+            self.graft(a, hybrid, 1);
+            self.graft(hybrid, an, 1);
           }
           an
         },
         Kind::Shared => {
-          let an = lmref[&s.partner.unwrap()];
+          let an = lmref[&status.partner.unwrap()];
           if self.nodes[an].anc[0] != Anc::Node(a) {
             return Err(ArgError(format!("shared node {} has different parents", t.name(tn))));
           }
@@ -548,10 +552,6 @@ mod tests {
     assert_eq!(arg.n_hybrids(), 1);
     for c in 0..2 {
       let mut seg = arg.segment_tree(c);
-      let mut ids = Vec::new();
-      for l in seg.leaves() {
-        ids.push(seg.name(l).to_owned());
-      }
       seg.assign_taxa(&taxa).unwrap();
       let mut orig = ts[c].clone();
       orig.remove_unary();

@@ -390,6 +390,7 @@ impl Tree {
   }
 
   /// Copy without unreachable nodes; node ids are renumbered in preorder.
+  #[must_use]
   pub fn compacted(&self) -> Tree {
     let order = self.preorder();
     let mut map = vec![usize::MAX; self.nodes.len()];
@@ -456,8 +457,8 @@ pub(crate) mod test_util {
       if s[*i] == b'(' {
         *i += 1;
         loop {
-          let c = rec(t, s, i, Some(n));
-          t.attach(n, c);
+          let child = rec(t, s, i, Some(n));
+          t.attach(n, child);
           let ch = s[*i];
           *i += 1;
           if ch == b')' {

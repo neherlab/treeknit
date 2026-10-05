@@ -13,7 +13,7 @@ pub fn extended_newick(arg: &Arg) -> String {
   };
   let [r1, r2] = arg.roots;
   if r1 == r2 {
-    return w.node(r1, None) + ";";
+    return format!("{};", w.node(r1, None));
   }
   let (s1, s2) = (arg.nodes[r1].is_shared(), arg.nodes[r2].is_shared());
   match (s1, s2) {
@@ -22,8 +22,8 @@ pub fn extended_newick(arg: &Arg) -> String {
       w.node(r1, None),
       w.node(r2, None)
     ),
-    (true, _) => w.node(r2, None) + ";",
-    (false, true) => w.node(r1, None) + ";",
+    (true, _) => format!("{};", w.node(r2, None)),
+    (false, true) => format!("{};", w.node(r1, None)),
   }
 }
 
@@ -53,7 +53,8 @@ impl Writer<'_> {
     }
     s.push_str(&node.label);
     if node.hybrid {
-      s.push_str(&format!("#H{}", self.hybrids[&n]));
+      s.push_str("#H");
+      s.push_str(&self.hybrids[&n].to_string());
     }
     s.push_str(&self.data(n, anc));
     s

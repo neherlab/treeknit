@@ -149,10 +149,11 @@ pub fn parse(s: &str, label: &str) -> Result<Tree, ParseError> {
 /// Parse the first tree of a Newick file's content.
 pub fn parse_first(content: &str, label: &str) -> Result<Tree, ParseError> {
   let end = content.find(';').ok_or_else(|| ParseError("no ';' found".into()))?;
-  if content[end + 1..].contains(';') {
+  let (first, rest) = content.split_at(end + 1);
+  if rest.contains(';') {
     log::warn!("{label}: more than one tree in file, using the first");
   }
-  parse(&content[..=end], label)
+  parse(first, label)
 }
 
 fn fix_names(t: &mut Tree) -> Result<(), ParseError> {
@@ -198,13 +199,13 @@ fn quote(name: &str) -> String {
 
 /// Newick string of `t`, with internal labels and branch lengths.
 pub fn write(t: &Tree) -> String {
-  let mut s = String::new();
   // Iterative writer to avoid deep recursion on ladder-like trees.
   enum Step {
     Enter(NodeId),
     Exit(NodeId),
     Comma,
   }
+  let mut s = String::new();
   let mut stack = vec![Step::Enter(t.root)];
   while let Some(step) = stack.pop() {
     match step {

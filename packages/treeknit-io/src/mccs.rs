@@ -46,7 +46,9 @@ pub fn from_json(v: &Value) -> Result<Vec<NamedPair>, String> {
   for e in dict.values() {
     let trees: Vec<String> = serde_json::from_value(e["trees"].clone()).map_err(|e| e.to_string())?;
     let mccs: Vec<Vec<String>> = serde_json::from_value(e["mccs"].clone()).map_err(|e| e.to_string())?;
-    let [a, b]: [String; 2] = trees.try_into().map_err(|_| "expected two tree labels")?;
+    let [a, b]: [String; 2] = trees
+      .try_into()
+      .map_err(|labels: Vec<String>| format!("expected two tree labels, found {}", labels.len()))?;
     out.push(([a, b], mccs));
   }
   Ok(out)
