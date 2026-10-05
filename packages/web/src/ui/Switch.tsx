@@ -15,7 +15,7 @@ export function Switch({ label, info, description, className, ...props }: Switch
             className={cn(
               "rounded-control border-ink-muted bg-ground inline-flex h-4.5 w-8 shrink-0 items-center border p-0.5",
               "transition-colors duration-150 motion-reduce:transition-none",
-              "group-data-hovered:border-ink group-data-selected:border-ink group-data-selected:bg-ink",
+              "group-data-hovered:border-ink group-data-selected:border-focus group-data-selected:bg-focus",
               "group-data-disabled:opacity-50",
               groupFocusRing,
             )}
