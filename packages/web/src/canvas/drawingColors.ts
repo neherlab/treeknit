@@ -1,5 +1,8 @@
 import type { ThemeColors } from "@neherlab/treeknit-wasm";
-import { useSyncExternalStore } from "react";
+import { useTheme } from "next-themes";
+import { useMemo, useSyncExternalStore } from "react";
+
+import { usePalette } from "../analysis/queries";
 
 import { parseColor, type Rgba } from "./color";
 
@@ -59,6 +62,30 @@ export function readDrawingColors(style: CustomProperties): DrawingColors {
     mcc: MCC_TOKENS.map((name) => readToken(style, name)),
     mccNone: readToken(style, NAMED_TOKENS.mccNone),
   };
+}
+
+export function paletteDrawingColors(theme: ThemeColors): DrawingColors {
+  return {
+    ground: paletteColor("ground", theme.ground),
+    ink: paletteColor("ink", theme.ink),
+    inkMuted: paletteColor("inkMuted", theme.inkMuted),
+    signal: paletteColor("signal", theme.signal),
+    focus: paletteColor("focus", theme.focus),
+    segmentA: paletteColor("segmentA", theme.segmentA),
+    segmentB: paletteColor("segmentB", theme.segmentB),
+    mcc: theme.mcc.map((color, slot) => paletteColor(`mcc[${String(slot)}]`, color)),
+    mccNone: paletteColor("noMcc", theme.noMcc),
+  };
+}
+
+function paletteColor(name: string, value: string): Rgba {
+  const color = parseColor(value);
+
+  if (color === undefined) {
+    throw new Error(`The palette color ${name} is "${value}", which is not a hex or rgb() color`);
+  }
+
+  return color;
 }
 
 export function mccColor(colors: DrawingColors, slot: number | null | undefined): Rgba {
@@ -143,5 +170,15 @@ function snapshot(): DrawingColors {
 }
 
 export function useDrawingColors(): DrawingColors {
-  return useSyncExternalStore(subscribe, snapshot);
+  const palette = usePalette();
+  const { resolvedTheme } = useTheme();
+  const tokenColors = useSyncExternalStore(subscribe, snapshot);
+  const theme = palette.data === undefined ? undefined : palette.data[resolvedTheme === "dark" ? "dark" : "light"];
+  const themeColors = useMemo(() => (theme === undefined ? undefined : paletteDrawingColors(theme)), [theme]);
+
+  if (palette.isError) {
+    throw palette.error;
+  }
+
+  return themeColors ?? tokenColors;
 }

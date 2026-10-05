@@ -1,7 +1,16 @@
 import { describe, expect, test } from "vitest";
 
 import { parseColor, withOpacity } from "../color";
-import { type CustomProperties, MCC_SLOT_COUNT, mccColor, nextColorReading, readDrawingColors } from "../drawingColors";
+import type { ThemeColors } from "@neherlab/treeknit-wasm";
+
+import {
+  type CustomProperties,
+  MCC_SLOT_COUNT,
+  mccColor,
+  nextColorReading,
+  paletteDrawingColors,
+  readDrawingColors,
+} from "../drawingColors";
 
 describe("parseColor", () => {
   test.each([
@@ -74,6 +83,38 @@ describe("readDrawingColors", () => {
 
   test("names the token that holds no color", () => {
     expect(() => readDrawingColors(tokens({ ...LIGHT, "--color-mcc-3": "" }))).toThrow("--color-mcc-3");
+  });
+});
+
+describe("paletteDrawingColors", () => {
+  const theme: ThemeColors = {
+    mcc: ["#000001", "#000002", "#000003", "#000004", "#000005", "#000006", "#000007", "#000008"],
+    noMcc: "#000009",
+    ground: "#162024",
+    ink: "#dce4e1",
+    inkMuted: "#9aaaa6",
+    signal: "#e0619a",
+    focus: "#7da2f0",
+    segmentA: "#406e8f",
+    segmentB: "#8a6a3e",
+  };
+
+  test("takes every drawing color from the palette theme", () => {
+    expect(paletteDrawingColors(theme)).toStrictEqual({
+      ground: [22, 32, 36, 255],
+      ink: [220, 228, 225, 255],
+      inkMuted: [154, 170, 166, 255],
+      signal: [224, 97, 154, 255],
+      focus: [125, 162, 240, 255],
+      segmentA: [64, 110, 143, 255],
+      segmentB: [138, 106, 62, 255],
+      mcc: [1, 2, 3, 4, 5, 6, 7, 8].map((blue) => [0, 0, blue, 255]),
+      mccNone: [0, 0, 9, 255],
+    });
+  });
+
+  test("names the palette color that is not a color", () => {
+    expect(() => paletteDrawingColors({ ...theme, signal: "magenta" })).toThrow("signal");
   });
 });
 
