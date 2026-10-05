@@ -6,6 +6,7 @@ import { useAuspiceView } from "../analysis/queries";
 import { lazyCanvas, useLazyCanvas } from "../canvas/lazyCanvas";
 import { PairSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
+import { shownScaleNotice } from "../drawing/scale";
 import { useDrawingSearch } from "../drawing/useDrawingSearch";
 import { Button } from "../ui/Button";
 import { InlineNotice } from "../ui/InlineNotice";
@@ -46,6 +47,7 @@ function Auspice({ result }: { result: RunResult }) {
   return (
     <DrawingPanel
       toolbar={toolbar}
+      notice={shownScaleNotice(x, query.data?.scale, "pair")}
       query={query}
       loading="Loading the Auspice view"
       errorTitle="The Auspice view could not be loaded"

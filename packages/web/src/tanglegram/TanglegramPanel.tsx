@@ -19,6 +19,7 @@ import {
   useFocusRequest,
 } from "../drawing/focus";
 import { LeafSearch } from "../drawing/LeafSearch";
+import { shownScaleNotice } from "../drawing/scale";
 import { pairLeafNames, pairLeafRows, rowCount } from "../drawing/trees";
 import { useDrawingSearch, useFindLeaf } from "../drawing/useDrawingSearch";
 import { useDrawingView } from "../drawing/useDrawingView";
@@ -74,6 +75,7 @@ function Tanglegram({ result }: { result: RunResult }) {
     <DrawingPanel
       toolbar={toolbar}
       failure={figure.failure}
+      notice={shownScaleNotice(x, data?.scale, "pair")}
       query={query}
       loading="Loading the tanglegram"
       errorTitle="The tanglegram could not be loaded"

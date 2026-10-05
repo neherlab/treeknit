@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useKeyboard } from "react-aria";
 
-import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
+import { InlineNotice, NoticeRegion, type NoticeTone } from "../ui/InlineNotice";
 import { QueryState, type QueryStateProps } from "../ui/QueryState";
 
 const OTHER_VIEWS_AVAILABLE = "The tables and files are still available.";
@@ -41,7 +41,7 @@ export function DrawingPanel<T>({
       <NoticeRegion>
         {notice === undefined ? null : (
           <div className="px-3 pt-3">
-            <InlineNotice tone="warning">{notice}</InlineNotice>
+            <InlineNotice tone={notice.tone}>{notice.text}</InlineNotice>
           </div>
         )}
       </NoticeRegion>
@@ -56,10 +56,15 @@ export function DrawingPanel<T>({
 
 export interface DrawingPanelProps<T> extends Pick<QueryStateProps<T>, "query" | "loading" | "errorTitle"> {
   toolbar: ReactNode;
-  notice?: string | undefined;
+  notice?: DrawingNotice | undefined;
   failure?: DrawingFailure | undefined;
   onEscape: () => void;
   children: (data: T) => ReactNode;
+}
+
+export interface DrawingNotice {
+  tone: NoticeTone;
+  text: string;
 }
 
 export interface DrawingFailure {

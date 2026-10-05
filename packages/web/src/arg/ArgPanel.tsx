@@ -5,9 +5,10 @@ import { CanvasBoundary } from "../canvas/CanvasBoundary";
 import { lazyCanvas, useLazyCanvas } from "../canvas/lazyCanvas";
 import { ZoomControls } from "../canvas/ZoomControls";
 import { FigureButton, LabelModeSelect, ScaleToggle } from "../drawing/DrawingControls";
-import { DrawingPanel } from "../drawing/DrawingPanel";
+import { type DrawingNotice, DrawingPanel } from "../drawing/DrawingPanel";
 import { figureOptions } from "../drawing/figure";
 import { LeafSearch } from "../drawing/LeafSearch";
+import { shownScaleNotice } from "../drawing/scale";
 import { segmentLabels } from "../drawing/tooltip";
 import { argLeafNames, argLeafRows, rowCount } from "../drawing/trees";
 import { useDrawingSearch, useFindLeaf } from "../drawing/useDrawingSearch";
@@ -54,10 +55,18 @@ function Arg({ result }: { result: RunResult }) {
     </>
   );
 
-  const notice =
-    failure === undefined
-      ? undefined
-      : `The ARG could not be built: ${failure}. The MCCs and the other files are still valid.`;
+  const shownScale = data?.scale;
+
+  const notice = useMemo<DrawingNotice | undefined>(
+    () =>
+      failure === undefined
+        ? shownScaleNotice(x, shownScale, "arg")
+        : {
+            tone: "warning",
+            text: `The ARG could not be built: ${failure}. The MCCs and the other files are still valid.`,
+          },
+    [failure, x, shownScale],
+  );
 
   return (
     <DrawingPanel

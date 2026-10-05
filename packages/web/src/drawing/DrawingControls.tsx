@@ -8,8 +8,7 @@ import { DisabledButton } from "../ui/DisabledButton";
 import { Select, type SelectOption } from "../ui/Select";
 import { ToggleButton, ToggleButtonGroup } from "../ui/ToggleButtonGroup";
 import { LABEL_MODES, TREE_VERSIONS, X_SCALES } from "../workspace/search";
-
-const SCALE_LABELS: Record<Scale, string> = { div: "Divergence", depth: "Cladogram" };
+import { SCALE_LABELS } from "./scale";
 
 const VERSION_LABELS: Record<TreeVersion, string> = { input: "Input", resolved: "Resolved", imputed: "Imputed" };
 
