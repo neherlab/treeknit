@@ -2,11 +2,12 @@
 //!
 //! The completed fraction of a run is `PAIRS_SHARE * (r + (p + within) / pairs) / rounds`, where
 //! `r` is the number of completed rounds, `p` the number of completed pairs of the current round,
-//! and `within` the completed fraction of the current pair (see `iterations_done`). The `round`
-//! and `pair` of a [`Progress`] are 1-based: they name the round and pair in progress, so they
-//! are `r + 1` and `p + 1`. The work after the last round (topology
-//! matching, sorting, attachment) reports no intermediate progress, so it gets the rest up to 1,
-//! which only the end of the run reports.
+//! and `within` the completed fraction of the current pair (see `iterations_done`). In
+//! [`Phase::Pairs`], the `round` and `pair` of a [`Progress`] are 1-based: they name the round
+//! and pair in progress, so they are `r + 1` and `p + 1`; in [`Phase::Matching`] and
+//! [`Phase::Done`] they are the numbers of rounds and pairs. The work after the last round
+//! (topology matching, sorting, attachment) reports no intermediate progress, so it gets the rest
+//! up to 1, which only the end of the run reports.
 //!
 //! [`PAIRS_SHARE`] is a display heuristic, not an estimate of time: the fraction is not
 //! proportional to elapsed or remaining time. The work after the last round can take most of a
