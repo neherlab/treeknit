@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+#
+# Usage: $0
+#
+# Print the port of the web app dev and preview servers of this checkout:
+# TREEKNIT_WEB_PORT when set, 6180 in the main checkout, and a port in 6181-6679
+# derived from the checkout path in a linked worktree, so the servers of
+# parallel worktrees do not collide.
+#
+set -euo pipefail
+shopt -s inherit_errexit
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+
+if [[ -n "${TREEKNIT_WEB_PORT:-}" ]]; then
+  printf '%s\n' "${TREEKNIT_WEB_PORT}"
+elif [[ "$(git -C "${root}" rev-parse --path-format=absolute --git-common-dir)" == "$(git -C "${root}" rev-parse --path-format=absolute --git-dir)" ]]; then
+  printf '6180\n'
+else
+  hash="$(printf '%s' "${root}" | cksum | cut -d ' ' -f 1)"
+  printf '%s\n' "$((6181 + hash % 499))"
+fi
