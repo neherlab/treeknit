@@ -9,7 +9,9 @@ const ELLIPSIS: char = '\u{2026}';
 /// `name` shortened in the middle to at most `max` characters (Unicode scalar values), with an
 /// ellipsis in place of the removed characters: the first half of the kept characters (rounded
 /// up), the ellipsis, then the rest from the end. Empty for `max` 0, where not even the ellipsis
-/// fits.
+/// fits. The standard library has no grapheme clusters, so a cut can separate a combining mark
+/// from its letter or split an emoji sequence; the interactive views show these shortened
+/// labels, so both surfaces cut alike.
 pub fn shorten(name: &str, max: usize) -> String {
   let chars: Vec<char> = name.chars().collect();
   if chars.len() <= max {
@@ -77,6 +79,9 @@ mod tests {
   #[case::multibyte( "αβγδεζηθ",            4,  "αβ\u{2026}θ")]
   #[case::one(       "abc",                 1,  "\u{2026}")]
   #[case::none(      "abc",                 0,  "")]
+  // Oracle: the combining acute accent U+0301 is a character of its own, so the cut after two
+  // characters drops it from its letter.
+  #[case::combining( "ae\u{301}xyz",          4,  "ae\u{2026}z")]
   #[case::empty(     "",                    0,  "")]
   #[trace]
   fn shorten_keeps_the_start_and_the_end(#[case] name: &str, #[case] max: usize, #[case] expected: &str) {
