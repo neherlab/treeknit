@@ -32,6 +32,7 @@ const RESULT: RunResult = {
       { label: "na", newick: "((A,(B,X)),(C,D));" },
     ],
   },
+  durationMs: 4200,
 };
 
 const NOTHING_LOADED: LoadedViews = { pairView: () => undefined, argView: () => undefined };

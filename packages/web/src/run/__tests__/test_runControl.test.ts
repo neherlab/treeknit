@@ -11,6 +11,7 @@ import {
   progressLabel,
   progressPercent,
   runBlockedReason,
+  runTime,
   type ShortcutKey,
   STARTING_RUN,
   validationState,
@@ -123,5 +124,9 @@ describe("run control", () => {
       repeated: false,
       composing: false,
     });
+  });
+
+  test("writes the run time as a span, and a run under one second as under 1s", () => {
+    expect([0, 999, 1000, 4200, 90_000].map(runTime)).toStrictEqual(["under 1s", "under 1s", "1s", "4s", "1m 30s"]);
   });
 });

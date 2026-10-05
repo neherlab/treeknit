@@ -1,6 +1,8 @@
 import type { Progress, ValidationError } from "@neherlab/treeknit-wasm";
 import { match } from "ts-pattern";
 
+import { formatSpan } from "../format/elapsed";
+
 export const ADD_ANOTHER_TREE = "Add at least one more tree";
 
 export const FIX_THE_ERRORS = "Fix the errors above";
@@ -14,6 +16,8 @@ export const MATCHING_TOPOLOGIES = "Matching topologies";
 export const STARTING_RUN = "Starting";
 
 const MIN_TREES = 2;
+
+const SECOND_MS = 1000;
 
 export type ValidationState = "checking" | "failed" | "checked";
 
@@ -98,4 +102,8 @@ export function isRunShortcut({ key, ctrlKey, metaKey, altKey, shiftKey, repeat,
 
 export function isBehindModal(element: Element): boolean {
   return element.closest("[inert]") !== null;
+}
+
+export function runTime(durationMs: number): string {
+  return durationMs < SECOND_MS ? `under ${formatSpan(SECOND_MS)}` : formatSpan(durationMs);
 }

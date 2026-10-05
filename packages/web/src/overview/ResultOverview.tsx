@@ -2,6 +2,7 @@ import { type ReactNode, useCallback, useMemo } from "react";
 import { match } from "ts-pattern";
 
 import { counted, formatCount } from "../format/count";
+import { runTime } from "../run/runControl";
 import { InfoButton } from "../ui/InfoButton";
 import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
 import { Link } from "../ui/Link";
@@ -93,7 +94,8 @@ export function ResultOverview({ result }: ResultOverviewProps) {
         </div>
       )}
       <p className="text-ink-muted text-xs">
-        {counted(labels.length, "tree", "trees")}, {counted(overview.rows.length, "pair", "pairs")}
+        {counted(labels.length, "tree", "trees")}, {counted(overview.rows.length, "pair", "pairs")}, finished in{" "}
+        {runTime(result.durationMs)}
       </p>
     </section>
   );

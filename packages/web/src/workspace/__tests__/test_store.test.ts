@@ -8,6 +8,7 @@ import type {
 } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
+import type { Clock } from "../../run/clock";
 import {
   createWorkspaceStore,
   type RestoredWorkspace,
@@ -529,10 +530,10 @@ describe("workspace store", () => {
   });
 
   test("records progress and the outcome of the current run only", async () => {
-    const store = await storeWith(["ha.nwk", "na.nwk"]);
+    const store = await storeWith(["ha.nwk", "na.nwk"], fixedClock(1000));
     const progress = { phase: "pairs" as const, fraction: 0.5, round: 1, rounds: 1, pair: 1, pairs: 1 };
 
-    store.getState().runStarted(2, selectRequest(store.getState()), 1000);
+    store.getState().runStarted(2, selectRequest(store.getState()));
     store.getState().runProgressed(1, { ...progress, fraction: 0.9 });
     store.getState().runProgressed(2, progress);
     store.getState().runFinished(1, { status: "succeeded", sessionId: 1, summary: SUMMARY });
@@ -570,7 +571,7 @@ describe("workspace store", () => {
     const after = replacements.map((replace, index) => {
       const runId = index + 1;
 
-      store.getState().runStarted(runId, selectRequest(store.getState()), 0);
+      store.getState().runStarted(runId, selectRequest(store.getState()));
       replace();
       store.getState().runFinished(runId, { status: "succeeded", sessionId: runId, summary: SUMMARY });
 
@@ -598,11 +599,20 @@ describe("workspace store", () => {
     expect(services.cancelled).toBe(0);
   });
 
+  test("keeps the run time of a successful run with its result, measured by the store clock", async () => {
+    const times = [1000, 5200];
+    const store = await storeWith(["ha.nwk", "na.nwk"], () => times.shift() ?? Number.NaN);
+
+    finishRun(store, 1);
+
+    expect(store.getState().result?.durationMs).toBe(4200);
+  });
+
   test("a failed run keeps the earlier result", async () => {
     const store = await storeWith(["ha.nwk", "na.nwk"]);
 
     finishRun(store, 1);
-    store.getState().runStarted(2, selectRequest(store.getState()), 0);
+    store.getState().runStarted(2, selectRequest(store.getState()));
     store.getState().runFinished(2, { status: "failed", kind: "internal", message: "boom" });
 
     expect(store.getState().result?.sessionId).toBe(1);
@@ -612,7 +622,7 @@ describe("workspace store", () => {
     const store = await storeWith(["ha.nwk", "na.nwk"]);
     const request = selectRequest(store.getState());
 
-    store.getState().runStarted(1, request, 0);
+    store.getState().runStarted(1, request);
     store.getState().setSettings({ ...store.getState().settings, gamma: 9 });
     store.getState().runFinished(1, { status: "failed", kind: "internal", message: "boom" });
     const { run } = store.getState();
@@ -760,20 +770,24 @@ class Gate {
   }
 }
 
-async function storeWith(fileNames: string[]): Promise<WorkspaceStore> {
-  const store = newStore();
+async function storeWith(fileNames: string[], clock?: Clock): Promise<WorkspaceStore> {
+  const store = newStore(clock);
 
   await store.getState().addTrees(fileNames.map((name) => ({ newick: HA, source: { kind: "file", name } })));
 
   return store;
 }
 
-function newStore(): WorkspaceStore {
-  return createWorkspaceStore(fakeServices(), { defaults: DEFAULTS, restored: null });
+function newStore(clock?: Clock): WorkspaceStore {
+  return createWorkspaceStore(fakeServices(), { defaults: DEFAULTS, restored: null }, clock);
+}
+
+function fixedClock(time: number): Clock {
+  return () => time;
 }
 
 function finishRun(store: WorkspaceStore, runId: number): void {
-  store.getState().runStarted(runId, selectRequest(store.getState()), 0);
+  store.getState().runStarted(runId, selectRequest(store.getState()));
   store.getState().runFinished(runId, { status: "succeeded", sessionId: runId, summary: SUMMARY });
 }
 

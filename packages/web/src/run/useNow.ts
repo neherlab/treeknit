@@ -1,10 +1,11 @@
-import { DateTime } from "luxon";
 import { useEffect, useState } from "react";
+
+import { monotonicClock } from "./clock";
 
 const TICK_MS = 1000;
 
 export function useNow(ticking: boolean): number {
-  const [now, setNow] = useState(() => DateTime.now().toMillis());
+  const [now, setNow] = useState(monotonicClock);
 
   useEffect(() => {
     if (!ticking) {
@@ -12,7 +13,7 @@ export function useNow(ticking: boolean): number {
     }
 
     const timer = setInterval(() => {
-      setNow(DateTime.now().toMillis());
+      setNow(monotonicClock());
     }, TICK_MS);
 
     return () => {

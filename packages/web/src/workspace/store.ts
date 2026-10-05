@@ -5,6 +5,7 @@ import { immer } from "zustand/middleware/immer";
 import { createStore, type StoreApi } from "zustand/vanilla";
 
 import { type FailureKind, RESULTS_LOST_MESSAGE, type RunOutcome } from "../analysis/client";
+import { type Clock, monotonicClock } from "../run/clock";
 import { SESSION_SOURCE, sourceFileName, type TreeSource } from "./treeSource";
 
 export interface WorkspaceTree {
@@ -30,6 +31,7 @@ export interface RunResult {
   sessionId: number;
   summary: Summary;
   request: AnalysisRequest;
+  durationMs: number;
 }
 
 export type UndoEntry =
@@ -67,7 +69,7 @@ export interface WorkspaceActions {
   setSeqLengthsEnabled(enabled: boolean): Promise<void>;
   clear(): void;
   loadRequest(request: AnalysisRequest): void;
-  runStarted(runId: number, request: AnalysisRequest, startedAt: number): void;
+  runStarted(runId: number, request: AnalysisRequest): void;
   runProgressed(runId: number, progress: Progress): void;
   runFinished(runId: number, outcome: RunOutcome): void;
   resultLost(sessionId: number): void;
@@ -107,7 +109,11 @@ const requestCache = new WeakMap<WorkspaceTree[], WeakMap<Settings, AnalysisRequ
 
 const textIdCache = new WeakMap<WorkspaceTree[], readonly number[]>();
 
-export function createWorkspaceStore(services: WorkspaceServices, start: WorkspaceStart): WorkspaceStore {
+export function createWorkspaceStore(
+  services: WorkspaceServices,
+  start: WorkspaceStart,
+  clock: Clock = monotonicClock,
+): WorkspaceStore {
   const { defaults } = start;
 
   const restoredTrees =
@@ -378,7 +384,9 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
           });
         },
 
-        runStarted(runId, request, startedAt) {
+        runStarted(runId, request) {
+          const startedAt = clock();
+
           set((state) => {
             state.run = { status: "running", runId, request, progress: null, startedAt };
             state.restored = false;
@@ -394,6 +402,8 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
         },
 
         runFinished(runId, outcome) {
+          const finishedAt = clock();
+
           set((state) => {
             const run = state.run;
 
@@ -403,7 +413,7 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
 
             match(outcome)
               .with({ status: "succeeded" }, ({ sessionId, summary }) => {
-                state.result = { sessionId, summary, request: run.request };
+                state.result = { sessionId, summary, request: run.request, durationMs: finishedAt - run.startedAt };
                 state.run = { status: "idle" };
 
                 if (state.undo?.kind === "workspace") {

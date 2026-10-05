@@ -1,5 +1,4 @@
 import { useMutation } from "@tanstack/react-query";
-import { DateTime } from "luxon";
 import { useCallback } from "react";
 
 import type { RunHandle, RunOutcome } from "../analysis/client";
@@ -41,7 +40,7 @@ export function useRunAnalysis(): RunControl {
       store.getState().runProgressed(handle.runId, progress);
     });
 
-    store.getState().runStarted(handle.runId, request, DateTime.now().toMillis());
+    store.getState().runStarted(handle.runId, request);
     mutate(handle);
   }, [client, store, mutate]);
 
