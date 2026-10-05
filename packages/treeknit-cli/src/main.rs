@@ -4,6 +4,7 @@
 use anyhow::{Context, Result, bail};
 use clap::Parser;
 use simplelog::{ColorChoice, CombinedLogger, ConfigBuilder, LevelFilter, TermLogger, TerminalMode, WriteLogger};
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -538,7 +539,8 @@ fn former_options(cli: &Cli, k: usize) -> Options {
 
 /// Labels of the command line for tree files: the file stem, or, when stems collide, the stem
 /// and the parent directory (`a/ha.nwk` and `b/ha.nwk` give `ha_a` and `ha_b`); a remaining
-/// collision is an error. The web app labels trees by file name only
+/// collision is an error. Labels collide when their `analysis::label_key` is equal, as in the
+/// label check, so `a/HA.nwk` and `b/ha.nwk` also get the parent directory. The web app labels trees by file name only
 /// (`treeknit_io::analysis::tree_labels`), because it has no directories.
 fn path_labels(paths: &[PathBuf]) -> Result<Vec<String>> {
   let stem = |p: &Path| {
@@ -547,7 +549,7 @@ fn path_labels(paths: &[PathBuf]) -> Result<Vec<String>> {
       .unwrap_or_default()
   };
   let mut labels: Vec<String> = paths.iter().map(|p| stem(p)).collect();
-  let unique = |v: &[String]| v.iter().collect::<std::collections::BTreeSet<_>>().len() == v.len();
+  let unique = |v: &[String]| v.iter().map(|l| analysis::label_key(l)).collect::<BTreeSet<_>>().len() == v.len();
   if !unique(&labels) {
     labels = paths
       .iter()

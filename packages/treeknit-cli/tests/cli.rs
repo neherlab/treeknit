@@ -269,23 +269,30 @@ mod tests {
     );
   }
 
-  #[test]
-  fn files_with_one_stem_give_resolved_trees_named_by_label() {
-    // Both files are named `ha.nwk`, so their labels get the directory: `ha_a` and `ha_b`.
-    let dir = TempDir::new("stems-dirs");
-    for (sub, newick) in [("a", HA), ("b", NA)] {
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::same_stem(      "stems-dirs", ("ha", "ha"), ["ha_a_resolved.nwk", "ha_b_resolved.nwk"], "ha_resolved.nwk")]
+  #[case::stems_in_case(  "stems-case", ("HA", "ha"), ["HA_a_resolved.nwk", "ha_b_resolved.nwk"], "HA_resolved.nwk")]
+  #[trace]
+  fn files_with_one_stem_give_resolved_trees_named_by_label(
+    #[case] name: &str,
+    #[case] (stem_a, stem_b): (&str, &str),
+    #[case] written: [&str; 2],
+    #[case] absent: &str,
+  ) {
+    // Stems that are equal, or equal ignoring case as in the label check, give each label its
+    // directory: `a/HA.nwk` and `b/ha.nwk` are `HA_a` and `ha_b`.
+    let dir = TempDir::new(name);
+    for (sub, stem, newick) in [("a", stem_a, HA), ("b", stem_b, NA)] {
       std::fs::create_dir_all(dir.path().join(sub)).unwrap();
-      write_trees(&dir.path().join(sub), &[("ha", newick)]);
+      write_trees(&dir.path().join(sub), &[(stem, newick)]);
     }
     let out = dir.path().join("out");
-    let a = dir.path().join("a/ha.nwk");
-    let b = dir.path().join("b/ha.nwk");
+    let a = dir.path().join(format!("a/{stem_a}.nwk"));
+    let b = dir.path().join(format!("b/{stem_b}.nwk"));
     run(&[a.to_str().unwrap(), b.to_str().unwrap()], &out);
-    let resolved: Vec<bool> = ["ha_a_resolved.nwk", "ha_b_resolved.nwk", "ha_resolved.nwk"]
-      .iter()
-      .map(|f| out.join(f).exists())
-      .collect();
-    assert_eq!(vec![true, true, false], resolved);
+    let present: Vec<bool> = [written[0], written[1], absent].iter().map(|f| out.join(f).exists()).collect();
+    assert_eq!(vec![true, true, false], present);
   }
 
   /// Write a session file with the trees `HA` and `NA`, labeled `ha` and `na`, and `settings`.

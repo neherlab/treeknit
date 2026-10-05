@@ -348,7 +348,7 @@ pub fn read_request(text: &str) -> Result<AnalysisRequest, Vec<ValidationError>>
 /// directory when stems collide), because it has directories to tell equal file names apart;
 /// the web app has file names only.
 pub fn tree_labels(file_names: &[String], existing_labels: &[String]) -> Vec<String> {
-  let mut taken: std::collections::BTreeSet<String> = existing_labels.iter().map(|l| l.to_lowercase()).collect();
+  let mut taken: std::collections::BTreeSet<String> = existing_labels.iter().map(|l| label_key(l)).collect();
   file_names
     .iter()
     .map(|name| {
@@ -359,14 +359,23 @@ pub fn tree_labels(file_names: &[String], existing_labels: &[String]) -> Vec<Str
       let base = if stem.is_empty() { "tree" } else { stem };
       let mut label = base.to_owned();
       let mut suffix = 1;
-      while taken.contains(&label.to_lowercase()) {
+      while taken.contains(&label_key(&label)) {
         suffix += 1;
         label = format!("{base}_{suffix}");
       }
-      taken.insert(label.to_lowercase());
+      taken.insert(label_key(&label));
       label
     })
     .collect()
+}
+
+/// Key under which labels name the same output files: labels with equal keys are repeated
+/// labels, because the file systems of macOS and Windows ignore case. The key lowercases each
+/// character on its own, so that a letter has one key wherever it stands in the label (`Σ` and
+/// `σ` both give `σ`, while `str::to_lowercase` gives a final `ς`). Unicode normalization and
+/// full case folding are not applied (`kb/issues/M-label-check-misses-file-system-name-rules.md`).
+pub fn label_key(label: &str) -> String {
+  label.chars().flat_map(char::to_lowercase).collect()
 }
 
 /// File-name stem of the pair of trees labeled `a` and `b`, as in `MCCs_<a>_<b>.dat`.
@@ -396,8 +405,8 @@ const RESERVED_CHARS: [char; 7] = ['<', '>', ':', '"', '|', '?', '*'];
 
 /// A label is also a file-name stem of the outputs, so it must name a file in the results
 /// directory on every release target: no path separator, no character reserved on Windows, no
-/// control character, and neither `.` nor `..`. Labels that differ only in case are repeated
-/// labels, because the file systems of macOS and Windows ignore case.
+/// control character, and neither `.` nor `..`. Labels with the same [`label_key`], such as
+/// labels that differ only in case, are repeated labels.
 ///
 /// Return the error of each label, in the order of `trees`.
 fn check_labels(trees: &[TreeText]) -> Vec<Option<ValidationError>> {
@@ -417,7 +426,7 @@ fn check_labels(trees: &[TreeText]) -> Vec<Option<ValidationError>> {
     } else if l == "." || l == ".." {
       Some(format!("tree label {l:?} is not a file name"))
     } else {
-      match seen.entry(l.to_lowercase()) {
+      match seen.entry(label_key(l)) {
         Entry::Vacant(e) => {
           e.insert(l);
           None
@@ -434,11 +443,11 @@ fn check_labels(trees: &[TreeText]) -> Vec<Option<ValidationError>> {
   errors
 }
 
-/// Pairs whose output files would get the same name, ignoring case as `check_labels` does:
+/// Pairs whose output files would get the same name, by the `label_key` of `check_labels`:
 /// `MCCs_<a>_<b>.dat` joins two labels with `_`, so the labels `a_b`, `c`, `a`, `b_c` give the
 /// pairs (0,1) and (2,3) one name. Only pairs of two `valid` labels are checked.
 fn check_pair_stems(trees: &[TreeText], valid: &[bool]) -> Vec<ValidationError> {
-  let mut first: BTreeMap<String, (usize, usize)> = BTreeMap::new();
+  let mut first: BTreeMap<String, (usize, usize, String)> = BTreeMap::new();
   let mut errors = Vec::new();
   for i in 0..trees.len() {
     for j in i + 1..trees.len() {
@@ -446,19 +455,24 @@ fn check_pair_stems(trees: &[TreeText], valid: &[bool]) -> Vec<ValidationError> 
         continue;
       }
       let stem = pair_stem(&trees[i].label, &trees[j].label);
-      match first.entry(stem.to_lowercase()) {
+      match first.entry(label_key(&stem)) {
         Entry::Occupied(e) => {
-          let &(a, b) = e.get();
+          let (a, b, first_stem) = e.get();
+          let names = if *first_stem == stem {
+            format!("the same output file names ({stem:?})")
+          } else {
+            format!("output file names ({first_stem:?} and {stem:?}) that differ only in case")
+          };
           errors.push(ValidationError::at(
             "trees",
             format!(
-              "tree pairs ({:?}, {:?}) and ({:?}, {:?}) give the same output file names ({stem:?}); rename a tree",
-              trees[a].label, trees[b].label, trees[i].label, trees[j].label
+              "tree pairs ({:?}, {:?}) and ({:?}, {:?}) give {names}; rename a tree",
+              trees[*a].label, trees[*b].label, trees[i].label, trees[j].label
             ),
           ));
         },
         Entry::Vacant(e) => {
-          e.insert((i, j));
+          e.insert((i, j, stem));
         },
       }
     }
@@ -720,7 +734,8 @@ mod tests {
   #[case::dot_dot(        &["..", "na"],               "trees[0].label",  "tree label \"..\" is not a file name")]
   #[case::pair_stems(     &["a_b", "c", "a", "b_c"],   "trees",           "tree pairs (\"a_b\", \"c\") and (\"a\", \"b_c\") give the same output file names (\"a_b_c\"); rename a tree")]
   #[case::case_only(      &["HA", "na", "ha"],         "trees[2].label",  "tree label \"ha\" differs from \"HA\" only in case, so their output files get the same name")]
-  #[case::pair_stems_case(&["a_b", "c", "A", "B_c"],   "trees",           "tree pairs (\"a_b\", \"c\") and (\"A\", \"B_c\") give the same output file names (\"A_B_c\"); rename a tree")]
+  #[case::final_sigma(    &["ΑΣ", "na", "ασ"],         "trees[2].label",  "tree label \"ασ\" differs from \"ΑΣ\" only in case, so their output files get the same name")]
+  #[case::pair_stems_case(&["a_b", "c", "A", "B_c"],   "trees",           "tree pairs (\"a_b\", \"c\") and (\"A\", \"B_c\") give output file names (\"a_b_c\" and \"A_B_c\") that differ only in case; rename a tree")]
   #[case::less_than(      &["ha", "a<b"],              "trees[1].label",  "tree label \"a<b\" must not contain any of <>:\"|?*")]
   #[case::greater_than(   &["ha", "a>b"],              "trees[1].label",  "tree label \"a>b\" must not contain any of <>:\"|?*")]
   #[case::colon(          &["ha", "a:b"],              "trees[1].label",  "tree label \"a:b\" must not contain any of <>:\"|?*")]
