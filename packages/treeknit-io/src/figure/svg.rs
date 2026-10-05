@@ -325,7 +325,8 @@ pub(super) struct LabelColumn {
 
 /// The label column for leaf `names`: as wide as the longest label (shortened to the limit of the
 /// drawing rules) and a gap on each side, at most `max_width` px. Labels that do not fit are
-/// shortened further. No column when `shown` is false or there are no names.
+/// shortened further. No column when `shown` is false, there are no names, or not one character
+/// fits.
 pub(super) fn label_column<'a>(names: impl Iterator<Item = &'a str>, shown: bool, max_width: f64) -> LabelColumn {
   let longest = if shown {
     names
@@ -347,9 +348,10 @@ pub(super) fn label_column<'a>(names: impl Iterator<Item = &'a str>, shown: bool
       max_chars: label_max_chars(),
     }
   } else {
+    let max_chars = chars_fitting(max_width - 2.0 * LABEL_GAP).min(label_max_chars());
     LabelColumn {
-      width: max_width,
-      max_chars: chars_fitting(max_width - 2.0 * LABEL_GAP).min(label_max_chars()),
+      width: if max_chars > 0 { max_width } else { 0.0 },
+      max_chars,
     }
   }
 }
@@ -610,6 +612,9 @@ mod tests {
   #[case::narrower(    &["0123456789", "abc"],    126.75, (79.5,   40))]
   #[case::too_long(    &["0123456789abcdefgh"],   126.75, (126.75, 17))]
   #[case::no_names(    &[],                       126.75, (0.0,    0))]
+  // 18 px leave 6 px between the gaps, less than one character.
+  #[case::no_room(     &["abc"],                  18.0,   (0.0,    0))]
+  #[case::one_char(    &["abc"],                  18.75,  (18.75,  1))]
   #[trace]
   fn label_column_fits_the_longest_label(
     #[case] names: &[&str],

@@ -8,11 +8,15 @@ const ELLIPSIS: char = '\u{2026}';
 
 /// `name` shortened in the middle to at most `max` characters (Unicode scalar values), with an
 /// ellipsis in place of the removed characters: the first half of the kept characters (rounded
-/// up), the ellipsis, then the rest from the end.
+/// up), the ellipsis, then the rest from the end. Empty for `max` 0, where not even the ellipsis
+/// fits.
 pub fn shorten(name: &str, max: usize) -> String {
   let chars: Vec<char> = name.chars().collect();
   if chars.len() <= max {
     return name.to_owned();
+  }
+  if max == 0 {
+    return String::new();
   }
   let kept = max.saturating_sub(1);
   let head = kept.div_ceil(2);
@@ -72,6 +76,8 @@ mod tests {
   #[case::even_kept( "abcdefgh",            5,  "ab\u{2026}gh")]
   #[case::multibyte( "αβγδεζηθ",            4,  "αβ\u{2026}θ")]
   #[case::one(       "abc",                 1,  "\u{2026}")]
+  #[case::none(      "abc",                 0,  "")]
+  #[case::empty(     "",                    0,  "")]
   #[trace]
   fn shorten_keeps_the_start_and_the_end(#[case] name: &str, #[case] max: usize, #[case] expected: &str) {
     assert_eq!(expected, shorten(name, max));
