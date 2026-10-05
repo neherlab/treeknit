@@ -106,11 +106,13 @@ export function examplePairView(): PairView {
       right: treeDrawing(right, slotOf),
       links: links.map((link, index) => ({
         link: index,
+        mcc: link.mcc,
         slot: slotOf(link.mcc),
         curve: sCurve([0, left.nodes[link.left]?.y ?? 0], [1, right.nodes[link.right]?.y ?? 0]),
       })),
       ribbons: blocks.map((block, index) => ({
         block: index,
+        mcc: block.mcc,
         slot: slotOf(block.mcc),
         outline: ribbonOutline(block.left, block.right),
       })),
@@ -154,13 +156,15 @@ export function exampleArgView(): ArgView {
     rootCase: "shared",
     // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated ArgView type
     shapes: {
-      edges: edges.map(({ parent, child, reticulation }, edge) => ({
+      edges: edges.map(({ parent, child, segments, reticulation }, edge) => ({
         edge,
+        segments,
+        reticulation,
         path: reticulation
           ? { kind: "curve", curve: sCurve(point(parent), point(child)) }
           : { kind: "elbow", points: [point(parent), [point(parent)[0], point(child)[1]], point(child)] },
       })),
-      marks: [{ kind: "hybrid", node: 4, at: point(4) }],
+      marks: [{ kind: "hybrid", node: 4, mcc: null, slot: null, at: point(4) }],
       leaders: nodes.flatMap((node, index): Leader[] =>
         node.leaf ? [{ node: index, from: point(index), to: [1, node.y] }] : [],
       ),
@@ -227,6 +231,7 @@ function treeDrawing(tree: DrawTree, slotOf: (mcc: number) => number) {
               [parent.xDiv, node.y],
               [node.xDiv, node.y],
             ],
+            mcc: node.mcc,
             slot: node.mcc === null ? null : slotOf(node.mcc),
             mccBreak: node.mccBreak,
             added: node.added,
@@ -236,13 +241,14 @@ function treeDrawing(tree: DrawTree, slotOf: (mcc: number) => number) {
 
   const marks = tree.nodes.flatMap((node, index): Mark[] => {
     const parent = node.parent === null ? undefined : tree.nodes[node.parent];
+    const color = { mcc: node.mcc, slot: node.mcc === null ? null : slotOf(node.mcc) };
 
     const reassortment: Mark[] =
       node.mccBreak && parent !== undefined
-        ? [{ kind: "reassortment", node: index, at: [(parent.xDiv + node.xDiv) / 2, node.y] }]
+        ? [{ kind: "reassortment", node: index, ...color, at: [(parent.xDiv + node.xDiv) / 2, node.y] }]
         : [];
 
-    const imputed: Mark[] = node.imputed ? [{ kind: "imputed", node: index, at: [node.xDiv, node.y] }] : [];
+    const imputed: Mark[] = node.imputed ? [{ kind: "imputed", node: index, ...color, at: [node.xDiv, node.y] }] : [];
 
     return [...reassortment, ...imputed];
   });

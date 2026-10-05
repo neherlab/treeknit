@@ -250,6 +250,8 @@ pub struct Elbow {
   /// Index of the node below the branch.
   pub node: usize,
   pub points: [Point; 3],
+  /// The node's MCC, its `DrawNode.mcc`.
+  pub mcc: Option<usize>,
   /// Color slot of the node's MCC; `None` for a node without an MCC.
   pub slot: Option<usize>,
   /// The branch is a reassortment branch.
@@ -266,6 +268,11 @@ pub struct Mark {
   pub kind: MarkKind,
   /// Index of the node the mark belongs to.
   pub node: usize,
+  /// MCC of the node in a tanglegram, its `DrawNode.mcc`; `None` for a node without an MCC and
+  /// on the ARG.
+  pub mcc: Option<usize>,
+  /// Color slot of `mcc`.
+  pub slot: Option<usize>,
   pub at: Point,
 }
 
@@ -300,6 +307,8 @@ pub struct Bezier {
 pub struct LinkCurve {
   /// Index of the link in `PairView.links`.
   pub link: usize,
+  /// The link's MCC, its `Link.mcc`.
+  pub mcc: usize,
   /// Color slot of the link's MCC.
   pub slot: usize,
   pub curve: Bezier,
@@ -313,6 +322,8 @@ pub struct LinkCurve {
 pub struct Ribbon {
   /// Index of the block in `PairView.blocks`.
   pub block: usize,
+  /// The block's MCC, its `Block.mcc`.
+  pub mcc: usize,
   /// Color slot of the block's MCC.
   pub slot: usize,
   /// Closed outline: each segment starts where the previous one ends, and the last ends where
@@ -407,12 +418,16 @@ pub struct ArgShapes {
 }
 
 /// The shape of one ARG edge.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ArgEdgeShape {
   /// Index of the edge in `ArgView.edges`.
   pub edge: usize,
+  /// The segments of the edge, its `ArgEdge.segments`.
+  pub segments: Vec<usize>,
+  /// The edge is a reticulation edge, its `ArgEdge.reticulation`; its path is a curve.
+  pub reticulation: bool,
   pub path: EdgePath,
 }
 

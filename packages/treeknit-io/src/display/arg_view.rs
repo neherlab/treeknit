@@ -320,8 +320,9 @@ mod tests {
       assert!(numbers.iter().all(|x| x.is_finite()));
     }
     assert_eq!(v.edges.len(), v.shapes.edges.len());
-    for (e, s) in v.edges.iter().zip(&v.shapes.edges) {
+    for (i, (e, s)) in v.edges.iter().zip(&v.shapes.edges).enumerate() {
       assert_eq!(e.reticulation, matches!(s.path, EdgePath::Curve { .. }));
+      assert_eq!((i, &e.segments, e.reticulation), (s.edge, &s.segments, s.reticulation));
     }
     let hybrids = v.nodes.iter().filter(|n| n.hybrid).count();
     assert_eq!(hybrids, v.shapes.marks.len());

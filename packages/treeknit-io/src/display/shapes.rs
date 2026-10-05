@@ -26,6 +26,7 @@ pub(super) fn pair_shapes(
       .enumerate()
       .map(|(i, l)| LinkCurve {
         link: i,
+        mcc: l.mcc,
         slot: slots[l.mcc],
         curve: s_curve([0.0, left.nodes[l.left].y], [1.0, right.nodes[l.right].y]),
       })
@@ -35,6 +36,7 @@ pub(super) fn pair_shapes(
       .enumerate()
       .map(|(i, b)| Ribbon {
         block: i,
+        mcc: b.mcc,
         slot: slots[b.mcc],
         outline: ribbon(b),
       })
@@ -50,6 +52,7 @@ fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
   let mut leaders = Vec::new();
   for (i, node) in tree.nodes.iter().enumerate() {
     let at = [x[i], node.y];
+    let slot = node.mcc.map(|m| slots[m]);
     if node.leaf {
       leaders.push(leader(i, at));
     }
@@ -58,7 +61,8 @@ fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
       elbows.push(Elbow {
         node: i,
         points: elbow(from, at),
-        slot: node.mcc.map(|m| slots[m]),
+        mcc: node.mcc,
+        slot,
         mcc_break: node.mcc_break,
         added: node.added,
       });
@@ -66,6 +70,8 @@ fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
         marks.push(Mark {
           kind: MarkKind::Reassortment,
           node: i,
+          mcc: node.mcc,
+          slot,
           at: [f64::midpoint(from[0], at[0]), at[1]],
         });
       }
@@ -74,6 +80,8 @@ fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
       marks.push(Mark {
         kind: MarkKind::Imputed,
         node: i,
+        mcc: node.mcc,
+        slot,
         at,
       });
     }
@@ -95,6 +103,8 @@ pub(super) fn arg_shapes(nodes: &[ArgNodeView], edges: &[ArgEdge], scale: Scale)
       .enumerate()
       .map(|(i, e)| ArgEdgeShape {
         edge: i,
+        segments: e.segments.clone(),
+        reticulation: e.reticulation,
         path: if e.reticulation {
           EdgePath::Curve {
             curve: s_curve(point(e.parent), point(e.child)),
@@ -113,6 +123,8 @@ pub(super) fn arg_shapes(nodes: &[ArgNodeView], edges: &[ArgEdge], scale: Scale)
       .map(|(i, _)| Mark {
         kind: MarkKind::Hybrid,
         node: i,
+        mcc: None,
+        slot: None,
         at: point(i),
       })
       .collect(),
@@ -244,7 +256,7 @@ mod tests {
       (4, [[0.0, 1.25], [0.0, 2.0], [0.5, 2.0]]),
     ];
     assert_eq!(expected, points);
-    assert!(shapes.elbows.iter().all(|e| e.slot == Some(3)));
+    assert!(shapes.elbows.iter().all(|e| (e.mcc, e.slot) == (Some(0), Some(3))));
     let leaders: Vec<(usize, Point, Point)> = shapes.leaders.iter().map(|l| (l.node, l.from, l.to)).collect();
     let expected = vec![
       (2, [0.5, 0.0], [1.0, 0.0]),
@@ -270,11 +282,15 @@ mod tests {
       Mark {
         kind: MarkKind::Reassortment,
         node: 2,
+        mcc: Some(0),
+        slot: Some(0),
         at: [0.5, 1.0],
       },
       Mark {
         kind: MarkKind::Imputed,
         node: 2,
+        mcc: Some(0),
+        slot: Some(0),
         at: [1.0, 1.0],
       },
     ];

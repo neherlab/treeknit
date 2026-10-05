@@ -505,6 +505,31 @@ mod tests {
   }
 
   #[test]
+  fn pair_view_shapes_carry_the_mcc_of_their_link_block_and_node() {
+    let (r, opts) = run_trees(&[("ha", HA), ("na", NA)]);
+    let v = view(&r, &opts, 0, TreeVersion::Resolved);
+    for (i, c) in v.shapes.links.iter().enumerate() {
+      assert_eq!((i, v.links[i].mcc, v.mccs[c.mcc].slot), (c.link, c.mcc, c.slot));
+    }
+    for (i, ribbon) in v.shapes.ribbons.iter().enumerate() {
+      assert_eq!(
+        (i, v.blocks[i].mcc, v.mccs[ribbon.mcc].slot),
+        (ribbon.block, ribbon.mcc, ribbon.slot)
+      );
+    }
+    for (tree, shapes) in [(&v.left, &v.shapes.left), (&v.right, &v.shapes.right)] {
+      for e in &shapes.elbows {
+        assert_eq!(tree.nodes[e.node].mcc, e.mcc);
+      }
+      for m in &shapes.marks {
+        let mcc = tree.nodes[m.node].mcc;
+        assert_eq!((mcc, mcc.map(|x| v.mccs[x].slot)), (m.mcc, m.slot));
+      }
+    }
+    assert!(!v.shapes.left.marks.is_empty() || !v.shapes.right.marks.is_empty());
+  }
+
+  #[test]
   fn pair_view_renames_an_internal_node_named_like_an_imputed_leaf() {
     // Imputation grafts na's leaf P into ha, whose internal node above A and B is named P.
     let (r, opts) = run_trees(&[("ha", "((A,B)P,(C,D));"), ("na", "((A,B),(C,(D,P)));")]);

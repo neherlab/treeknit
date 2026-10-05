@@ -196,6 +196,15 @@ export interface Mark {
      * Index of the node the mark belongs to.
      */
     node: number;
+    /**
+     * MCC of the node in a tanglegram, its `DrawNode.mcc`; `None` for a node without an MCC and
+     * on the ARG.
+     */
+    mcc: number | null;
+    /**
+     * Color slot of `mcc`.
+     */
+    slot: number | null;
     at: Point;
 }
 
@@ -802,6 +811,10 @@ export interface LinkCurve {
      */
     link: number;
     /**
+     * The link's MCC, its `Link.mcc`.
+     */
+    mcc: number;
+    /**
      * Color slot of the link's MCC.
      */
     slot: number;
@@ -852,6 +865,10 @@ export interface Elbow {
     node: number;
     points: [Point, Point, Point];
     /**
+     * The node's MCC, its `DrawNode.mcc`.
+     */
+    mcc: number | null;
+    /**
      * Color slot of the node's MCC; `None` for a node without an MCC.
      */
     slot: number | null;
@@ -874,6 +891,10 @@ export interface Ribbon {
      * Index of the block in `PairView.blocks`.
      */
     block: number;
+    /**
+     * The block's MCC, its `Block.mcc`.
+     */
+    mcc: number;
     /**
      * Color slot of the block's MCC.
      */
@@ -912,6 +933,14 @@ export interface ArgEdgeShape {
      * Index of the edge in `ArgView.edges`.
      */
     edge: number;
+    /**
+     * The segments of the edge, its `ArgEdge.segments`.
+     */
+    segments: number[];
+    /**
+     * The edge is a reticulation edge, its `ArgEdge.reticulation`; its path is a curve.
+     */
+    reticulation: boolean;
     path: EdgePath;
 }
 

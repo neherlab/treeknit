@@ -535,13 +535,13 @@ mod tests {
     assert_eq!(json!({"left": 8, "right": 5, "mcc": 0}), view["links"][4]);
     let curve = json!({"from": [0, 4], "c1": [0.5, 4], "c2": [0.5, 2], "to": [1, 2]});
     assert_eq!(
-      json!({"link": 4, "slot": 1, "curve": curve}),
+      json!({"link": 4, "mcc": 0, "slot": 1, "curve": curve}),
       view["shapes"]["links"][4]
     );
     assert_eq!(4, view["shapes"]["ribbons"][0]["outline"].as_array().unwrap().len());
     let elbow = &view["shapes"]["left"]["elbows"][0];
     assert_eq!(
-      json!(["node", "points", "slot", "mccBreak", "added"]),
+      json!(["node", "points", "mcc", "slot", "mccBreak", "added"]),
       json!(keys(elbow))
     );
     assert_eq!(json!("reassortment"), view["shapes"]["left"]["marks"][0]["kind"]);
