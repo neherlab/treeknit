@@ -190,6 +190,44 @@ impl Parser<'_> {
     }
   }
 
+  /// Parse one tree up to its terminating `;`, and leave the position at that `;`.
+  fn tree(&mut self, label: &str) -> Result<Tree, ParseError> {
+    let mut t = Tree::new(label);
+    let root = t.root;
+    self.subtree(&mut t, root)?;
+    self.skip()?;
+    match self.peek() {
+      Some(b';') => {},
+      None => return Err(ParseError::new("no ';' found")),
+      Some(_) => return self.err("expected ';'"),
+    }
+    t.nodes[root].branch_length = None;
+    fix_names(&mut t)?;
+    Ok(t)
+  }
+
+  /// Whether the rest of the text holds a `;` outside quoted labels and comments, that is, the
+  /// end of a further tree. The rest is split into the tokens of the parser without building a
+  /// tree, so a syntax error there is no error of the first tree: an unterminated quoted label
+  /// or comment ends the search.
+  fn another_tree_follows(&mut self) -> bool {
+    loop {
+      if self.skip().is_err() {
+        return false;
+      }
+      match self.peek() {
+        None => return false,
+        Some(b';') => return true,
+        Some(b'(' | b')' | b',' | b':') => self.i += 1,
+        Some(_) => {
+          if self.label().is_err() {
+            return false;
+          }
+        },
+      }
+    }
+  }
+
   fn subtree(&mut self, t: &mut Tree, n: NodeId) -> Result<(), ParseError> {
     self.skip()?;
     if self.peek() == Some(b'(') {
@@ -217,43 +255,30 @@ impl Parser<'_> {
 
 /// Parse a single Newick tree, logging its warnings.
 pub fn parse(s: &str, label: &str) -> Result<Tree, ParseError> {
-  let parsed = parse_text(s, label, Vec::new())?;
+  let parsed = parse_first(s, label)?;
   parsed.log_warnings();
   Ok(parsed.tree)
 }
 
 /// Parse the first tree of a Newick file's content. The warnings are returned, not logged:
 /// callers that read input files log them with `Parsed::log_warnings`.
+///
+/// The first tree ends at the first `;` outside quoted labels and comments. The text after it
+/// is not parsed; a further `;` there gives the warning `SeveralTrees`.
 pub fn parse_first(content: &str, label: &str) -> Result<Parsed, ParseError> {
-  let end = content.find(';').ok_or_else(|| ParseError::new("no ';' found"))?;
-  let (first, rest) = content.split_at(end + 1);
-  let warnings = if rest.contains(';') {
-    vec![ParseWarning::SeveralTrees]
-  } else {
-    Vec::new()
-  };
-  parse_text(first, label, warnings)
-}
-
-fn parse_text(s: &str, label: &str, warnings: Vec<ParseWarning>) -> Result<Parsed, ParseError> {
   let mut p = Parser {
-    s: s.as_bytes(),
+    s: content.as_bytes(),
     i: 0,
-    warnings,
+    warnings: Vec::new(),
   };
-  let mut t = Tree::new(label);
-  let root = t.root;
-  p.subtree(&mut t, root)?;
-  p.skip()?;
-  if p.peek() != Some(b';') {
-    return p.err("expected ';'");
+  let tree = p.tree(label)?;
+  p.i += 1;
+  let several = p.another_tree_follows();
+  let mut warnings = p.warnings;
+  if several {
+    warnings.insert(0, ParseWarning::SeveralTrees);
   }
-  t.nodes[root].branch_length = None;
-  fix_names(&mut t)?;
-  Ok(Parsed {
-    tree: t,
-    warnings: p.warnings,
-  })
+  Ok(Parsed { tree, warnings })
 }
 
 fn fix_names(t: &mut Tree) -> Result<(), ParseError> {
@@ -352,6 +377,8 @@ pub fn fmt_f64(x: f64) -> String {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use pretty_assertions::assert_eq;
+  use rstest::rstest;
 
   #[test]
   fn roundtrip() {
@@ -390,6 +417,31 @@ mod tests {
   fn parse_first_of_a_clean_text_has_no_warnings() {
     let parsed = parse_first("((A:1,B:2):3,C:4);\n", "t").unwrap();
     assert_eq!(Vec::<ParseWarning>::new(), parsed.warnings);
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::semicolon_in_quoted_label(   "('a;b',C);",          (vec!["a;b", "C"], vec![]))]
+  #[case::semicolon_in_comment(        "(A[;],B);",           (vec!["A", "B"],   vec![]))]
+  #[case::semicolon_in_trailing_comment("(A,B);[x;y]\n",     (vec!["A", "B"],   vec![]))]
+  #[case::semicolon_in_trailing_quote( "(A,B);\n('x;y'",     (vec!["A", "B"],   vec![]))]
+  #[case::second_tree_after_comment(   "(A,B);[c](C,D);",     (vec!["A", "B"],   vec![ParseWarning::SeveralTrees]))]
+  #[case::second_tree_with_quotes(     "(A,B);\n('x;y',z);", (vec!["A", "B"],   vec![ParseWarning::SeveralTrees]))]
+  #[case::unterminated_trailing_comment("(A,B);[x;",          (vec!["A", "B"],   vec![]))]
+  #[trace]
+  fn parse_first_ends_the_tree_at_a_semicolon_outside_quotes_and_comments(
+    #[case] text: &str,
+    #[case] (leaves, warnings): (Vec<&str>, Vec<ParseWarning>),
+  ) {
+    let parsed = parse_first(text, "t").unwrap();
+    assert_eq!(leaves, parsed.tree.leaf_names());
+    assert_eq!(warnings, parsed.warnings);
+  }
+
+  #[test]
+  fn parse_first_without_a_semicolon_outside_quotes_fails() {
+    let e = parse_first("('a;b',C)", "t").unwrap_err();
+    assert_eq!("Newick parse error: no ';' found", e.to_string());
   }
 
   #[test]
