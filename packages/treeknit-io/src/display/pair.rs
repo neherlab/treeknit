@@ -256,6 +256,112 @@ mod tests {
     pair_view(r, opts, pair, version, Scale::Div).unwrap()
   }
 
+  /// A tree of one root above `leaves`, each a name and an MCC, in display order.
+  fn flat(leaves: &[(&str, Option<usize>)]) -> DrawTree {
+    let node = |name: &str, parent, y, leaf, mcc| super::super::DrawNode {
+      name: name.to_owned(),
+      short_name: name.to_owned(),
+      parent,
+      children: if leaf { vec![] } else { (1..=leaves.len()).collect() },
+      branch_length: None,
+      x_div: 0.0,
+      x_depth: 0.0,
+      y,
+      leaf,
+      clade_size: if leaf { 1 } else { leaves.len() },
+      added: false,
+      imputed: false,
+      mcc,
+      mcc_break: false,
+    };
+    let mut nodes = vec![node("r", None, 0.0, false, None)];
+    nodes.extend(
+      leaves
+        .iter()
+        .zip(0_u32..)
+        .map(|(&(name, mcc), y)| node(name, Some(0), f64::from(y), true, mcc)),
+    );
+    DrawTree {
+      label: "t".to_owned(),
+      nodes,
+    }
+  }
+
+  fn block_of(mcc: usize, left: [f64; 2], right: [f64; 2]) -> Block {
+    Block { mcc, left, right }
+  }
+
+  #[rustfmt::skip]
+  #[rstest::rstest]
+  // Oracle: a block holds leaves of one MCC that are consecutive in both trees, in left order,
+  // with right rows that step by +1 throughout or by -1 throughout.
+  #[case::ascending( &[("A", 0), ("B", 0), ("C", 0)], &["A", "B", "C"], vec![block_of(0, [0.0, 2.0], [0.0, 2.0])])]
+  #[case::descending(&[("A", 0), ("B", 0), ("C", 0)], &["C", "B", "A"], vec![block_of(0, [0.0, 2.0], [2.0, 0.0])])]
+  #[case::jump(      &[("A", 0), ("B", 0), ("C", 0)], &["A", "C", "B"], vec![block_of(0, [0.0, 0.0], [0.0, 0.0]), block_of(0, [1.0, 2.0], [2.0, 1.0])])]
+  #[case::mcc_change(&[("A", 0), ("B", 1)],           &["A", "B"],      vec![block_of(0, [0.0, 0.0], [0.0, 0.0]), block_of(1, [1.0, 1.0], [1.0, 1.0])])]
+  // X is in the left tree only, so it has no link and A and B are not consecutive there.
+  #[case::skipped(   &[("A", 0), ("X", 0), ("B", 0)], &["A", "B"],      vec![block_of(0, [0.0, 0.0], [0.0, 0.0]), block_of(0, [2.0, 2.0], [1.0, 1.0])])]
+  #[trace]
+  fn blocks_join_links_consecutive_in_both_trees(
+    #[case] left: &[(&str, usize)],
+    #[case] right: &[&str],
+    #[case] expected: Vec<Block>,
+  ) {
+    let mcc_of = |name: &str| left.iter().find(|(n, _)| *n == name).map(|&(_, m)| m);
+    let left = flat(&left.iter().map(|&(n, m)| (n, Some(m))).collect::<Vec<_>>());
+    let right = flat(&right.iter().map(|&n| (n, mcc_of(n))).collect::<Vec<_>>());
+    assert_eq!(expected, blocks(&left, &right, &links(&left, &right)));
+  }
+
+  #[test]
+  fn pair_view_lays_out_each_version_and_scale_exactly() {
+    // P is in ha only; the imputed version of na places it as the sister of D.
+    let (r, opts) = run_trees(&[
+      ("ha", "((A:1,B:1):1,(C:1,(D:1,P:1):1):1);"),
+      ("na", "((A:1,B:1):2,(C:1,D:3):1);"),
+    ]);
+    // The x of each named leaf and the sorted x of the internal nodes of the right tree.
+    let xs = |version, scale| {
+      let v = pair_view(&r, &opts, 0, version, scale).unwrap();
+      let x = |n: &super::super::DrawNode| if scale == Scale::Div { n.x_div } else { n.x_depth };
+      let mut leaves: Vec<(String, f64)> = v
+        .right
+        .nodes
+        .iter()
+        .filter(|n| n.leaf)
+        .map(|n| (n.name.clone(), x(n)))
+        .collect();
+      leaves.sort_by(|a, b| a.0.cmp(&b.0));
+      let mut internal: Vec<f64> = v.right.nodes.iter().filter(|n| !n.leaf).map(x).collect();
+      internal.sort_by(f64::total_cmp);
+      let rows: BTreeSet<u64> = v.right.nodes.iter().filter(|n| n.leaf).map(|n| n.y.to_bits()).collect();
+      (leaves, internal, rows.len())
+    };
+    let named = |v: &[(&str, f64)]| v.iter().map(|&(n, x)| (n.to_owned(), x)).collect::<Vec<_>>();
+    // Oracle: na is ((A:1,B:1):2,(C:1,D:3):1): divergence A, B 3, C 2, D 4; internal nodes at
+    // 0, 1, and 2. As a cladogram the root has height 2, so the leaves are at 2 and the two
+    // internal nodes at 1.
+    let input_div = (
+      named(&[("A", 3.0), ("B", 3.0), ("C", 2.0), ("D", 4.0)]),
+      vec![0.0, 1.0, 2.0],
+      4,
+    );
+    let input_depth = (
+      named(&[("A", 2.0), ("B", 2.0), ("C", 2.0), ("D", 2.0)]),
+      vec![0.0, 1.0, 1.0],
+      4,
+    );
+    assert_eq!(input_div, xs(TreeVersion::Input, Scale::Div));
+    assert_eq!(input_depth, xs(TreeVersion::Input, Scale::Depth));
+    assert_eq!(input_div, xs(TreeVersion::Resolved, Scale::Div));
+    assert_eq!(input_depth, xs(TreeVersion::Resolved, Scale::Depth));
+    // Imputed: na becomes ((A,B),(C,(D,P))), so the cladogram root has height 3 and the leaves
+    // are at 3; (C,(D,P)) has height 2 (at 1), and (A,B) and (D,P) have height 1 (at 2).
+    let (leaves, internal, rows) = xs(TreeVersion::Imputed, Scale::Depth);
+    let expected = named(&[("A", 3.0), ("B", 3.0), ("C", 3.0), ("D", 3.0), ("P", 3.0)]);
+    assert_eq!((expected, vec![0.0, 1.0, 2.0, 2.0], 5), (leaves, internal, rows));
+  }
+
   #[test]
   fn pair_view_of_the_two_tree_example() {
     let (r, opts) = run_trees(&[("ha", HA), ("na", NA)]);

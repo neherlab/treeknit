@@ -553,6 +553,42 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
+  fn session_pair_view_of_the_imputed_version_as_a_cladogram_is_plain() {
+    let request = json!({"trees": [
+        {"label": "ha", "newick": "((A,B),(C,(D,P)));"},
+        {"label": "na", "newick": "((A,B),(C,D));"},
+    ]});
+    let session = Session::run(&ts(&request), &Function::new_no_args("")).unwrap();
+    let view = plain(
+      &session
+        .pair_view(0, &ts(&json!("imputed")), &ts(&json!("depth")))
+        .unwrap()
+        .js_value(),
+    );
+    let right = view["right"]["nodes"].as_array().unwrap();
+    // Oracle: na imputed is ((A,B),(C,(D,P))): the root has height 3, so every leaf is at 3,
+    // and P is the imputed leaf.
+    let leaves: Vec<(String, Value, Value)> = right
+      .iter()
+      .filter(|n| n["leaf"] == json!(true))
+      .map(|n| {
+        (
+          n["name"].as_str().unwrap().to_owned(),
+          n["xDepth"].clone(),
+          n["imputed"].clone(),
+        )
+      })
+      .collect();
+    let imputed: Vec<&str> = leaves
+      .iter()
+      .filter(|l| l.2 == json!(true))
+      .map(|l| l.0.as_str())
+      .collect();
+    assert_eq!(vec!["P"], imputed);
+    assert!(leaves.iter().all(|l| l.1 == json!(3)), "{leaves:?}");
+  }
+
+  #[wasm_bindgen_test]
   fn session_pair_view_of_an_unknown_pair_throws() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     match session.pair_view(1, &ts(&json!("resolved")), &ts(&json!("div"))) {

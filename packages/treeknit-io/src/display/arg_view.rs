@@ -449,6 +449,102 @@ mod tests {
   }
 
   #[test]
+  #[expect(clippy::float_cmp, reason = "rows are whole numbers, and their midpoint is exact")]
+  fn arg_view_of_identical_trees_has_the_coordinates_of_the_tree() {
+    let t = "((A:1,B:2):1,C:3);";
+    let r = run_trees(&[("ha", t), ("na", t)]);
+    let div = arg_view(&r, Scale::Div).unwrap();
+    let depth = arg_view(&r, Scale::Depth).unwrap();
+    assert_eq!(RootCase::Shared, div.root_case);
+    // The coordinates of each leaf by label, and those of the internal nodes sorted.
+    let leaves = |v: &ArgView, x: fn(&ArgNodeView) -> f64| {
+      let mut l: Vec<(String, f64)> = v
+        .nodes
+        .iter()
+        .filter(|n| n.leaf)
+        .map(|n| (n.label.clone(), x(n)))
+        .collect();
+      l.sort_by(|a, b| a.0.cmp(&b.0));
+      l
+    };
+    let internal = |v: &ArgView, x: fn(&ArgNodeView) -> f64| {
+      let mut i: Vec<f64> = v.nodes.iter().filter(|n| !n.leaf).map(x).collect();
+      i.sort_by(f64::total_cmp);
+      i
+    };
+    let named = |v: &[(&str, f64)]| v.iter().map(|&(n, x)| (n.to_owned(), x)).collect::<Vec<_>>();
+    // Oracle: the tree ((A:1,B:2):1,C:3): divergence A 2, B 3, C 3, (A,B) 1, root 0; as a
+    // cladogram the root has height 2, so the leaves are at 2 and (A,B) at 1.
+    assert_eq!(named(&[("A", 2.0), ("B", 3.0), ("C", 3.0)]), leaves(&div, |n| n.x_div));
+    assert_eq!(vec![0.0, 1.0], internal(&div, |n| n.x_div));
+    assert_eq!(
+      named(&[("A", 2.0), ("B", 2.0), ("C", 2.0)]),
+      leaves(&depth, |n| n.x_depth)
+    );
+    assert_eq!(vec![0.0, 1.0], internal(&depth, |n| n.x_depth));
+    // Leaves in rows 0 to 2; (A,B) at the midpoint of A and B, the root at the midpoint of its
+    // first and last child.
+    let y = |label: &str| div.nodes.iter().find(|n| n.label == label).unwrap().y;
+    let mut rows = vec![y("A"), y("B"), y("C")];
+    rows.sort_by(f64::total_cmp);
+    assert_eq!(vec![0.0, 1.0, 2.0], rows);
+    let ab = div
+      .nodes
+      .iter()
+      .find(|n| !n.leaf && n.children.len() == 2 && div.nodes[n.children[0]].leaf && div.nodes[n.children[1]].leaf)
+      .unwrap();
+    assert_eq!(f64::midpoint(y("A"), y("B")), ab.y);
+  }
+
+  #[test]
+  fn arg_view_hangs_the_segment_roots_below_the_synthetic_root_at_its_x() {
+    let r = run_trees(&[
+      ("ha", "(A:1,((C:1,B:1):1,D:1):1);"),
+      ("na", "((D:1,(A:1,C:1):1):1,B:1);"),
+    ]);
+    let v = arg_view(&r, Scale::Div).unwrap();
+    assert_eq!(RootCase::Synthetic, v.root_case);
+    let top = &v.nodes[v.root];
+    assert_eq!(("GlobalRoot", 0.0), (top.label.as_str(), top.x_div));
+    // Oracle: the edges of the synthetic root have length 0.
+    let below: Vec<f64> = top.children.iter().map(|&c| v.nodes[c].x_div).collect();
+    assert_eq!(vec![0.0, 0.0], below);
+  }
+
+  #[test]
+  fn arg_view_takes_the_segment_0_edge_of_a_hybrid_on_its_chain() {
+    let r = run_trees(&[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")]);
+    let v = arg_view(&r, Scale::Div).unwrap();
+    let hybrid = v.nodes.iter().position(|n| n.hybrid).unwrap();
+    let into: Vec<(Vec<usize>, bool)> = v
+      .edges
+      .iter()
+      .filter(|e| e.child == hybrid)
+      .map(|e| (e.segments.clone(), e.reticulation))
+      .collect();
+    // Oracle: the segment 0 parent reaches the shared top root, so its edge is on the chain and
+    // the segment 1 edge is the reticulation edge.
+    assert_eq!(vec![(vec![0], false), (vec![1], true)], into);
+  }
+
+  #[test]
+  fn arg_view_top_root_of_one_shared_root_is_the_unshared_root_of_either_segment() {
+    let mut tops = BTreeSet::new();
+    for (ha, na) in [
+      ("((A,B),(C,D));", "((A,C),(B,D));"),
+      ("(((A,B),C),D);", "(((C,D),A),B);"),
+    ] {
+      let r = run_trees(&[("ha", ha), ("na", na)]);
+      let v = arg_view(&r, Scale::Div).unwrap();
+      assert_eq!(RootCase::OneShared, v.root_case);
+      let roots = r.built_arg().unwrap().roots;
+      tops.insert(roots.iter().position(|&root| root == v.root).unwrap());
+    }
+    // Oracle: the cases cover both branches, a shared root of segment 0 and of segment 1.
+    assert_eq!(BTreeSet::from([0, 1]), tops);
+  }
+
+  #[test]
   fn arg_view_of_more_than_two_trees_is_none() {
     let t = "((A,B),(C,D));";
     let r = run_trees(&[("a", t), ("b", t), ("c", t)]);
