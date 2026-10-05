@@ -20,7 +20,7 @@ export function characterRange(position: TextPosition): TextRange {
 }
 
 export function codeLines(code: string, range: TextRange | undefined): CodeLine[] {
-  return code.split("\n").map((text, index) => {
+  const lines = code.split("\n").map((text, index) => {
     const number = index + 1;
     const line = text.endsWith("\r") ? text.slice(0, -1) : text;
 
@@ -30,6 +30,14 @@ export function codeLines(code: string, range: TextRange | undefined): CodeLine[
 
     return markLine(number, line, range);
   });
+
+  const last = lines.at(-1);
+
+  if (lines.length > 1 && last !== undefined && last.before === "" && last.marked === undefined) {
+    return lines.slice(0, -1);
+  }
+
+  return lines;
 }
 
 function markLine(number: number, line: string, range: TextRange): CodeLine {

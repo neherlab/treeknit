@@ -32,8 +32,30 @@ describe("codeLines", () => {
   test("marks an empty caret after the last character for a column past the end of the line", () => {
     const range = characterRange({ line: 1, column: 7 });
 
-    expect(codeLines("(A,B)\n", range)).toStrictEqual([
-      { number: 1, before: "(A,B)", marked: "", after: "" },
+    expect(codeLines("(A,B)\n", range)).toStrictEqual([{ number: 1, before: "(A,B)", marked: "", after: "" }]);
+  });
+
+  test("drops the empty line after a final line end", () => {
+    expect(codeLines("(A,B);\n", undefined)).toStrictEqual([
+      { number: 1, before: "(A,B);", marked: undefined, after: "" },
+    ]);
+    expect(codeLines("(A,B);\r\n", undefined)).toStrictEqual([
+      { number: 1, before: "(A,B);", marked: undefined, after: "" },
+    ]);
+  });
+
+  test("keeps the empty line after a final line end when the range is on it", () => {
+    const range = characterRange({ line: 2, column: 1 });
+
+    expect(codeLines("(A,B);\n", range)).toStrictEqual([
+      { number: 1, before: "(A,B);", marked: undefined, after: "" },
+      { number: 2, before: "", marked: "", after: "" },
+    ]);
+  });
+
+  test("keeps only the last of several empty lines at the end", () => {
+    expect(codeLines("(A,B);\n\n", undefined)).toStrictEqual([
+      { number: 1, before: "(A,B);", marked: undefined, after: "" },
       { number: 2, before: "", marked: undefined, after: "" },
     ]);
   });
@@ -97,7 +119,11 @@ describe("codeLines properties", () => {
       fc.property(code, range, (text, highlight) => {
         const rebuilt = codeLines(text, highlight).map(({ before, marked, after }) => before + (marked ?? "") + after);
 
-        expect(rebuilt).toStrictEqual(text.split("\n"));
+        const lines = text.split("\n");
+        const lastLineMarked = codeLines(`${text}x`, highlight).at(-1)?.marked !== undefined;
+        const dropsLastLine = lines.length > 1 && lines.at(-1) === "" && !lastLineMarked;
+
+        expect(rebuilt).toStrictEqual(dropsLastLine ? lines.slice(0, -1) : lines);
       }),
     );
   });
