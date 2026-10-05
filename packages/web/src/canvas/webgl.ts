@@ -20,6 +20,14 @@ export function supportsWebGl2(createCanvas: () => ContextSource): boolean {
   }
 }
 
-export function browserSupportsWebGl2(): boolean {
-  return supportsWebGl2(() => document.createElement("canvas"));
+export function cachedProbe(probe: () => boolean): () => boolean {
+  let result: boolean | undefined;
+
+  return () => {
+    result ??= probe();
+
+    return result;
+  };
 }
+
+export const browserSupportsWebGl2 = cachedProbe(() => supportsWebGl2(() => document.createElement("canvas")));

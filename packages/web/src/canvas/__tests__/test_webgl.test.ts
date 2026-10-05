@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { type ContextSource, type ProbeContext, supportsWebGl2 } from "../webgl";
+import { cachedProbe, type ContextSource, type ProbeContext, supportsWebGl2 } from "../webgl";
 
 function canvasWith(context: ProbeContext | null): () => ContextSource {
   return () => ({ getContext: () => context });
@@ -34,5 +34,15 @@ describe("supportsWebGl2", () => {
         },
       })),
     ).toBe(false);
+  });
+});
+
+describe("cachedProbe", () => {
+  test("runs the probe once and returns its first result on every call", () => {
+    const results = [true, false];
+    const probe = cachedProbe(() => results.shift() ?? false);
+
+    expect([probe(), probe(), probe()]).toStrictEqual([true, true, true]);
+    expect(results).toStrictEqual([false]);
   });
 });
