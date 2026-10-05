@@ -187,7 +187,10 @@ pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationErro
   let mut parsed = Vec::with_capacity(trees.len());
   for (i, t) in trees.iter().enumerate() {
     match newick::parse_first(&t.newick, &t.label) {
-      Ok(tree) => parsed.push(tree),
+      Ok(p) => {
+        p.log_warnings();
+        parsed.push(p.tree);
+      },
       Err(e) => errors.push(parse_error(i, t, &e)),
     }
   }

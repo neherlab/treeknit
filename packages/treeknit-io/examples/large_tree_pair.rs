@@ -85,7 +85,7 @@ fn write_pair(args: &Args) -> Result<(), String> {
     let io_err = |e: std::io::Error| format!("{}: {e}", path.display());
     std::fs::write(&path, format!("{}\n", newick::write(t))).map_err(io_err)?;
     let parsed =
-      newick::parse_first(&std::fs::read_to_string(&path).map_err(io_err)?, file).map_err(|e| e.to_string())?;
+      newick::parse_first(&std::fs::read_to_string(&path).map_err(io_err)?, file).map_err(|e| e.to_string())?.tree;
     if parsed.n_leaves() != t.n_leaves() {
       return Err(format!(
         "{}: read {} leaves back, wrote {}",
@@ -402,8 +402,8 @@ mod tests {
   #[test]
   fn test_large_tree_pair_newick_roundtrip() {
     let (a, b) = tree_pair(100, 11, 10);
-    let a2 = newick::parse_first(&format!("{}\n", newick::write(&a)), "a").unwrap();
-    let b2 = newick::parse_first(&format!("{}\n", newick::write(&b)), "b").unwrap();
+    let a2 = newick::parse_first(&format!("{}\n", newick::write(&a)), "a").unwrap().tree;
+    let b2 = newick::parse_first(&format!("{}\n", newick::write(&b)), "b").unwrap().tree;
     assert_eq!(clades(&a), clades(&a2));
     assert_eq!(clades(&b), clades(&b2));
   }

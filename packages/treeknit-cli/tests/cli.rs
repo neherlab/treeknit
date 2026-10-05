@@ -177,6 +177,22 @@ mod tests {
     );
   }
 
+  #[test]
+  fn parse_warnings_are_logged() {
+    let dir = TempDir::new("warnings");
+    let input = dir.path().join("in");
+    std::fs::create_dir_all(&input).unwrap();
+    let ha = input.join("ha.nwk");
+    let na = input.join("na.nwk");
+    std::fs::write(&ha, format!("{HA}\n{NA}\n")).unwrap();
+    std::fs::write(&na, "((A:1,(B:1,X:1):1):x,(C:1,D:1):1);").unwrap();
+    let out = dir.path().join("out");
+    run(&[ha.to_str().unwrap(), na.to_str().unwrap()], &out);
+    let log = std::fs::read_to_string(out.join("log.txt")).unwrap();
+    assert!(log.contains("[WARN] ha: more than one tree in file, using the first\n"), "{log}");
+    assert!(log.contains("[WARN] ignoring invalid branch length 'x'\n"), "{log}");
+  }
+
   fn mccs(out: &Path) -> serde_json::Value {
     serde_json::from_str(&std::fs::read_to_string(out.join("MCCs.json")).unwrap()).unwrap()
   }

@@ -53,9 +53,55 @@ pub fn line_column(text: &str, offset: usize) -> (usize, usize) {
   (line, column)
 }
 
+/// A problem in a Newick text that parsing works around.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ParseWarning {
+  /// The file holds more than one tree; only the first is read.
+  SeveralTrees,
+  /// A branch length that is not a number, read as a missing length.
+  InvalidLength(String),
+}
+
+impl ParseWarning {
+  /// Log the warning for the tree labeled `label`, with the lines the command line has always
+  /// written.
+  pub fn log(&self, label: &str) {
+    match self {
+      ParseWarning::SeveralTrees => log::warn!("{label}: {self}"),
+      ParseWarning::InvalidLength(_) => log::warn!("{self}"),
+    }
+  }
+}
+
+impl std::fmt::Display for ParseWarning {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      ParseWarning::SeveralTrees => f.write_str("more than one tree in file, using the first"),
+      ParseWarning::InvalidLength(text) => write!(f, "ignoring invalid branch length '{text}'"),
+    }
+  }
+}
+
+/// A parsed tree with the warnings of its text, in text order.
+#[derive(Clone, Debug)]
+pub struct Parsed {
+  pub tree: Tree,
+  pub warnings: Vec<ParseWarning>,
+}
+
+impl Parsed {
+  /// Log the warnings, as the command line does when it reads a tree.
+  pub fn log_warnings(&self) {
+    for w in &self.warnings {
+      w.log(&self.tree.label);
+    }
+  }
+}
+
 struct Parser<'a> {
   s: &'a [u8],
   i: usize,
+  warnings: Vec<ParseWarning>,
 }
 
 impl Parser<'_> {
@@ -139,7 +185,7 @@ impl Parser<'_> {
     if let Ok(x) = txt.parse::<f64>() {
       Ok(Some(x))
     } else {
-      log::warn!("ignoring invalid branch length '{txt}'");
+      self.warnings.push(ParseWarning::InvalidLength(txt.into_owned()));
       Ok(None)
     }
   }
@@ -169,9 +215,32 @@ impl Parser<'_> {
   }
 }
 
-/// Parse a single Newick tree.
+/// Parse a single Newick tree, logging its warnings.
 pub fn parse(s: &str, label: &str) -> Result<Tree, ParseError> {
-  let mut p = Parser { s: s.as_bytes(), i: 0 };
+  let parsed = parse_text(s, label, Vec::new())?;
+  parsed.log_warnings();
+  Ok(parsed.tree)
+}
+
+/// Parse the first tree of a Newick file's content. The warnings are returned, not logged:
+/// callers that read input files log them with `Parsed::log_warnings`.
+pub fn parse_first(content: &str, label: &str) -> Result<Parsed, ParseError> {
+  let end = content.find(';').ok_or_else(|| ParseError::new("no ';' found"))?;
+  let (first, rest) = content.split_at(end + 1);
+  let warnings = if rest.contains(';') {
+    vec![ParseWarning::SeveralTrees]
+  } else {
+    Vec::new()
+  };
+  parse_text(first, label, warnings)
+}
+
+fn parse_text(s: &str, label: &str, warnings: Vec<ParseWarning>) -> Result<Parsed, ParseError> {
+  let mut p = Parser {
+    s: s.as_bytes(),
+    i: 0,
+    warnings,
+  };
   let mut t = Tree::new(label);
   let root = t.root;
   p.subtree(&mut t, root)?;
@@ -181,17 +250,10 @@ pub fn parse(s: &str, label: &str) -> Result<Tree, ParseError> {
   }
   t.nodes[root].branch_length = None;
   fix_names(&mut t)?;
-  Ok(t)
-}
-
-/// Parse the first tree of a Newick file's content.
-pub fn parse_first(content: &str, label: &str) -> Result<Tree, ParseError> {
-  let end = content.find(';').ok_or_else(|| ParseError::new("no ';' found"))?;
-  let (first, rest) = content.split_at(end + 1);
-  if rest.contains(';') {
-    log::warn!("{label}: more than one tree in file, using the first");
-  }
-  parse(first, label)
+  Ok(Parsed {
+    tree: t,
+    warnings: p.warnings,
+  })
 }
 
 fn fix_names(t: &mut Tree) -> Result<(), ParseError> {
@@ -310,6 +372,36 @@ mod tests {
   fn invalid_length_is_missing() {
     let t = parse("((A,B):0.R,C);", "t").unwrap();
     assert_eq!(write(&t), "((A,B)NODE_2,C)NODE_1;");
+  }
+
+  #[test]
+  fn parse_first_returns_the_warnings_in_text_order() {
+    let parsed = parse_first("((A,B):0.R,C:x);\n(A,B,C);\n", "t").unwrap();
+    let expected = vec![
+      ParseWarning::SeveralTrees,
+      ParseWarning::InvalidLength("0.R".into()),
+      ParseWarning::InvalidLength("x".into()),
+    ];
+    assert_eq!(expected, parsed.warnings);
+    assert_eq!("((A,B)NODE_2,C)NODE_1;", write(&parsed.tree));
+  }
+
+  #[test]
+  fn parse_first_of_a_clean_text_has_no_warnings() {
+    let parsed = parse_first("((A:1,B:2):3,C:4);\n", "t").unwrap();
+    assert_eq!(Vec::<ParseWarning>::new(), parsed.warnings);
+  }
+
+  #[test]
+  fn warnings_keep_the_log_lines_of_the_command_line() {
+    assert_eq!(
+      "more than one tree in file, using the first",
+      ParseWarning::SeveralTrees.to_string()
+    );
+    assert_eq!(
+      "ignoring invalid branch length '0.R'",
+      ParseWarning::InvalidLength("0.R".into()).to_string()
+    );
   }
 
   #[test]
