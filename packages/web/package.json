@@ -22,7 +22,8 @@
     "react-aria-components": "catalog:",
     "react-dom": "catalog:",
     "react-error-boundary": "catalog:",
-    "react-hook-form": "catalog:"
+    "react-hook-form": "catalog:",
+    "remeda": "catalog:"
   },
   "devDependencies": {
     "@iconify-json/lucide": "catalog:",

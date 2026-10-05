@@ -37,6 +37,7 @@
       "react-dom": "19.3.0",
       "react-error-boundary": "6.1.6",
       "react-hook-form": "7.89.0",
+      "remeda": "2.50.0",
       "tailwindcss": "4.3.3",
       "typescript": "7.0.2",
       "unplugin-icons": "24.0.0",
