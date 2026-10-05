@@ -627,4 +627,193 @@ mod tests {
     assert!(res[1].mccs.is_empty());
     assert!(res[2].mccs.is_empty());
   }
+
+  /// Progress events of a run of `nwks` with `opts` and seed 1.
+  fn observed(nwks: &[&str], opts: &Options) -> Vec<Progress> {
+    let (mut ts, taxa) = trees(nwks);
+    let events = std::cell::RefCell::new(Vec::new());
+    run_observed(&mut ts, &taxa, opts, 1, &|p| events.borrow_mut().push(p));
+    events.into_inner()
+  }
+
+  fn never_decreasing(events: &[Progress]) -> bool {
+    events
+      .iter()
+      .zip(events.iter().skip(1))
+      .all(|(a, b)| a.fraction <= b.fraction)
+  }
+
+  /// Ten leaves whose MCC inference with seed 1 needs two prune iterations: B, D, G, and I
+  /// swap places between the two trees.
+  const TWO_ITERATIONS: [&str; 2] = [
+    "(((((A,B),C),D),E),((((F,G),H),I),J));",
+    "(((((A,G),C),I),E),((((F,B),H),D),J));",
+  ];
+
+  /// Options for one pair with `itmax` and ten temperatures, so that a test run stays short.
+  fn one_pair(itmax: usize) -> Options {
+    Options {
+      itmax,
+      n_t: 10,
+      resolution: Resolution::Strict,
+      parallel: false,
+      ..Options::for_trees(2)
+    }
+  }
+
+  #[test]
+  fn progress_of_a_pair_that_runs_all_iterations_rises_to_one() {
+    // With itmax = 1, pair inference runs both of its itmax + 1 = 2 iterations.
+    let events = observed(&TWO_ITERATIONS, &one_pair(1));
+    assert_eq!(Some(&Progress::at(0, 1, 0, 1, 0.0)), events.first());
+    assert_eq!(Some(&Progress::done(1, 1)), events.last());
+    assert!(never_decreasing(&events), "{events:?}");
+    assert!(events.iter().all(|p| p.fraction <= 1.0), "{events:?}");
+    // With one round and one pair, the fraction is the completed fraction of the pair: the
+    // last temperature step of iteration 1 completes 1/2, that of iteration 2 completes 1.
+    let before_end = &events[..events.len() - 1];
+    assert!(
+      before_end.iter().any(|p| p.fraction.to_bits() == 0.5_f64.to_bits()),
+      "{events:?}"
+    );
+    assert_eq!(Some(1.0), before_end.last().map(|p| p.fraction), "{events:?}");
+  }
+
+  #[test]
+  fn progress_of_a_pair_that_stops_early_jumps_to_one_at_the_end() {
+    // With itmax = 2 the same pair stops after two of its three iterations, at 2/3.
+    let events = observed(&TWO_ITERATIONS, &one_pair(2));
+    let before_end = &events[..events.len() - 1];
+    assert!(never_decreasing(&events), "{events:?}");
+    assert_eq!(Some(2.0 / 3.0), before_end.last().map(|p| p.fraction), "{events:?}");
+    assert_eq!(Some(&Progress::done(1, 1)), events.last());
+  }
+
+  #[test]
+  fn progress_of_sequential_rounds_visits_every_pair_in_order() {
+    // Strict resolution with three trees adds a final round without resolution: two rounds.
+    let o = Options {
+      itmax: 2,
+      n_t: 5,
+      resolution: Resolution::Strict,
+      parallel: false,
+      ..Options::for_trees(3)
+    };
+    let events = observed(&["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", "((A,X),(B,(C,D)));"], &o);
+    let mut visited: Vec<(usize, usize, usize, usize)> =
+      events.iter().map(|p| (p.round, p.rounds, p.pair, p.pairs)).collect();
+    visited.dedup();
+    let expected = [
+      (1, 2, 1, 3),
+      (1, 2, 2, 3),
+      (1, 2, 3, 3),
+      (2, 2, 1, 3),
+      (2, 2, 2, 3),
+      (2, 2, 3, 3),
+    ];
+    assert_eq!(expected.as_slice(), visited);
+    assert!(never_decreasing(&events), "{events:?}");
+    assert!(events.iter().all(|p| p.fraction <= 1.0), "{events:?}");
+    assert_eq!(Some(&Progress::done(2, 3)), events.last());
+  }
+
+  #[test]
+  fn progress_of_parallel_rounds_is_reported_before_and_after_each_batch() {
+    let o = Options {
+      rounds: 2,
+      resolution: Resolution::None,
+      parallel: true,
+      ..Options::for_trees(3)
+    };
+    let events = observed(&["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", "((A,X),(B,(C,D)));"], &o);
+    // Fractions (round + (pair + within) / 3) / 2: 0, (0 + 3 / 3) / 2, (1 + 0) / 2, 1, and the end.
+    let expected = [
+      Progress {
+        fraction: 0.0,
+        round: 1,
+        rounds: 2,
+        pair: 1,
+        pairs: 3,
+      },
+      Progress {
+        fraction: 0.5,
+        round: 1,
+        rounds: 2,
+        pair: 3,
+        pairs: 3,
+      },
+      Progress {
+        fraction: 0.5,
+        round: 2,
+        rounds: 2,
+        pair: 1,
+        pairs: 3,
+      },
+      Progress {
+        fraction: 1.0,
+        round: 2,
+        rounds: 2,
+        pair: 3,
+        pairs: 3,
+      },
+      Progress {
+        fraction: 1.0,
+        round: 2,
+        rounds: 2,
+        pair: 3,
+        pairs: 3,
+      },
+    ];
+    assert_eq!(expected.as_slice(), events);
+  }
+
+  #[test]
+  fn progress_of_matched_resolution_ends_at_one_after_matching() {
+    let o = Options {
+      n_t: 5,
+      parallel: false,
+      ..Options::for_trees(3)
+    };
+    assert_eq!(Resolution::Matched, o.resolution);
+    let events = observed(&["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", "((A,X),(B,(C,D)));"], &o);
+    assert!(never_decreasing(&events), "{events:?}");
+    assert_eq!(Some(&Progress::done(1, 3)), events.last());
+  }
+
+  #[test]
+  fn progress_observer_leaves_the_result_unchanged() {
+    // The observer consumes no random numbers: the same seed gives the same MCCs and trees as
+    // `run`, in every resolution mode, sequentially and in parallel.
+    let nwks = ["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", "((A,X),(B,(C,D)));"];
+    for resolution in [
+      Resolution::None,
+      Resolution::Strict,
+      Resolution::Liberal,
+      Resolution::Matched,
+    ] {
+      for parallel in [false, true] {
+        let o = Options {
+          resolution,
+          parallel,
+          pre_resolve: true,
+          ..Options::for_trees(3)
+        };
+        let (mut plain, taxa) = trees(&nwks);
+        let expected = run(&mut plain, &taxa, &o, 1);
+        let (mut seen, _) = trees(&nwks);
+        let events = std::cell::RefCell::new(Vec::new());
+        let actual = run_observed(&mut seen, &taxa, &o, 1, &|p| events.borrow_mut().push(p));
+        let case = format!("{resolution:?}, parallel {parallel}");
+        let mccs = |r: &[PairResult]| r.iter().map(|p| p.mccs.clone()).collect::<Vec<_>>();
+        let shape = |ts: &[Tree]| {
+          ts.iter()
+            .map(|t| (t.leaf_names(), splits(t, &taxa)))
+            .collect::<Vec<_>>()
+        };
+        assert_eq!(mccs(&expected), mccs(&actual), "{case}");
+        assert_eq!(shape(&plain), shape(&seen), "{case}");
+        assert_eq!(Some(1.0), events.borrow().last().map(|p| p.fraction), "{case}");
+      }
+    }
+  }
 }
