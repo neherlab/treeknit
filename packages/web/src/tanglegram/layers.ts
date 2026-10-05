@@ -7,7 +7,7 @@ import { fillLayer } from "../canvas/layers/fillLayer";
 import { labelLayer } from "../canvas/layers/labelLayer";
 import { branchLayer, hoverColor, REASSORTMENT_WIDTH_PX, ringLayer, selectionLayer } from "../canvas/layers/treeLayers";
 import { emphasisOpacity, type PairEmphasis } from "../drawing/selection";
-import { LABEL_GAP_PX } from "./columns";
+import { LABEL_GAP_PX } from "../drawing/spacing";
 import { type BranchItem, type LinkItem, PAIR_LAYER, type TanglegramGeometry } from "./geometry";
 
 export const RIBBON_OPACITY = 0.55;

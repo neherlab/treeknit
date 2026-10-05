@@ -1,8 +1,5 @@
 import type { Column } from "../canvas/projection";
-
-export const DRAWING_MARGIN_PX = 16;
-
-export const LABEL_GAP_PX = 6;
+import { DRAWING_MARGIN_PX, LABEL_GAP_PX } from "../drawing/spacing";
 
 export const LABEL_COLUMN_MAX_SHARE = 0.25;
 

@@ -1,13 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import {
-  DRAWING_MARGIN_PX,
-  LABEL_COLUMN_MAX_SHARE,
-  LABEL_GAP_PX,
-  labelColumnPx,
-  LINK_ZONE_MIN_SHARE,
-  tanglegramColumns,
-} from "../columns";
+import { DRAWING_MARGIN_PX, LABEL_GAP_PX } from "../../drawing/spacing";
+import { LABEL_COLUMN_MAX_SHARE, labelColumnPx, LINK_ZONE_MIN_SHARE, tanglegramColumns } from "../columns";
 
 function width({ start, end }: { start: number; end: number }) {
   return end - start;
