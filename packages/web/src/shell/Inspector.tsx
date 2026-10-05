@@ -11,6 +11,7 @@ import { leafInPair, mccInTanglegram } from "../drawing/navigation";
 import { selectionOf, type Selection, withSelection } from "../drawing/selection";
 import { segmentList, segmentName, type SegmentLabels } from "../drawing/tooltip";
 import { type InspectorSubject, inspectorSubject, type LeafPair } from "../inspector/subject";
+import { mccsBySize } from "../tables/mccTable";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
 import { Link } from "../ui/Link";
@@ -69,7 +70,10 @@ function ResultInspector({ result }: { result: RunResult }) {
 }
 
 function NothingSelected({ mccs, onSelect }: { mccs: readonly MccInfo[]; onSelect: (selection: Selection) => void }) {
-  const items = useMemo(() => mccs.map((mcc) => ({ id: mcc.index, text: mccTitle(mcc.index), mcc })), [mccs]);
+  const items = useMemo(
+    () => mccsBySize(mccs).map((mcc) => ({ id: mcc.index, text: mccTitle(mcc.index), mcc })),
+    [mccs],
+  );
 
   const choose = useCallback(
     (key: Key) => {
@@ -89,8 +93,8 @@ function NothingSelected({ mccs, onSelect }: { mccs: readonly MccInfo[]; onSelec
               <>
                 <MccSwatch slot={mcc.slot} />
                 <span className="w-16 shrink-0">{mccTitle(mcc.index)}</span>
-                <span className="text-ink-muted w-16 shrink-0 text-right">{leafCount(mcc.size)}</span>
-                <span className="font-condensed text-ink-muted truncate">{mcc.leaves[0] ?? ""}</span>
+                <span className="text-ink-muted w-20 shrink-0 text-right tabular-nums">{leafCount(mcc.size)}</span>
+                <span className="font-condensed text-ink-muted min-w-0 truncate">{mcc.leaves[0] ?? ""}</span>
               </>
             )}
           </VirtualList>
@@ -129,7 +133,7 @@ function MccDetails({ mcc, onSelect }: { mcc: MccInfo; onSelect: (selection: Sel
         Zoom to MCC
       </Button>
       <VirtualList label={`Leaves of ${mccTitle(mcc.index)}`} items={leaves} onAction={chooseLeaf}>
-        {({ text }) => <span className="font-condensed truncate">{text}</span>}
+        {({ text }) => <span className="font-condensed min-w-0 truncate">{text}</span>}
       </VirtualList>
     </Section>
   );

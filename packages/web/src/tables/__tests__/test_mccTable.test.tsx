@@ -3,7 +3,7 @@ import { type ColumnFiltersState, type SortingState, useTable } from "@tanstack/
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { leavesPreview, MCC_COLUMN, mccColumns, mccTableFeatures } from "../mccTable";
+import { leavesPreview, MCC_COLUMN, mccColumns, mccsBySize, mccTableFeatures } from "../mccTable";
 
 const contains = (text: string, substring: string) => text.toLowerCase().includes(substring.toLowerCase());
 
@@ -14,6 +14,14 @@ const MCCS: MccInfo[] = [
   mcc(1, ["B/Lee/1940"], [], false),
   mcc(2, ["A/Hong Kong/1/1968", "A/Hanoi/5/2005"], [], false),
 ];
+
+describe("mccsBySize", () => {
+  test("lists the largest MCC first and breaks size ties by MCC number", () => {
+    const tied = [...MCCS, mcc(3, ["C/1", "C/2"], [], false)];
+
+    expect(mccsBySize(tied).map(({ index }) => index)).toStrictEqual([0, 2, 3, 1]);
+  });
+});
 
 describe("mccColumns", () => {
   test("lists the MCCs in their order", () => {

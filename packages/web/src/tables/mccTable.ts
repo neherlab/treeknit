@@ -68,6 +68,10 @@ export function mccColumns(contains: (text: string, substring: string) => boolea
   ]);
 }
 
+export function mccsBySize(mccs: readonly MccInfo[]): MccInfo[] {
+  return mccs.toSorted((a, b) => b.size - a.size || a.index - b.index);
+}
+
 export function leavesPreview(leaves: readonly string[]): string {
   const shown = leaves.slice(0, MCC_LEAVES_SHOWN).join(", ");
   const more = leaves.length - MCC_LEAVES_SHOWN;
