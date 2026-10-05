@@ -84,7 +84,7 @@ impl<R: Rng> Chain<'_, R> {
             let i = self.rng.gen_range(0..n);
             st.flip(i);
             let fnew = self.free_energy(st);
-            if fnew < f || (-(fnew - f) / t).exp() > self.rng.gen::<f64>() {
+            if fnew < f || (-(fnew - f) / t).exp() > self.rng.r#gen::<f64>() {
                 f = fnew;
             } else {
                 st.undo();

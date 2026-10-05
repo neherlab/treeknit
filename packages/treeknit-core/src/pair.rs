@@ -101,7 +101,7 @@ fn choose_conf(confs: Vec<Bits>, g: &Graph, trees: &[&Tree], p: &PairParams, rng
         confs = confs
             .into_iter()
             .zip(&lk)
-            .filter(|(_, &l)| l == lmax)
+            .filter(|&(_, &l)| l == lmax)
             .map(|(c, _)| c)
             .collect();
         if confs.len() > 1 {
@@ -110,7 +110,7 @@ fn choose_conf(confs: Vec<Bits>, g: &Graph, trees: &[&Tree], p: &PairParams, rng
             confs = confs
                 .into_iter()
                 .zip(&e)
-                .filter(|(_, &x)| x == emin)
+                .filter(|&(_, &x)| x == emin)
                 .map(|(c, _)| c)
                 .collect();
         }
