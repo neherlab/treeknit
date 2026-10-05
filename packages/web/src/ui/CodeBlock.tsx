@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import CopiedIcon from "~icons/lucide/check";
 import FailedIcon from "~icons/lucide/circle-alert";
 import CopyIcon from "~icons/lucide/copy";
@@ -19,7 +19,7 @@ const COPY_BUTTON: Record<CopyState, { label: string; icon: IconComponent }> = {
 export function CodeBlock({ code, label, highlight, lineNumbers, className }: CodeBlockProps) {
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const [feedback] = useState(() => copyFeedback(writeClipboard, setCopyState));
-  const lines = codeLines(code, highlight);
+  const lines = useMemo(() => codeLines(code, highlight), [code, highlight]);
   const showLineNumbers = lineNumbers ?? lines.length > 1;
   const button = COPY_BUTTON[copyState];
   const copy = useCallback(() => void feedback.copy(code), [feedback, code]);
