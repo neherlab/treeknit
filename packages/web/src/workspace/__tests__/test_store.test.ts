@@ -417,7 +417,16 @@ function fakeServices(): FakeServices {
 }
 
 function schemaWith(seqLengthDefault: number): SettingsSchema {
-  const number: NumberSetting = { default: 0, min: 0, max: null, step: 1, applies: true, reason: null, help: "" };
+  const number: NumberSetting = {
+    default: 0,
+    min: 0,
+    minExclusive: false,
+    max: null,
+    step: 1,
+    applies: true,
+    reason: null,
+    help: "",
+  };
   const toggle: ToggleSetting = { default: false, applies: true, reason: null, help: "" };
 
   return {
