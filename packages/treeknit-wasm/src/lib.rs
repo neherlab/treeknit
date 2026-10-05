@@ -90,8 +90,9 @@ pub fn request_file(request: &Ts<AnalysisRequest>) -> Result<Ts<OutputFile>, JsE
   to_js(&output::request_file(&from_js("request", request)?))
 }
 
-/// Labels for trees loaded from `fileNames`: the file name without its last extension, with
-/// `_2`, `_3`, ... where it collides with `existingLabels` or an earlier new label.
+/// Labels for trees loaded from `fileNames`: the file name without its last extension, with the
+/// characters that a label must not hold replaced by `_`, and `_2`, `_3`, ... where it collides
+/// with `existingLabels` or an earlier new label. Every label passes the label check.
 #[wasm_bindgen(js_name = treeLabels)]
 #[expect(
   clippy::needless_pass_by_value,

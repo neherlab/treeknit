@@ -354,9 +354,12 @@ pub fn read_request(text: &str) -> Result<AnalysisRequest, Vec<ValidationError>>
 }
 
 /// Labels of the web app for trees loaded from `file_names`: each file name without its last
-/// extension (`ha.nwk` gives `ha`, `ha.tree.nwk` gives `ha.tree`), or `tree` for an empty name.
-/// A label that equals one of `existing_labels` or an earlier new label, ignoring case as the
-/// label check does, gets the first free suffix of `_2`, `_3`, ...
+/// extension (`ha.nwk` gives `ha`, `ha.tree.nwk` gives `ha.tree`), with every character that the
+/// label check rejects (path separators, characters reserved on Windows, control characters)
+/// replaced by `_`, or `tree` for a name that leaves no usable label (empty, blank, `.`, or
+/// `..`). A label that equals one of `existing_labels` or an earlier new label, ignoring case as
+/// the label check does, gets the first free suffix of `_2`, `_3`, ... Every label passes the
+/// label check.
 ///
 /// The command line labels its tree files by path instead (the file stem, and the parent
 /// directory when stems collide), because it has directories to tell equal file names apart;
@@ -370,7 +373,15 @@ pub fn tree_labels(file_names: &[String], existing_labels: &[String]) -> Vec<Str
         Some((stem, _)) if !stem.is_empty() => stem,
         _ => name.as_str(),
       };
-      let base = if stem.is_empty() { "tree" } else { stem };
+      let stem: String = stem
+        .chars()
+        .map(|c| if label_char_rejected(c) { '_' } else { c })
+        .collect();
+      let base = if stem.trim().is_empty() || stem == "." || stem == ".." {
+        "tree"
+      } else {
+        stem.as_str()
+      };
       let mut label = base.to_owned();
       let mut suffix = 1;
       while taken.contains(&label_key(&label)) {
@@ -416,6 +427,12 @@ pub fn shared_leaf_counts(trees: &[Tree], n_taxa: usize) -> Vec<PairShared> {
 
 /// Characters that Windows does not allow in file names, besides the path separators.
 const RESERVED_CHARS: [char; 7] = ['<', '>', ':', '"', '|', '?', '*'];
+
+/// Whether the label check rejects a label holding `c`: a path separator, a character reserved
+/// on Windows, or a control character.
+fn label_char_rejected(c: char) -> bool {
+  c == '/' || c == '\\' || RESERVED_CHARS.contains(&c) || c.is_control()
+}
 
 /// A label is also a file-name stem of the outputs, so it must name a file in the results
 /// directory on every release target: no path separator, no character reserved on Windows, no
@@ -1004,6 +1021,12 @@ mod tests {
   #[case::new_repeated(   &["ha.nwk", "ha.tree", "ha.nwk"], &[],            &["ha", "ha_2", "ha_3"])]
   #[case::suffix_taken(   &["ha.nwk"],                     &["ha", "ha_2"], &["ha_3"])]
   #[case::no_files(       &[],                             &["ha"],         &[])]
+  #[case::reserved(       &["ha:1.nwk", "a<b>|c?*\"d.nwk"],  &[],            &["ha_1", "a_b__c___d"])]
+  #[case::separators(     &["a\\b.nwk"],                   &[],             &["a_b"])]
+  #[case::control(        &["a\tb.nwk"],                    &[],             &["a_b"])]
+  #[case::blank_stem(     &[" .nwk"],                      &[],             &["tree"])]
+  #[case::dot_stem(       &["..nwk"],                      &[],             &["tree"])]
+  #[case::dot_dot_stem(   &["...nwk", ".."],               &[],             &["tree", "tree_2"])]
   #[trace]
   fn tree_labels_follow_the_web_label_policy(#[case] files: &[&str], #[case] existing: &[&str], #[case] expected: &[&str]) {
     assert_eq!(strings(expected), tree_labels(&strings(files), &strings(existing)));
@@ -1013,7 +1036,8 @@ mod tests {
   fn tree_labels_pass_the_label_check() {
     // Repeated file names and existing labels give labels that check_trees accepts.
     let existing = strings(&["HA", "na"]);
-    let new = tree_labels(&strings(&["ha.nwk", "ha.nwk", "NA.nwk"]), &existing);
+    let files = ["ha.nwk", "ha.nwk", "NA.nwk", "ha:1.nwk", " .nwk", "..nwk", "a\tb", "...nwk"];
+    let new = tree_labels(&strings(&files), &existing);
     let all: Vec<&str> = existing.iter().chain(&new).map(String::as_str).collect();
     assert_eq!(Vec::<ValidationError>::new(), check_trees(&labeled(&all)));
   }
