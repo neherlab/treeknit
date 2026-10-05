@@ -19,6 +19,103 @@ mod tests {
     assert!(status.success());
   }
 
+  /// Run `treeknit` on Newick `trees` written to files `t0.nwk`, `t1.nwk`, ..., expecting a
+  /// failure; return the exit code, the error output, and whether any result file was written.
+  fn fail(name: &str, trees: &[&str], args: &[&str]) -> (Option<i32>, String, bool) {
+    let dir = tmp(&format!("{name}-in"));
+    std::fs::create_dir_all(&dir).unwrap();
+    let paths: Vec<PathBuf> = trees
+      .iter()
+      .enumerate()
+      .map(|(i, t)| {
+        let p = dir.join(format!("t{i}.nwk"));
+        std::fs::write(&p, t).unwrap();
+        p
+      })
+      .collect();
+    let out = tmp(name);
+    if out.exists() {
+      std::fs::remove_dir_all(&out).unwrap();
+    }
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .args(&paths)
+      .args(args)
+      .arg("-o")
+      .arg(&out)
+      .args(["--verbosity-level", "-1"])
+      .output()
+      .unwrap();
+    // The log is written from the start; result files only after validation.
+    let results = std::fs::read_dir(&out).is_ok_and(|d| d.filter_map(Result::ok).any(|e| e.file_name() != "log.txt"));
+    (output.status.code(), String::from_utf8(output.stderr).unwrap(), results)
+  }
+
+  const HA: &str = "((A:1,B:1):1,(C:1,(D:1,X:1):1):1);";
+  const NA: &str = "((A:1,(B:1,X:1):1):1,(C:1,D:1):1);";
+
+  #[rustfmt::skip]
+  #[test]
+  fn invalid_settings_exit_with_their_message() {
+    for (name, args, message) in [
+      ("gamma-negative", &["--gamma=-1"][..],            "gamma must be a non-negative number, got -1"),
+      ("gamma-nan",      &["--gamma=nan"],               "gamma must be a non-negative number, got NaN"),
+      ("lengths-zero",   &["--seq-lengths", "0 0"],      "sequence length 1 must be a positive number, got 0\nsequence length 2 must be a positive number, got 0"),
+      ("lengths-former", &["--better-MCCs", "--seq-lengths", "0 0"], "sequence length 1 must be a positive number, got 0"),
+      ("seed-large",     &["--seed", "9007199254740992"], "seed must be at most 9007199254740991, got 9007199254740992"),
+      ("mcmc-zero",      &["--n-mcmc-it", "0"],          "MCMC steps per leaf must be at least 1"),
+    ] {
+      let (code, stderr, results) = fail(name, &[HA, NA], args);
+      assert_eq!(Some(1), code, "{name}");
+      assert!(stderr.contains(message), "{name}: {stderr}");
+      assert!(!results, "{name}: result files written");
+    }
+  }
+
+  #[rustfmt::skip]
+  #[test]
+  fn pairs_sharing_fewer_than_two_leaves_exit_with_their_message() {
+    for (name, other, args) in [
+      ("disjoint-resolve",   "(P,(Q,R));", &["--resolve", "strict"][..]),
+      ("one-shared-resolve", "(A,(Q,R));", &["--resolve", "matched"]),
+      ("disjoint-former",    "(P,(Q,R));", &["--better-trees"]),
+      ("one-shared-former",  "(A,(Q,R));", &["--better-MCCs"]),
+    ] {
+      let (code, stderr, results) = fail(name, &[HA, other], args);
+      assert_eq!(Some(1), code, "{name}");
+      assert!(stderr.contains("trees t0 and t1 share fewer than two leaves"), "{name}: {stderr}");
+      assert!(!results, "{name}: result files written");
+    }
+  }
+
+  #[test]
+  fn colliding_pair_names_exit_before_writing_results() {
+    let dir = tmp("stems-in");
+    std::fs::create_dir_all(&dir).unwrap();
+    let paths: Vec<PathBuf> = ["a_b", "c", "a", "b_c"]
+      .iter()
+      .map(|l| {
+        let p = dir.join(format!("{l}.nwk"));
+        std::fs::write(&p, "((A,B),(C,D));").unwrap();
+        p
+      })
+      .collect();
+    let out = tmp("stems");
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .args(&paths)
+      .arg("-o")
+      .arg(&out)
+      .args(["--verbosity-level", "-1"])
+      .output()
+      .unwrap();
+    assert_eq!(Some(1), output.status.code());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+      stderr.contains("tree pairs (a_b, c) and (a, b_c) give the same output file names (a_b_c)"),
+      "{stderr}"
+    );
+    assert!(!out.join("MCCs.json").exists());
+  }
+
   fn tmp(name: &str) -> PathBuf {
     std::env::temp_dir().join(format!("treeknit-cli-test-{name}-{}", std::process::id()))
   }
