@@ -99,16 +99,18 @@ export function validationQuery(client: AnalysisClient, request: AnalysisRequest
   return queryOptions({
     queryKey: analysisKeys.validate(request),
     queryFn: async () => client.validate(request),
-    placeholderData: (previous, previousQuery) =>
-      previousQuery !== undefined && sameTreeTexts(previousQuery.queryKey[1].trees, request.trees)
-        ? previous
-        : undefined,
     gcTime: INPUT_QUERY_GC_MS,
   });
 }
 
 export function useValidation(request: AnalysisRequest): Answer<StatelessResult<"validate">> {
-  return useQuery(validationQuery(useAnalysisClient(), request));
+  return useQuery({
+    ...validationQuery(useAnalysisClient(), request),
+    placeholderData: (previous, previousQuery) =>
+      previousQuery !== undefined && sameTreeTexts(previousQuery.queryKey[1].trees, request.trees)
+        ? previous
+        : undefined,
+  });
 }
 
 export function sameTreeTexts(previous: readonly TreeText[], next: readonly TreeText[]): boolean {
