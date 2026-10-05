@@ -175,7 +175,7 @@ function zoomRoom({ frame, viewState }: StoredView): Pick<TreeView, "canZoomIn" 
 
 function resized(current: StoredView | undefined, { rows, canvas: size, areaWidth }: Drawing & MeasuredSize) {
   if (size.width <= 0 || size.height <= 0) {
-    return undefined;
+    return current;
   }
 
   const frame: CanvasFrame = { size, rows, leafAxis: leafAxisFor(areaWidth) };

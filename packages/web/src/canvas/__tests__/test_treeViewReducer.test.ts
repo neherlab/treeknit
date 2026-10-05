@@ -45,10 +45,19 @@ describe("treeViewReducer", () => {
   });
 
   test("has no view before the canvas has a size", () => {
-    expect(treeViewReducer(undefined, { ...DRAWING, type: "zoom", factor: 2 })).toBeUndefined();
-    expect(
-      treeViewReducer(sized(), { ...DRAWING, type: "resize", ...measured({ width: 800, height: 0 }) }),
-    ).toBeUndefined();
+    expect([
+      treeViewReducer(undefined, { ...DRAWING, type: "zoom", factor: 2 }),
+      resize(undefined, { width: 800, height: 0 }),
+    ]).toStrictEqual([undefined, undefined]);
+  });
+
+  test("keeps the last view while the canvas shrinks to no size, so the drawing stays mounted", () => {
+    const stored = sized();
+
+    expect([resize(stored, { width: 800, height: 0 }), resize(stored, { width: 0, height: 0 })]).toStrictEqual([
+      stored,
+      stored,
+    ]);
   });
 
   test("keeps the same view object for a resize to the same size", () => {
