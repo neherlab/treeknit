@@ -3,8 +3,8 @@
 
 use super::svg::{
   BRANCH_WIDTH, Column, DASH, DOT, LABEL_FONT_FAMILY, LABEL_GAP, LEADER_OPACITY, LEADER_WIDTH, LINK_WIDTH, LegendEntry,
-  MARGIN, Path, REASSORTMENT_WIDTH, RIBBON_OPACITY, Rows, Svg, Symbol, baseline, chars_fitting, drawing_top,
-  figure_height, label_max_chars, legend_top, num, shorten, text_width,
+  MARGIN, Path, REASSORTMENT_WIDTH, RIBBON_OPACITY, Rows, Svg, Symbol, baseline, drawing_top, figure_height,
+  label_column, legend_top, num, shorten,
 };
 use super::{FigureOptions, labels_shown};
 use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes};
@@ -78,24 +78,12 @@ impl Layout {
   /// half the inner width; labels that do not fit are shortened.
   fn new(view: &PairView, options: &FigureOptions) -> Layout {
     let inner = (options.width - 2.0 * MARGIN).max(0.0);
-    let longest = if labels_shown(options) {
-      leaf_names(&view.left)
-        .chain(leaf_names(&view.right))
-        .map(|name| text_width(&shorten(name, label_max_chars())))
-        .fold(0.0, f64::max)
-    } else {
-      0.0
-    };
-    let label = if longest > 0.0 {
-      (longest + 2.0 * LABEL_GAP).min(LABEL_COLUMN_MAX_SHARE * inner / 2.0)
-    } else {
-      0.0
-    };
-    let max_label_chars = if longest > 0.0 {
-      chars_fitting(label - 2.0 * LABEL_GAP).min(label_max_chars())
-    } else {
-      0
-    };
+    let labels = label_column(
+      leaf_names(&view.left).chain(leaf_names(&view.right)),
+      labels_shown(options),
+      LABEL_COLUMN_MAX_SHARE * inner / 2.0,
+    );
+    let label = labels.width;
     let links = LINK_ZONE_SHARE * inner;
     let tree = ((inner - links - 2.0 * label) / 2.0).max(0.0);
     let left_end = MARGIN + tree;
@@ -124,7 +112,7 @@ impl Layout {
         .max(leaf_names(&view.right).count())
         .max(1),
       ribbons: options.row_height < f64::from(DRAWING_RULES.link_min_row_px),
-      max_label_chars,
+      max_label_chars: labels.max_chars,
     }
   }
 }
@@ -177,8 +165,12 @@ struct TreeDrawing<'a> {
 }
 
 impl TreeDrawing<'_> {
-  /// The dotted lines from the leaf tips to the label edge.
+  /// The dotted lines from the leaf tips to the label edge; none for a tip at the edge.
   fn leaders(&self, svg: &mut Svg) {
+    let leaders: Vec<_> = self.shapes.leaders.iter().filter(|l| l.from[0] < l.to[0]).collect();
+    if leaders.is_empty() {
+      return;
+    }
     svg.open(
       "g",
       &[
@@ -189,7 +181,7 @@ impl TreeDrawing<'_> {
         ("stroke-dasharray", DOT.to_owned()),
       ],
     );
-    for leader in self.shapes.leaders.iter().filter(|l| l.from[0] < l.to[0]) {
+    for leader in leaders {
       let from = self.rows.point(self.column, leader.from);
       let to = self.rows.point(self.column, leader.to);
       svg.path(&Path::new().move_to(from).h(to[0]), &[]);

@@ -2,8 +2,7 @@
 
 use super::svg::{
   BRANCH_WIDTH, Column, DASH, DOT, LABEL_FONT_FAMILY, LABEL_GAP, LEADER_OPACITY, LEADER_WIDTH, LegendEntry, MARGIN,
-  Path, Rows, Svg, Symbol, baseline, chars_fitting, drawing_top, figure_height, label_max_chars, legend_top, num,
-  shorten, text_width,
+  Path, Rows, Svg, Symbol, baseline, drawing_top, figure_height, label_column, legend_top, num, shorten,
 };
 use super::{FigureOptions, labels_shown};
 use crate::display::{ArgView, EdgePath};
@@ -19,23 +18,12 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
   let leaves = || view.nodes.iter().filter(|n| n.leaf);
   let rows_count = leaves().count().max(1);
   let inner = (options.width - 2.0 * MARGIN).max(0.0);
-  let longest = if labels_shown(options) {
-    leaves()
-      .map(|n| text_width(&shorten(&n.label, label_max_chars())))
-      .fold(0.0, f64::max)
-  } else {
-    0.0
-  };
-  let label = if longest > 0.0 {
-    (longest + 2.0 * LABEL_GAP).min(LABEL_COLUMN_MAX_SHARE * inner)
-  } else {
-    0.0
-  };
-  let max_label_chars = if longest > 0.0 {
-    chars_fitting(label - 2.0 * LABEL_GAP).min(label_max_chars())
-  } else {
-    0
-  };
+  let labels = label_column(
+    leaves().map(|n| n.label.as_str()),
+    labels_shown(options),
+    LABEL_COLUMN_MAX_SHARE * inner,
+  );
+  let (label, max_label_chars) = (labels.width, labels.max_chars);
   let column = Column {
     start: MARGIN,
     end: MARGIN + inner - label,
@@ -51,7 +39,8 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
   let mut svg = Svg::new(options.width, height, &title, &colors.ground);
   svg.title(&title, &colors.ink);
 
-  if max_label_chars > 0 {
+  let leaders: Vec<_> = view.shapes.leaders.iter().filter(|l| l.from[0] < l.to[0]).collect();
+  if max_label_chars > 0 && !leaders.is_empty() {
     svg.open(
       "g",
       &[
@@ -62,7 +51,7 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
         ("stroke-dasharray", DOT.to_owned()),
       ],
     );
-    for leader in view.shapes.leaders.iter().filter(|l| l.from[0] < l.to[0]) {
+    for leader in leaders {
       let from = rows.point(column, leader.from);
       let to = rows.point(column, leader.to);
       svg.path(&Path::new().move_to(from).h(to[0]), &[]);
