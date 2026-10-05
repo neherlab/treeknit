@@ -10,6 +10,7 @@ import {
 } from "react-aria-components";
 
 import { FieldDescription, FieldErrorMessage, FieldLabel, type FieldProps } from "./Field";
+import { fieldValidity } from "./fieldValidity";
 import { descriptionStyle, groupFocusRing } from "./styles";
 
 export function RadioGroup({
@@ -18,6 +19,7 @@ export function RadioGroup({
   info,
   description,
   errorMessage,
+  isInvalid,
   children,
   className,
   ...props
@@ -25,7 +27,7 @@ export function RadioGroup({
   return (
     <AriaRadioGroup
       {...props}
-      isInvalid={props.isInvalid ?? errorMessage !== undefined}
+      {...fieldValidity(isInvalid, errorMessage)}
       className={cn("group/radios flex min-w-0 flex-col gap-2", className)}
     >
       <FieldLabel label={label} labelHidden={labelHidden} info={info} />

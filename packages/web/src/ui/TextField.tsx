@@ -7,6 +7,7 @@ import {
 } from "react-aria-components";
 
 import { FieldDescription, FieldErrorMessage, FieldLabel, type FieldProps } from "./Field";
+import { fieldValidity } from "./fieldValidity";
 import { fieldStyle, inputStyle } from "./styles";
 
 const DEFAULT_ROWS = 4;
@@ -19,6 +20,7 @@ export function TextField({
   info,
   description,
   errorMessage,
+  isInvalid,
   multiline = false,
   mono = false,
   rows = DEFAULT_ROWS,
@@ -31,7 +33,7 @@ export function TextField({
   return (
     <AriaTextField
       {...props}
-      isInvalid={props.isInvalid ?? errorMessage !== undefined}
+      {...fieldValidity(isInvalid, errorMessage)}
       className={cn(fieldStyle, className)}
     >
       <FieldLabel label={label} labelHidden={labelHidden} info={info} />

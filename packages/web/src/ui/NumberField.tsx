@@ -13,6 +13,7 @@ import DecreaseIcon from "~icons/lucide/chevron-down";
 import IncreaseIcon from "~icons/lucide/chevron-up";
 
 import { FieldDescription, FieldErrorMessage, FieldLabel, type FieldProps } from "./Field";
+import { fieldValidity } from "./fieldValidity";
 import { fieldStyle, inputStyle } from "./styles";
 import { TooltipTrigger } from "./TooltipTrigger";
 
@@ -22,6 +23,7 @@ export function NumberField({
   info,
   description,
   errorMessage,
+  isInvalid,
   placeholder,
   className,
   ...props
@@ -29,7 +31,7 @@ export function NumberField({
   return (
     <AriaNumberField
       {...props}
-      isInvalid={props.isInvalid ?? errorMessage !== undefined}
+      {...fieldValidity(isInvalid, errorMessage)}
       className={cn(fieldStyle, className)}
     >
       <FieldLabel label={label} labelHidden={labelHidden} info={info} />

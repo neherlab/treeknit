@@ -14,6 +14,7 @@ import CheckIcon from "~icons/lucide/check";
 import ChevronIcon from "~icons/lucide/chevron-down";
 
 import { FieldDescription, FieldErrorMessage, FieldLabel, type FieldProps } from "./Field";
+import { fieldValidity } from "./fieldValidity";
 import { fieldStyle, inputStyle, listBoxStyle, optionStyle, popoverStyle } from "./styles";
 
 const POPOVER_OFFSET_PX = 4;
@@ -24,6 +25,7 @@ export function Select<K extends string>({
   info,
   description,
   errorMessage,
+  isInvalid,
   options,
   value,
   onChange,
@@ -44,7 +46,7 @@ export function Select<K extends string>({
   return (
     <AriaSelect
       {...props}
-      isInvalid={props.isInvalid ?? errorMessage !== undefined}
+      {...fieldValidity(isInvalid, errorMessage)}
       value={value}
       onChange={select}
       className={cn(fieldStyle, "group/select", className)}
