@@ -88,7 +88,22 @@ impl From<log::Level> for Level {
 mod tests {
   use super::*;
   use pretty_assertions::assert_eq;
+  use rstest::rstest;
   use serde_json::json;
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::error(log::Level::Error, Level::Error)]
+  #[case::warn( log::Level::Warn,  Level::Warn)]
+  #[case::info( log::Level::Info,  Level::Info)]
+  #[case::debug(log::Level::Debug, Level::Debug)]
+  #[case::trace(log::Level::Trace, Level::Debug)]
+  #[trace]
+  fn summary_level_from_log_level_counts_trace_as_debug(#[case] level: log::Level, #[case] expected: Level) {
+    // Oracle: the doc of `From<log::Level> for Level`: each level maps to its namesake, and
+    // trace records count as debug.
+    assert_eq!(expected, Level::from(level));
+  }
 
   #[test]
   fn summary_serializes_arg_outcome_tagged_by_status() {
