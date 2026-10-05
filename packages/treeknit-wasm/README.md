@@ -24,6 +24,7 @@ Stateless functions:
 - `treeLabels(fileNames, existingLabels): string[]`: labels for loaded files, unique against the existing labels
 - `version(): AppVersion`: the TreeKnit version and the repository URL
 - `palette(): Palette`: the drawing colors of the light and the dark theme
+- `drawingRules(): DrawingRules`: the thresholds of the drawing rules that depend on the drawn row height: labels in mode `auto` from `labelAutoMinRowPx` (10) px per row, one curve per link from `linkMinRowPx` (6) px per row and ribbons below it, labels shortened in the middle to `labelMaxChars` (40) characters
 
 `Session`, one run and its results:
 
@@ -33,18 +34,18 @@ Stateless functions:
 - `fileText(path): string`: the text of a listed file; throws `no file <path>` for any other path
 - `zip(): Uint8Array`: every listed file under `treeknit_results/`
 - `commandLine(): string`: the command that writes the same files from the extracted archive
+- `pairView(pair, version, scale): PairView`: the tanglegram of a pair (pipeline order) in version `input`, `resolved`, or `imputed`, laid out with scale `div` or `depth`; throws `no pair <pair>: ...` for an index the run lacks
+- `argView(scale): ArgView | undefined`: the ARG of two trees; `undefined` for more than two trees or a failed ARG
+- `constellation(): ConstellationTable`: the MCC, its size, and its color slot of every leaf in every pair
 
 Not built yet; these throw `not implemented`:
 
-- `pairView(pair, version, scale): PairView`: the tanglegram of a pair in version `input`, `resolved`, or `imputed`, laid out with scale `div` or `depth`
-- `argView(scale): ArgView | undefined`: the ARG of two trees; `undefined` for more than two trees or a failed ARG
-- `constellation(): ConstellationTable`: the MCC of every leaf in every pair
 - `figure(pair, version, options): string`: the SVG tanglegram of a pair
 - `argFigure(options): string`: the SVG figure of the ARG
 
 `validate` and `Session.run` apply the checks of the command line. `validate` returns each problem with the path of the field it concerns (such as `settings.gamma` or `trees[1].newick`) and, for Newick errors with a position, the 1-based line and column; an empty list means the request runs. `Session.run` throws an `Error` named `ValidationError` whose message joins the messages, one per line, so the caller tells an invalid request from an internal failure, which throws an `Error`. A request that is not of the declared type throws an `Error` that says where it is wrong. A Rust panic traps the module and leaves the instance unusable.
 
-Display data uses normalized units: x from 0 to 1 across the column of a shape (a tree column, or the link zone of a tanglegram), y in leaf rows. `PairView` and `ArgView` carry the drawn shapes (`shapes`): branch elbows, marks, link curves, and ribbon outlines, with curves as cubic Bézier segments `{ from, c1, c2, to }`. The SVG figures draw the same shapes.
+Display data uses normalized units: x from 0 to 1 across the column of a shape (a tree column, or the link zone of a tanglegram), y in leaf rows. The right tree of a tanglegram is not mirrored; the consumer mirrors its column. `PairView` and `ArgView` carry the drawn shapes (`shapes`): branch elbows, marks (reassortment, imputed, hybrid), leaders from each leaf tip to the label edge, link curves, ribbon outlines, and ARG edges, with curves as cubic Bézier segments `{ from, c1, c2, to }`. The consumer chooses between links and ribbons and decides on labels with `drawingRules()`; it builds no shape of its own, and the SVG figures draw the same shapes. Node names are unique within a drawn tree and within an ARG view, so a view can select a node by name. MCC color slots come from the `resolved` version of a pair and stay the same in every version.
 
 Analyses run on one thread: browsers give WebAssembly no threads without cross-origin isolation.
 

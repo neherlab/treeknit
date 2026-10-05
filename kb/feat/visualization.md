@@ -1,6 +1,6 @@
 # Tree ordering and visualization outputs: parity checklist
 
-Counterpart: [`v0/visualization.md`](v0/visualization.md). The command line draws nothing, as in TreeKnit.jl. The web app draws nothing either (see [`web-app.md`](web-app.md)).
+Counterpart: [`v0/visualization.md`](v0/visualization.md). The command line draws nothing, as in TreeKnit.jl. The display data of the run result in `treeknit_io::display` holds the geometry of tanglegrams and ARG drawings for the web app and the figures (see [`web-app.md`](web-app.md#display-data)).
 
 ## Ordering of the output trees
 
@@ -13,6 +13,7 @@ Counterpart: [`v0/visualization.md`](v0/visualization.md). The command line draw
 - [x] **Node-to-MCC map**: the two-pass Fitch method of `map_mccs` [[src](../../packages/treeknit-core/src/mcc_map.rs#L25-L65)]. Fixture comparison: `fitch`. A leaf in no MCC, for example a leaf that the other tree lacks, is a wildcard and does not constrain its ancestors (new)
 - [x] **Sort after matching (new)**: with `matched` resolution, every pair is sorted non-strictly after the matching
 - [x] **Different leaf sets (new)**: the pair is sorted on copies restricted to the shared leaves, and the leaf order is applied to the full tree. Leaves outside the pair go last [[src](../../packages/treeknit-core/src/mcc_map.rs#L124-L138)]
+- [x] **Display sort of a pair (new)**: a pair view sorts copies of its two trees with the sort of the run, always ladderizing the left tree, so every pair has a drawing in its own order. The pair whose order the run kept draws the output trees unchanged [[src](../../packages/treeknit-io/src/display/pair.rs#L89-L109)]
 
 ## Auspice JSON
 
@@ -28,4 +29,4 @@ Counterpart: [`v0/visualization.md`](v0/visualization.md). The command line draw
 ## ARG viewers
 
 - [x] **IcyTree**: `ARG/arg.nwk` has the TreeKnit.jl syntax (see [`arg.md`](arg.md#extended-newick-output))
-- [ ] **Drawing of trees, tanglegrams, or ARGs**: TreeKnit.jl links a separate prototype viewer, TreeKnit-web, that draws ARGs. The web app of this port shows tables and downloads only
+- [/] **Drawing of trees, tanglegrams, or ARGs**: TreeKnit.jl links a separate prototype viewer, TreeKnit-web, that draws ARGs. This port computes the layout and the shapes of tanglegrams and ARG drawings in Rust (see [`web-app.md`](web-app.md#display-data)); the web app draws them
