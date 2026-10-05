@@ -288,6 +288,113 @@ mod tests {
     assert_eq!(vec![true, true, false], resolved);
   }
 
+  /// Write a session file with the trees `HA` and `NA`, labeled `ha` and `na`, and `settings`.
+  fn write_request(dir: &Path, settings: &serde_json::Value) -> PathBuf {
+    let request = serde_json::json!({
+      "trees": [{"label": "ha", "newick": HA}, {"label": "na", "newick": NA}],
+      "settings": settings,
+    });
+    let path = dir.join("treeknit_request.json");
+    std::fs::write(&path, request.to_string()).unwrap();
+    path
+  }
+
+  #[test]
+  fn request_gives_the_mccs_of_the_tree_files_with_the_same_settings() {
+    let dir = TempDir::new("request-same");
+    let request = write_request(
+      dir.path(),
+      &serde_json::json!({"gamma": 3, "resolve": "strict", "seed": 5}),
+    );
+    let from_request = dir.path().join("from-request");
+    run(&["--request", request.to_str().unwrap()], &from_request);
+    let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
+    let from_files = dir.path().join("from-files");
+    let (a, b) = (paths[0].to_str().unwrap(), paths[1].to_str().unwrap());
+    run(
+      &[a, b, "--gamma", "3", "--resolve", "strict", "--seed", "5"],
+      &from_files,
+    );
+    assert_eq!(mccs(&from_files), mccs(&from_request));
+  }
+
+  #[test]
+  fn request_writes_the_session_file_and_trees_named_by_label() {
+    let dir = TempDir::new("request-files");
+    let request = write_request(dir.path(), &serde_json::json!({}));
+    let out = dir.path().join("out");
+    run(&["--request", request.to_str().unwrap(), "--impute"], &out);
+    let written: serde_json::Value =
+      serde_json::from_str(&std::fs::read_to_string(out.join("treeknit_request.json")).unwrap()).unwrap();
+    let expected = serde_json::json!({
+      "trees": [{"label": "ha", "newick": HA}, {"label": "na", "newick": NA}],
+      "settings": {
+        "gamma": 2.0, "seqLengths": null, "nMcmcIt": 50, "resolve": "matched", "preResolve": false, "rounds": 1,
+        "finalRound": true, "likelihood": true, "naive": false, "seed": 1,
+      },
+    });
+    assert_eq!(expected, written);
+    let present: Vec<bool> = ["ha_resolved.nwk", "na_imputed.nwk", "ARG/na_liberal_resolved.nwk"]
+      .iter()
+      .map(|f| out.join(f).exists())
+      .collect();
+    assert_eq!(vec![true, true, true], present);
+  }
+
+  /// Run `treeknit` with `args` in the directory of a session file, returning the exit code and
+  /// the error output.
+  fn run_request(name: &str, settings: &serde_json::Value, args: &[&str]) -> (Option<i32>, String) {
+    let dir = TempDir::new(name);
+    let request = write_request(dir.path(), settings);
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .arg("--request")
+      .arg(&request)
+      .args(args)
+      .arg("-o")
+      .arg(dir.path().join("out"))
+      .args(["--verbosity-level", "-1"])
+      .current_dir(dir.path())
+      .output()
+      .unwrap();
+    (output.status.code(), String::from_utf8(output.stderr).unwrap())
+  }
+
+  #[rstest]
+  #[case::tree_file("request-tree", &["ha.nwk"], "the argument '--request <FILE>' cannot be used with '[TREES]...'")]
+  #[case::gamma("request-gamma", &["--gamma", "3"], "the argument '--request <FILE>' cannot be used with '--gamma <GAMMA>'")]
+  #[case::former("request-former", &["--better-MCCs"], "the argument '--request <FILE>' cannot be used with '--better-MCCs'")]
+  #[trace]
+  fn request_with_tree_files_or_analysis_options_is_a_usage_error(
+    #[case] name: &str,
+    #[case] args: &[&str],
+    #[case] message: &str,
+  ) {
+    let (code, stderr) = run_request(name, &serde_json::json!({}), args);
+    assert_eq!((Some(2), true), (code, stderr.contains(message)), "{stderr}");
+  }
+
+  #[test]
+  fn request_with_invalid_settings_exits_with_their_message() {
+    let (code, stderr) = run_request("request-invalid", &serde_json::json!({"gamma": -1}), &[]);
+    assert_eq!(
+      (Some(1), "Error: gamma must be a non-negative number, got -1\n"),
+      (code, stderr.as_str())
+    );
+  }
+
+  #[test]
+  fn request_with_a_wrong_structure_names_the_file() {
+    let (code, stderr) = run_request("request-structure", &serde_json::json!({"gama": 1}), &[]);
+    assert_eq!(
+      (Some(1), true),
+      (
+        code,
+        stderr.contains("treeknit_request.json: not a TreeKnit session file: unknown field `gama`")
+      ),
+      "{stderr}"
+    );
+  }
+
   fn mccs(out: &Path) -> serde_json::Value {
     serde_json::from_str(&std::fs::read_to_string(out.join("MCCs.json")).unwrap()).unwrap()
   }

@@ -8,7 +8,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 use treeknit_core::{Options, Resolution};
-use treeknit_io::analysis::{self, Settings, TreeText, ValidationError};
+use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
 use treeknit_io::output::{self, OutputFile, OutputOptions};
 use treeknit_io::{run, schema};
 
@@ -79,11 +79,25 @@ impl From<ResolveMode> for analysis::ResolveMode {
 )]
 struct Cli {
   /// Newick files, one tree per segment (at least two).
-  #[arg(required_unless_present_any = ["help_resolve", "help_defaults"])]
+  #[arg(required_unless_present_any = ["help_resolve", "help_defaults", "request"])]
   trees: Vec<PathBuf>,
 
+  /// Run the trees and settings of a session file (`treeknit_request.json`, saved by the web
+  /// app) instead of tree files and analysis options.
+  #[arg(
+    long,
+    value_name = "FILE",
+    value_hint = clap::ValueHint::FilePath,
+    conflicts_with_all = [
+      "trees", "gamma", "seq_lengths", "n_mcmc_it", "resolve", "pre_resolve", "rounds", "no_final_round",
+      "no_likelihood", "naive", "seed", "better_trees", "better_mccs", "no_pre_resolve", "no_resolve",
+      "liberal_resolve", "match_topologies", "resolve_all_rounds",
+    ],
+  )]
+  request: Option<PathBuf>,
+
   /// Output directory.
-  #[arg(short, long, default_value = "treeknit_results")]
+  #[arg(short, long, default_value = output::RESULTS_DIR)]
   outdir: PathBuf,
 
   /// Cost γ of a reassortment (removing an MCC).
@@ -180,7 +194,7 @@ fn main() -> Result<()> {
     println!("{}", resolve_help());
     return Ok(());
   }
-  if cli.trees.len() < 2 {
+  if cli.request.is_none() && cli.trees.len() < 2 {
     bail!("need at least two tree files");
   }
   fs::create_dir_all(&cli.outdir).with_context(|| format!("creating {}", cli.outdir.display()))?;
@@ -190,6 +204,71 @@ fn main() -> Result<()> {
   }
 
   log::info!("TreeKnit {}", env!("TREEKNIT_LONG_VERSION"));
+  let input = match &cli.request {
+    Some(path) => request_input(path)?,
+    None => tree_file_input(&cli)?,
+  };
+  log::info!("results directory: {}", cli.outdir.display());
+
+  let parsed = analysis::parse_trees(&input.texts);
+  if let Ok(p) = &parsed {
+    run::report_overlap(&p.trees, &p.taxa);
+  }
+  let k = input.texts.len();
+  let opts = match &input.request {
+    Some(r) => analysis::options(&r.settings, k, true),
+    None => options(&cli, k),
+  };
+  let (parsed, opts) = match (parsed, opts) {
+    (Ok(p), Ok(o)) => (p, o),
+    (parsed, opts) => {
+      let mut errors = parsed.err().unwrap_or_default();
+      errors.extend(opts.err().unwrap_or_default());
+      fail(&errors, &input.paths)?
+    },
+  };
+  log_options(&opts, parsed.trees.len());
+  log::debug!("parameters: {opts:?}");
+  write_file(&cli.outdir, &output::parameters_file(&opts, input.seed))?;
+  if let Some(r) = &input.request {
+    write_file(&cli.outdir, &output::request_file(r))?;
+  }
+
+  let start = Instant::now();
+  let result = run::run(parsed, &opts, input.seed, &|_| {});
+  log::info!(
+    "found {:?} MCCs (runtime {:.2}s)",
+    result.pairs.iter().map(|p| p.mccs.len()).collect::<Vec<_>>(),
+    start.elapsed().as_secs_f64()
+  );
+
+  log::info!("writing results in {}", cli.outdir.display());
+  let output_options = OutputOptions {
+    extensions: input.extensions,
+    imputed: cli.impute,
+    auspice: cli.auspice_view,
+  };
+  for file in output::output_files(&result, &output_options) {
+    write_file(&cli.outdir, &file)?;
+  }
+  Ok(())
+}
+
+/// The trees of a run with what the command line needs to report on them and to name their
+/// output files.
+struct Input {
+  texts: Vec<TreeText>,
+  /// Input file of each tree, for error messages; empty for a session file.
+  paths: Vec<PathBuf>,
+  /// Extension of each tree's output files.
+  extensions: Vec<String>,
+  seed: u64,
+  /// The session file, whose settings replace the analysis options.
+  request: Option<AnalysisRequest>,
+}
+
+/// The trees of the positional tree files, labeled by path, with the seed of `--seed`.
+fn tree_file_input(cli: &Cli) -> Result<Input> {
   log::info!(
     "input trees: {}",
     cli
@@ -199,52 +278,43 @@ fn main() -> Result<()> {
       .collect::<Vec<_>>()
       .join(" ")
   );
-  log::info!("results directory: {}", cli.outdir.display());
-
-  let labels = tree_labels(&cli.trees)?;
   let texts = cli
     .trees
     .iter()
-    .zip(labels)
+    .zip(path_labels(&cli.trees)?)
     .map(|(path, label)| {
       let newick = fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
       Ok(TreeText { label, newick })
     })
     .collect::<Result<Vec<_>>>()?;
-  let parsed = analysis::parse_trees(&texts);
-  if let Ok(p) = &parsed {
-    run::report_overlap(&p.trees, &p.taxa);
-  }
-  let (parsed, opts) = match (parsed, options(&cli, texts.len())) {
-    (Ok(p), Ok(o)) => (p, o),
-    (parsed, opts) => {
-      let mut errors = parsed.err().unwrap_or_default();
-      errors.extend(opts.err().unwrap_or_default());
-      fail(&errors, &cli.trees)?
+  Ok(Input {
+    texts,
+    paths: cli.trees.clone(),
+    extensions: cli.trees.iter().map(|p| extension(p)).collect(),
+    seed: cli.seed,
+    request: None,
+  })
+}
+
+/// The trees and settings of the session file at `path`. Its trees keep their labels, and their
+/// output files get the extension `.nwk`, as in the web app.
+fn request_input(path: &Path) -> Result<Input> {
+  log::info!("session file: {}", path.display());
+  let text = fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+  let request = match analysis::read_request(&text) {
+    Ok(r) => r,
+    Err(errors) => {
+      let lines: Vec<String> = errors.iter().map(|e| format!("{}: {e}", path.display())).collect();
+      bail!("{}", lines.join("\n"))
     },
   };
-  log_options(&opts, parsed.trees.len());
-  log::debug!("parameters: {opts:?}");
-  write_file(&cli.outdir, &output::parameters_file(&opts, cli.seed))?;
-
-  let start = Instant::now();
-  let result = run::run(parsed, &opts, cli.seed, &|_| {});
-  log::info!(
-    "found {:?} MCCs (runtime {:.2}s)",
-    result.pairs.iter().map(|p| p.mccs.len()).collect::<Vec<_>>(),
-    start.elapsed().as_secs_f64()
-  );
-
-  log::info!("writing results in {}", cli.outdir.display());
-  let output_options = OutputOptions {
-    extensions: cli.trees.iter().map(|p| extension(p)).collect(),
-    imputed: cli.impute,
-    auspice: cli.auspice_view,
-  };
-  for file in output::output_files(&result, &output_options) {
-    write_file(&cli.outdir, &file)?;
-  }
-  Ok(())
+  Ok(Input {
+    texts: request.trees.clone(),
+    paths: Vec::new(),
+    extensions: vec![".nwk".to_owned(); request.trees.len()],
+    seed: request.settings.seed,
+    request: Some(request),
+  })
 }
 
 /// Write `file` at its path below `dir`, creating its parent directories.
@@ -466,8 +536,11 @@ fn former_options(cli: &Cli, k: usize) -> Options {
   o
 }
 
-/// Tree labels from file names; if names collide, append the parent directory name.
-fn tree_labels(paths: &[PathBuf]) -> Result<Vec<String>> {
+/// Labels of the command line for tree files: the file stem, or, when stems collide, the stem
+/// and the parent directory (`a/ha.nwk` and `b/ha.nwk` give `ha_a` and `ha_b`); a remaining
+/// collision is an error. The web app labels trees by file name only
+/// (`treeknit_io::analysis::tree_labels`), because it has no directories.
+fn path_labels(paths: &[PathBuf]) -> Result<Vec<String>> {
   let stem = |p: &Path| {
     p.file_stem()
       .map(|s| s.to_string_lossy().into_owned())
