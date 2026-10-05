@@ -1114,6 +1114,137 @@ mod tests {
     );
   }
 
+  /// Replay a sequential run (`opts.parallel` off, no pre-resolution) of `trees` with seed 1
+  /// step by step, and return for each pair a copy of its two trees right before the run sorts
+  /// it (`None` for a pair without two shared leaves, which the sort leaves unchanged).
+  fn replay_sorts(trees: &mut [Tree], opts: &Options, n: usize) -> Vec<Option<[Tree; 2]>> {
+    assert!(!opts.parallel && !opts.pre_resolve, "replay of a sequential run only");
+    let k = trees.len();
+    let pairs = pipeline_pairs(k);
+    let mut mccs = vec![Vec::new(); pairs.len()];
+    let mut before = vec![None; pairs.len()];
+    let matched = opts.resolution == Resolution::Matched;
+    let (rounds, extra_round) = schedule(opts, k);
+    let strict_sort = sort_strictness(opts, k);
+    let mut sort = |trees: &mut [Tree], p: usize, mccs: &[Mcc]| {
+      let (i, j) = pairs[p];
+      if shared_leaves(&trees[i], &trees[j], n).is_some() {
+        before[p] = Some([trees[i].clone(), trees[j].clone()]);
+      }
+      sort_pair(trees, i, j, mccs, n, strict_sort);
+    };
+    for round in 1..=rounds {
+      let last = round == rounds;
+      let (resolve, strict) = round_mode(opts, extra_round && last);
+      let inference = Inference {
+        opts,
+        n,
+        seed: 1,
+        round,
+        resolve,
+      };
+      for (p, &(i, j)) in pairs.iter().enumerate() {
+        mccs[p] = infer(trees, i, j, &inference, &|_| {});
+        if resolve {
+          resolve_pair(trees, i, j, &mccs[p], n, strict);
+        }
+        if last && !matched {
+          sort(trees, p, &mccs[p]);
+        }
+      }
+    }
+    if matched {
+      match_topologies(trees, &pairs, &mut mccs, n);
+      for (p, m) in mccs.iter().enumerate() {
+        sort(trees, p, m);
+      }
+    }
+    before
+  }
+
+  /// Inputs of three and four trees for the run-order model: trees on the same leaves with
+  /// polytomies, and four trees in which the pair (2, 3) shares only the leaf A.
+  const RUN_ORDER_INPUTS: [&[&str]; 3] = [
+    &["((D,A),(B,E),C);", "(E,(B,C),(D,A));", "((B,C),D,(E,A));"],
+    &[
+      "(A,(E,C,D),B);",
+      "(D,((B,E),A,C));",
+      "((A,((E,C),B)),D);",
+      "((E,A,(C,D)),B);",
+    ],
+    &[
+      "((A,B),(C,(D,X)));",
+      "((A,(B,X)),(C,D));",
+      "((A,X),(C,D));",
+      "((B,P),(Q,A));",
+    ],
+  ];
+
+  #[test]
+  fn keeps_run_order_matches_runs_of_three_and_four_trees() {
+    // For each pair that the model calls kept, the run's final trees must equal the run's sort
+    // of the pair applied to copies of the pair's trees taken right before the run sorted it.
+    // The copies come from a replay of the run's steps, which must end with the run's trees.
+    let mut kept_pairs = Vec::new();
+    let mut mismatches = Vec::new();
+    let mut reordered_later = 0;
+    for nwks in RUN_ORDER_INPUTS {
+      let k = nwks.len();
+      let o = |resolution, final_unresolved_round| Options {
+        resolution,
+        final_unresolved_round,
+        n_t: 10,
+        parallel: false,
+        ..Options::for_trees(k)
+      };
+      let configs = [
+        o(Resolution::None, true),
+        o(Resolution::Strict, true),
+        o(Resolution::Strict, false),
+        o(Resolution::Liberal, true),
+        o(Resolution::Matched, true),
+      ];
+      for opts in configs {
+        let case = format!("{:?}, {}, {nwks:?}", opts.resolution, opts.final_unresolved_round);
+        let (mut ran, taxa) = trees(nwks);
+        let n = taxa.len();
+        let res = run(&mut ran, &taxa, &opts, 1);
+        let (mut replayed, _) = trees(nwks);
+        let before = replay_sorts(&mut replayed, &opts, n);
+        assert_eq!(
+          ran.iter().map(layout).collect::<Vec<_>>(),
+          replayed.iter().map(layout).collect::<Vec<_>>(),
+          "the replay ends with other trees than the run: {case}"
+        );
+        for (r, copies) in res.iter().zip(before) {
+          let kept = keeps_run_order(&ran, &opts, n, r.i, r.j);
+          let Some([mut left, mut right]) = copies else {
+            if kept {
+              mismatches.push(format!("({}, {}) kept but not sorted: {case}", r.i, r.j));
+            }
+            continue;
+          };
+          let mccs = r.shared_mccs(&ran, n);
+          sort_two(&mut left, &mut right, r.i == 0, &mccs, n, sort_strictness(&opts, k));
+          let same = layout(&left) == layout(&ran[r.i]) && layout(&right) == layout(&ran[r.j]);
+          if kept {
+            kept_pairs.push((k, r.i, r.j));
+            if !same {
+              mismatches.push(format!("({}, {}) kept but reordered later: {case}", r.i, r.j));
+            }
+          }
+          reordered_later += usize::from(!same);
+        }
+      }
+    }
+    assert_eq!(Vec::<String>::new(), mismatches);
+    // The check is not vacuous: kept pairs with i > 0 exist for three and four trees, and later
+    // sorts reorder the trees of some pairs, which a wrongly kept pair would show.
+    assert!(kept_pairs.iter().any(|&(k, i, _)| k == 3 && i > 0), "{kept_pairs:?}");
+    assert!(kept_pairs.iter().any(|&(k, i, _)| k == 4 && i > 0), "{kept_pairs:?}");
+    assert!(reordered_later > 0);
+  }
+
   #[test]
   fn last_sorting_pair_is_none_for_a_run_without_rounds() {
     let (ts, taxa) = same_leaves(2);
