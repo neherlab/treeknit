@@ -35,6 +35,7 @@ export interface MarkItem {
 export interface LeaderItem {
   side: TreeSide;
   node: number;
+  mcc: number | null;
   path: WorldPosition[];
 }
 
@@ -76,6 +77,7 @@ export const PAIR_LAYER = {
   plainBranches: "branches-plain",
   addedBranches: "branches-added",
   reassortmentBranches: "branches-reassortment",
+  leaders: "leaders",
   reassortmentMarks: "marks-reassortment",
   imputedMarks: "marks-imputed",
   leftLabels: "labels-left",
@@ -146,6 +148,7 @@ const PAIR_PICKS: LayerPicks<PairLayerId, TanglegramGeometry, PairTarget> = {
   [PAIR_LAYER.plainBranches]: (geometry, index) => nodeTarget(geometry.branches.plain[index]),
   [PAIR_LAYER.addedBranches]: (geometry, index) => nodeTarget(geometry.branches.added[index]),
   [PAIR_LAYER.reassortmentBranches]: (geometry, index) => nodeTarget(geometry.branches.reassortment[index]),
+  [PAIR_LAYER.leaders]: () => undefined,
   [PAIR_LAYER.reassortmentMarks]: (geometry, index) => nodeTarget(geometry.marks.reassortment[index]),
   [PAIR_LAYER.imputedMarks]: (geometry, index) => nodeTarget(geometry.marks.imputed[index]),
   [PAIR_LAYER.leftLabels]: (geometry, index) => nodeTarget(geometry.labels.left[index]),
@@ -193,6 +196,7 @@ function treeGeometry(view: PairView, side: TreeSide, column: Column, leafAxis: 
     leaders: leaders.map(({ node, from, to }: Leader): LeaderItem => ({
       side,
       node,
+      mcc: itemAt(tree.nodes, node, "node").mcc,
       path: projectPath([from, to], column, leafAxis),
     })),
     nodes: treeNodePoints(tree, elbows).map((point) =>

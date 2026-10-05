@@ -91,6 +91,7 @@ describe("tanglegramGeometry", () => {
       {
         side: "left",
         node: 2,
+        mcc: VIEW.left.nodes[2]?.mcc,
         path: [
           [columnPixel(COLUMNS.left, 0.5), 0],
           [COLUMNS.left.end, 0],
@@ -99,6 +100,7 @@ describe("tanglegramGeometry", () => {
       {
         side: "right",
         node: 2,
+        mcc: VIEW.right.nodes[2]?.mcc,
         path: [
           [columnPixel(COLUMNS.right, 0.5), 0],
           [COLUMNS.right.start, 0],

@@ -50,6 +50,7 @@ export const ARG_LAYER = {
   edges: "arg-edges",
   reticulations: "arg-reticulations",
   hybrids: "arg-hybrids",
+  leaders: "arg-leaders",
   labels: "arg-labels",
 } as const;
 
@@ -100,6 +101,7 @@ export function argTargetAt(geometry: ArgGeometry, layer: string, index: number)
 const ARG_PICKS: LayerPicks<ArgLayerId, ArgGeometry, ArgTarget> = {
   [ARG_LAYER.edges]: (geometry, index) => edgeTarget(geometry.edges[index]),
   [ARG_LAYER.reticulations]: (geometry, index) => edgeTarget(geometry.reticulations[index]),
+  [ARG_LAYER.leaders]: () => undefined,
   [ARG_LAYER.hybrids]: (geometry, index) => nodeTarget(geometry.hybrids[index]),
   [ARG_LAYER.labels]: (geometry, index) => nodeTarget(geometry.labels[index]),
 };

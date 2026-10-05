@@ -14,7 +14,7 @@ import { PAIR_LAYER, tanglegramGeometry } from "../geometry";
 import {
   branchColor,
   labelColor,
-  LEADER_LAYER,
+  leaderColor,
   linkColor,
   type PairStyle,
   RIBBON_OPACITY,
@@ -176,25 +176,33 @@ describe("tanglegramLayers", () => {
     ]).toStrictEqual([0.4, 0.4, 1]);
   });
 
-  test("hides labels and their leaders when the label rule says so", () => {
+  test("hides labels and their leaders when the label rule says so or the label font is not ready", () => {
     const hidden = layerProps({ ...STYLE, labels: false });
+    const waiting = layerProps({ ...STYLE, fontReady: false });
 
     expect([
       hidden[PAIR_LAYER.leftLabels]?.visible,
-      hidden[LEADER_LAYER]?.visible,
-      layerProps(STYLE)[LEADER_LAYER]?.visible,
-    ]).toStrictEqual([false, false, true]);
+      hidden[PAIR_LAYER.leaders]?.visible,
+      waiting[PAIR_LAYER.leaders]?.visible,
+      layerProps(STYLE)[PAIR_LAYER.leaders]?.visible,
+    ]).toStrictEqual([false, false, false, true]);
   });
 
-  test("draws leaders dotted in muted ink and lets clicks pass through them", () => {
+  test("draws leaders dotted and lets clicks pass through them", () => {
     const leaders = deckLayers(tanglegramLayers(GEOMETRY, STYLE)).find(
-      (layer): layer is StyledPathLayer<unknown> => layer instanceof PathLayer && layer.id === LEADER_LAYER,
+      (layer): layer is StyledPathLayer<unknown> => layer instanceof PathLayer && layer.id === PAIR_LAYER.leaders,
     );
 
-    expect([leaders?.props.pickable, leaders?.props.getColor, leaders?.props.getDashArray]).toStrictEqual([
-      false,
+    expect([leaders?.props.pickable, leaders?.props.getDashArray]).toStrictEqual([false, DOT_PX]);
+  });
+
+  test("draws leaders in muted ink and dims them with the labels of other MCCs", () => {
+    const selected = { ...STYLE, emphasis: pairEmphasis(VIEW, { mcc: 0 }) };
+
+    expect([leaderColor(0, STYLE), leaderColor(0, selected), leaderColor(1, selected)]).toStrictEqual([
       withOpacity(COLORS.inkMuted, LEADER_OPACITY),
-      DOT_PX,
+      withOpacity(COLORS.inkMuted, LEADER_OPACITY),
+      withOpacity(COLORS.inkMuted, LEADER_OPACITY * UNSELECTED_OPACITY),
     ]);
   });
 

@@ -59,7 +59,12 @@ export function argLayers(geometry: ArgGeometry, style: ArgStyle): LayersList {
       dashed: true,
       colorTriggers: triggers,
     }),
-    leaderLayer({ id: "arg-leaders", data: geometry.leaders, colors, visible: style.labels }),
+    leaderLayer({
+      id: ARG_LAYER.leaders,
+      data: geometry.leaders,
+      colors,
+      visible: style.labels && style.fontReady,
+    }),
     ringLayer({
       id: ARG_LAYER.hybrids,
       data: geometry.hybrids,
