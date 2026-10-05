@@ -6,7 +6,7 @@ Counterpart: [`v0/formats.md`](v0/formats.md). `treeknit-io` reads and writes al
 
 `fn parse` and `fn parse_first` [[src](../../packages/treeknit-io/src/newick.rs#L256-L280)]:
 
-- [/] **Several trees in one file**: the first tree is used, with the warning "<label>: more than one tree in file, using the first". TreeKnit.jl reads a vector, which its command line does not handle
+- [/] **Several trees in one file**: the first tree is used, with the warning "<label>: more than one tree in file, using the first". A tree ends at the first `;` outside quoted labels and `[...]` comments, so `('a;b',C);[x;y]` is one tree. The tree inspection of the web app reports the warning also when the first tree does not parse. TreeKnit.jl reads a vector, which its command line does not handle
 - [x] **Terminator**: `;` is required. Whitespace and `\r` after it are accepted; TreeTools.jl rejects them
 - [x] **Branch lengths**: parsed as `f64`. An invalid length becomes missing with the warning "ignoring invalid branch length" [[src](../../packages/treeknit-io/src/newick.rs#L170-L191)]. TreeTools.jl gives no warning
 - [x] **Root**: the root branch length is dropped. A root polytomy stays a polytomy
