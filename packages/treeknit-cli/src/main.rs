@@ -128,7 +128,7 @@ struct Cli {
 
   /// MCMC steps per leaf.
   #[arg(long, default_value_t = Settings::default().n_mcmc_it)]
-  n_mcmc_it: usize,
+  n_mcmc_it: u64,
 
   /// How trees are resolved: matched, strict, liberal or none (see --help-resolve).
   #[arg(long, value_enum, value_name = "MODE")]
@@ -140,7 +140,7 @@ struct Cli {
 
   // No clap default: without the flag, the former options take the rounds of their preset.
   #[arg(long, help = format!("Rounds of pair inference [default: {}]", Settings::default().rounds))]
-  rounds: Option<usize>,
+  rounds: Option<u64>,
 
   /// With strict or liberal resolution and more than two trees, skip the final round that
   /// re-infers MCCs without resolution.
@@ -490,7 +490,7 @@ fn options(cli: &Cli, k: usize) -> Result<Options, Vec<ValidationError>> {
   }
   let mut o = former_options(cli, k);
   o.gamma = cli.gamma;
-  o.n_mcmc = cli.n_mcmc_it;
+  o.n_mcmc = analysis::count_usize(cli.n_mcmc_it);
   o.likelihood_sort = !cli.no_likelihood;
   o.naive = cli.naive;
   if let Some(v) = shared.seq_lengths {
@@ -580,7 +580,7 @@ fn former_options(cli: &Cli, k: usize) -> Options {
     final_no_resolve = false;
   }
   if let Some(r) = cli.rounds {
-    rounds = r;
+    rounds = analysis::count_usize(r);
   }
   if cli.match_topologies {
     matched = true;

@@ -622,7 +622,9 @@ export interface Settings {
      */
     seqLengths?: number[] | null;
     /**
-     * MCMC steps per leaf (`--n-mcmc-it`).
+     * MCMC steps per leaf (`--n-mcmc-it`). A fixed-width integer, so that a session file reads
+     * the same on 32-bit WebAssembly and on 64-bit hosts, and the check against [`MAX_MCMC_IT`]
+     * reports a value that no `usize` of WebAssembly holds.
      */
     nMcmcIt?: number;
     /**
@@ -635,7 +637,7 @@ export interface Settings {
      */
     preResolve?: boolean;
     /**
-     * Rounds of pair inference (`--rounds`).
+     * Rounds of pair inference (`--rounds`), a fixed-width integer as `n_mcmc_it`.
      */
     rounds?: number;
     /**
@@ -1132,8 +1134,9 @@ export function settingsSchema(k: number, settings: Settings): SettingsSchema;
 export function start(): void;
 
 /**
- * Labels for trees loaded from `fileNames`: the file name without its last extension, with
- * `_2`, `_3`, ... where it collides with `existingLabels` or an earlier new label.
+ * Labels for trees loaded from `fileNames`: the file name without its last extension, with the
+ * characters that a label must not hold replaced by `_`, and `_2`, `_3`, ... where it collides
+ * with `existingLabels` or an earlier new label. Every label passes the label check.
  */
 export function treeLabels(fileNames: string[], existingLabels: string[]): string[];
 

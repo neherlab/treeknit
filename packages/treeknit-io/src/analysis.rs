@@ -22,11 +22,11 @@ pub const MAX_SEED: u64 = (1 << 53) - 1;
 /// counts end at 2^32 - 1, and a run with more than two trees can add a final round on top of
 /// `rounds`. The command line applies the same bound, so that a request one surface accepts the
 /// other accepts too.
-pub const MAX_ROUNDS: usize = 0xFFFF_FFFE;
+pub const MAX_ROUNDS: u64 = 0xFFFF_FFFE;
 
 /// Largest number of MCMC steps per leaf: 2^32 - 1, the largest count of 32-bit WebAssembly,
 /// for the reason of [`MAX_ROUNDS`].
-pub const MAX_MCMC_IT: usize = 0xFFFF_FFFF;
+pub const MAX_MCMC_IT: u64 = 0xFFFF_FFFF;
 
 /// Fewest leaves a pair of trees must share. With fewer, the pair has no MCCs to infer.
 pub const MIN_SHARED_LEAVES: usize = 2;
@@ -60,15 +60,17 @@ pub struct Settings {
   /// Sequence lengths of the segments, in the order of the trees, used by the likelihood
   /// tie-break (`--seq-lengths`).
   pub seq_lengths: Option<Vec<f64>>,
-  /// MCMC steps per leaf (`--n-mcmc-it`).
-  pub n_mcmc_it: usize,
+  /// MCMC steps per leaf (`--n-mcmc-it`). A fixed-width integer, so that a session file reads
+  /// the same on 32-bit WebAssembly and on 64-bit hosts, and the check against [`MAX_MCMC_IT`]
+  /// reports a value that no `usize` of WebAssembly holds.
+  pub n_mcmc_it: u64,
   /// How trees are resolved (`--resolve`).
   pub resolve: ResolveMode,
   /// Before inference, add to each tree the splits of other trees compatible with all trees
   /// (`--pre-resolve`).
   pub pre_resolve: bool,
-  /// Rounds of pair inference (`--rounds`).
-  pub rounds: usize,
+  /// Rounds of pair inference (`--rounds`), a fixed-width integer as `n_mcmc_it`.
+  pub rounds: u64,
   /// With strict or liberal resolution and more than two trees, run a final round that
   /// re-infers MCCs without resolution (the opposite of `--no-final-round`).
   pub final_round: bool,
@@ -87,10 +89,10 @@ impl Default for Settings {
     Settings {
       gamma: o.gamma,
       seq_lengths: None,
-      n_mcmc_it: o.n_mcmc,
+      n_mcmc_it: count_u64(o.n_mcmc),
       resolve: ResolveMode::default(),
       pre_resolve: o.pre_resolve,
-      rounds: o.rounds,
+      rounds: count_u64(o.rounds),
       final_round: o.final_unresolved_round,
       likelihood: o.likelihood_sort,
       naive: o.naive,
@@ -287,20 +289,12 @@ pub fn check_settings(s: &Settings, k: usize) -> Vec<ValidationError> {
       format!("rounds must be at most {MAX_ROUNDS}, got {}", s.rounds),
     ));
   }
-  #[cfg_attr(
-    target_pointer_width = "32",
-    expect(
-      clippy::absurd_extreme_comparisons,
-      reason = "on 32-bit targets the bound is the largest usize, which the check keeps for the other targets"
-    )
-  )]
-  let too_many_steps = s.n_mcmc_it > MAX_MCMC_IT;
   if s.n_mcmc_it == 0 {
     errors.push(ValidationError::at(
       "settings.nMcmcIt",
       "MCMC steps per leaf must be at least 1",
     ));
-  } else if too_many_steps {
+  } else if s.n_mcmc_it > MAX_MCMC_IT {
     errors.push(ValidationError::at(
       "settings.nMcmcIt",
       format!("MCMC steps per leaf must be at most {MAX_MCMC_IT}, got {}", s.n_mcmc_it),
@@ -328,10 +322,10 @@ pub fn options(s: &Settings, k: usize, parallel: bool) -> Result<Options, Vec<Va
     o.seq_lengths.clone_from(v);
   }
   o.gamma = s.gamma;
-  o.n_mcmc = s.n_mcmc_it;
+  o.n_mcmc = count_usize(s.n_mcmc_it);
   o.resolution = s.resolve.into();
   o.pre_resolve = s.pre_resolve;
-  o.rounds = s.rounds;
+  o.rounds = count_usize(s.rounds);
   o.final_unresolved_round = s.final_round;
   o.likelihood_sort = s.likelihood;
   o.naive = s.naive;
@@ -434,6 +428,22 @@ pub fn shared_leaf_counts(trees: &[Tree], n_taxa: usize) -> Vec<PairShared> {
     }
   }
   counts
+}
+
+/// A count of the core as a setting.
+fn count_u64(n: usize) -> u64 {
+  #[expect(clippy::expect_used, reason = "no target has a usize wider than 64 bits")]
+  u64::try_from(n).expect("a usize fits in u64")
+}
+
+/// A count of the settings for the core, after `check_settings` has bounded it by [`MAX_ROUNDS`]
+/// or [`MAX_MCMC_IT`], which every `usize` holds.
+pub fn count_usize(n: u64) -> usize {
+  #[expect(
+    clippy::expect_used,
+    reason = "check_settings bounds the counts by 2^32 - 1, the largest usize of 32-bit targets"
+  )]
+  usize::try_from(n).expect("a checked count fits in usize")
 }
 
 /// Characters that Windows does not allow in file names, besides the path separators.
@@ -924,6 +934,22 @@ mod tests {
       (u32::MAX - 1, u32::MAX),
       (u32::try_from(MAX_ROUNDS).unwrap(), u32::try_from(MAX_MCMC_IT).unwrap())
     );
+  }
+
+  #[test]
+  fn read_request_loads_counts_beyond_32_bits_and_validation_reports_them() {
+    // Oracle: 2^32 is one above the largest usize of wasm32, so it must load as a number and fail
+    // only the range check, on every target.
+    let text = r#"{"trees": [], "settings": {"nMcmcIt": 4294967296, "rounds": 4294967296}}"#;
+    let request = read_request(text).unwrap();
+    let expected = vec![
+      error("settings.rounds", "rounds must be at most 4294967294, got 4294967296"),
+      error(
+        "settings.nMcmcIt",
+        "MCMC steps per leaf must be at most 4294967295, got 4294967296",
+      ),
+    ];
+    assert_eq!(expected, check_settings(&request.settings, 2));
   }
 
   #[rustfmt::skip]

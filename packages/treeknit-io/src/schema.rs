@@ -207,20 +207,20 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         "Sequence length of each segment, in the order of the trees, used by the likelihood tie-break.",
       ),
       n_mcmc_it: number(
-        exact_usize(d.n_mcmc_it),
+        exact_u64(d.n_mcmc_it),
         1.0,
         false,
-        Some(exact_usize(MAX_MCMC_IT)),
+        Some(exact_u64(MAX_MCMC_IT)),
         Some(1.0),
         true,
         naive,
         "MCMC steps per leaf of the simulated annealing.",
       ),
       rounds: number(
-        exact_usize(d.rounds),
+        exact_u64(d.rounds),
         1.0,
         false,
-        Some(exact_usize(MAX_ROUNDS)),
+        Some(exact_u64(MAX_ROUNDS)),
         Some(1.0),
         true,
         rounds_skip,
@@ -261,15 +261,7 @@ fn default_seq_length() -> f64 {
 
 #[expect(
   clippy::as_conversions,
-  reason = "the counts of the settings are at most MAX_MCMC_IT = 2^32 - 1, which f64 holds exactly"
-)]
-fn exact_usize(n: usize) -> f64 {
-  n as f64
-}
-
-#[expect(
-  clippy::as_conversions,
-  reason = "seeds are at most MAX_SEED = 2^53 - 1, which f64 holds exactly"
+  reason = "the integer settings are at most MAX_SEED = 2^53 - 1, which f64 holds exactly"
 )]
 fn exact_u64(n: u64) -> f64 {
   n as f64
@@ -350,7 +342,7 @@ mod tests {
   #[test]
   fn schema_integer_settings_are_the_integer_fields_of_settings() {
     // Oracle: the types of the `Settings` fields: `gamma` and `seq_lengths` are `f64`,
-    // `n_mcmc_it` and `rounds` are `usize`, and `seed` is `u64`.
+    // `n_mcmc_it`, `rounds`, and `seed` are `u64`.
     let f = settings_schema(2, &Settings::default()).settings;
     let expected = [
       ("gamma", false),

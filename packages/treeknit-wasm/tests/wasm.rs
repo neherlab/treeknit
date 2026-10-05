@@ -91,6 +91,24 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
+  fn read_request_loads_counts_beyond_32_bits_for_validation_to_report() {
+    // Oracle: 2^32 is one above the largest usize of wasm32; the command line on a 64-bit host
+    // loads it too and reports the same field error.
+    let text = r#"{"trees": [], "settings": {"nMcmcIt": 4294967296}}"#;
+    let request = treeknit_wasm::read_request(text).unwrap();
+    let plain_request = plain(&request.js_value());
+    assert_eq!(json!(1_u64 << 32), plain_request["settings"]["nMcmcIt"]);
+    let errors = plain_list(&treeknit_wasm::validate(&request).unwrap());
+    let expected = json!({
+        "field": "settings.nMcmcIt",
+        "message": "MCMC steps per leaf must be at most 4294967295, got 4294967296",
+        "line": null,
+        "column": null,
+    });
+    assert!(errors.as_array().unwrap().contains(&expected), "{errors}");
+  }
+
+  #[wasm_bindgen_test]
   fn read_request_throws_the_structure_error() {
     let expected = "not a TreeKnit session file: missing field `trees` at line 1 column 2";
     match treeknit_wasm::read_request("{}") {
