@@ -341,7 +341,10 @@ export class WorkspacePersistence {
 
     if (this.#generation !== null) {
       this.#generation = null;
-      this.#setState({ ...this.#state, enabled: false });
+      this.#setState({
+        enabled: false,
+        problem: this.#state.problem?.kind === "save" ? null : this.#state.problem,
+      });
     }
   }
 

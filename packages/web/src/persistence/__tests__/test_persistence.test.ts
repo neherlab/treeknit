@@ -553,6 +553,26 @@ describe("workspace persistence", () => {
     });
   });
 
+  test("a failed save stops being reported when another tab turns persistence on", async () => {
+    const hub = new MemoryChannelHub();
+    const storage = new MemoryStorage(workspaceRecord(1, ONE_TREE));
+    const first = new Tab(storage, hub.channel());
+    const second = new Tab(storage, hub.channel());
+
+    await second.restore();
+    second.files.failNext();
+    second.persistence.changed(TWO_TREES);
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
+    const failed = second.persistence.state;
+
+    await first.persistence.enable(EMPTY);
+
+    expect({ failed, state: second.persistence.state }).toStrictEqual({
+      failed: { enabled: true, problem: { kind: "save", message: "internal error" } },
+      state: { enabled: false, problem: null },
+    });
+  });
+
   test("a save that started before another tab turned persistence off and on again does not write", async () => {
     const storage = new MemoryStorage(workspaceRecord(1, ONE_TREE));
     const first = new Tab(storage);
