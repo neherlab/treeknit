@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
 
-import { LABEL_AUTO_MIN_ROW_PX, LABEL_MAX_LENGTH, labelsVisible, shortenLabel } from "../labels";
+import {
+  type FontStore,
+  LABEL_AUTO_MIN_ROW_PX,
+  LABEL_FONT,
+  LABEL_MAX_LENGTH,
+  labelFontStore,
+  labelsVisible,
+  shortenLabel,
+} from "../labels";
 
 function graphemeCount(text: string): number {
   return Array.from(new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text)).length;
@@ -46,3 +54,57 @@ describe("shortenLabel", () => {
     expect(short).toBe(`${"e\u0301".repeat(5)}…${"𝔸".repeat(5)}`);
   });
 });
+
+describe("labelFontStore", () => {
+  test("reports a failed font load with the font and keeps labels drawable with the fallback font", async () => {
+    const failure = new Error("network error");
+    const reports: [string, Error][] = [];
+
+    const store = labelFontStore({
+      load: () => Promise.reject(failure),
+      reportFailure: (font, error) => {
+        reports.push([font, error]);
+      },
+    });
+
+    await firstChange(store);
+
+    expect(reports).toStrictEqual([[LABEL_FONT, failure]]);
+    expect(store.isReady()).toBe(true);
+  });
+
+  test("loads the label font once and reports nothing when it loads", async () => {
+    const loaded: string[] = [];
+    const reports: Error[] = [];
+
+    const store = labelFontStore({
+      load: (font) => {
+        loaded.push(font);
+
+        return Promise.resolve();
+      },
+      reportFailure: (_font, error) => {
+        reports.push(error);
+      },
+    });
+
+    expect(store.isReady()).toBe(false);
+
+    await Promise.all([
+      firstChange(store),
+      firstChange(store),
+    ]);
+
+    expect(loaded).toStrictEqual([LABEL_FONT]);
+    expect(reports).toStrictEqual([]);
+    expect(store.isReady()).toBe(true);
+  });
+});
+
+function firstChange(store: FontStore): Promise<void> {
+  return new Promise((resolve) => {
+    store.subscribe(() => {
+      resolve();
+    });
+  });
+}

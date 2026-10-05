@@ -33,15 +33,30 @@ export function shortenLabel(name: string, maxLength = LABEL_MAX_LENGTH): string
   return parts.slice(0, head).join("") + ELLIPSIS + parts.slice(parts.length - (kept - head)).join("");
 }
 
-function labelFontStore() {
+export const LABEL_FONT = `${String(LABEL_FONT_WEIGHT)} ${String(LABEL_FONT_SIZE_PX)}px ${LABEL_FONT_FAMILY}`;
+
+export interface FontLoader {
+  load(font: string): Promise<void>;
+  reportFailure(font: string, error: Error): void;
+}
+
+export interface FontStore {
+  subscribe(onChange: () => void): () => void;
+  isReady(): boolean;
+}
+
+export function labelFontStore(loader: FontLoader): FontStore {
   let ready = false;
   let loading: Promise<void> | undefined;
   const listeners = new Set<() => void>();
 
   async function waitForFont(): Promise<void> {
-    await document.fonts
-      .load(`${String(LABEL_FONT_WEIGHT)} ${String(LABEL_FONT_SIZE_PX)}px ${LABEL_FONT_FAMILY}`)
-      .catch(() => []);
+    try {
+      await loader.load(LABEL_FONT);
+    } catch (error) {
+      loader.reportFailure(LABEL_FONT, error instanceof Error ? error : new Error(String(error)));
+    }
+
     ready = true;
 
     for (const listener of listeners) {
@@ -49,26 +64,29 @@ function labelFontStore() {
     }
   }
 
-  function load() {
-    loading ??= waitForFont();
-  }
-
   return {
-    subscribe(onChange: () => void): () => void {
+    subscribe(onChange) {
       listeners.add(onChange);
-      load();
+      loading ??= waitForFont();
 
       return () => {
         listeners.delete(onChange);
       };
     },
-    isReady(): boolean {
+    isReady() {
       return ready;
     },
   };
 }
 
-const fontStore = labelFontStore();
+const fontStore = labelFontStore({
+  load: async (font) => {
+    await document.fonts.load(font);
+  },
+  reportFailure: (font, error) => {
+    console.error(`The label font "${font}" did not load, so labels use a fallback font`, error);
+  },
+});
 
 function subscribeFont(onChange: () => void): () => void {
   return fontStore.subscribe(onChange);
