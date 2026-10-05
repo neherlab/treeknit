@@ -516,15 +516,30 @@ describe("workspace persistence", () => {
     });
   });
 
-  test("a storage that cannot be read reports the failed restore", async () => {
+  test("a storage that cannot be opened reports unavailable storage", async () => {
     const storage = new MemoryStorage();
     const tab = new Tab(storage);
 
-    storage.failNextRead(new Error("The stored workspace record is not readable."));
+    storage.failNextRead(new Error("The database could not be opened."));
 
     expect({ restored: await tab.restore(), state: tab.persistence.state }).toStrictEqual({
       restored: null,
-      state: { enabled: false, problem: { kind: "restore", message: "The stored workspace record is not readable." } },
+      state: { enabled: false, problem: { kind: "unavailable", message: "The database could not be opened." } },
+    });
+  });
+
+  test("a stored record that does not parse reports the failed restore and stays stored", async () => {
+    const unreadable = { kind: "workspace", version: 1, generation: 3 };
+    const storage = new MemoryStorage(unreadable);
+    const tab = new Tab(storage);
+
+    const restored = await tab.restore();
+    const { problem } = tab.persistence.state;
+
+    expect({ restored, record: storage.record, kind: problem?.kind }).toStrictEqual({
+      restored: null,
+      record: unreadable,
+      kind: "restore",
     });
   });
 

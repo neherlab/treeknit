@@ -15,6 +15,11 @@ interface ProblemText {
 }
 
 const PROBLEM_TEXTS: Record<PersistenceProblemKind, ProblemText> = {
+  unavailable: {
+    title: "This browser does not let this page store data.",
+    hint: "Your workspace is lost when you close this page. Allow this page to store data and reload it.",
+    canRetry: false,
+  },
   restore: {
     title: "The workspace stored in this browser could not be restored.",
     hint: "It stays stored until you turn the switch on, which replaces it with the current workspace.",

@@ -9,6 +9,7 @@ import {
   RECORD_VERSION,
   type RecordStorage,
   type StoredRecord,
+  UnreadableRecordError,
 } from "./record";
 
 export const SAVE_DELAY_MS = 500;
@@ -23,7 +24,7 @@ export interface StoredWorkspace {
   sources: TreeSource[];
 }
 
-export type PersistenceProblemKind = "restore" | "enable" | "save" | "disable";
+export type PersistenceProblemKind = "unavailable" | "restore" | "enable" | "save" | "disable";
 
 export interface PersistenceProblem {
   kind: PersistenceProblemKind;
@@ -47,6 +48,12 @@ interface Enabling {
 
 interface WrittenRecord {
   generation: number | null;
+}
+
+class UnavailableStorageError extends Error {
+  constructor(cause: unknown) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+  }
 }
 
 export class WorkspacePersistence {
@@ -83,14 +90,14 @@ export class WorkspacePersistence {
     const epoch = this.#epoch;
 
     try {
-      const record = await this.#services.storage.read();
+      const record = await this.#readStored();
 
       if (record?.kind !== "workspace") {
         return null;
       }
 
       const restored = await read({ sessionFile: record.sessionFile, sources: record.sources });
-      const current = await this.#services.storage.read();
+      const current = await this.#readStored();
 
       if (epoch !== this.#epoch) {
         return null;
@@ -104,7 +111,7 @@ export class WorkspacePersistence {
 
       return restored;
     } catch (error) {
-      this.#report("restore", error);
+      this.#report(error instanceof UnavailableStorageError ? "unavailable" : "restore", error);
 
       return null;
     }
@@ -198,6 +205,14 @@ export class WorkspacePersistence {
     }
 
     await this.#save(snapshot, this.#invalidate());
+  }
+
+  async #readStored(): Promise<StoredRecord | undefined> {
+    try {
+      return await this.#services.storage.read();
+    } catch (error) {
+      throw error instanceof UnreadableRecordError ? error : new UnavailableStorageError(error);
+    }
   }
 
   async #enable(enabling: Enabling, epoch: number): Promise<void> {

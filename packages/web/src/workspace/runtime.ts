@@ -68,7 +68,7 @@ function storageOrNull(): RecordStorage | null {
 }
 
 function unavailableStorage(): RecordStorage {
-  return { read: () => Promise.resolve(undefined), update: rejectUnavailable };
+  return { read: rejectUnavailable, update: rejectUnavailable };
 }
 
 function rejectUnavailable(): Promise<never> {
