@@ -7,12 +7,14 @@
 //! the data; the consumer mirrors its column. The SVG figures and the interactive views draw the
 //! same shapes and only map these units to pixels.
 
+mod arg_view;
 mod constellation;
 mod pair;
 mod shapes;
 mod slots;
 mod tree;
 
+pub use arg_view::arg_view;
 pub use constellation::constellation;
 pub use pair::pair_view;
 
@@ -308,7 +310,8 @@ pub struct ArgView {
 #[serde(rename_all = "camelCase")]
 pub struct ArgNodeView {
   pub label: String,
-  /// Parent index per segment; `None` where the node is a root of the segment or lacks it.
+  /// Parent index per segment; `None` for the top root, where the node lacks the segment, and
+  /// where it is the root of the segment without the synthetic `GlobalRoot` above it.
   pub parents: [Option<usize>; 2],
   /// Indices of the children, in display order.
   pub children: Vec<usize>,
@@ -337,7 +340,8 @@ pub struct ArgEdge {
   pub child: usize,
   /// The segments the edge carries, ascending.
   pub segments: Vec<usize>,
-  /// The child is a hybrid node.
+  /// The child is a hybrid node and the edge is not on the child's chain to the top root, along
+  /// which `x_div` is measured. Each hybrid node has one reticulation edge.
   pub reticulation: bool,
 }
 

@@ -1,0 +1,415 @@
+//! The ARG of two trees laid out in one tree column.
+
+use super::shapes::arg_shapes;
+use super::tree::{add_length, row};
+use super::{ArgEdge, ArgNodeView, ArgView, RootCase, Scale};
+use crate::run::RunResult;
+use std::collections::{BTreeMap, VecDeque};
+use treeknit_core::arg::{Anc, Arg};
+
+/// Label of the synthetic top root, as in `ARG/arg.nwk`.
+const GLOBAL_ROOT: &str = "GlobalRoot";
+
+/// The ARG of `run` laid out with the shapes for `scale`; `None` when the run built no ARG (more
+/// than two trees, or a failed construction).
+pub fn arg_view(run: &RunResult, scale: Scale) -> Option<ArgView> {
+  run.built_arg().map(|arg| layout(arg, scale))
+}
+
+fn layout(arg: &Arg, scale: Scale) -> ArgView {
+  let (root_case, root) = top_root(arg);
+  let g = Graph::new(arg, root_case);
+  let order = topological_order(&g.parents, &g.children);
+  let chain = chain_parents(&g, &order, root);
+  let x_div = divergence(&g, &order, &chain);
+  let x_depth = depth(&g.children, &order, root);
+  let y = rows(arg, &g.children, &order);
+  let mut children = g.children.clone();
+  for c in &mut children {
+    c.sort_by(|&a, &b| y[a].total_cmp(&y[b]));
+  }
+  let nodes: Vec<ArgNodeView> = (0..g.len())
+    .map(|n| {
+      let node = arg.nodes.get(n);
+      ArgNodeView {
+        label: node.map_or_else(|| GLOBAL_ROOT.to_owned(), |a| a.label.clone()),
+        parents: g.parents[n],
+        children: children[n].clone(),
+        tau: node.map_or([None, None], |a| a.tau.map(|t| t.filter(|x| x.is_finite()))),
+        hybrid: node.is_some_and(|a| a.hybrid),
+        leaf: node.is_some_and(|a| a.is_leaf),
+        segments: (0..2).filter(|&c| node.is_none_or(|a| a.has(c))).collect(),
+        x_div: x_div[n],
+        x_depth: x_depth[n],
+        y: y[n],
+      }
+    })
+    .collect();
+  let edges = edges(&g, &chain, &nodes);
+  let shapes = arg_shapes(&nodes, &edges, scale);
+  ArgView {
+    nodes,
+    edges,
+    root,
+    root_case,
+    shapes,
+  }
+}
+
+/// The root case and the top root, following the extended Newick writer of `crate::arg`: a
+/// shared segment root is below the other segment's root, which is then the top root.
+fn top_root(arg: &Arg) -> (RootCase, usize) {
+  let [r0, r1] = arg.roots;
+  if r0 == r1 {
+    (RootCase::Shared, r0)
+  } else if arg.nodes[r0].is_shared() {
+    (RootCase::OneShared, r1)
+  } else if arg.nodes[r1].is_shared() {
+    (RootCase::OneShared, r0)
+  } else {
+    (RootCase::Synthetic, arg.nodes.len())
+  }
+}
+
+/// Parents and children of the ARG nodes, with the synthetic top root appended as the last node
+/// when the root case asks for it.
+struct Graph<'a> {
+  arg: &'a Arg,
+  /// Parent per segment.
+  parents: Vec<[Option<usize>; 2]>,
+  children: Vec<Vec<usize>>,
+}
+
+impl<'a> Graph<'a> {
+  fn new(arg: &'a Arg, root_case: RootCase) -> Graph<'a> {
+    let mut parents: Vec<[Option<usize>; 2]> = arg
+      .nodes
+      .iter()
+      .map(|n| {
+        n.anc.map(|a| match a {
+          Anc::Node(p) => Some(p),
+          Anc::Absent | Anc::Root => None,
+        })
+      })
+      .collect();
+    let mut children: Vec<Vec<usize>> = arg.nodes.iter().map(|n| n.children.clone()).collect();
+    if root_case == RootCase::Synthetic {
+      let top = arg.nodes.len();
+      let [r0, r1] = arg.roots;
+      parents[r0][0] = Some(top);
+      parents[r1][1] = Some(top);
+      parents.push([None, None]);
+      children.push(vec![r0, r1]);
+    }
+    Graph { arg, parents, children }
+  }
+
+  fn len(&self) -> usize {
+    self.parents.len()
+  }
+
+  /// Length of the branch from node `n` to its parent of segment `c`; the edges of the
+  /// synthetic top root have length 0.
+  fn length(&self, n: usize, c: usize) -> Option<f64> {
+    let synthetic = self.parents[n][c] == Some(self.arg.nodes.len());
+    self.arg.nodes.get(n).and_then(|a| a.tau[c]).filter(|_| !synthetic)
+  }
+}
+
+/// The nodes ordered parents before children (Kahn's algorithm over the distinct parents).
+fn topological_order(parents: &[[Option<usize>; 2]], children: &[Vec<usize>]) -> Vec<usize> {
+  let distinct = |p: &[Option<usize>; 2]| match p {
+    [Some(a), Some(b)] if a == b => 1,
+    _ => p.iter().flatten().count(),
+  };
+  let mut waiting: Vec<usize> = parents.iter().map(distinct).collect();
+  let mut queue: VecDeque<usize> = (0..parents.len()).filter(|&n| waiting[n] == 0).collect();
+  let mut order = Vec::with_capacity(parents.len());
+  while let Some(n) = queue.pop_front() {
+    order.push(n);
+    for &c in &children[n] {
+      waiting[c] -= 1;
+      if waiting[c] == 0 {
+        queue.push_back(c);
+      }
+    }
+  }
+  order
+}
+
+/// For each node, its parent along the chain to the top root `root` and that parent's segment:
+/// the segment 0 parent when its chain reaches the top root, otherwise the segment 1 parent.
+fn chain_parents(g: &Graph<'_>, order: &[usize], root: usize) -> Vec<Option<(usize, usize)>> {
+  let mut reaches = vec![false; g.len()];
+  let mut chain = vec![None; g.len()];
+  for &n in order {
+    chain[n] = (0..2).find_map(|c| g.parents[n][c].filter(|&p| reaches[p]).map(|p| (p, c)));
+    reaches[n] = n == root || chain[n].is_some();
+  }
+  chain
+}
+
+/// Distance from the top root along the chain; a missing or negative length counts as 0.
+fn divergence(g: &Graph<'_>, order: &[usize], chain: &[Option<(usize, usize)>]) -> Vec<f64> {
+  let mut x = vec![0.0; g.len()];
+  for &n in order {
+    if let Some((p, c)) = chain[n] {
+      x[n] = add_length(x[p], g.length(n, c));
+    }
+  }
+  x
+}
+
+/// Cladogram position: leaves at the height of the top root, every other node one step left of
+/// its leftmost child.
+fn depth(children: &[Vec<usize>], order: &[usize], root: usize) -> Vec<f64> {
+  let mut height = vec![0_usize; children.len()];
+  for &n in order.iter().rev() {
+    if let Some(h) = children[n].iter().map(|&c| height[c]).max() {
+      height[n] = h + 1;
+    }
+  }
+  let top = height[root];
+  height.into_iter().map(|h| row(top.saturating_sub(h))).collect()
+}
+
+/// Leaf rank in the leaf order of the ARG's segment 0 tree, then of its segment 1 tree for the
+/// leaves only that segment has; every other node at the midpoint of its first and last child.
+fn rows(arg: &Arg, children: &[Vec<usize>], order: &[usize]) -> Vec<f64> {
+  let mut rank: Vec<Option<usize>> = vec![None; children.len()];
+  let mut next = 0;
+  for c in 0..2 {
+    let by_name: BTreeMap<&str, usize> = arg
+      .tree_nodes
+      .iter()
+      .enumerate()
+      .filter(|&(a, _)| arg.nodes[a].is_leaf)
+      .filter_map(|(a, names)| Some((names[c].as_deref()?, a)))
+      .collect();
+    let tree = &arg.trees[c];
+    for leaf in tree.leaves() {
+      if let Some(&a) = by_name.get(tree.name(leaf)) {
+        if rank[a].is_none() {
+          rank[a] = Some(next);
+          next += 1;
+        }
+      }
+    }
+  }
+  // A node without children that neither tree places, in index order.
+  for n in 0..children.len() {
+    if children[n].is_empty() && rank[n].is_none() {
+      rank[n] = Some(next);
+      next += 1;
+    }
+  }
+  let mut y: Vec<f64> = rank.iter().map(|r| r.map_or(0.0, row)).collect();
+  for &n in order.iter().rev() {
+    let ys = children[n].iter().map(|&c| y[c]);
+    if let (Some(lo), Some(hi)) = (ys.clone().reduce(f64::min), ys.reduce(f64::max)) {
+      y[n] = f64::midpoint(lo, hi);
+    }
+  }
+  y
+}
+
+/// One edge per parent of each node, with the segments it carries. An edge into a hybrid node
+/// that is not on the node's chain to the top root is a reticulation edge.
+fn edges(g: &Graph<'_>, chain: &[Option<(usize, usize)>], nodes: &[ArgNodeView]) -> Vec<ArgEdge> {
+  let mut out = Vec::new();
+  for (child, parents) in g.parents.iter().enumerate() {
+    let mut by_parent: Vec<(usize, Vec<usize>)> = Vec::new();
+    for (c, p) in parents.iter().enumerate() {
+      if let Some(p) = *p {
+        match by_parent.iter_mut().find(|(q, _)| *q == p) {
+          Some((_, segments)) => segments.push(c),
+          None => by_parent.push((p, vec![c])),
+        }
+      }
+    }
+    for (parent, segments) in by_parent {
+      let on_chain = chain[child].is_some_and(|(p, _)| p == parent);
+      out.push(ArgEdge {
+        parent,
+        child,
+        segments,
+        reticulation: nodes[child].hybrid && !on_chain,
+      });
+    }
+  }
+  out
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::analysis::{self, Settings, TreeText};
+  use crate::display::EdgePath;
+  use crate::run;
+  use pretty_assertions::assert_eq;
+  use rand::{Rng, SeedableRng};
+  use rand_xoshiro::Xoshiro256PlusPlus;
+  use std::collections::BTreeSet;
+
+  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
+    let texts: Vec<TreeText> = trees
+      .iter()
+      .map(|(label, newick)| TreeText {
+        label: (*label).to_owned(),
+        newick: (*newick).to_owned(),
+      })
+      .collect();
+    let s = Settings::default();
+    let opts = analysis::options(&s, texts.len(), false).unwrap();
+    run::run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {})
+  }
+
+  /// The invariants of every ARG view: one node per ARG node (plus the synthetic root), distinct
+  /// leaf rows, every node reached once from the top root, edges consistent with the parents,
+  /// x along the chain to the top root never left of the parent, and finite coordinates.
+  fn check_invariants(r: &RunResult, v: &ArgView) {
+    let arg = r.built_arg().unwrap();
+    let synthetic = usize::from(v.root_case == RootCase::Synthetic);
+    assert_eq!(arg.nodes.len() + synthetic, v.nodes.len());
+    let leaf_rows: BTreeSet<u64> = v.nodes.iter().filter(|n| n.leaf).map(|n| n.y.to_bits()).collect();
+    assert_eq!(v.nodes.iter().filter(|n| n.leaf).count(), leaf_rows.len());
+    // Reached once: a walk over the edges from the top root visits each node exactly once.
+    let order = topological_order(
+      &v.nodes.iter().map(|n| n.parents).collect::<Vec<_>>(),
+      &v.nodes.iter().map(|n| n.children.clone()).collect::<Vec<_>>(),
+    );
+    assert_eq!(v.nodes.len(), order.len());
+    assert_eq!(Some(&v.root), order.first());
+    assert_eq!([None, None], v.nodes[v.root].parents);
+    for e in &v.edges {
+      for &c in &e.segments {
+        assert_eq!(Some(e.parent), v.nodes[e.child].parents[c]);
+      }
+      assert!(v.nodes[e.parent].children.contains(&e.child));
+    }
+    for (i, n) in v.nodes.iter().enumerate() {
+      let on_chain: Vec<&ArgEdge> = v.edges.iter().filter(|e| e.child == i && !e.reticulation).collect();
+      if i == v.root {
+        assert!(on_chain.is_empty());
+        continue;
+      }
+      assert_eq!(1, on_chain.len(), "node {} has one edge on its chain", n.label);
+      let p = &v.nodes[on_chain[0].parent];
+      assert!(n.x_div >= p.x_div, "node {} left of its parent", n.label);
+      assert!(n.x_depth > p.x_depth);
+      let numbers = [n.x_div, n.x_depth, n.y];
+      assert!(numbers.iter().all(|x| x.is_finite()));
+    }
+    assert_eq!(v.edges.len(), v.shapes.edges.len());
+    for (e, s) in v.edges.iter().zip(&v.shapes.edges) {
+      assert_eq!(e.reticulation, matches!(s.path, EdgePath::Curve { .. }));
+    }
+    let hybrids = v.nodes.iter().filter(|n| n.hybrid).count();
+    assert_eq!(hybrids, v.shapes.marks.len());
+    assert_eq!(hybrids, v.edges.iter().filter(|e| e.reticulation).count());
+  }
+
+  #[test]
+  fn arg_view_of_the_two_tree_example() {
+    let r = run_trees(&[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")]);
+    let v = arg_view(&r, Scale::Div).unwrap();
+    check_invariants(&r, &v);
+    // Oracle: one reassortment, the hybrid above X.
+    let hybrids: Vec<&ArgNodeView> = v.nodes.iter().filter(|n| n.hybrid).collect();
+    assert_eq!(1, hybrids.len());
+    let leaves: Vec<&str> = {
+      let mut l: Vec<&ArgNodeView> = v.nodes.iter().filter(|n| n.leaf).collect();
+      l.sort_by(|a, b| a.y.total_cmp(&b.y));
+      l.into_iter().map(|n| n.label.as_str()).collect()
+    };
+    // Leaf order of the ARG's segment 0 tree.
+    let expected = r.built_arg().unwrap().trees[0].leaf_names();
+    assert_eq!(expected, leaves);
+  }
+
+  #[rstest::rstest]
+  #[case::shared_identical("((A,B),(C,D));", "((A,B),(C,D));", RootCase::Shared)]
+  #[case::shared_moved_leaf("((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", RootCase::Shared)]
+  #[case::shared_two_moves("((A,(B,C)),((D,E),(F,G)));", "(((A,F),C),((D,B),(E,G)));", RootCase::Shared)]
+  #[case::shared_partial_overlap("((A,B),(C,(D,(E,P))));", "((A,(B,E)),(C,D));", RootCase::Shared)]
+  #[case::shared_polytomy("(A,B,C,D);", "((A,B),(C,D));", RootCase::Shared)]
+  #[case::one_shared_second("((A,B),(C,D));", "((A,C),(B,D));", RootCase::OneShared)]
+  #[case::one_shared_first("(((A,B),C),D);", "(((C,D),A),B);", RootCase::OneShared)]
+  #[case::synthetic("(A,((C,B),D));", "((D,(A,C)),B);", RootCase::Synthetic)]
+  #[case::synthetic_singletons("((B,(E,A)),(C,D));", "((B,(D,A)),(E,C));", RootCase::Synthetic)]
+  fn arg_view_invariants_hold_for_each_root_case(#[case] ha: &str, #[case] na: &str, #[case] root_case: RootCase) {
+    let r = run_trees(&[("ha", ha), ("na", na)]);
+    for scale in [Scale::Div, Scale::Depth] {
+      let v = arg_view(&r, scale).unwrap();
+      assert_eq!(root_case, v.root_case);
+      check_invariants(&r, &v);
+    }
+  }
+
+  #[test]
+  fn arg_view_top_root_follows_the_extended_newick() {
+    // Oracle: ARG/arg.nwk names the top root last; the synthetic one is GlobalRoot.
+    for (ha, na) in [
+      ("((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));"),
+      ("((A,B),(C,D));", "((A,C),(B,D));"),
+      ("(((A,B),C),D);", "(((C,D),A),B);"),
+      ("(A,((C,B),D));", "((D,(A,C)),B);"),
+    ] {
+      let r = run_trees(&[("ha", ha), ("na", na)]);
+      let v = arg_view(&r, Scale::Div).unwrap();
+      let newick = crate::arg::extended_newick(r.built_arg().unwrap());
+      let top = newick.trim_end_matches(';').rsplit(')').next().unwrap();
+      let label = top.split(['[', '#', ':']).next().unwrap();
+      assert_eq!(label, v.nodes[v.root].label, "{ha} {na}");
+    }
+  }
+
+  #[test]
+  fn arg_view_invariants_hold_on_a_simulated_fixture() {
+    let fixture: serde_json::Value =
+      serde_json::from_str(include_str!("../../../../fixtures/sim_k2_n50_r0.05.json")).unwrap();
+    let trees: Vec<&str> = fixture["trees"]
+      .as_array()
+      .unwrap()
+      .iter()
+      .map(|t| t.as_str().unwrap())
+      .collect();
+    let r = run_trees(&[("a", trees[0]), ("b", trees[1])]);
+    for scale in [Scale::Div, Scale::Depth] {
+      check_invariants(&r, &arg_view(&r, scale).unwrap());
+    }
+  }
+
+  #[test]
+  fn arg_view_invariants_hold_on_random_trees() {
+    let mut rng = Xoshiro256PlusPlus::seed_from_u64(3);
+    let mut cases = BTreeSet::new();
+    for _ in 0..300 {
+      let n = rng.gen_range(4..9);
+      let r = run_trees(&[("ha", &random_tree(&mut rng, n)), ("na", &random_tree(&mut rng, n))]);
+      if let Some(v) = arg_view(&r, Scale::Div) {
+        check_invariants(&r, &v);
+        cases.insert(format!("{:?}", v.root_case));
+      }
+    }
+    assert_eq!(3, cases.len(), "every root case occurs: {cases:?}");
+  }
+
+  /// A random binary tree on `n` leaves named `A`, `B`, ...
+  fn random_tree(rng: &mut Xoshiro256PlusPlus, n: u8) -> String {
+    let mut parts: Vec<String> = (0..n).map(|i| char::from(b'A' + i).to_string()).collect();
+    while parts.len() > 1 {
+      let a = parts.remove(rng.gen_range(0..parts.len()));
+      let b = parts.remove(rng.gen_range(0..parts.len()));
+      parts.push(format!("({a},{b})"));
+    }
+    format!("{};", parts[0])
+  }
+
+  #[test]
+  fn arg_view_of_more_than_two_trees_is_none() {
+    let t = "((A,B),(C,D));";
+    let r = run_trees(&[("a", t), ("b", t), ("c", t)]);
+    assert!(arg_view(&r, Scale::Div).is_none());
+  }
+}
