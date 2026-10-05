@@ -40,7 +40,7 @@ Counterpart: [`v0/arg.md`](v0/arg.md). `treeknit_core::arg` builds the ARG of tw
 
 ## Extended Newick output
 
-`fn extended_newick` [[src](../../packages/treeknit-io/src/arg.rs#L12-L34)]:
+`fn extended_newick` [[src](../../packages/treeknit-io/src/arg.rs#L12-L33)]:
 
 - [x] **Start node**: the shared root, an extra `GlobalRoot[&segments={0,1}]:0.0` above two unshared roots, or the unshared root when one root is shared. TreeKnit.jl writes `:0.` for the extra root
 - [x] **Hybrid nodes**: written in full when first reached and as a reference afterwards, with `label#H<i>` counted in traversal order

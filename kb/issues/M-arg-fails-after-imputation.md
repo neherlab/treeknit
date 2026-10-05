@@ -1,6 +1,6 @@
 # ARG construction fails when imputed trees disagree inside an MCC
 
-For two trees with different leaf sets, `arg_inputs` builds the ARG from the imputed trees, restricted to the shared leaves and the leaves with an unambiguous attachment ([pipeline.rs#L573-L589](../../packages/treeknit-core/src/pipeline.rs#L573-L589)). Each tree gets the missing leaves of the other tree at the place that the other tree gives them. When both trees lack leaves near the same place, the two imputed trees can group the leaves differently inside one MCC. `arg_from_trees` then finds no consistent shared nodes and returns an error. The command line logs it and writes no ARG.
+For two trees with different leaf sets, `arg_inputs` builds the ARG from the imputed trees, restricted to the shared leaves and the leaves with an unambiguous attachment ([pipeline.rs#L630-L646](../../packages/treeknit-core/src/pipeline.rs#L630-L646)). Each tree gets the missing leaves of the other tree at the place that the other tree gives them. When both trees lack leaves near the same place, the two imputed trees can group the leaves differently inside one MCC. `arg_from_trees` then finds no consistent shared nodes and returns an error. The command line logs it and writes no ARG.
 
 ## Reproduction
 

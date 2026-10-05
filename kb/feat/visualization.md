@@ -4,7 +4,7 @@ Counterpart: [`v0/visualization.md`](v0/visualization.md). The command line draw
 
 ## Ordering of the output trees
 
-`fn sort_pair` runs in the last round for each pair [[src](../../packages/treeknit-core/src/pipeline.rs#L454-L504)]:
+`fn sort_pair` runs in the last round for each pair [[src](../../packages/treeknit-core/src/pipeline.rs#L509-L559)]:
 
 - [x] **When**: in the last round, ladderize tree 0 in its pairs, then sort the polytomies of the pair. With more than two trees, the sort for the last pair of a tree gives its final order
 - [x] **Ladderize**: children sorted by leaf count, smallest first, then by label [[src](../../packages/treeknit-core/src/tree.rs#L427-L444)]. Unit test `ladderize_sorts_by_size_then_name`
@@ -20,7 +20,7 @@ Counterpart: [`v0/visualization.md`](v0/visualization.md). The command line draw
 `fn auspice_json` returns the file content for one tree [[src](../../packages/treeknit-io/src/auspice.rs#L17-L59)]:
 
 - [x] **Files**: `auspice_<label>.json` per tree with `--auspice-view`. The library function returns a JSON value, so there is no directory argument with a trailing `/`
-- [x] **Colorings**: one per other tree, key and title `mcc_<a>_<b>` with the labels in order, type `ordinal` [[src](../../packages/treeknit-io/src/auspice.rs#L12-L16)]
+- [x] **Colorings**: one per other tree, key and title `mcc_<a>_<b>` with the labels in order, type `ordinal` [[src](../../packages/treeknit-io/src/auspice.rs#L12-L15)]
 - [x] **Node values**: the 1-based MCC index as a string, from the Fitch map, or `"null"`
 - [x] **Divergence**: `div` from the root, a missing length counted as 0. The tree itself does not change; TreeKnit.jl sets missing lengths to `0.0` in the tree
 - [x] **`meta.updated`**: the empty string, as in TreeKnit.jl. It does not match the date pattern of the augur schema, and Auspice still reads the file
