@@ -10,9 +10,9 @@ pub fn start() {
 
 /// Takes and returns plain objects; see [`analysis::Request`] and [`analysis::Analysis`].
 #[wasm_bindgen]
-pub fn analyze(request: JsValue) -> Result<JsValue, JsError> {
+pub fn analyze(request: &JsValue) -> Result<JsValue, JsError> {
     // JSON text instead of serde-wasm-bindgen: serde_json errors say where the request is wrong.
-    let text = JSON::stringify(&request)
+    let text = JSON::stringify(request)
         .map_err(|e| JsError::new(&format!("invalid request: {}", js_message(&e))))?
         .as_string()
         .ok_or_else(|| JsError::new("invalid request: expected an object"))?;
