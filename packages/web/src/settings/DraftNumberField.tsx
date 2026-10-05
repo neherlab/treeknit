@@ -39,7 +39,7 @@ export function DraftNumberField({ name, label, setting, error, onCommit, classN
       isRequired
       {...errorProps(draftError(field.value) ?? error)}
       formatOptions={setting.integer ? INTEGER_FORMAT : DECIMAL_FORMAT}
-      {...(setting.integer ? { step: setting.step } : undefined)}
+      {...(setting.step === null ? undefined : { step: setting.step })}
       {...(setting.minExclusive ? undefined : { minValue: setting.min })}
       {...(setting.max === null ? undefined : { maxValue: setting.max })}
       {...(className === undefined ? undefined : { className })}

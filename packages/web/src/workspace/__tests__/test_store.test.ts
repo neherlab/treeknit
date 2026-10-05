@@ -693,7 +693,7 @@ function schemaWith(seqLengthDefault: number): SettingsSchema {
     minExclusive: false,
     integer: false,
     max: null,
-    step: 1,
+    step: null,
     applies: true,
     reason: null,
     help: "",
