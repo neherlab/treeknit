@@ -83,6 +83,14 @@ describe("example groups", () => {
       "real/h3n2-new-york-1999-2004",
     ]);
   });
+
+  test("gives groups and examples distinct ids, because they share one menu collection", () => {
+    const groupIds = EXAMPLE_GROUPS.map(({ id }) => id);
+    const exampleIds = EXAMPLE_GROUPS.flatMap(({ examples }) => examples.map(({ id }) => id));
+    const ids = [...groupIds, ...exampleIds];
+
+    expect(new Set(ids).size).toBe(ids.length);
+  });
 });
 
 function readsAs(newick: string): () => Promise<string> {

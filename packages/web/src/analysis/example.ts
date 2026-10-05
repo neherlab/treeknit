@@ -17,7 +17,7 @@ export const EXAMPLE_GROUPS: readonly ExampleGroup[] = [
   {
     id: "small",
     name: "Small",
-    examples: [{ id: "small", name: "5 leaves", load: () => Promise.resolve(smallTrees()) }],
+    examples: [{ id: "small/5-leaves", name: "5 leaves", load: () => Promise.resolve(smallTrees()) }],
   },
   {
     id: "real",
