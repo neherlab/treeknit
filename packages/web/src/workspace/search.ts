@@ -3,11 +3,13 @@ import { stringifySearchWith } from "@tanstack/react-router";
 import { isDeepEqual, omit } from "remeda";
 import * as z from "zod";
 
+import type { RunOutcome } from "../analysis/client";
 import { everyVariantOf } from "../variants";
 
 export const WORKSPACE_VIEWS = [
   "overview",
   "tanglegram",
+  "auspice",
   "arg",
   "mccs",
   "constellation",
@@ -109,6 +111,7 @@ const VIEW_TREE_COUNT: Partial<Record<WorkspaceView, (treeCount: number) => bool
 const VIEW_AVAILABLE: Record<WorkspaceView, (availability: WorkspaceAvailability) => boolean> = {
   overview: () => true,
   tanglegram: ({ hasResult, pairCount }) => hasResult && pairCount > 0,
+  auspice: ({ hasResult, pairCount }) => hasResult && pairCount > 0,
   arg: ({ hasResult }) => hasResult,
   mccs: ({ hasResult, pairCount }) => hasResult && pairCount > 0,
   constellation: ({ hasResult }) => hasResult,
@@ -177,4 +180,14 @@ function nonNegativeInteger(fallback: number) {
 
 function optional<T extends z.ZodType>(schema: T) {
   return schema.optional().catch(undefined);
+}
+
+export function searchAfterRun(
+  search: WorkspaceSearch,
+  outcome: RunOutcome,
+  storedSessionId: number | undefined,
+): WorkspaceSearch {
+  const stored = outcome.status === "succeeded" && outcome.sessionId === storedSessionId;
+
+  return stored ? { ...search, view: "auspice" } : search;
 }

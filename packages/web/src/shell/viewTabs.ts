@@ -15,6 +15,7 @@ export interface ViewTab {
 const VIEW_LABELS: Record<WorkspaceView, string> = {
   overview: "Overview",
   tanglegram: "Tanglegram",
+  auspice: "Auspice",
   arg: "ARG",
   mccs: "MCCs",
   constellation: "Constellation",

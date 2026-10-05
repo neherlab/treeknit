@@ -8,10 +8,11 @@ function tabsOf(availability: Partial<WorkspaceAvailability>) {
 }
 
 describe("viewTabs", () => {
-  test("enables only the overview before a run", () => {
+  test("enables only the overview before a run, with Auspice after the tanglegram", () => {
     expect(tabsOf({ treeCount: 1 })).toStrictEqual([
       { view: "overview", isDisabled: false },
       { view: "tanglegram", isDisabled: true },
+      { view: "auspice", isDisabled: true },
       { view: "mccs", isDisabled: true },
       { view: "files", isDisabled: true },
       { view: "diagnostics", isDisabled: true },
@@ -26,6 +27,7 @@ describe("viewTabs", () => {
     expect(tabsOf({ hasResult: true, treeCount: 2, resultTreeCount: 2, pairCount: 1 })).toStrictEqual([
       { view: "overview", isDisabled: false },
       { view: "tanglegram", isDisabled: false },
+      { view: "auspice", isDisabled: false },
       { view: "arg", isDisabled: false },
       { view: "mccs", isDisabled: false },
       { view: "files", isDisabled: false },
@@ -36,7 +38,7 @@ describe("viewTabs", () => {
   test("shows the constellation and hides the ARG for a three-tree result", () => {
     const views = tabsOf({ hasResult: true, treeCount: 3, resultTreeCount: 3, pairCount: 3 }).map(({ view }) => view);
 
-    expect(views).toStrictEqual(["overview", "tanglegram", "mccs", "constellation", "files", "diagnostics"]);
+    expect(views).toStrictEqual(["overview", "tanglegram", "auspice", "mccs", "constellation", "files", "diagnostics"]);
   });
 
   test("follows the trees of the result while the workspace has more trees", () => {
@@ -49,6 +51,7 @@ describe("viewTabs", () => {
     expect(viewTabs({ ...NO_WORKSPACE, treeCount: 2 }).map(({ label }) => label)).toStrictEqual([
       "Overview",
       "Tanglegram",
+      "Auspice",
       "ARG",
       "MCCs",
       "Files",

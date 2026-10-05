@@ -1,5 +1,7 @@
+import type { Summary } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
+import type { RunOutcome } from "../../analysis/client";
 import {
   formatNodeRef,
   isViewAvailable,
@@ -8,6 +10,7 @@ import {
   parseSearch,
   resolvePair,
   resolveWorkspaceSearch,
+  searchAfterRun,
   selectPair,
   stringifySearch,
   type WorkspaceAvailability,
@@ -181,6 +184,9 @@ describe("isViewAvailable", () => {
     { view: "diagnostics", workspace: "no result", available: NO_WORKSPACE, expected: false },
     { view: "arg", workspace: "no result", available: NO_WORKSPACE, expected: false },
     { view: "tanglegram", workspace: "a two-tree result", available: TWO_TREE_RESULT, expected: true },
+    { view: "auspice", workspace: "no result", available: NO_WORKSPACE, expected: false },
+    { view: "auspice", workspace: "a two-tree result", available: TWO_TREE_RESULT, expected: true },
+    { view: "auspice", workspace: "a three-tree result", available: THREE_TREE_RESULT, expected: true },
     { view: "arg", workspace: "a two-tree result", available: TWO_TREE_RESULT, expected: true },
     { view: "constellation", workspace: "a two-tree result", available: TWO_TREE_RESULT, expected: false },
     { view: "files", workspace: "a two-tree result", available: TWO_TREE_RESULT, expected: true },
@@ -317,5 +323,37 @@ describe("withSelectionPair", () => {
     const next: WorkspaceSearch = { ...HIDDEN_PAIR, pair: 1, leaf: "A" };
 
     expect(withSelectionPair(HIDDEN_PAIR, next, 0)).toStrictEqual(next);
+  });
+});
+
+describe("searchAfterRun", () => {
+  const SHOWN: Omit<WorkspaceSearch, "view"> = { pair: 2, version: "imputed", x: "depth", labels: "off", leaf: "A" };
+
+  const SUMMARY: Summary = {
+    pairs: [],
+    arg: { status: "built", reassortments: 1 },
+    noReassortment: false,
+    diagnostics: [],
+  };
+
+  const SUCCEEDED: RunOutcome = { status: "succeeded", sessionId: 7, summary: SUMMARY };
+
+  test.each(["overview", "files", "tanglegram"] as const)(
+    "opens the Auspice view from the %s view for a stored result, keeping pair, version, and scale",
+    (view) => {
+      expect(searchAfterRun({ ...SHOWN, view }, SUCCEEDED, 7)).toStrictEqual({ ...SHOWN, view: "auspice" });
+    },
+  );
+
+  test.each<{ run: string; outcome: RunOutcome; stored: number | undefined }>([
+    { run: "a cancelled", outcome: { status: "failed", kind: "cancelled", message: "Run cancelled." }, stored: 7 },
+    { run: "a failed", outcome: { status: "failed", kind: "internal", message: "Out of memory." }, stored: 7 },
+    { run: "an invalid", outcome: { status: "failed", kind: "invalid", message: "No trees." }, stored: 7 },
+    { run: "a superseded", outcome: SUCCEEDED, stored: 8 },
+    { run: "a discarded", outcome: SUCCEEDED, stored: undefined },
+  ])("leaves the search unchanged after $run run", ({ outcome, stored }) => {
+    const search: WorkspaceSearch = { ...SHOWN, view: "files" };
+
+    expect(searchAfterRun(search, outcome, stored)).toStrictEqual(search);
   });
 });

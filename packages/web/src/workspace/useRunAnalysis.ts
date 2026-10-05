@@ -5,17 +5,24 @@ import { useCallback } from "react";
 import type { RunHandle, RunOutcome } from "../analysis/client";
 import { useAnalysisClient } from "../analysis/context";
 import { useWorkspaceStore } from "./context";
+import { searchAfterRun } from "./search";
 import { selectRequest, selectRunning } from "./store";
+import { useWorkspaceSearch } from "./useWorkspaceSearch";
 
 export function useRunAnalysis(): RunControl {
   const client = useAnalysisClient();
   const store = useWorkspaceStore();
+  const { update } = useWorkspaceSearch();
 
   const { mutate } = useMutation<RunOutcome, Error, RunHandle>({
     mutationFn: async (handle) => {
       const outcome = await handle.outcome;
 
       store.getState().runFinished(handle.runId, outcome);
+
+      const stored = store.getState().result?.sessionId;
+
+      update((written) => searchAfterRun(written, outcome, stored), { replace: true });
 
       return outcome;
     },
