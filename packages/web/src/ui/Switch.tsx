@@ -22,7 +22,7 @@ export function Switch({ label, info, description, className, ...props }: Switch
           >
             <span
               className={cn(
-                "bg-ink-muted size-3 rounded-[2px] transition-transform duration-150 motion-reduce:transition-none",
+                "bg-ink-muted rounded-inner size-3 transition-transform duration-150 motion-reduce:transition-none",
                 "group-data-selected:bg-ground group-data-selected:translate-x-3.5",
               )}
             />
@@ -31,9 +31,11 @@ export function Switch({ label, info, description, className, ...props }: Switch
         </SwitchButton>
         {info === undefined ? null : <InfoButton topic={label}>{info}</InfoButton>}
       </div>
-      <div className="pl-10">
-        <FieldDescription>{description}</FieldDescription>
-      </div>
+      {description === undefined || description === null ? null : (
+        <div className="pl-10">
+          <FieldDescription>{description}</FieldDescription>
+        </div>
+      )}
     </SwitchField>
   );
 }

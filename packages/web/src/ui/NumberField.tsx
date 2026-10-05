@@ -35,7 +35,7 @@ export function NumberField({
       <FieldLabel label={label} labelHidden={labelHidden} info={info} />
       <Group className={cn(inputStyle(), "flex items-stretch overflow-hidden px-0")}>
         <Input
-          placeholder={placeholder ?? ""}
+          {...(placeholder === undefined ? undefined : { placeholder })}
           className="placeholder:text-ink-muted min-w-0 flex-1 bg-transparent px-2.5 tabular-nums outline-hidden"
         />
         <div className="border-rule flex w-6 shrink-0 flex-col border-l">

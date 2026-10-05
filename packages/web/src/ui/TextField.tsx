@@ -39,11 +39,15 @@ export function TextField({
         <TextArea
           {...correction}
           rows={rows}
-          placeholder={placeholder ?? ""}
+          {...(placeholder === undefined ? undefined : { placeholder })}
           className={inputStyle({ multiline: true, mono })}
         />
       ) : (
-        <Input {...correction} placeholder={placeholder ?? ""} className={inputStyle({ mono })} />
+        <Input
+          {...correction}
+          {...(placeholder === undefined ? undefined : { placeholder })}
+          className={inputStyle({ mono })}
+        />
       )}
       <FieldDescription>{description}</FieldDescription>
       <FieldErrorMessage>{errorMessage}</FieldErrorMessage>

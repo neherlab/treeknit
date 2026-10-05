@@ -20,6 +20,7 @@
 
   --radius-*: initial;
   --radius-control: 4px;
+  --radius-inner: 2px;
 
   --color-*: initial;
   --color-ground: #f3f5f4;

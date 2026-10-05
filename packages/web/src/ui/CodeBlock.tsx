@@ -17,10 +17,10 @@ const COPY_BUTTON: Record<CopyState, { label: string; icon: IconComponent }> = {
   failed: { label: "Copy failed", icon: FailedIcon },
 };
 
-export function CodeBlock({ code, label, highlight, lineNumbers, className }: CodeBlockProps) {
+export function CodeBlock({ code, label, errorRange, lineNumbers, className }: CodeBlockProps) {
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const [feedback] = useState(() => copyFeedback(writeClipboard, setCopyState));
-  const lines = useMemo(() => codeLines(code, highlight), [code, highlight]);
+  const lines = useMemo(() => codeLines(code, errorRange), [code, errorRange]);
   const showLineNumbers = lineNumbers ?? lines.length > 1;
   const button = COPY_BUTTON[copyState];
   const copy = useCallback(() => void feedback.copy(code), [feedback, code]);
@@ -61,8 +61,8 @@ export function CodeBlock({ code, label, highlight, lineNumbers, className }: Co
                 line={line}
                 lineNumber={showLineNumbers}
                 revealKey={
-                  line.number === highlight?.start.line
-                    ? `${highlight.start.line}:${highlight.start.column}`
+                  line.number === errorRange?.start.line
+                    ? `${errorRange.start.line}:${errorRange.start.column}`
                     : undefined
                 }
               />
@@ -77,7 +77,7 @@ export function CodeBlock({ code, label, highlight, lineNumbers, className }: Co
 export interface CodeBlockProps {
   code: string;
   label: string;
-  highlight?: TextRange;
+  errorRange?: TextRange;
   lineNumbers?: boolean;
   className?: string;
 }
@@ -92,7 +92,7 @@ async function writeClipboard(text: string): Promise<void> {
 }
 
 function CodeLineRow({ line, lineNumber, revealKey }: CodeLineRowProps) {
-  const isHighlighted = line.marked !== undefined;
+  const isErrorLine = line.marked !== undefined;
 
   return (
     <>
@@ -101,20 +101,20 @@ function CodeLineRow({ line, lineNumber, revealKey }: CodeLineRowProps) {
           aria-hidden
           className={cn(
             "text-ink-muted -ml-3 pr-3 pl-3 text-right select-none",
-            isHighlighted && "bg-danger/10 text-danger font-semibold",
+            isErrorLine && "bg-danger/10 text-danger font-semibold",
           )}
         >
           {line.number}
         </span>
       ) : null}
-      <span className={cn("min-h-lh wrap-anywhere whitespace-pre-wrap", isHighlighted && "bg-danger/10")}>
+      <span className={cn("min-h-lh wrap-anywhere whitespace-pre-wrap", isErrorLine && "bg-danger/10")}>
         {line.before}
         {line.marked === undefined ? null : (
           <mark
             key={revealKey}
             ref={revealKey === undefined ? undefined : revealMark}
             className={cn(
-              "bg-danger/25 text-ink decoration-danger rounded-[2px] underline decoration-2 underline-offset-2",
+              "bg-danger/25 text-ink decoration-danger rounded-inner underline decoration-2 underline-offset-2",
               line.marked === "" && "inline-block h-lh w-2 align-top",
             )}
           >

@@ -52,7 +52,7 @@ export function Radio({ description, children, ...props }: RadioProps) {
           className={cn(
             "border-ink-muted bg-ground size-4 shrink-0 rounded-full border",
             "transition-[border-color,border-width] duration-150 motion-reduce:transition-none",
-            "group-data-hovered:border-ink group-data-selected:border-ink group-data-selected:border-[5px]",
+            "group-data-hovered:border-ink group-data-selected:border-ink group-data-selected:border-5",
             "group-data-invalid:border-danger group-data-disabled:opacity-50",
             groupFocusRing,
           )}

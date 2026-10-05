@@ -13,8 +13,8 @@ export function ProgressBar({ label, labelHidden = false, className, ...props }:
     <AriaProgressBar {...props} className={cn("flex min-w-0 flex-col gap-1.5", className)}>
       {({ percentage, valueText, isIndeterminate }) => (
         <>
-          <div className={cn("flex items-baseline justify-between gap-3", labelHidden && "sr-only")}>
-            <Label className="text-ink truncate text-sm">{label}</Label>
+          <div className={cn("flex items-baseline gap-3", labelHidden ? "justify-end" : "justify-between")}>
+            <Label className={cn("text-ink truncate text-sm", labelHidden && "sr-only")}>{label}</Label>
             <span className="text-ink-muted shrink-0 text-xs tabular-nums">{valueText}</span>
           </div>
           <svg aria-hidden className="rounded-control block h-1.5 w-full overflow-hidden" width="100%" height="6">
