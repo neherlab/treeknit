@@ -46,23 +46,23 @@ Optional settings go into the gitignored `.env` in the checkout; `.env.example` 
 
 ## Everyday commands
 
-| Task                                         | Command                                          |
-| -------------------------------------------- | ------------------------------------------------ |
-| List the recipes                             | `just`                                           |
-| Fast checks (format, clippy, oxlint, types)  | `just check`                                     |
-| Lint fixes and format (stage first)          | `just fix`                                       |
-| Build the CLI                                | `just build <mode>` (`just b`)                   |
-| Run the CLI                                  | `just run <mode> ha.nwk na.nwk -o tmp/results`   |
-| Rust tests, optionally filtered              | `just test-rs [filter]` (`just t`)               |
-| Clippy                                       | `just lint-rs` (`just l`)                        |
-| Format                                       | `just fmt`                                       |
-| Accuracy against the simulated cases         | `just example accuracy [drop]`                   |
-| Large tree pair for performance checks       | `just example large_tree_pair <leaves> <outdir> [seed] [moves]` |
-| Build the web app                            | `just build-web <dev\|prod>`                     |
-| Run the web app                              | `just run-web <dev\|prod>`                       |
-| TypeScript types, lints, tests               | `just typecheck`, `just lint-ts`, `just test-ts` |
-| WebAssembly build, tests, Clippy             | `just build-wasm <dev\|release\|prod>`, `just test-wasm`, `just lint-wasm` |
-| WebAssembly type declarations                | `just gen`                                       |
+| Task                                        | Command                                                                    |
+| ------------------------------------------- | -------------------------------------------------------------------------- |
+| List the recipes                            | `just`                                                                     |
+| Fast checks (format, clippy, oxlint, types) | `just check`                                                               |
+| Lint fixes and format (stage first)         | `just fix`                                                                 |
+| Build the CLI                               | `just build <mode>` (`just b`)                                             |
+| Run the CLI                                 | `just run <mode> ha.nwk na.nwk -o tmp/results`                             |
+| Rust tests, optionally filtered             | `just test-rs [filter]` (`just t`)                                         |
+| Clippy                                      | `just lint-rs` (`just l`)                                                  |
+| Format                                      | `just fmt`                                                                 |
+| Accuracy against the simulated cases        | `just example accuracy [drop]`                                             |
+| Large tree pair for performance checks      | `just example large_tree_pair <leaves> <outdir> [seed] [moves]`            |
+| Build the web app                           | `just build-web <dev\|prod>`                                               |
+| Run the web app                             | `just run-web <dev\|prod>`                                                 |
+| TypeScript types, lints, tests              | `just typecheck`, `just lint-ts`, `just test-ts`                           |
+| WebAssembly build, tests, Clippy            | `just build-wasm <dev\|release\|prod>`, `just test-wasm`, `just lint-wasm` |
+| WebAssembly type declarations               | `just gen`                                                                 |
 
 In the container, prefix each command with `./dev/docker/run`.
 

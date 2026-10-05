@@ -29,7 +29,9 @@ rand.workspace = true
 rand_xoshiro.workspace = true
 rstest.workspace = true
 
-# The default test run collects the tests of this example.
+# Cargo runs the tests of an example only with `test = true`. The tests of this example take
+# milliseconds and check the generator, so they run with the other tests; the accuracy example
+# has no tests of its own.
 [[example]]
 name = "large_tree_pair"
 test = true
