@@ -1,0 +1,191 @@
+import type { ArgView, PairView, Summary } from "@neherlab/treeknit-wasm";
+import { describe, expect, test } from "vitest";
+
+import { type LoadedViews, workspaceAvailability } from "../availability";
+import { resolveWorkspaceSearch, type WorkspaceSearch } from "../search";
+import type { RunResult } from "../store";
+
+const SUMMARY: Summary = {
+  pairs: [
+    {
+      index: 0,
+      labels: ["ha", "na"],
+      mccCount: 2,
+      mccs: [["X"], ["A", "B", "C", "D"]],
+      imputedCount: 0,
+      ambiguousCount: 0,
+    },
+  ],
+  arg: { status: "built", reassortments: 1 },
+  diagnostics: [],
+};
+
+const RESULT: RunResult = {
+  sessionId: 1,
+  summary: SUMMARY,
+  request: {
+    trees: [
+      { label: "ha", newick: "((A,B),(C,(D,X)));" },
+      { label: "na", newick: "((A,(B,X)),(C,D));" },
+    ],
+  },
+};
+
+const NOTHING_LOADED: LoadedViews = { pairView: () => undefined, argView: () => undefined };
+
+const SEARCH: WorkspaceSearch = {
+  view: "tanglegram",
+  pair: 0,
+  version: "resolved",
+  x: "div",
+  labels: "auto",
+  mcc: 1,
+  leaf: "X",
+  node: "left:NODE_1",
+};
+
+describe("workspace availability", () => {
+  test("without a result has the tree count and nothing else", () => {
+    const availability = workspaceAvailability(3, null, NOTHING_LOADED);
+
+    expect({
+      counts: [availability.hasResult, availability.treeCount, availability.resultTreeCount, availability.pairCount],
+      mcc: availability.mccExists(0, 0),
+      leaf: availability.leafExists(0, "X"),
+      node: availability.nodeExists(0, { side: "left", name: "NODE_1" }),
+    }).toStrictEqual({ counts: [false, 3, 0, 0], mcc: false, leaf: false, node: false });
+  });
+
+  test("takes the tree and pair counts of the result, not of the current trees", () => {
+    const availability = workspaceAvailability(5, RESULT, NOTHING_LOADED);
+
+    expect([
+      availability.hasResult,
+      availability.treeCount,
+      availability.resultTreeCount,
+      availability.pairCount,
+    ]).toStrictEqual([true, 5, 2, 1]);
+  });
+
+  test("knows the MCC numbers and leaves of each pair", () => {
+    const availability = workspaceAvailability(2, RESULT, NOTHING_LOADED);
+
+    expect({
+      mccs: [
+        availability.mccExists(0, 0),
+        availability.mccExists(0, 1),
+        availability.mccExists(0, 2),
+        availability.mccExists(1, 0),
+      ],
+      leaves: [
+        availability.leafExists(0, "X"),
+        availability.leafExists(0, "D"),
+        availability.leafExists(0, "Y"),
+        availability.leafExists(1, "X"),
+      ],
+    }).toStrictEqual({ mccs: [true, true, false, false], leaves: [true, true, false, false] });
+  });
+
+  test("keeps a node until the view of its pair is loaded, then checks its name on its side", () => {
+    const loaded: LoadedViews = {
+      pairView: () => pairViewWith(["NODE_1", "A"], ["NODE_2", "A"]),
+      argView: () => undefined,
+    };
+
+    const unknown = workspaceAvailability(2, RESULT, NOTHING_LOADED);
+    const known = workspaceAvailability(2, RESULT, loaded);
+
+    expect({
+      unknown: unknown.nodeExists(0, { side: "left", name: "NODE_9" }),
+      left: known.nodeExists(0, { side: "left", name: "NODE_1" }),
+      wrongSide: known.nodeExists(0, { side: "right", name: "NODE_1" }),
+      right: known.nodeExists(0, { side: "right", name: "NODE_2" }),
+      outOfRange: known.nodeExists(1, { side: "left", name: "NODE_1" }),
+    }).toStrictEqual({ unknown: true, left: true, wrongSide: false, right: true, outOfRange: false });
+  });
+
+  test("checks ARG nodes against the loaded ARG view, and none exist without an ARG", () => {
+    const withArg = workspaceAvailability(2, RESULT, {
+      pairView: () => undefined,
+      argView: () => argViewWith(["GlobalRoot", "A"]),
+    });
+
+    const withoutArg = workspaceAvailability(2, RESULT, { pairView: () => undefined, argView: () => null });
+
+    expect([
+      withArg.nodeExists(0, { side: "arg", name: "GlobalRoot" }),
+      withArg.nodeExists(0, { side: "arg", name: "NODE_1" }),
+      withoutArg.nodeExists(0, { side: "arg", name: "GlobalRoot" }),
+    ]).toStrictEqual([true, false, false]);
+  });
+
+  test("resolves the URL against the result: present values stay, missing ones are cleared", () => {
+    const loaded: LoadedViews = { pairView: () => pairViewWith(["A"], ["A"]), argView: () => undefined };
+
+    expect({
+      kept: resolveWorkspaceSearch(SEARCH, workspaceAvailability(2, RESULT, NOTHING_LOADED)),
+      cleared: resolveWorkspaceSearch({ ...SEARCH, mcc: 5, leaf: "Y" }, workspaceAvailability(2, RESULT, loaded)),
+      noResult: resolveWorkspaceSearch(SEARCH, workspaceAvailability(2, null, NOTHING_LOADED)),
+    }).toStrictEqual({
+      kept: SEARCH,
+      cleared: { view: "tanglegram", pair: 0, version: "resolved", x: "div", labels: "auto" },
+      noResult: { view: "overview", pair: 0, version: "resolved", x: "div", labels: "auto" },
+    });
+  });
+});
+
+function pairViewWith(left: string[], right: string[]): PairView {
+  return {
+    left: { label: "ha", nodes: left.map(drawNode) },
+    right: { label: "na", nodes: right.map(drawNode) },
+    links: [],
+    blocks: [],
+    mccs: [],
+    // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated PairView type
+    shapes: {
+      left: { elbows: [], marks: [] },
+      right: { elbows: [], marks: [] },
+      links: [],
+      ribbons: [],
+    },
+  };
+}
+
+function drawNode(name: string): PairView["left"]["nodes"][number] {
+  return {
+    name,
+    parent: null,
+    children: [],
+    branchLength: null,
+    xDiv: 0,
+    xDepth: 0,
+    y: 0,
+    leaf: false,
+    added: false,
+    imputed: false,
+    mcc: null,
+    mccBreak: false,
+  };
+}
+
+function argViewWith(labels: string[]): ArgView {
+  return {
+    nodes: labels.map((label) => ({
+      label,
+      parents: [null, null],
+      children: [],
+      tau: [null, null],
+      hybrid: false,
+      leaf: false,
+      segments: [0, 1],
+      x: 0,
+      xDepth: 0,
+      y: 0,
+    })),
+    edges: [],
+    root: 0,
+    rootCase: "synthetic",
+    // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated ArgView type
+    shapes: { edges: [], marks: [] },
+  };
+}
