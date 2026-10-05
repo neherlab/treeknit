@@ -1,17 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import type { WorkspaceAvailability } from "../../workspace/search";
+import { NO_WORKSPACE, type WorkspaceAvailability } from "../../workspace/search";
 import { viewTabs } from "../viewTabs";
-
-const NO_WORKSPACE: WorkspaceAvailability = {
-  hasResult: false,
-  treeCount: 0,
-  resultTreeCount: 0,
-  pairCount: 0,
-  mccExists: () => false,
-  leafExists: () => false,
-  nodeExists: () => false,
-};
 
 function tabsOf(availability: Partial<WorkspaceAvailability>) {
   return viewTabs({ ...NO_WORKSPACE, ...availability }).map(({ view, isDisabled }) => ({ view, isDisabled }));
