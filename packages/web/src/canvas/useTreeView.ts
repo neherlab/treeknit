@@ -58,8 +58,6 @@ type ViewChange =
 
 export type TreeViewAction = Drawing & ({ type: "resize"; size: CanvasSize } | ViewChange);
 
-const ZOOM_EPSILON = 1e-9;
-
 export function useTreeView(rows: number, leafAxis: LeafAxis): TreeView {
   const [stored, dispatch] = useReducer(treeViewReducer, undefined);
 
@@ -104,8 +102,8 @@ export function useTreeView(rows: number, leafAxis: LeafAxis): TreeView {
     frame: current.frame,
     viewState: current.viewState,
     rowPx: rowPixels(current.viewState),
-    canZoomIn: zoom < maxZoom - ZOOM_EPSILON,
-    canZoomOut: zoom > minZoom + ZOOM_EPSILON,
+    canZoomIn: zoom < maxZoom,
+    canZoomOut: zoom > minZoom,
     actions,
   };
 }

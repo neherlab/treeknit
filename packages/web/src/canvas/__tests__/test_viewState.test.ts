@@ -13,10 +13,13 @@ import {
   minimapViewState,
   panViewState,
   rowPixels,
+  snappedZoom,
+  subpixelZoom,
   type TreeViewState,
   visibleLeafRange,
   visibleWorldRect,
   worldPosition,
+  zoomLimits,
   zoomViewState,
 } from "../viewState";
 
@@ -123,6 +126,29 @@ describe("view-state update", () => {
     const state = panViewState(fitViewState(tiny), tiny, 50);
 
     expect(state.target[1]).toBe(1);
+  });
+});
+
+describe("snappedZoom", () => {
+  const ODD: CanvasFrame = { size: { width: 800, height: 300 }, rows: 123, leafAxis: "y" };
+  const [minZoom, maxZoom] = zoomLimits(ODD);
+  const snap = subpixelZoom(ODD);
+
+  test("returns to the exact fitted zoom after zooming in and out by the same toolbar steps", () => {
+    const zoomedIn = [1, 2, 3].reduce((state) => zoomViewState(state, ODD, 2), fitViewState(ODD));
+    const zoomedOut = [1, 2, 3].reduce((state) => zoomViewState(state, ODD, 1 / 2), zoomedIn);
+
+    expect(zoomedOut.zoomY).toBe(minZoom);
+  });
+
+  test.each([
+    { name: "below the fitted zoom", zoom: minZoom - 1, snapped: minZoom },
+    { name: "within a pixel of the fitted zoom", zoom: minZoom + snap / 2, snapped: minZoom },
+    { name: "two pixels above the fitted zoom", zoom: minZoom + 2 * snap, snapped: minZoom + 2 * snap },
+    { name: "within a pixel of the largest zoom", zoom: maxZoom - snap / 2, snapped: maxZoom },
+    { name: "above the largest zoom", zoom: maxZoom + 1, snapped: maxZoom },
+  ])("snaps a zoom $name to $snapped", ({ zoom, snapped }) => {
+    expect(snappedZoom(ODD, zoom)).toBe(snapped);
   });
 });
 

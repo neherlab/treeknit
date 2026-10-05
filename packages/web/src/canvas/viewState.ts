@@ -75,9 +75,24 @@ export function rowPixels(state: TreeViewState): number {
   return 2 ** leafZoom(state);
 }
 
+export function subpixelZoom(frame: Pick<CanvasFrame, "size" | "leafAxis">): number {
+  return Math.log2(1 + 1 / Math.max(leafExtent(frame), 1));
+}
+
+export function snappedZoom(frame: CanvasFrame, zoom: number): number {
+  const [minZoom, maxZoom] = zoomLimits(frame);
+  const snap = subpixelZoom(frame);
+
+  if (zoom - minZoom < snap) {
+    return minZoom;
+  }
+
+  return maxZoom - zoom < snap ? maxZoom : zoom;
+}
+
 export function viewStateAt(frame: CanvasFrame, zoom: number, center: number): TreeViewState {
   const [minZoom, maxZoom] = zoomLimits(frame);
-  const leaf = Math.min(Math.max(zoom, minZoom), maxZoom);
+  const leaf = snappedZoom(frame, zoom);
   const halfVisible = leafExtent(frame) / 2 / 2 ** leaf;
   const [low, high] = leafBounds(frame.rows);
 
