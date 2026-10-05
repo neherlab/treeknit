@@ -285,7 +285,7 @@ mod tests {
   #[test]
   fn inspect_tree_reports_an_error_without_position() {
     let expected = Some(TreeError {
-      message: "tree t: duplicate leaf name A".into(),
+      message: "duplicate leaf name A".into(),
       line: None,
       column: None,
     });
