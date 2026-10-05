@@ -19,14 +19,33 @@ import ArrowUpIcon from "~icons/lucide/arrow-up";
 
 const cellFocus = "-outline-offset-2 outline-hidden data-focus-visible:outline-2 data-focus-visible:outline-focus";
 
+export const tableStyle = "text-ink font-condensed w-full border-separate border-spacing-0 text-sm";
+
+export const tableHeaderStyle = "bg-ground sticky top-0 z-10";
+
+export const rowHoverStyle = "data-hovered:bg-ink/4 data-selected:bg-pane";
+
+export const nativeRowStyle = "group/row hover:bg-ink/4 data-selected:bg-pane";
+
+export function columnStyle(align: CellAlign): string {
+  return cn(
+    "border-rule text-ink-muted h-8 border-b px-2 text-xs font-normal whitespace-nowrap",
+    align === "end" ? "text-right" : "text-left",
+  );
+}
+
+export function cellStyle(align: CellAlign): string {
+  return cn(
+    "border-rule h-8 border-b px-2 align-middle group-last/row:border-b-0",
+    align === "end" ? "text-right" : "text-left",
+  );
+}
+
+export type CellAlign = "start" | "end";
+
 export function Table({ className, ...props }: TableProps) {
   return (
-    <AriaTable
-      {...props}
-      className={composeRenderProps(className, (custom) =>
-        cn("text-ink font-condensed w-full border-separate border-spacing-0 text-sm", cellFocus, custom),
-      )}
-    />
+    <AriaTable {...props} className={composeRenderProps(className, (custom) => cn(tableStyle, cellFocus, custom))} />
   );
 }
 
@@ -34,10 +53,7 @@ export type TableProps = AriaTableProps;
 
 export function TableHeader<T extends object>({ className, ...props }: TableHeaderProps<T>) {
   return (
-    <AriaTableHeader
-      {...props}
-      className={composeRenderProps(className, (custom) => cn("bg-ground sticky top-0 z-10", custom))}
-    />
+    <AriaTableHeader {...props} className={composeRenderProps(className, (custom) => cn(tableHeaderStyle, custom))} />
   );
 }
 
@@ -48,13 +64,7 @@ export function Column({ align = "start", className, children, ...props }: Colum
     <AriaColumn
       {...props}
       className={composeRenderProps(className, (custom) =>
-        cn(
-          "border-rule text-ink-muted h-8 border-b px-2 text-xs font-normal whitespace-nowrap",
-          align === "end" ? "text-right" : "text-left",
-          "data-hovered:text-ink data-allows-sorting:cursor-default",
-          cellFocus,
-          custom,
-        ),
+        cn(columnStyle(align), "data-hovered:text-ink data-allows-sorting:cursor-default", cellFocus, custom),
       )}
     >
       {composeRenderProps(children, (content, { allowsSorting, sortDirection }) => (
@@ -68,7 +78,7 @@ export function Column({ align = "start", className, children, ...props }: Colum
 }
 
 export interface ColumnProps extends AriaColumnProps {
-  align?: "start" | "end";
+  align?: CellAlign;
 }
 
 export function TableBody<T extends object>({ className, ...props }: TableBodyProps<T>) {
@@ -89,12 +99,7 @@ export function Row<T extends object>({ className, ...props }: RowProps<T>) {
     <AriaRow
       {...props}
       className={composeRenderProps(className, (custom) =>
-        cn(
-          "group/row cursor-default",
-          "data-hovered:bg-ink/4 data-selected:bg-pane data-href:cursor-pointer",
-          cellFocus,
-          custom,
-        ),
+        cn("group/row cursor-default data-href:cursor-pointer", rowHoverStyle, cellFocus, custom),
       )}
     />
   );
@@ -106,23 +111,16 @@ export function Cell({ align = "start", className, ...props }: CellProps) {
   return (
     <AriaCell
       {...props}
-      className={composeRenderProps(className, (custom) =>
-        cn(
-          "border-rule h-8 border-b px-2 align-middle group-last/row:border-b-0",
-          align === "end" ? "text-right" : "text-left",
-          cellFocus,
-          custom,
-        ),
-      )}
+      className={composeRenderProps(className, (custom) => cn(cellStyle(align), cellFocus, custom))}
     />
   );
 }
 
 export interface CellProps extends AriaCellProps {
-  align?: "start" | "end";
+  align?: CellAlign;
 }
 
-function SortIndicator({ direction }: { direction: "ascending" | "descending" | undefined }) {
+export function SortIndicator({ direction }: { direction: "ascending" | "descending" | undefined }) {
   if (direction === undefined) {
     return <ArrowDownIcon aria-hidden className="invisible size-3.5" />;
   }

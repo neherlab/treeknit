@@ -1,10 +1,8 @@
 import type { MccInfo, PairView } from "@neherlab/treeknit-wasm";
-import { type Header, useTable } from "@tanstack/react-table";
+import { type Cell, type Header, useTable } from "@tanstack/react-table";
 import { cn } from "cn";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { Button, useFilter } from "react-aria-components";
-import SortDescIcon from "~icons/lucide/arrow-down";
-import SortAscIcon from "~icons/lucide/arrow-up";
 import ShowIcon from "~icons/lucide/git-compare-arrows";
 
 import { usePairView } from "../analysis/queries";
@@ -17,6 +15,15 @@ import { InfoButton } from "../ui/InfoButton";
 import { MccSwatch } from "../ui/MccSwatch";
 import { QueryState } from "../ui/QueryState";
 import { focusRing } from "../ui/styles";
+import {
+  type CellAlign,
+  cellStyle,
+  columnStyle,
+  nativeRowStyle,
+  SortIndicator,
+  tableHeaderStyle,
+  tableStyle,
+} from "../ui/Table";
 import { TextField } from "../ui/TextField";
 import { useVirtualRows } from "../ui/useVirtualRows";
 import { VirtualGap } from "../ui/VirtualGap";
@@ -31,10 +38,14 @@ import {
   type MccColumnId,
   mccColumns,
   mccTableFeatures,
+  sortDirection,
 } from "./mccTable";
-import { ARIA_SORT, cellStyle, headerStyle, tableStyle } from "./styles";
 
 const ALIGN_END: ReadonlySet<string> = new Set([MCC_COLUMN.size, MCC_COLUMN.imputed]);
+
+type MccHeader = Header<typeof mccTableFeatures, MccInfo>;
+
+type MccCell = Cell<typeof mccTableFeatures, MccInfo>;
 
 export function MccTablePanel() {
   const result = useWorkspace((state) => state.result);
@@ -113,13 +124,13 @@ function MccTable({ data, title }: { data: PairView; title: string }) {
         />
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-        <table className={tableStyle} aria-rowcount={rows.length + 1}>
-          <thead ref={headerRef} className="bg-ground sticky top-0 z-10">
+        <table aria-label={title} aria-rowcount={rows.length + 1} className={tableStyle}>
+          <thead ref={headerRef} className={tableHeaderStyle}>
             <tr aria-rowindex={1}>
               {headers.map((header) => (
                 <SortHeader key={header.id} header={header} />
               ))}
-              <th className={headerStyle}>
+              <th scope="col" className={columnStyle("start")}>
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
@@ -132,6 +143,7 @@ function MccTable({ data, title }: { data: PairView; title: string }) {
               return row === undefined ? null : (
                 <MccRow
                   key={row.id}
+                  cells={row.getAllCells()}
                   mcc={row.original}
                   index={index}
                   selected={search.mcc === row.original.index}
@@ -152,35 +164,33 @@ function MccTable({ data, title }: { data: PairView; title: string }) {
   );
 }
 
-function SortHeader({ header }: { header: Header<typeof mccTableFeatures, MccInfo> }) {
+function SortHeader({ header }: { header: MccHeader }) {
   const { column } = header;
-  const sorted = column.getIsSorted();
-  const label = isMccColumn(column.id) ? MCC_HEADERS[column.id] : column.id;
-  const end = ALIGN_END.has(column.id);
+  const direction = sortDirection(column.getIsSorted());
+  const align = alignOf(column.id);
 
   const toggle = useCallback(() => {
     column.toggleSorting();
   }, [column]);
 
   return (
-    <th aria-sort={sorted === false ? "none" : ARIA_SORT[sorted]} className={cn(headerStyle, end && "text-right")}>
+    <th scope="col" aria-sort={direction ?? "none"} className={columnStyle(align)}>
       <Button
         onPress={toggle}
         className={cn(
           "rounded-inner data-hovered:text-ink inline-flex items-center gap-1",
-          end && "flex-row-reverse",
+          align === "end" && "flex-row-reverse",
           focusRing,
         )}
       >
-        {label}
-        {sorted === "asc" ? <SortAscIcon aria-hidden className="size-3.5" /> : null}
-        {sorted === "desc" ? <SortDescIcon aria-hidden className="size-3.5" /> : null}
+        {isMccColumn(column.id) ? MCC_HEADERS[column.id] : column.id}
+        <SortIndicator direction={direction} />
       </Button>
     </th>
   );
 }
 
-function MccRow({ mcc, index, selected, measure, onSelect, onShow }: MccRowProps) {
+function MccRow({ cells, mcc, index, selected, measure, onSelect, onShow }: MccRowProps) {
   const choose = useCallback(() => {
     onSelect(mcc.index);
   }, [mcc.index, onSelect]);
@@ -189,7 +199,7 @@ function MccRow({ mcc, index, selected, measure, onSelect, onShow }: MccRowProps
     onShow(mcc.index);
   }, [mcc.index, onShow]);
 
-  const cells: Record<MccColumnId, ReactNode> = {
+  const content: Record<MccColumnId, ReactNode> = {
     [MCC_COLUMN.mcc]: (
       <Button
         aria-pressed={selected}
@@ -207,13 +217,19 @@ function MccRow({ mcc, index, selected, measure, onSelect, onShow }: MccRowProps
   };
 
   return (
-    <tr ref={measure} data-index={index} aria-rowindex={index + 2} className={selected ? "bg-pane" : "hover:bg-ink/4"}>
-      {Object.values(MCC_COLUMN).map((id) => (
-        <td key={id} className={cn(cellStyle, ALIGN_END.has(id) && "text-right")}>
-          {cells[id]}
+    <tr
+      ref={measure}
+      data-index={index}
+      aria-rowindex={index + 2}
+      data-selected={selected || undefined}
+      className={nativeRowStyle}
+    >
+      {cells.map((cell) => (
+        <td key={cell.id} className={cellStyle(alignOf(cell.column.id))}>
+          {isMccColumn(cell.column.id) ? content[cell.column.id] : null}
         </td>
       ))}
-      <td className={cn(cellStyle, "w-10")}>
+      <td className={cn(cellStyle("start"), "w-10")}>
         <IconButton label={`Show ${mccTitle(mcc.index)} in the tanglegram`} icon={ShowIcon} size="xs" onPress={show} />
       </td>
     </tr>
@@ -221,10 +237,15 @@ function MccRow({ mcc, index, selected, measure, onSelect, onShow }: MccRowProps
 }
 
 interface MccRowProps {
+  cells: readonly MccCell[];
   mcc: MccInfo;
   index: number;
   selected: boolean;
   measure: (row: HTMLTableRowElement | null) => void;
   onSelect: (mcc: number) => void;
   onShow: (mcc: number) => void;
+}
+
+function alignOf(id: string): CellAlign {
+  return ALIGN_END.has(id) ? "end" : "start";
 }

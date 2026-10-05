@@ -3,7 +3,7 @@ import { type ColumnFiltersState, type SortingState, useTable } from "@tanstack/
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { leavesPreview, MCC_COLUMN, mccColumns, mccsBySize, mccTableFeatures } from "../mccTable";
+import { leavesPreview, MCC_COLUMN, mccColumns, mccsBySize, mccTableFeatures, sortDirection } from "../mccTable";
 
 const contains = (text: string, substring: string) => text.toLowerCase().includes(substring.toLowerCase());
 
@@ -44,6 +44,16 @@ describe("mccColumns", () => {
     ["a leaf that no MCC has", "Yamagata", []],
   ] as const)("filters by %s", (_, query, rows) => {
     expect(shownRows([], [{ id: MCC_COLUMN.leaves, value: query }])).toStrictEqual(rows);
+  });
+});
+
+describe("sortDirection", () => {
+  test("names the TanStack sort order as the aria-sort direction of the header", () => {
+    expect([sortDirection("asc"), sortDirection("desc"), sortDirection(false)]).toStrictEqual([
+      "ascending",
+      "descending",
+      undefined,
+    ]);
   });
 });
 

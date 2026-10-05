@@ -68,6 +68,14 @@ export function mccColumns(contains: (text: string, substring: string) => boolea
   ]);
 }
 
+export type SortDirection = "ascending" | "descending";
+
+const SORT_DIRECTIONS = { asc: "ascending", desc: "descending" } as const satisfies Record<string, SortDirection>;
+
+export function sortDirection(sorted: false | keyof typeof SORT_DIRECTIONS): SortDirection | undefined {
+  return sorted === false ? undefined : SORT_DIRECTIONS[sorted];
+}
+
 export function mccsBySize(mccs: readonly MccInfo[]): MccInfo[] {
   return mccs.toSorted((a, b) => b.size - a.size || a.index - b.index);
 }

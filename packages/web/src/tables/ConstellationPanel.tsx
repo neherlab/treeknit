@@ -12,6 +12,7 @@ import { InfoButton } from "../ui/InfoButton";
 import { MccSwatch } from "../ui/MccSwatch";
 import { QueryState } from "../ui/QueryState";
 import { focusRing } from "../ui/styles";
+import { cellStyle, columnStyle, nativeRowStyle, tableHeaderStyle, tableStyle } from "../ui/Table";
 import { useVirtualRows } from "../ui/useVirtualRows";
 import { VirtualGap } from "../ui/VirtualGap";
 import { useWorkspace } from "../workspace/context";
@@ -29,7 +30,6 @@ import {
   NOT_IN_PAIR,
   pairTitle,
 } from "./constellation";
-import { cellStyle, headerStyle, tableStyle } from "./styles";
 
 const STICKY_COLUMN = "bg-ground sticky left-0 z-[1]";
 
@@ -80,11 +80,11 @@ function Constellation({ data }: { data: ConstellationTable }) {
         <span className="text-ink-muted text-sm">{`${counted(rows.length, "leaf", "leaves")}, ${counted(data.pairs.length, "pair", "pairs")}`}</span>
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
-        <table className={cn(tableStyle, "w-auto")} aria-rowcount={rows.length + 1}>
-          <thead ref={headerRef} className="bg-ground sticky top-0 z-[2]">
+        <table aria-label="Constellation" aria-rowcount={rows.length + 1} className={cn(tableStyle, "w-auto")}>
+          <thead ref={headerRef} className={cn(tableHeaderStyle, "z-[2]")}>
             <tr aria-rowindex={1}>
               {headers.map(({ id, title }) => (
-                <th key={id} scope="col" className={cn(headerStyle, id === LEAF_COLUMN && STICKY_COLUMN)}>
+                <th key={id} scope="col" className={cn(columnStyle("start"), id === LEAF_COLUMN && STICKY_COLUMN)}>
                   {title}
                 </th>
               ))}
@@ -109,12 +109,12 @@ function Constellation({ data }: { data: ConstellationTable }) {
 
 function LeafRow({ row, index, titles, measure, onOpen }: LeafRowProps) {
   return (
-    <tr ref={measure} data-index={index} aria-rowindex={index + 2} className="hover:bg-ink/4">
-      <th scope="row" className={cn(cellStyle, STICKY_COLUMN, "max-w-[32ch] truncate text-left font-normal")}>
+    <tr ref={measure} data-index={index} aria-rowindex={index + 2} className={nativeRowStyle}>
+      <th scope="row" className={cn(cellStyle("start"), STICKY_COLUMN, "max-w-[32ch] truncate font-normal")}>
         {row.leaf}
       </th>
       {titles.map((title, pair) => (
-        <td key={title} className={cellStyle}>
+        <td key={title} className={cellStyle("start")}>
           <PairCell cell={row.cells[pair] ?? null} leaf={row.leaf} pair={pair} title={title} onOpen={onOpen} />
         </td>
       ))}
