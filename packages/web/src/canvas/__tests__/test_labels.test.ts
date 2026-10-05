@@ -119,7 +119,7 @@ describe("labelFontStore", () => {
     expect(store.isReady("Ж")).toBe(true);
   });
 
-  test("loads the label font once per text, with that text, and reports nothing when it loads", async () => {
+  test("loads each character once, with only the characters that are not loaded yet, and reports nothing when it loads", async () => {
     const loaded: [string, string][] = [];
     const reports: Error[] = [];
 
@@ -139,16 +139,39 @@ describe("labelFontStore", () => {
     await Promise.all([firstChange(store, "AB"), firstChange(store, "AB")]);
 
     expect(store.isReady("AB")).toBe(true);
-    expect(store.isReady("Ж")).toBe(false);
+    expect(store.isReady("BA")).toBe(true);
+    expect(store.isReady("ABЖ")).toBe(false);
 
-    await firstChange(store, "Ж");
+    await firstChange(store, "ABЖ");
 
     expect(loaded).toStrictEqual([
       [LABEL_FONT, "AB"],
       [LABEL_FONT, "Ж"],
     ]);
     expect(reports).toStrictEqual([]);
-    expect(store.isReady("Ж")).toBe(true);
+    expect(store.isReady("ABЖ")).toBe(true);
+  });
+
+  test("keeps new text ready without a load when its characters are already loaded", async () => {
+    let loads = 0;
+
+    const store = labelFontStore({
+      load: () => {
+        loads += 1;
+
+        return Promise.resolve([PLEX_FACE]);
+      },
+      reportFailure: () => undefined,
+    });
+
+    await firstChange(store, "ABC");
+
+    const unsubscribe = store.subscribe("CA", () => undefined);
+
+    expect(store.isReady("CA")).toBe(true);
+    expect(loads).toBe(1);
+
+    unsubscribe();
   });
 });
 

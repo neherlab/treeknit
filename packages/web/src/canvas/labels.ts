@@ -59,13 +59,13 @@ export function labelCharacters(names: Iterable<string>): string {
 }
 
 export function labelFontStore(loader: FontLoader): FontStore {
-  const ready = new Set<string>();
+  const loaded = new Set<string>();
   const loading = new Set<string>();
   const listeners = new Set<() => void>();
 
-  async function waitForFont(text: string): Promise<void> {
+  async function waitForFont(characters: readonly string[]): Promise<void> {
     try {
-      const faces = await loader.load(LABEL_FONT, text);
+      const faces = await loader.load(LABEL_FONT, characters.join(""));
 
       if (!faces.some((face) => face.family.replaceAll(/^["']|["']$/gu, "") === LABEL_FACE_FAMILY)) {
         loader.reportFailure(LABEL_FONT, new Error(`No ${LABEL_FACE_FAMILY} font face covers the label characters`));
@@ -74,7 +74,10 @@ export function labelFontStore(loader: FontLoader): FontStore {
       loader.reportFailure(LABEL_FONT, error instanceof Error ? error : new Error(String(error)));
     }
 
-    ready.add(text);
+    for (const character of characters) {
+      loading.delete(character);
+      loaded.add(character);
+    }
 
     for (const listener of listeners) {
       listener();
@@ -85,9 +88,14 @@ export function labelFontStore(loader: FontLoader): FontStore {
     subscribe(text, onChange) {
       listeners.add(onChange);
 
-      if (!loading.has(text)) {
-        loading.add(text);
-        void waitForFont(text);
+      const missing = [...new Set(text)].filter((character) => !loaded.has(character) && !loading.has(character));
+
+      if (missing.length > 0) {
+        for (const character of missing) {
+          loading.add(character);
+        }
+
+        void waitForFont(missing);
       }
 
       return () => {
@@ -95,7 +103,7 @@ export function labelFontStore(loader: FontLoader): FontStore {
       };
     },
     isReady(text) {
-      return ready.has(text);
+      return [...text].every((character) => loaded.has(character));
     },
   };
 }
