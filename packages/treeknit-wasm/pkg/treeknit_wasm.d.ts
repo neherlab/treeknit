@@ -11,6 +11,11 @@ export interface Bezier {
 }
 
 /**
+ * A figure of a run, by what it shows.
+ */
+export type Figure = { kind: "pair"; pair: number } | { kind: "arg" };
+
+/**
  * A labeled tree in Newick format.
  */
 export interface TreeText {
@@ -329,6 +334,10 @@ export interface FileEntry {
      * Size in bytes; `None` for a figure not rendered yet.
      */
     size: number | null;
+    /**
+     * The figure the file holds; `None` for the other files.
+     */
+    figure: Figure | null;
 }
 
 /**
@@ -1027,7 +1036,8 @@ export class Session {
     free(): void;
     [Symbol.dispose](): void;
     /**
-     * The SVG figure of the ARG.
+     * The SVG figure of the ARG with `options`. Throws an `Error` named `ValidationError` when
+     * `options` are invalid, and an `Error` for more than two trees or a failed ARG.
      */
     argFigure(options: FigureOptions): string;
     /**
@@ -1043,15 +1053,19 @@ export class Session {
      */
     constellation(): ConstellationTable;
     /**
-     * The SVG tanglegram of pair `pair` in `version`.
+     * The SVG tanglegram of pair `pair` (pipeline order) in `version` with `options`. Throws an
+     * `Error` named `ValidationError` when `options` are invalid. The figure files of `files()`
+     * keep their default options.
      */
     figure(pair: number, version: TreeVersion, options: FigureOptions): string;
     /**
-     * The text of the listed file at `path`.
+     * The text of the listed file at `path`. A figure is rendered with the default options on
+     * first use and kept.
      */
     fileText(path: string): string;
     /**
-     * Every output file of the run, without its text.
+     * Every output file of the run, without its text. A figure has the size `null` until its
+     * text is first read, and names the figure it holds.
      */
     files(): FileEntry[];
     /**
@@ -1069,7 +1083,7 @@ export class Session {
      */
     summary(): Summary;
     /**
-     * A ZIP archive of every listed file, under `treeknit_results/`.
+     * A ZIP archive of every listed file, under `treeknit_results/`, figures included.
      */
     zip(): Uint8Array;
 }
