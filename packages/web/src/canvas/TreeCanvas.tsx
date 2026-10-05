@@ -25,8 +25,6 @@ const CONTROLLER = {
   keyboard: { zoomSpeed: 2, moveSpeed: 48 },
 };
 
-const UNSIZED_VIEW_STATE: OrthographicViewState = { target: [0, 0], zoom: 0 };
-
 const PICK_RADIUS_PX = 4;
 
 type PickPosition = Parameters<DeckGLRef<OrthographicView>["pickObjectAsync"]>[0];
@@ -164,16 +162,18 @@ export function TreeCanvas({
             // oxlint-disable-next-line better-tailwindcss/no-unknown-classes -- deck.gl takes the element with this class as the target of its pointer and keyboard events
             className="deck-events-root focus-visible:outline-focus absolute inset-0 outline-hidden focus-visible:outline-2 focus-visible:-outline-offset-2"
           >
-            <DeckGL
-              ref={deckRef}
-              views={views}
-              viewState={view.viewState ?? UNSIZED_VIEW_STATE}
-              controller={CONTROLLER}
-              layers={layers}
-              onViewStateChange={update}
-              onError={showBoundary}
-              {...events}
-            />
+            {view.viewState === undefined ? null : (
+              <DeckGL
+                ref={deckRef}
+                views={views}
+                viewState={view.viewState}
+                controller={CONTROLLER}
+                layers={layers}
+                onViewStateChange={update}
+                onError={showBoundary}
+                {...events}
+              />
+            )}
           </div>
           <p id={descriptionId} className="sr-only">
             {description}
