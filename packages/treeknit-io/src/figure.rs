@@ -1,10 +1,31 @@
-//! SVG figures of a tanglegram and of the ARG, drawn from the shapes of `display`.
+//! SVG figures of a tanglegram and of the ARG, drawn from the shapes of `display` with the
+//! light colors of `palette`: the same geometry as the interactive views, mapped to px.
+
+mod arg;
+mod svg;
+mod tanglegram;
 
 use crate::analysis::ValidationError;
-use crate::display::Scale;
+use crate::display::{ArgView, DRAWING_RULES, PairView, Scale};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
+
+/// The SVG tanglegram of `view`, titled with the labels of its two trees, with a legend under
+/// the drawing; the errors of `check_figure_options` when `options` are invalid. The view must be
+/// laid out with `options.scale`.
+pub fn tanglegram_svg(view: &PairView, options: &FigureOptions) -> Result<String, Vec<ValidationError>> {
+  checked(options)?;
+  Ok(tanglegram::draw(view, options))
+}
+
+/// The SVG figure of the ARG `view` of the trees labeled `segments` (segment A, then B), titled
+/// with them, with a legend under the drawing; the errors of `check_figure_options` when
+/// `options` are invalid. The view must be laid out with `options.scale`.
+pub fn arg_svg(view: &ArgView, segments: [&str; 2], options: &FigureOptions) -> Result<String, Vec<ValidationError>> {
+  checked(options)?;
+  Ok(arg::draw(view, segments, options))
+}
 
 /// Size and content of a figure; a missing field takes its default.
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
@@ -50,6 +71,21 @@ pub fn check_figure_options(options: &FigureOptions) -> Vec<ValidationError> {
   .into_iter()
   .flatten()
   .collect()
+}
+
+fn checked(options: &FigureOptions) -> Result<(), Vec<ValidationError>> {
+  let errors = check_figure_options(options);
+  if errors.is_empty() { Ok(()) } else { Err(errors) }
+}
+
+/// Leaf labels are drawn: always with `on`, never with `off`, and with `auto` from the row height
+/// of the drawing rules.
+fn labels_shown(options: &FigureOptions) -> bool {
+  match options.labels {
+    LabelMode::On => true,
+    LabelMode::Off => false,
+    LabelMode::Auto => options.row_height >= f64::from(DRAWING_RULES.label_auto_min_row_px),
+  }
 }
 
 /// When leaf labels are drawn.
