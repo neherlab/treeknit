@@ -44,7 +44,7 @@ export interface DrawNode {
      */
     children: number[];
     /**
-     * Branch length as parsed; `None` when the tree gives none.
+     * Branch length as parsed; `None` when the tree gives none or the length is not finite.
      */
     branchLength: number | null;
     /**
@@ -87,7 +87,8 @@ export interface DrawNode {
 export interface ArgNodeView {
     label: string;
     /**
-     * Parent index per segment; `None` where the node is a root of the segment or lacks it.
+     * Parent index per segment; `None` for the top root, where the node lacks the segment, and
+     * where it is the root of the segment without the synthetic `GlobalRoot` above it.
      */
     parents: [number | null, number | null];
     /**
@@ -282,6 +283,11 @@ export interface MccInfo {
      */
     imputedLeaves: string[];
     /**
+     * Names of the attached members whose attachment is ambiguous: their attachment point is in
+     * no MCC, so they joined the MCC whose root is closest to it.
+     */
+    ambiguousLeaves: string[];
+    /**
      * An attachment of a member is ambiguous.
      */
     ambiguous: boolean;
@@ -302,7 +308,8 @@ export interface ArgEdge {
      */
     segments: number[];
     /**
-     * The child is a hybrid node.
+     * The child is a hybrid node and the edge is not on the child's chain to the top root, along
+     * which the node's x is measured. Each hybrid node has one reticulation edge.
      */
     reticulation: boolean;
 }
@@ -355,6 +362,10 @@ export interface TreeShapes {
      */
     elbows: Elbow[];
     marks: Mark[];
+    /**
+     * One leader per leaf, in node order.
+     */
+    leaders: Leader[];
 }
 
 /**
@@ -732,7 +743,8 @@ export interface ConstellationTable {
      */
     pairs: [string, string][];
     /**
-     * `cells[leaf][pair]`; `None` when the leaf is in neither tree of the pair.
+     * `cells[leaf][pair]`; `None` when the pair gives the leaf no MCC: the leaf is in neither
+     * tree of the pair, or the pair has no MCCs.
      */
     cells: (ConstellationCell | null)[][];
 }
@@ -782,6 +794,25 @@ export interface AppVersion {
      * URL of the source repository, from the workspace `repository` field.
      */
     repository: string;
+}
+
+/**
+ * The dotted line from a leaf tip to the label edge of its tree column, at x = 1, so that the
+ * labels align when the tips do not. A leaf at the label edge has a leader of length 0.
+ */
+export interface Leader {
+    /**
+     * Index of the leaf.
+     */
+    node: number;
+    /**
+     * The tip of the leaf.
+     */
+    from: Point;
+    /**
+     * The label edge, at the leaf's row.
+     */
+    to: Point;
 }
 
 /**
@@ -892,6 +923,10 @@ export interface ArgShapes {
      * Hybrid rings.
      */
     marks: Mark[];
+    /**
+     * One leader per leaf, in node order.
+     */
+    leaders: Leader[];
 }
 
 /**
@@ -901,7 +936,8 @@ export interface PairView {
     left: DrawTree;
     right: DrawTree;
     /**
-     * One link per leaf in both drawn trees, in the left display order.
+     * One link per leaf in both drawn trees that has an MCC of the pair, in the left display
+     * order.
      */
     links: Link[];
     /**
@@ -939,6 +975,25 @@ export interface Link {
      * Index of the leaf's MCC in `PairView.mccs`.
      */
     mcc: number;
+}
+
+/**
+ * Thresholds of the drawing rules that the consumer applies, because they depend on the
+ * height of a drawn leaf row.
+ */
+export interface DrawingRules {
+    /**
+     * In the label mode `auto`, leaf labels are drawn from this many px per row.
+     */
+    labelAutoMinRowPx: number;
+    /**
+     * From this many px per row, each link is an S-curve; below it, each block is a ribbon.
+     */
+    linkMinRowPx: number;
+    /**
+     * A longer leaf label is shortened in the middle to this many characters.
+     */
+    labelMaxChars: number;
 }
 
 /**
@@ -1023,6 +1078,11 @@ export class Session {
 export function defaultSettings(): Settings;
 
 /**
+ * The thresholds of the drawing rules that depend on the drawn row height.
+ */
+export function drawingRules(): DrawingRules;
+
+/**
  * Leaf, node, and polytomy counts, branch lengths, warnings, and parse error of one tree.
  */
 export function inspectTree(label: string, text: string): TreeInspection;
@@ -1077,6 +1137,7 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_session_free: (a: number, b: number) => void;
     readonly defaultSettings: () => [number, number, number];
+    readonly drawingRules: () => [number, number, number];
     readonly inspectTree: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly overlap: (a: number, b: number) => [number, number, number];
     readonly palette: () => [number, number, number];
