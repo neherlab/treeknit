@@ -19,7 +19,7 @@ import { drawSeed } from "./seed";
 import { SettingInfo } from "./SettingInfo";
 import { useSettingsActions } from "./useSettingsActions";
 
-export const SEQ_LENGTHS_FAILED = "The sequence lengths could not be turned on. Try again.";
+const SEQ_LENGTHS_FAILED = "The sequence lengths could not be turned on. Try again.";
 
 export function SettingsForm() {
   const settings = useWorkspace((state) => state.settings);
