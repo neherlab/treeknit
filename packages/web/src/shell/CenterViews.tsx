@@ -7,6 +7,7 @@ import { ArgPanel } from "../arg/ArgPanel";
 import { DiagnosticsTabLabel } from "../results/DiagnosticsTabLabel";
 import { DiagnosticsView } from "../results/DiagnosticsView";
 import { FilesView } from "../results/FilesView";
+import { MccTablePanel } from "../tables/MccTablePanel";
 import { Overview } from "../overview/Overview";
 import { TanglegramPanel } from "../tanglegram/TanglegramPanel";
 import { Button } from "../ui/Button";
@@ -22,7 +23,7 @@ const VIEW_PANELS: Record<WorkspaceView, ComponentType> = {
   overview: Overview,
   tanglegram: TanglegramPanel,
   arg: ArgPanel,
-  mccs: ViewPlaceholder,
+  mccs: MccTablePanel,
   constellation: ViewPlaceholder,
   files: FilesView,
   diagnostics: DiagnosticsView,
