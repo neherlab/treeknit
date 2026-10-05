@@ -20,6 +20,8 @@ import { InlineNotice } from "../ui/InlineNotice";
 import { ProgressBar } from "../ui/ProgressBar";
 import { focusRing } from "../ui/styles";
 import { TextField } from "../ui/TextField";
+import { useVirtualRows } from "../ui/useVirtualRows";
+import { VirtualGap } from "../ui/VirtualGap";
 import { useWorkspace } from "../workspace/context";
 import type { RunResult } from "../workspace/store";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
@@ -33,8 +35,6 @@ import {
   mccTableFeatures,
 } from "./mccTable";
 import { ARIA_SORT, cellStyle, headerStyle, tableStyle } from "./styles";
-import { useVirtualRows } from "./useVirtualRows";
-import { VirtualGap } from "./VirtualGap";
 
 const ALIGN_END: ReadonlySet<string> = new Set([MCC_COLUMN.size, MCC_COLUMN.imputed]);
 

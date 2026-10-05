@@ -13,6 +13,8 @@ import { InfoButton } from "../ui/InfoButton";
 import { InlineNotice } from "../ui/InlineNotice";
 import { ProgressBar } from "../ui/ProgressBar";
 import { focusRing } from "../ui/styles";
+import { useVirtualRows } from "../ui/useVirtualRows";
+import { VirtualGap } from "../ui/VirtualGap";
 import { useWorkspace } from "../workspace/context";
 import type { RunResult } from "../workspace/store";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
@@ -29,8 +31,6 @@ import {
   pairTitle,
 } from "./constellation";
 import { cellStyle, headerStyle, tableStyle } from "./styles";
-import { useVirtualRows } from "./useVirtualRows";
-import { VirtualGap } from "./VirtualGap";
 
 const STICKY_COLUMN = "bg-ground sticky left-0 z-[1]";
 
