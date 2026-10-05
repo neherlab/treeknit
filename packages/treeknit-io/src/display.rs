@@ -11,6 +11,31 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
+/// Number of MCC color slots, the length of `ThemeColors.mcc` in `palette`.
+pub const MCC_SLOTS: usize = 8;
+
+/// The drawing rules that depend on the drawn size, shared by the SVG figures and the
+/// interactive views.
+pub const DRAWING_RULES: DrawingRules = DrawingRules {
+  label_auto_min_row_px: 10,
+  link_min_row_px: 6,
+  label_max_chars: 40,
+};
+
+/// Thresholds of the drawing rules that the consumer applies, because they depend on the
+/// height of a drawn leaf row.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct DrawingRules {
+  /// In the label mode `auto`, leaf labels are drawn from this many px per row.
+  pub label_auto_min_row_px: u32,
+  /// From this many px per row, each link is an S-curve; below it, each block is a ribbon.
+  pub link_min_row_px: u32,
+  /// A longer leaf label is shortened in the middle to this many characters.
+  pub label_max_chars: u32,
+}
+
 /// A point `[x, y]` in normalized units.
 #[cfg_attr(feature = "tsify", tsify::declare)]
 pub type Point = [f64; 2];
@@ -415,6 +440,12 @@ mod tests {
       "y": 4.0, "leaf": true, "added": false, "imputed": false, "mcc": 0, "mccBreak": true,
     });
     assert_eq!(expected, serde_json::to_value(&node).unwrap());
+  }
+
+  #[test]
+  fn drawing_rules_serialize_camel_case() {
+    let expected = json!({"labelAutoMinRowPx": 10, "linkMinRowPx": 6, "labelMaxChars": 40});
+    assert_eq!(expected, serde_json::to_value(DRAWING_RULES).unwrap());
   }
 
   #[test]
