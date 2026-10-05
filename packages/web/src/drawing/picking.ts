@@ -1,5 +1,6 @@
 import type { PickingInfo } from "@deck.gl/core";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
+import { useErrorBoundary } from "react-error-boundary";
 
 import type { RowRange } from "../canvas/viewState";
 import type { Selection } from "./selection";
@@ -40,28 +41,48 @@ export function useDrawingPicking<D, G, T>(
   selection: Selection,
   onSelect: (selection: Selection) => void,
 ): DrawingPicking {
+  const { showBoundary } = useErrorBoundary();
+
   const handlers = useMemo(() => {
+    const guarded = reportingTo(showBoundary);
+
     const targetOf = (info: PickingInfo) =>
       info.layer === null || info.layer === undefined ? undefined : rules.targetAt(geometry, info.layer.id, info.index);
 
     return {
-      getTooltip: (info: PickingInfo) => {
+      getTooltip: guarded((info: PickingInfo) => {
         const target = targetOf(info);
 
         return target === undefined ? null : tooltipContent(rules.tooltip(data, target));
-      },
-      onClick: (info: PickingInfo) => {
+      }, null),
+      onClick: guarded((info: PickingInfo) => {
         onSelect(rules.clickSelection(data, targetOf(info)));
-      },
-      onCladeZoom: (info: PickingInfo) => {
+      }, undefined),
+      onCladeZoom: guarded((info: PickingInfo) => {
         const target = targetOf(info);
 
         return target === undefined ? null : rules.targetRows(data, target);
-      },
+      }, null),
     };
-  }, [rules, data, geometry, onSelect]);
+  }, [rules, data, geometry, onSelect, showBoundary]);
 
-  const onSelectionZoom = useCallback(() => rules.selectionRows(data, selection), [rules, data, selection]);
+  const onSelectionZoom = useMemo(
+    () => reportingTo(showBoundary)(() => rules.selectionRows(data, selection), null),
+    [rules, data, selection, showBoundary],
+  );
 
   return useMemo(() => ({ ...handlers, onSelectionZoom }), [handlers, onSelectionZoom]);
+}
+
+export function reportingTo(report: ReturnType<typeof useErrorBoundary>["showBoundary"]) {
+  return <A extends unknown[], R>(handler: (...args: A) => R, fallback: R) =>
+    (...args: A): R => {
+      try {
+        return handler(...args);
+      } catch (error) {
+        report(error);
+
+        return fallback;
+      }
+    };
 }
