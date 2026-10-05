@@ -24,24 +24,23 @@ Stateless functions:
 - `treeLabels(fileNames, existingLabels): string[]`: labels for loaded files, unique against the existing labels
 - `version(): AppVersion`: the TreeKnit version and the repository URL
 - `palette(): Palette`: the drawing colors of the light and the dark theme
-- `drawingRules(): DrawingRules`: the thresholds of the drawing rules that depend on the drawn row height: labels in mode `auto` from `labelAutoMinRowPx` (10) px per row, one curve per link from `linkMinRowPx` (6) px per row and ribbons below it, labels shortened in the middle to `labelMaxChars` (40) characters
+- `drawingRules(): DrawingRules`: the drawing rules that depend on the drawn size: labels in mode `auto` from `labelAutoMinRowPx` (10) px per row, one curve per link from `linkMinRowPx` (6) px per row and ribbons below it, labels shortened in the middle to `labelMaxChars` (40) characters; the columns of a drawing (margin, label gap, link zone share and its minimum, the largest label column shares); and the stroke widths, mark sizes, opacities, and dash patterns
 
 `Session`, one run and its results:
 
 - `Session.run(request, onProgress): Session`: validates and runs the request on one thread, calling `onProgress` with each `Progress` (`phase` `pairs`, `matching`, or `done`; `fraction` from 0 to 1, never decreasing, and 1 only at `done`). An error that `onProgress` throws stops further progress calls and is thrown after the run
-- `summary(): Summary`: per pair the labels, the MCCs as leaf names, and the counts of imputed and ambiguously attached leaves; the ARG outcome (`status` `built` with the reassortment count, or `failed` with the message; `null` for more than two trees); the diagnostics
-- `files(): FileEntry[]`: every output file with its command-line path, media type, and size in bytes: `treeknit_request.json` (the request that ran), the files of `treeknit --impute --auspice-view` with the tree extension `.nwk`, `parameters.json`, and `log.txt`
-- `fileText(path): string`: the text of a listed file; throws `no file <path>` for any other path
-- `zip(): Uint8Array`: every listed file under `treeknit_results/`
+- `summary(): Summary`: per pair the labels, the tree indices, the MCCs as leaf names, and the counts of imputed and ambiguously attached leaves; the ARG outcome (`status` `built` with the reassortment count, or `failed` with the message; `null` for more than two trees); `noReassortment`, whether the run shows that the trees have no reassortment; the diagnostics
+- `files(): FileEntry[]`: every output file with its command-line path, its download name (the last path segment), media type, and size in bytes: `treeknit_request.json` (the request that ran), the files of `treeknit --impute --auspice-view --plot` with the tree extension `.nwk`, `parameters.json`, and `log.txt`. A figure names the figure it holds and has the size `null` until its text is first read
+- `fileText(path): string`: the text of a listed file; throws `no file <path>` for any other path. A figure is rendered with the default options on first use and kept
+- `zip(): Uint8Array`: every listed file under `treeknit_results/`; a figure not yet read is rendered into the archive and not kept
 - `commandLine(): string`: the command that writes the same files from the extracted archive
 - `pairView(pair, version, scale): PairView`: the tanglegram of a pair (pipeline order) in version `input`, `resolved`, or `imputed`, laid out with scale `div` or `depth`; throws `no pair <pair>: ...` for an index the run lacks
 - `argView(scale): ArgView | undefined`: the ARG of two trees; `undefined` for more than two trees or a failed ARG
 - `constellation(): ConstellationTable`: the MCC, its size, and its color slot of every leaf in every pair
+- `figure(pair, version, options): string`: the SVG tanglegram of a pair in a version with `FigureOptions` (width, row height, scale, labels); throws an `Error` named `ValidationError` for invalid options
+- `argFigure(options): string`: the SVG figure of the ARG; throws for more than two trees or a failed ARG
 
-Not built yet; these throw `not implemented`:
-
-- `figure(pair, version, options): string`: the SVG tanglegram of a pair
-- `argFigure(options): string`: the SVG figure of the ARG
+With the scale `div`, a figure draws a pair where a tree has no branch lengths, or an ARG without branch lengths, as cladograms, as the figure files do.
 
 `validate` and `Session.run` apply the checks of the command line. `validate` returns each problem with the path of the field it concerns (such as `settings.gamma` or `trees[1].newick`) and, for Newick errors with a position, the 1-based line and column; an empty list means the request runs. `Session.run` throws an `Error` named `ValidationError` whose message joins the messages, one per line, so the caller tells an invalid request from an internal failure, which throws an `Error`. A request that is not of the declared type throws an `Error` that says where it is wrong. A Rust panic traps the module and leaves the instance unusable.
 
