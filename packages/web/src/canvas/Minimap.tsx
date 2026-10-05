@@ -1,30 +1,28 @@
 import { type LayersList, OrthographicView } from "@deck.gl/core";
 import { PolygonLayer } from "@deck.gl/layers";
 import { DeckGL } from "@deck.gl/react";
-import { cva } from "class-variance-authority";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { mergeProps, useMove, usePress } from "react-aria";
 
 import { withOpacity } from "./color";
 import { useDrawingColors } from "./drawingColors";
 import type { TreeView } from "./useTreeView";
-import { type CanvasFrame, minimapLeafAt, minimapViewState, visibleWorldRect } from "./viewState";
+import {
+  type CanvasFrame,
+  type CanvasSize,
+  type LeafAxis,
+  minimapLeafAt,
+  minimapLeafOffset,
+  minimapSize,
+  minimapViewState,
+  visibleWorldRect,
+} from "./viewState";
 
 const MINIMAP_VIEW = new OrthographicView({ id: "minimap", flipY: true });
 
 const WINDOW_FILL_OPACITY = 0.12;
 
-const minimapStyle = cva(
-  "border-rule bg-ground absolute right-2 bottom-2 cursor-grab touch-none overflow-hidden border shadow-sm",
-  {
-    variants: {
-      leafAxis: {
-        y: "h-50 w-40",
-        x: "h-40 w-50",
-      },
-    },
-  },
-);
+const IN_FLOW: Partial<CSSStyleDeclaration> = { position: "relative" };
 
 export interface MinimapProps {
   view: TreeView;
@@ -35,21 +33,32 @@ export interface MinimapProps {
 export function Minimap({ view, frame, layers }: MinimapProps) {
   const colors = useDrawingColors();
   const { viewState, actions } = view;
-  const along = frame.leafAxis === "y" ? 1 : 0;
+  const { leafAxis } = frame;
+  const along = leafAxis === "y" ? 1 : 0;
+  const planned = useMemo(() => minimapSize({ leafAxis }), [leafAxis]);
+  const [measured, setMeasured] = useState<{ leafAxis: LeafAxis; size: CanvasSize } | undefined>(undefined);
+  const size = measured?.leafAxis === leafAxis ? measured.size : planned;
+
+  const measure = useCallback(
+    (next: CanvasSize) => {
+      setMeasured({ leafAxis, size: next });
+    },
+    [leafAxis],
+  );
 
   const { pressProps } = usePress({
     onPressStart: ({ x, y }) => {
-      actions.panTo(minimapLeafAt(frame, along === 1 ? y : x));
+      actions.panTo(minimapLeafAt(frame, size, along === 1 ? y : x));
     },
   });
 
   const { moveProps } = useMove({
     onMove: ({ deltaX, deltaY }) => {
-      actions.panBy(minimapLeafAt(frame, along === 1 ? deltaY : deltaX) - minimapLeafAt(frame, 0));
+      actions.panBy(minimapLeafOffset(frame, size, along === 1 ? deltaY : deltaX));
     },
   });
 
-  const miniViewState = useMemo(() => minimapViewState(frame), [frame]);
+  const miniViewState = useMemo(() => minimapViewState(frame, size), [frame, size]);
 
   const allLayers = useMemo(
     () => [
@@ -70,8 +79,21 @@ export function Minimap({ view, frame, layers }: MinimapProps) {
   );
 
   return (
-    <div aria-hidden {...mergeProps(pressProps, moveProps)} className={minimapStyle({ leafAxis: frame.leafAxis })}>
-      <DeckGL views={MINIMAP_VIEW} viewState={miniViewState} controller={false} layers={allLayers} />
+    <div
+      aria-hidden
+      {...mergeProps(pressProps, moveProps)}
+      className="outline-rule bg-ground absolute right-2 bottom-2 cursor-grab touch-none overflow-hidden shadow-sm outline"
+    >
+      <DeckGL
+        views={MINIMAP_VIEW}
+        viewState={miniViewState}
+        controller={false}
+        layers={allLayers}
+        width={planned.width}
+        height={planned.height}
+        style={IN_FLOW}
+        onResize={measure}
+      />
     </div>
   );
 }

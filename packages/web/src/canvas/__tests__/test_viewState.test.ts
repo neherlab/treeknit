@@ -8,6 +8,7 @@ import {
   fitViewState,
   MAX_ROW_PX,
   minimapLeafAt,
+  minimapLeafOffset,
   minimapShown,
   minimapSize,
   minimapViewState,
@@ -186,6 +187,7 @@ describe("fitRowsViewState", () => {
 
 describe("minimap", () => {
   const LARGE: CanvasFrame = { size: { width: 900, height: 800 }, rows: 2_000, leafAxis: "y" };
+  const NARROW_LARGE: CanvasFrame = { size: { width: 800, height: 900 }, rows: 2_000, leafAxis: "x" };
 
   test("appears only for drawings with more than 200 leaves", () => {
     expect(minimapShown({ ...LARGE, rows: 200 })).toBe(false);
@@ -202,22 +204,23 @@ describe("minimap", () => {
     expect(minimapSize(NARROW)).toStrictEqual({ width: 200, height: 160 });
   });
 
-  test.each([LARGE, { ...LARGE, leafAxis: "x" as const }])(
-    "projects the whole drawing onto the minimap (%o)",
-    (frame) => {
-      const mini = minimapViewState(frame);
-      const viewport = new OrthographicViewport({ ...minimapSize(frame), ...mini });
-      const cross = frame.leafAxis === "y" ? frame.size.width : frame.size.height;
-      const [left = Number.NaN, top = Number.NaN] = viewport.project(worldPosition(frame.leafAxis, 0, -0.5));
-      const [right = Number.NaN, bottom = Number.NaN] = viewport.project(worldPosition(frame.leafAxis, cross, 1_999.5));
-      const size = minimapSize(frame);
+  const MEASURED = { width: 158, height: 198 };
 
-      expect(left).toBeCloseTo(0, 9);
-      expect(top).toBeCloseTo(0, 9);
-      expect(right).toBeCloseTo(size.width, 9);
-      expect(bottom).toBeCloseTo(size.height, 9);
-    },
-  );
+  test.each([
+    { name: "the planned size on the wide layout", frame: LARGE, size: minimapSize(LARGE) },
+    { name: "the planned size on the narrow layout", frame: NARROW_LARGE, size: minimapSize(NARROW_LARGE) },
+    { name: "a measured size smaller than planned", frame: LARGE, size: MEASURED },
+  ])("projects the whole drawing onto $name", ({ frame, size }) => {
+    const viewport = new OrthographicViewport({ ...size, ...minimapViewState(frame, size) });
+    const cross = frame.leafAxis === "y" ? frame.size.width : frame.size.height;
+    const [left = Number.NaN, top = Number.NaN] = viewport.project(worldPosition(frame.leafAxis, 0, -0.5));
+    const [right = Number.NaN, bottom = Number.NaN] = viewport.project(worldPosition(frame.leafAxis, cross, 1_999.5));
+
+    expect(Math.abs(left - 0)).toBeLessThan(1e-12);
+    expect(Math.abs(top - 0)).toBeLessThan(1e-12);
+    expect(Math.abs(right - size.width)).toBeLessThan(1e-12);
+    expect(Math.abs(bottom - size.height)).toBeLessThan(1e-12);
+  });
 
   test("frames the visible rows of the main view across the whole width", () => {
     const state = fitRowsViewState(LARGE, { first: 500, last: 999 });
@@ -228,9 +231,14 @@ describe("minimap", () => {
     ]);
   });
 
-  test("maps a pointer offset back to a leaf row", () => {
-    expect(minimapLeafAt(LARGE, 0)).toBe(-0.5);
-    expect(minimapLeafAt(LARGE, 100)).toBe(999.5);
-    expect(minimapLeafAt(LARGE, 200)).toBe(1_999.5);
+  test.each([
+    { name: "planned 200 px", size: minimapSize(LARGE), offsets: [0, 100, 200] },
+    { name: "measured 198 px", size: MEASURED, offsets: [0, 99, 198] },
+  ])("maps the top, middle, and bottom of the $name leaf axis to the drawing edges and center", ({ size, offsets }) => {
+    expect(offsets.map((offset) => minimapLeafAt(LARGE, size, offset))).toStrictEqual([-0.5, 999.5, 1_999.5]);
+  });
+
+  test("maps a drag offset of a quarter of the measured leaf axis to a quarter of the rows", () => {
+    expect(minimapLeafOffset(LARGE, MEASURED, 49.5)).toBe(500);
   });
 });

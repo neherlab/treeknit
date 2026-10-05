@@ -191,11 +191,11 @@ export function minimapSize({ leafAxis }: Pick<CanvasFrame, "leafAxis">): Canvas
     : { width: MINIMAP_LEAF_PX, height: MINIMAP_CROSS_PX };
 }
 
-export function minimapViewState(frame: CanvasFrame): TreeViewState {
-  const mini: CanvasFrame = { ...frame, size: minimapSize(frame) };
+export function minimapViewState(frame: CanvasFrame, size: CanvasSize): TreeViewState {
+  const mini: CanvasFrame = { ...frame, size };
   const fitted = fitViewState(mini);
   const crossCenter = crossExtent(frame) / 2;
-  const crossZoom = Math.log2(MINIMAP_CROSS_PX / Math.max(crossExtent(frame), 1));
+  const crossZoom = Math.log2(Math.max(crossExtent(mini), 1) / Math.max(crossExtent(frame), 1));
 
   return frame.leafAxis === "y"
     ? {
@@ -226,8 +226,12 @@ export function visibleWorldRect(state: TreeViewState, frame: CanvasFrame): [num
   ];
 }
 
-export function minimapLeafAt(frame: CanvasFrame, offsetPx: number): number {
+export function minimapLeafOffset(frame: CanvasFrame, size: CanvasSize, offsetPx: number): number {
   const [low, high] = leafBounds(frame.rows);
 
-  return low + (offsetPx / MINIMAP_LEAF_PX) * (high - low);
+  return (offsetPx / Math.max(leafExtent({ size, leafAxis: frame.leafAxis }), 1)) * (high - low);
+}
+
+export function minimapLeafAt(frame: CanvasFrame, size: CanvasSize, offsetPx: number): number {
+  return leafBounds(frame.rows)[0] + minimapLeafOffset(frame, size, offsetPx);
 }
