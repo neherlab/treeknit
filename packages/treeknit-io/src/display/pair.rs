@@ -505,6 +505,18 @@ mod tests {
   }
 
   #[test]
+  fn pair_view_renames_an_internal_node_named_like_an_imputed_leaf() {
+    // Imputation grafts na's leaf P into ha, whose internal node above A and B is named P.
+    let (r, opts) = run_trees(&[("ha", "((A,B)P,(C,D));"), ("na", "((A,B),(C,(D,P)));")]);
+    let v = view(&r, &opts, 0, TreeVersion::Imputed);
+    assert_eq!(vec!["P"], names_where(&v.left, |n| n.imputed));
+    let internal: Vec<&str> = names_where(&v.left, |n| !n.leaf && n.name.starts_with('P'));
+    assert_eq!(vec!["P_2"], internal);
+    let names: BTreeSet<&str> = v.left.nodes.iter().map(|n| n.name.as_str()).collect();
+    assert_eq!(v.left.nodes.len(), names.len());
+  }
+
+  #[test]
   fn pair_view_node_names_are_unique_and_non_empty_in_every_version() {
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(11);
     let mut checked = 0;

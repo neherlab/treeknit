@@ -1,5 +1,6 @@
 //! Layout of one tree: node coordinates, MCCs, and the flags of resolution and imputation.
 
+use super::names::unique_labels;
 use super::{DrawNode, DrawTree};
 use std::collections::BTreeSet;
 use treeknit_core::Tree;
@@ -7,7 +8,8 @@ use treeknit_core::mcc_map::map_mccs;
 
 /// `tree` laid out for drawing, with `leaf_mcc[taxon]` the MCC of each leaf of the pair.
 /// `input` is the parsed tree of the same index: an internal node whose name it lacks is
-/// `added`, and a leaf it lacks is `imputed`.
+/// `added`, and a leaf it lacks is `imputed`. Node names are unique (see `unique_labels`):
+/// imputation can graft a leaf next to an internal node of the same name.
 pub(super) fn draw_tree(tree: &Tree, input: &Tree, leaf_mcc: &[Option<usize>]) -> DrawTree {
   let order = tree.preorder();
   let mut index = vec![0; tree.nodes.len()];
@@ -17,13 +19,18 @@ pub(super) fn draw_tree(tree: &Tree, input: &Tree, leaf_mcc: &[Option<usize>]) -
   let mcc = map_mccs(tree, leaf_mcc);
   let input_names: BTreeSet<&str> = input.preorder().into_iter().map(|n| input.name(n)).collect();
   let input_taxa: BTreeSet<usize> = input.leaves().into_iter().filter_map(|n| input.node(n).taxon).collect();
+  let names = unique_labels(
+    order.iter().map(|&n| tree.name(n).to_owned()).collect(),
+    &order.iter().map(|&n| tree.is_leaf(n)).collect::<Vec<_>>(),
+  );
   let mut nodes: Vec<DrawNode> = order
     .iter()
-    .map(|&n| {
+    .zip(names)
+    .map(|(&n, name)| {
       let node = tree.node(n);
       let leaf = tree.is_leaf(n);
       DrawNode {
-        name: node.name.clone(),
+        name,
         parent: node.parent.map(|p| index[p]),
         children: node.children.iter().map(|&c| index[c]).collect(),
         branch_length: node.branch_length.filter(|b| b.is_finite()),
