@@ -17,7 +17,7 @@ import { InlineNotice } from "../ui/InlineNotice";
 import { ProgressBar } from "../ui/ProgressBar";
 import { Cell, Column, Row, Table, TableBody, TableHeader } from "../ui/Table";
 import { useCurrentRequest, useWorkspace } from "../workspace/context";
-import { downloadName, type FileRow, fileRow, RESULTS_ARCHIVE_NAME, ZIP_MEDIA_TYPE } from "./fileRows";
+import { type FileRow, fileRow, RESULTS_ARCHIVE_NAME, ZIP_MEDIA_TYPE } from "./fileRows";
 
 export function FilesView() {
   const sessionId = useWorkspace((state) => state.result?.sessionId);
@@ -47,14 +47,14 @@ function SessionFiles({ sessionId }: SessionFilesProps) {
   const sessionFile = useMutation({
     mutationFn: async () => client.requestFile(request),
     onSuccess: ({ path, mediaType, text }) => {
-      downloadFile({ name: downloadName(path), mediaType, content: text });
+      downloadFile({ name: path, mediaType, content: text });
     },
   });
 
   const entry = useMutation({
-    mutationFn: async ({ file, name }: FileRow) => ({ file, name, text: await client.fileText(sessionId, file.path) }),
-    onSuccess: async ({ file, name, text }) => {
-      downloadFile({ name, mediaType: file.mediaType, content: text });
+    mutationFn: async ({ file }: FileRow) => ({ file, text: await client.fileText(sessionId, file.path) }),
+    onSuccess: async ({ file, text }) => {
+      downloadFile({ name: file.fileName, mediaType: file.mediaType, content: text });
 
       if (file.size === null) {
         await queryClient.invalidateQueries({ queryKey: analysisKeys.files(sessionId) });
@@ -140,7 +140,7 @@ function FileTable({ files, onDownload }: FileTableProps) {
         <TableBody items={rows} dependencies={rowDependencies}>
           {(row) => (
             <Row id={row.id}>
-              <Cell className="wrap-anywhere">{row.path}</Cell>
+              <Cell className="wrap-anywhere">{row.file.path}</Cell>
               <Cell align="end" className="text-ink-muted whitespace-nowrap">
                 {row.size}
               </Cell>
@@ -165,7 +165,7 @@ function DownloadButton({ row, onDownload }: DownloadButtonProps) {
     onDownload(row);
   }, [row, onDownload]);
 
-  return <IconButton label={`Download ${row.path}`} icon={DownloadIcon} size="sm" onPress={download} />;
+  return <IconButton label={`Download ${row.file.path}`} icon={DownloadIcon} size="sm" onPress={download} />;
 }
 
 interface DownloadButtonProps {
