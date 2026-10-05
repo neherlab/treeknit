@@ -4,6 +4,7 @@ import type { Rgba } from "../canvas/color";
 import type { DrawingColors } from "../canvas/drawingColors";
 import { shortenLabel } from "../canvas/labels";
 import { labelLayer } from "../canvas/layers/labelLayer";
+import { leaderLayer } from "../canvas/layers/leaderLayer";
 import { branchLayer, ringLayer, selectionLayer } from "../canvas/layers/treeLayers";
 import type { ArgEmphasis } from "../drawing/selection";
 import { LABEL_GAP_PX } from "../drawing/spacing";
@@ -57,6 +58,7 @@ export function argLayers(geometry: ArgGeometry, style: ArgStyle): LayersList {
       dashed: true,
       colorTriggers: triggers,
     }),
+    leaderLayer({ id: "arg-leaders", data: geometry.leaders, colors, visible: style.labels }),
     ringLayer({
       id: ARG_LAYER.hybrids,
       data: geometry.hybrids,

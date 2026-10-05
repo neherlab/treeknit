@@ -1,8 +1,11 @@
 import { Layer, type LayersList } from "@deck.gl/core";
+import { PathLayer } from "@deck.gl/layers";
 import { describe, expect, test } from "vitest";
 
 import { withOpacity } from "../../canvas/color";
 import type { DrawingColors } from "../../canvas/drawingColors";
+import { LEADER_OPACITY } from "../../canvas/layers/leaderLayer";
+import { DOT_PX, type StyledPathLayer } from "../../canvas/layers/pathLayer";
 import { examplePairView } from "../../drawing/__tests__/fixtures";
 import { pairEmphasis, UNSELECTED_OPACITY } from "../../drawing/selection";
 import { tanglegramColumns } from "../columns";
@@ -10,6 +13,7 @@ import { PAIR_LAYER, tanglegramGeometry } from "../geometry";
 import {
   branchColor,
   labelColor,
+  LEADER_LAYER,
   linkColor,
   type PairStyle,
   RIBBON_OPACITY,
@@ -136,8 +140,26 @@ describe("tanglegramLayers", () => {
     ]).toStrictEqual([0.4, 0.4, 1]);
   });
 
-  test("hides labels when the label rule says so", () => {
-    expect(layerProps({ ...STYLE, labels: false })[PAIR_LAYER.leftLabels]?.visible).toBe(false);
+  test("hides labels and their leaders when the label rule says so", () => {
+    const hidden = layerProps({ ...STYLE, labels: false });
+
+    expect([
+      hidden[PAIR_LAYER.leftLabels]?.visible,
+      hidden[LEADER_LAYER]?.visible,
+      layerProps(STYLE)[LEADER_LAYER]?.visible,
+    ]).toStrictEqual([false, false, true]);
+  });
+
+  test("draws leaders dotted in muted ink and lets clicks pass through them", () => {
+    const leaders = deckLayers(tanglegramLayers(GEOMETRY, STYLE)).find(
+      (layer): layer is StyledPathLayer<unknown> => layer instanceof PathLayer && layer.id === LEADER_LAYER,
+    );
+
+    expect([leaders?.props.pickable, leaders?.props.getColor, leaders?.props.getDashArray]).toStrictEqual([
+      false,
+      withOpacity(COLORS.inkMuted, LEADER_OPACITY),
+      DOT_PX,
+    ]);
   });
 
   test("draws the selected leaf's link above the branches and labels", () => {

@@ -7,6 +7,8 @@ import type { WorldPosition } from "../projection";
 
 export const DASH_PX: [number, number] = [4, 3];
 
+export const DOT_PX: [number, number] = [1, 3];
+
 const DASH_EXTENSIONS = [new PathStyleExtension({ dash: true })];
 
 export type StyledPathLayer<D> = PathLayer<D, PathStyleExtensionProps<D>>;
@@ -18,6 +20,7 @@ export interface PathLayerOptions<D> {
   getColor: Accessor<D, Color>;
   widthPx: number;
   dashed?: boolean;
+  dashArray?: [number, number];
   pickable?: boolean;
   opacity?: number;
   visible?: boolean;
@@ -32,6 +35,7 @@ export function pathLayer<D>({
   getColor,
   widthPx,
   dashed = false,
+  dashArray = DASH_PX,
   pickable = true,
   opacity = 1,
   visible = true,
@@ -56,6 +60,6 @@ export function pathLayer<D>({
   };
 
   return new PathLayer<D, PathStyleExtensionProps<D>>(
-    dashed ? { ...solid, extensions: DASH_EXTENSIONS, getDashArray: DASH_PX, dashUnits: "pixels" } : solid,
+    dashed ? { ...solid, extensions: DASH_EXTENSIONS, getDashArray: dashArray, dashUnits: "pixels" } : solid,
   );
 }

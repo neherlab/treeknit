@@ -1,4 +1,4 @@
-import type { Elbow, Mark, PairView } from "@neherlab/treeknit-wasm";
+import type { Elbow, Leader, Mark, PairView } from "@neherlab/treeknit-wasm";
 
 import {
   type Column,
@@ -30,6 +30,12 @@ export interface MarkItem {
   position: WorldPosition;
 }
 
+export interface LeaderItem {
+  side: TreeSide;
+  node: number;
+  path: WorldPosition[];
+}
+
 export interface LinkItem {
   link: number;
   mcc: number;
@@ -55,6 +61,7 @@ export interface LabelItem {
 export interface TanglegramGeometry {
   branches: { plain: BranchItem[]; added: BranchItem[]; reassortment: BranchItem[] };
   marks: { reassortment: MarkItem[]; imputed: MarkItem[] };
+  leaders: LeaderItem[];
   links: LinkItem[];
   ribbons: RibbonItem[];
   labels: { left: LabelItem[]; right: LabelItem[] };
@@ -89,6 +96,7 @@ export function tanglegramGeometry(view: PairView, columns: TanglegramColumns, l
       reassortment: [...left.marks.reassortment, ...right.marks.reassortment],
       imputed: [...left.marks.imputed, ...right.marks.imputed],
     },
+    leaders: [...left.leaders, ...right.leaders],
     links: view.shapes.links.map(({ link, slot, curve }) => ({
       link,
       mcc: view.links[link]?.mcc ?? 0,
@@ -143,7 +151,7 @@ function nodeTarget(item: { side: TreeSide; node: number } | undefined): PairTar
 
 function treeGeometry(view: PairView, side: TreeSide, column: Column, leafAxis: LeafAxis) {
   const tree = view[side];
-  const { elbows, marks } = view.shapes[side];
+  const { elbows, marks, leaders } = view.shapes[side];
 
   const branch = (elbow: Elbow): BranchItem => ({
     side,
@@ -175,6 +183,11 @@ function treeGeometry(view: PairView, side: TreeSide, column: Column, leafAxis: 
       reassortment: branches((elbow) => elbow.mccBreak),
     },
     marks: { reassortment: marksOf("reassortment"), imputed: marksOf("imputed") },
+    leaders: leaders.map(({ node, from, to }: Leader): LeaderItem => ({
+      side,
+      node,
+      path: projectPath([from, to], column, leafAxis),
+    })),
     nodes: treeNodePoints(tree, elbows).map((point) =>
       point === undefined ? undefined : projectPoint(point, column, leafAxis),
     ),

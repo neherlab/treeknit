@@ -66,6 +66,14 @@ describe("argGeometry", () => {
     expect(GEOMETRY.hybrids).toStrictEqual([{ node: 4, position: [columnPixel(COLUMN, 0.75), 2.5] }]);
   });
 
+  test("ends each leader at the label edge of the tree column", () => {
+    expect(GEOMETRY.leaders.map(({ node, path }) => [node, path.at(-1)])).toStrictEqual([
+      [2, [COLUMN.end, 0]],
+      [3, [COLUMN.end, 1]],
+      [5, [COLUMN.end, 2]],
+    ]);
+  });
+
   test("puts the leaf labels at the end of the tree column", () => {
     expect(GEOMETRY.labels.map(({ name, position }) => [name, position])).toStrictEqual([
       ["A", [COLUMN.end, 0]],

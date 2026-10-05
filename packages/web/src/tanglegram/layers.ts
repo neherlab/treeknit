@@ -5,6 +5,7 @@ import { type DrawingColors, mccColor } from "../canvas/drawingColors";
 import { shortenLabel } from "../canvas/labels";
 import { fillLayer } from "../canvas/layers/fillLayer";
 import { labelLayer } from "../canvas/layers/labelLayer";
+import { leaderLayer } from "../canvas/layers/leaderLayer";
 import { branchLayer, hoverColor, REASSORTMENT_WIDTH_PX, ringLayer, selectionLayer } from "../canvas/layers/treeLayers";
 import { emphasisOpacity, type PairEmphasis } from "../drawing/selection";
 import { LABEL_GAP_PX } from "../drawing/spacing";
@@ -15,6 +16,8 @@ export const RIBBON_OPACITY = 0.55;
 export const SELECTED_LINK_WIDTH_PX = 2.5;
 
 export const LINK_WIDTH_PX = 1;
+
+export const LEADER_LAYER = "leaders";
 
 export type BranchKind = "plain" | "added" | "reassortment";
 
@@ -111,6 +114,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       widthPx: REASSORTMENT_WIDTH_PX,
       colorTriggers: triggers,
     }),
+    leaderLayer({ id: LEADER_LAYER, data: geometry.leaders, colors, visible: style.labels }),
     ringLayer({
       id: PAIR_LAYER.imputedMarks,
       data: geometry.marks.imputed,

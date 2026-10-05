@@ -24,6 +24,11 @@ export interface HybridItem {
   position: WorldPosition;
 }
 
+export interface ArgLeaderItem {
+  node: number;
+  path: WorldPosition[];
+}
+
 export interface ArgLabelItem {
   node: number;
   name: string;
@@ -34,6 +39,7 @@ export interface ArgGeometry {
   edges: EdgeItem[];
   reticulations: EdgeItem[];
   hybrids: HybridItem[];
+  leaders: ArgLeaderItem[];
   labels: ArgLabelItem[];
   nodes: (WorldPosition | undefined)[];
 }
@@ -76,6 +82,10 @@ export function argGeometry(view: ArgView, column: Column, leafAxis: LeafAxis): 
     hybrids: view.shapes.marks.flatMap(({ kind, node, at }) =>
       kind === "hybrid" ? [{ node, position: projectPoint(at, column, leafAxis) }] : [],
     ),
+    leaders: view.shapes.leaders.map(({ node, from, to }) => ({
+      node,
+      path: projectPath([from, to], column, leafAxis),
+    })),
     labels: view.nodes.flatMap((node, index) =>
       node.leaf ? [{ node: index, name: node.label, position: worldPosition(leafAxis, column.end, node.y) }] : [],
     ),

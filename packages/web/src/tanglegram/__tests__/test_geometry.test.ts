@@ -1,3 +1,4 @@
+import type { Leader } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
 import { columnPixel } from "../../canvas/projection";
@@ -62,6 +63,39 @@ describe("tanglegramGeometry", () => {
       { block: 0, mcc: 0, closed: true, first: [COLUMNS.links.start, -0.5] },
       { block: 1, mcc: 0, closed: true, first: [COLUMNS.links.start, 1.5] },
       { block: 2, mcc: 1, closed: true, first: [COLUMNS.links.start, 3.5] },
+    ]);
+  });
+
+  test("runs a leader from the leaf tip to the label edge of its tree column, mirrored on the right", () => {
+    const leader: Leader = { node: 2, from: [0.5, 0], to: [1, 0] };
+
+    const view = {
+      ...VIEW,
+      // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated PairView type
+      shapes: {
+        ...VIEW.shapes,
+        left: { ...VIEW.shapes.left, leaders: [leader] },
+        right: { ...VIEW.shapes.right, leaders: [leader] },
+      },
+    };
+
+    expect(tanglegramGeometry(view, COLUMNS, "y").leaders).toStrictEqual([
+      {
+        side: "left",
+        node: 2,
+        path: [
+          [columnPixel(COLUMNS.left, 0.5), 0],
+          [COLUMNS.left.end, 0],
+        ],
+      },
+      {
+        side: "right",
+        node: 2,
+        path: [
+          [columnPixel(COLUMNS.right, 0.5), 0],
+          [COLUMNS.right.start, 0],
+        ],
+      },
     ]);
   });
 
