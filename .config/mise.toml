@@ -22,7 +22,9 @@ taplo = "0.10.0"
 yq = "4.53.6"
 "aqua:nextest-rs/nextest/cargo-nextest" = "0.9.145"
 "aqua:taiki-e/cargo-llvm-cov" = "0.9.1"
-"cargo:cargo-edit" = "0.13.13"
+# mise builds cargo-edit with `cargo install`, which reads no project
+# configuration, so the install sets the quiet mode of .cargo/config.toml itself.
+"cargo:cargo-edit" = { version = "0.13.13", install_env = { CARGO_TERM_QUIET = "true" } }
 "github:Boshen/cargo-shear" = "1.13.4"
 "github:WebAssembly/binaryen" = { version = "133", version_prefix = "version_" }
 "github:kunobi-ninja/kache" = "0.26.3"
