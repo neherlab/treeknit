@@ -1,4 +1,4 @@
-import type { AnalysisRequest, ArgView, DrawingRules, TreeInspection, TreeText } from "@neherlab/treeknit-wasm";
+import type { AnalysisRequest, ArgView, DrawingRules, Settings, TreeInspection } from "@neherlab/treeknit-wasm";
 import {
   keepPreviousData,
   type QueryKey,
@@ -19,6 +19,11 @@ import type { SessionArgs, SessionResult, StatelessArgs, StatelessResult } from 
 
 type Answer<Result> = UseQueryResult<Awaited<Result>>;
 
+export interface IdentifiedText {
+  textId: number;
+  newick: string;
+}
+
 const INPUT_QUERY_GC_MS = 5000;
 
 const PAIR_SCOPE = 4;
@@ -34,9 +39,10 @@ export const analysisKeys = {
   palette: () => ["palette"] as const,
   drawingRules: () => ["drawingRules"] as const,
   version: () => ["version"] as const,
-  inspectTree: (newick: string) => ["inspectTree", newick] as const,
-  overlap: (newicks: readonly string[]) => ["overlap", newicks] as const,
-  validate: (...args: StatelessArgs<"validate">) => ["validate", ...args] as const,
+  inspectTree: (textId: number) => ["inspectTree", textId] as const,
+  overlap: (textIds: readonly number[]) => ["overlap", textIds] as const,
+  validate: (textIds: readonly number[], labels: readonly string[], settings: Settings | null | undefined) =>
+    ["validate", textIds, labels, settings ?? null] as const,
   settingsSchema: (...args: StatelessArgs<"settingsSchema">) => ["settingsSchema", ...args] as const,
   session: (sessionId: number) => ["session", sessionId] as const,
   files: (sessionId: number) => ["session", sessionId, "files"] as const,
@@ -71,12 +77,12 @@ export function useVersion(): Answer<StatelessResult<"version">> {
   return useQuery({ queryKey: analysisKeys.version(), queryFn: async () => client.version() });
 }
 
-export function useInspectTrees(trees: readonly TreeText[]): (TreeInspection | undefined)[] {
+export function useInspectTrees(trees: readonly IdentifiedText[]): (TreeInspection | undefined)[] {
   const client = useAnalysisClient();
 
   return useQueries({
-    queries: trees.map(({ newick }) => ({
-      queryKey: analysisKeys.inspectTree(newick),
+    queries: trees.map(({ textId, newick }) => ({
+      queryKey: analysisKeys.inspectTree(textId),
       queryFn: async () => client.inspectTree(UNLABELLED, newick),
       gcTime: INPUT_QUERY_GC_MS,
     })),
@@ -84,37 +90,44 @@ export function useInspectTrees(trees: readonly TreeText[]): (TreeInspection | u
   });
 }
 
-export function useOverlap(trees: readonly TreeText[]): Answer<StatelessResult<"overlap">> {
+export function useOverlap(trees: readonly IdentifiedText[]): Answer<StatelessResult<"overlap">> {
   const client = useAnalysisClient();
-  const newicks = useMemo(() => trees.map(({ newick }) => newick), [trees]);
+  const textIds = useMemo(() => trees.map(({ textId }) => textId), [trees]);
 
   return useQuery({
-    queryKey: analysisKeys.overlap(newicks),
-    queryFn: async () => client.overlap(newicks.map((newick) => ({ label: UNLABELLED, newick }))),
+    queryKey: analysisKeys.overlap(textIds),
+    queryFn: async () => client.overlap(trees.map(({ newick }) => ({ label: UNLABELLED, newick }))),
     gcTime: INPUT_QUERY_GC_MS,
   });
 }
 
-export function validationQuery(client: AnalysisClient, request: AnalysisRequest) {
+export function validationQuery(client: AnalysisClient, request: AnalysisRequest, textIds: readonly number[]) {
   return queryOptions({
-    queryKey: analysisKeys.validate(request),
+    queryKey: analysisKeys.validate(
+      textIds,
+      request.trees.map(({ label }) => label),
+      request.settings,
+    ),
     queryFn: async () => client.validate(request),
     gcTime: INPUT_QUERY_GC_MS,
   });
 }
 
-export function useValidation(request: AnalysisRequest): Answer<StatelessResult<"validate">> {
+export function useValidation(
+  request: AnalysisRequest,
+  textIds: readonly number[],
+): Answer<StatelessResult<"validate">> {
   return useQuery({
-    ...validationQuery(useAnalysisClient(), request),
-    placeholderData: (previous, previousQuery) =>
-      previousQuery !== undefined && sameTreeTexts(previousQuery.queryKey[1].trees, request.trees)
-        ? previous
-        : undefined,
+    ...validationQuery(useAnalysisClient(), request, textIds),
+    placeholderData: (previous, previousQuery) => (sameTexts(previousQuery?.queryKey, textIds) ? previous : undefined),
   });
 }
 
-export function sameTreeTexts(previous: readonly TreeText[], next: readonly TreeText[]): boolean {
-  return previous.length === next.length && previous.every(({ newick }, index) => newick === next[index]?.newick);
+export function sameTexts(
+  previous: ReturnType<typeof analysisKeys.validate> | undefined,
+  textIds: readonly number[],
+): boolean {
+  return previous !== undefined && isDeepEqual(previous[1], textIds);
 }
 
 export function useSettingsSchema(...args: StatelessArgs<"settingsSchema">): Answer<StatelessResult<"settingsSchema">> {

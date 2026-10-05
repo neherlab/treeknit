@@ -127,6 +127,7 @@ function emptyWorkspace(): WorkspaceData {
     undo: null,
     restored: false,
     nextTreeNumber: 1,
+    nextTextId: 1,
     resetRevision: 0,
   };
 }

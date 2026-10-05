@@ -11,6 +11,7 @@ export interface WorkspaceTree {
   id: string;
   label: string;
   newick: string;
+  textId: number;
   source: TreeSource;
 }
 
@@ -51,6 +52,7 @@ export interface WorkspaceData {
   undo: UndoEntry | null;
   restored: boolean;
   nextTreeNumber: number;
+  nextTextId: number;
   resetRevision: number;
 }
 
@@ -103,9 +105,14 @@ export interface WorkspaceStart {
 
 const requestCache = new WeakMap<WorkspaceTree[], WeakMap<Settings, AnalysisRequest>>();
 
+const textIdCache = new WeakMap<WorkspaceTree[], readonly number[]>();
+
 export function createWorkspaceStore(services: WorkspaceServices, start: WorkspaceStart): WorkspaceStore {
   const { defaults } = start;
-  const restoredTrees = start.restored === null ? [] : sessionTrees(start.restored.request, start.restored.sources, 1);
+
+  const restoredTrees =
+    start.restored === null ? [] : sessionTrees(start.restored.request, start.restored.sources, { tree: 1, text: 1 });
+
   const pendingAdds = { queue: Promise.resolve() };
   const revisions = { replacement: 0, seqLengthToggle: 0 };
 
@@ -156,9 +163,11 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
               id: `tree-${String(state.nextTreeNumber)}`,
               label,
               newick: tree.newick,
+              textId: state.nextTextId,
               source: tree.source,
             });
             state.nextTreeNumber += 1;
+            state.nextTextId += 1;
             state.settings.seqLengths?.push(schema.settings.seqLengths.default);
           }
 
@@ -205,6 +214,7 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
         undo: null,
         restored: start.restored !== null,
         nextTreeNumber: restoredTrees.length + 1,
+        nextTextId: restoredTrees.length + 1,
         resetRevision: 0,
 
         async addTrees(newTrees) {
@@ -233,7 +243,9 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
 
             if (tree !== undefined) {
               tree.newick = newick;
+              tree.textId = state.nextTextId;
               tree.source = source;
+              state.nextTextId += 1;
               markEdited(state);
             }
           });
@@ -347,9 +359,10 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
 
         loadRequest(request) {
           replaceWorkspaceWith((state) => {
-            const trees = sessionTrees(request, [], state.nextTreeNumber);
+            const trees = sessionTrees(request, [], { tree: state.nextTreeNumber, text: state.nextTextId });
 
             state.nextTreeNumber += trees.length;
+            state.nextTextId += trees.length;
             replaceWorkspace(state, "session", trees, request.settings ?? defaults);
           });
         },
@@ -436,6 +449,20 @@ export function selectRequest(state: WorkspaceData): AnalysisRequest {
   return request;
 }
 
+export function selectTextIds(state: WorkspaceData): readonly number[] {
+  const cached = textIdCache.get(state.trees);
+
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const textIds = state.trees.map(({ textId }) => textId);
+
+  textIdCache.set(state.trees, textIds);
+
+  return textIds;
+}
+
 export function selectStale(state: WorkspaceData): boolean {
   return state.result !== null && !isDeepEqual(selectRequest(state), state.result.request);
 }
@@ -471,11 +498,16 @@ function takeLabel(labels: Iterator<string>): string {
   return next.value;
 }
 
-function sessionTrees(request: AnalysisRequest, sources: readonly TreeSource[], firstNumber: number): WorkspaceTree[] {
+function sessionTrees(
+  request: AnalysisRequest,
+  sources: readonly TreeSource[],
+  first: { tree: number; text: number },
+): WorkspaceTree[] {
   return request.trees.map(({ label, newick }, index) => ({
-    id: `tree-${String(firstNumber + index)}`,
+    id: `tree-${String(first.tree + index)}`,
     label,
     newick,
+    textId: first.text + index,
     source: sources[index] ?? SESSION_SOURCE,
   }));
 }

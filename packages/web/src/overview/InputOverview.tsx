@@ -7,7 +7,7 @@ import { useDelayedIndicator } from "../indicator/useDelayedIndicator";
 import { BRANCH_LENGTH_VALUES } from "../inputs/treeStatus";
 import { InfoButton } from "../ui/InfoButton";
 import { Cell, Column, Row, Table, TableBody, TableHeader } from "../ui/Table";
-import { useCurrentRequest } from "../workspace/context";
+import { useWorkspace } from "../workspace/context";
 import { Matrix } from "./Matrix";
 import { type MatrixCell, type OverlapCell, overlapMatrix } from "./overviewModel";
 
@@ -16,10 +16,10 @@ export const BLOCKED_PAIR = "shares fewer than two leaves";
 const COUNTING_SHARED_LEAVES = "Counting shared leaves";
 
 export function InputOverview() {
-  const request = useCurrentRequest();
-  const inspections = useInspectTrees(request.trees);
-  const { data: overlap, isPending: overlapPending } = useOverlap(request.trees);
-  const labels = useMemo(() => request.trees.map(({ label }) => label), [request.trees]);
+  const trees = useWorkspace((state) => state.trees);
+  const inspections = useInspectTrees(trees);
+  const { data: overlap, isPending: overlapPending } = useOverlap(trees);
+  const labels = useMemo(() => trees.map(({ label }) => label), [trees]);
   const counting = useDelayedIndicator(overlapPending && labels.length >= 2);
   const matrix = useMemo(() => (overlap === undefined ? null : overlapMatrix(overlap, labels)), [labels, overlap]);
   const anyBlocked = overlap?.pairs.some(({ blocked }) => blocked) ?? false;
@@ -72,7 +72,7 @@ export function InputOverview() {
             <Column>Branch lengths</Column>
           </TableHeader>
           <TableBody>
-            {request.trees.map((tree, index) => {
+            {trees.map((tree, index) => {
               const inspection = inspections[index];
               const failed = inspection?.error !== null && inspection?.error !== undefined;
 

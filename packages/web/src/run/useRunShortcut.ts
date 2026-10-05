@@ -6,7 +6,7 @@ import { useAnalysisClient } from "../analysis/context";
 import { validationQuery } from "../analysis/queries";
 import { hasDraft, type SettingsDraft } from "../settings/draft";
 import { useWorkspaceStore } from "../workspace/context";
-import { selectRequest } from "../workspace/store";
+import { selectRequest, selectTextIds } from "../workspace/store";
 import { useRunAnalysis } from "../workspace/useRunAnalysis";
 import { isBehindModal, isRunShortcut, runBlockedReason } from "./runControl";
 
@@ -18,8 +18,13 @@ export function useRunShortcut(workspace: RefObject<HTMLElement | null>): void {
   const { getValues } = useFormContext<SettingsDraft>();
 
   const runWhenReady = useEffectEvent(async (): Promise<void> => {
-    const request = selectRequest(store.getState());
-    const errors = await queryClient.query({ ...validationQuery(client, request), staleTime: "static" });
+    const state = store.getState();
+    const request = selectRequest(state);
+
+    const errors = await queryClient.query({
+      ...validationQuery(client, request, selectTextIds(state)),
+      staleTime: "static",
+    });
 
     if (selectRequest(store.getState()) !== request) {
       return;

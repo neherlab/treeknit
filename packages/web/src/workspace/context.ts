@@ -3,7 +3,7 @@ import { useStore } from "zustand";
 
 import type { PersistenceProblem } from "../persistence/persistence";
 import { type WorkspaceRuntime, workspaceSnapshot } from "./runtime";
-import { selectRequest, type WorkspaceState, type WorkspaceStore } from "./store";
+import { selectRequest, selectTextIds, type WorkspaceState, type WorkspaceStore } from "./store";
 
 export const WorkspaceContext = createContext<WorkspaceRuntime | null>(null);
 
@@ -17,6 +17,10 @@ export function useWorkspaceStore(): WorkspaceStore {
 
 export function useCurrentRequest() {
   return useWorkspace(selectRequest);
+}
+
+export function useCurrentTextIds() {
+  return useWorkspace(selectTextIds);
 }
 
 export function usePersistenceSwitch(): PersistenceSwitch {

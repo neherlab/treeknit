@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { analysisKeys, sameTreeTexts, sharesScope } from "../queries";
+import { analysisKeys, sameTexts, sharesScope } from "../queries";
 
 describe("analysis query keys", () => {
   test("nest every session query under the key of its session", () => {
@@ -31,17 +31,19 @@ describe("analysis query keys", () => {
     expect(new Set(keys.map((key) => JSON.stringify(key))).size).toBe(keys.length);
   });
 
-  test("key stateless queries by their inputs", () => {
+  test("key stateless queries by their inputs, with tree texts by their text ids", () => {
     expect([
-      analysisKeys.inspectTree("(A,B);"),
-      analysisKeys.overlap(["(A,B);", "(A,C);"]),
+      analysisKeys.inspectTree(4),
+      analysisKeys.overlap([4, 7]),
       analysisKeys.settingsSchema(2, { gamma: 2 }),
-      analysisKeys.validate({ trees: [] }),
+      analysisKeys.validate([4, 7], ["ha", "na"], { gamma: 2 }),
+      analysisKeys.validate([], [], undefined),
     ]).toStrictEqual([
-      ["inspectTree", "(A,B);"],
-      ["overlap", ["(A,B);", "(A,C);"]],
+      ["inspectTree", 4],
+      ["overlap", [4, 7]],
       ["settingsSchema", 2, { gamma: 2 }],
-      ["validate", { trees: [] }],
+      ["validate", [4, 7], ["ha", "na"], { gamma: 2 }],
+      ["validate", [], [], null],
     ]);
   });
 });
@@ -69,16 +71,16 @@ describe("view placeholders", () => {
 });
 
 describe("validation placeholders", () => {
-  const HA = { label: "ha", newick: "(A,B);" };
-  const NA = { label: "na", newick: "(A,C);" };
+  const previous = analysisKeys.validate([1, 2], ["ha", "na"], { gamma: 2 });
 
   test("keep the previous errors only while each index holds the same tree text", () => {
     expect({
-      renamed: sameTreeTexts([HA, NA], [{ ...HA, label: "segment 4" }, NA]),
-      same: sameTreeTexts([HA, NA], [HA, NA]),
-      reordered: sameTreeTexts([HA, NA], [NA, HA]),
-      removed: sameTreeTexts([HA, NA], [HA]),
-      edited: sameTreeTexts([HA, NA], [HA, { ...NA, newick: "(A,D);" }]),
-    }).toStrictEqual({ renamed: true, same: true, reordered: false, removed: false, edited: false });
+      renamed: sameTexts(analysisKeys.validate([1, 2], ["segment 4", "na"], { gamma: 2 }), [1, 2]),
+      settings: sameTexts(analysisKeys.validate([1, 2], ["ha", "na"], { gamma: 3 }), [1, 2]),
+      reordered: sameTexts(previous, [2, 1]),
+      removed: sameTexts(previous, [1]),
+      edited: sameTexts(previous, [1, 3]),
+      none: sameTexts(undefined, [1, 2]),
+    }).toStrictEqual({ renamed: true, settings: true, reordered: false, removed: false, edited: false, none: false });
   });
 });

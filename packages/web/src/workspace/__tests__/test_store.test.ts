@@ -13,6 +13,7 @@ import {
   type RestoredWorkspace,
   selectRequest,
   selectStale,
+  selectTextIds,
   type WorkspaceServices,
   type WorkspaceStore,
 } from "../store";
@@ -54,9 +55,9 @@ describe("workspace store", () => {
     ]);
 
     expect(store.getState().trees).toStrictEqual([
-      { id: "tree-1", label: "ha", newick: HA, source: { kind: "file", name: "ha.nwk" } },
-      { id: "tree-2", label: "na", newick: NA, source: { kind: "example", name: "na.nwk" } },
-      { id: "tree-3", label: "tree", newick: HA, source: { kind: "paste" } },
+      { id: "tree-1", label: "ha", newick: HA, textId: 1, source: { kind: "file", name: "ha.nwk" } },
+      { id: "tree-2", label: "na", newick: NA, textId: 2, source: { kind: "example", name: "na.nwk" } },
+      { id: "tree-3", label: "tree", newick: HA, textId: 3, source: { kind: "paste" } },
     ]);
   });
 
@@ -255,6 +256,30 @@ describe("workspace store", () => {
       { label: "HA segment", newick: HA, source: { kind: "file", name: "ha.nwk" } },
       { label: "na", newick: "(A,B,C);", source: { kind: "file", name: "na_new.nwk" } },
     ]);
+  });
+
+  test("gives a tree a new text id when its text is replaced, and keeps it on rename, reorder, and undo", async () => {
+    const store = await storeWith(["ha.nwk", "na.nwk"]);
+
+    store.getState().renameTree("tree-1", "HA segment");
+    store.getState().reorderTrees(["tree-2", "tree-1"]);
+    const kept = selectTextIds(store.getState());
+
+    store.getState().replaceTree("tree-2", "(A,B,C);", { kind: "paste" });
+    const replaced = selectTextIds(store.getState());
+
+    store.getState().clear();
+    store.getState().restoreUndo();
+    const undone = selectTextIds(store.getState());
+
+    store.getState().loadRequest({ trees: [{ label: "x", newick: HA }] });
+
+    expect({ kept, replaced, undone, loaded: selectTextIds(store.getState()) }).toStrictEqual({
+      kept: [2, 1],
+      replaced: [3, 1],
+      undone: [3, 1],
+      loaded: [4],
+    });
   });
 
   test("reorders trees together with their sequence lengths", async () => {
@@ -617,8 +642,8 @@ describe("workspace store", () => {
       newId: store.getState().trees.at(-1)?.id,
     }).toStrictEqual({
       trees: [
-        { id: "tree-1", label: "ha", newick: HA, source: { kind: "file", name: "ha.nwk" } },
-        { id: "tree-2", label: "na", newick: NA, source: { kind: "session" } },
+        { id: "tree-1", label: "ha", newick: HA, textId: 1, source: { kind: "file", name: "ha.nwk" } },
+        { id: "tree-2", label: "na", newick: NA, textId: 2, source: { kind: "session" } },
       ],
       seqLengths: [5, 6],
       restored: true,
