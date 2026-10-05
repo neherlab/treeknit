@@ -7,6 +7,7 @@
 //! the data; the consumer mirrors its column. The SVG figures and the interactive views draw the
 //! same shapes and only map these units to pixels.
 
+mod slots;
 mod tree;
 
 use serde::{Deserialize, Serialize};
