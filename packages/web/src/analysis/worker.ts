@@ -7,7 +7,7 @@ import type {
   Scale,
   Settings,
   TreeText,
-  Version,
+  TreeVersion,
 } from "@neherlab/treeknit-wasm";
 import { expose, transfer } from "comlink";
 
@@ -102,7 +102,7 @@ class AnalysisWorker implements WorkerApi {
     return this.#current().commandLine();
   }
 
-  pairView(pair: number, version: Version, scale: Scale) {
+  pairView(pair: number, version: TreeVersion, scale: Scale) {
     return this.#current().pairView(pair, version, scale);
   }
 
@@ -114,7 +114,7 @@ class AnalysisWorker implements WorkerApi {
     return this.#current().constellation();
   }
 
-  figure(pair: number, version: Version, options: FigureOptions) {
+  figure(pair: number, version: TreeVersion, options: FigureOptions) {
     return this.#current().figure(pair, version, options);
   }
 

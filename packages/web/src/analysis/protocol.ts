@@ -17,7 +17,7 @@ import type {
   TreeInspection,
   TreeText,
   ValidationError,
-  Version,
+  TreeVersion,
 } from "@neherlab/treeknit-wasm";
 
 export interface StatelessApi {
@@ -39,10 +39,10 @@ export interface SessionApi {
   fileText(path: string): string;
   zip(): Uint8Array;
   commandLine(): string;
-  pairView(pair: number, version: Version, scale: Scale): PairView;
+  pairView(pair: number, version: TreeVersion, scale: Scale): PairView;
   argView(scale: Scale): ArgView | undefined;
   constellation(): ConstellationTable;
-  figure(pair: number, version: Version, options: FigureOptions): string;
+  figure(pair: number, version: TreeVersion, options: FigureOptions): string;
   argFigure(options: FigureOptions): string;
 }
 

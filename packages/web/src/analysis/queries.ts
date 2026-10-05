@@ -13,7 +13,7 @@ import type {
   TreeInspection,
   TreeText,
   ValidationError,
-  Version,
+  TreeVersion,
 } from "@neherlab/treeknit-wasm";
 import { keepPreviousData, useQuery, type UseQueryResult } from "@tanstack/react-query";
 
@@ -30,7 +30,7 @@ export const analysisKeys = {
   session: (sessionId: number) => ["session", sessionId] as const,
   files: (sessionId: number) => ["session", sessionId, "files"] as const,
   commandLine: (sessionId: number) => ["session", sessionId, "commandLine"] as const,
-  pairView: (sessionId: number, pair: number, version: Version, scale: Scale) =>
+  pairView: (sessionId: number, pair: number, version: TreeVersion, scale: Scale) =>
     ["session", sessionId, "pairView", pair, version, scale] as const,
   argView: (sessionId: number, scale: Scale) => ["session", sessionId, "argView", scale] as const,
   constellation: (sessionId: number) => ["session", sessionId, "constellation"] as const,
@@ -109,7 +109,12 @@ export function useCommandLine(sessionId: number): UseQueryResult<string> {
   });
 }
 
-export function usePairView(sessionId: number, pair: number, version: Version, scale: Scale): UseQueryResult<PairView> {
+export function usePairView(
+  sessionId: number,
+  pair: number,
+  version: TreeVersion,
+  scale: Scale,
+): UseQueryResult<PairView> {
   const client = useAnalysisClient();
 
   return useQuery({

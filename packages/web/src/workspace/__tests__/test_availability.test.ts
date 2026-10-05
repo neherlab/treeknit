@@ -178,7 +178,7 @@ function argViewWith(labels: string[]): ArgView {
       hybrid: false,
       leaf: false,
       segments: [0, 1],
-      x: 0,
+      xDiv: 0,
       xDepth: 0,
       y: 0,
     })),

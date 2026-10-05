@@ -17,7 +17,7 @@ import type {
   TreeInspection,
   TreeText,
   ValidationError,
-  Version,
+  TreeVersion,
 } from "@neherlab/treeknit-wasm";
 import { type Endpoint, proxy, type Remote, wrap } from "comlink";
 
@@ -56,10 +56,10 @@ export interface AnalysisClient {
   fileText(sessionId: number, path: string): Promise<string>;
   zip(sessionId: number): Promise<Uint8Array>;
   commandLine(sessionId: number): Promise<string>;
-  pairView(sessionId: number, pair: number, version: Version, scale: Scale): Promise<PairView>;
+  pairView(sessionId: number, pair: number, version: TreeVersion, scale: Scale): Promise<PairView>;
   argView(sessionId: number, scale: Scale): Promise<ArgView | undefined>;
   constellation(sessionId: number): Promise<ConstellationTable>;
-  figure(sessionId: number, pair: number, version: Version, options: FigureOptions): Promise<string>;
+  figure(sessionId: number, pair: number, version: TreeVersion, options: FigureOptions): Promise<string>;
   argFigure(sessionId: number, options: FigureOptions): Promise<string>;
   onSessionLost(listener: (sessionId: number) => void): () => void;
   dispose(): void;
@@ -194,7 +194,7 @@ export class WorkerAnalysisClient implements AnalysisClient {
     return this.#inSession(sessionId, (remote) => remote.commandLine());
   }
 
-  async pairView(sessionId: number, pair: number, version: Version, scale: Scale): Promise<PairView> {
+  async pairView(sessionId: number, pair: number, version: TreeVersion, scale: Scale): Promise<PairView> {
     return this.#inSession(sessionId, (remote) => remote.pairView(pair, version, scale));
   }
 
@@ -206,7 +206,7 @@ export class WorkerAnalysisClient implements AnalysisClient {
     return this.#inSession(sessionId, (remote) => remote.constellation());
   }
 
-  async figure(sessionId: number, pair: number, version: Version, options: FigureOptions): Promise<string> {
+  async figure(sessionId: number, pair: number, version: TreeVersion, options: FigureOptions): Promise<string> {
     return this.#inSession(sessionId, (remote) => remote.figure(pair, version, options));
   }
 

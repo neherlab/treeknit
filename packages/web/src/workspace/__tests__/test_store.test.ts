@@ -421,6 +421,7 @@ function schemaWith(seqLengthDefault: number): SettingsSchema {
     default: 0,
     min: 0,
     minExclusive: false,
+    integer: false,
     max: null,
     step: 1,
     applies: true,
