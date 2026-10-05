@@ -1,10 +1,12 @@
 import { cn } from "cn";
 import {
   Button as AriaButton,
+  ButtonContext,
   Group,
   Input,
   NumberField as AriaNumberField,
   type NumberFieldProps as AriaNumberFieldProps,
+  useSlottedContext,
 } from "react-aria-components";
 import DecreaseIcon from "~icons/lucide/chevron-down";
 import IncreaseIcon from "~icons/lucide/chevron-up";
@@ -37,8 +39,8 @@ export function NumberField({
           className="placeholder:text-ink-muted min-w-0 flex-1 bg-transparent px-2.5 tabular-nums outline-hidden"
         />
         <div className="border-rule flex w-6 shrink-0 flex-col border-l">
-          <StepButton slot="increment" label="Increase" icon={IncreaseIcon} />
-          <StepButton slot="decrement" label="Decrease" icon={DecreaseIcon} />
+          <StepButton slot="increment" icon={IncreaseIcon} />
+          <StepButton slot="decrement" icon={DecreaseIcon} />
         </div>
       </Group>
       <FieldDescription>{description}</FieldDescription>
@@ -47,14 +49,17 @@ export function NumberField({
   );
 }
 
-export interface NumberFieldProps extends Omit<AriaNumberFieldProps, "className" | "children">, FieldProps {
-  placeholder?: string;
-  className?: string;
-}
+export type NumberFieldProps = Omit<AriaNumberFieldProps, "className" | "children"> &
+  FieldProps & {
+    placeholder?: string;
+    className?: string;
+  };
 
-function StepButton({ slot, label, icon: Icon }: StepButtonProps) {
+function StepButton({ slot, icon: Icon }: StepButtonProps) {
+  const label = useSlottedContext(ButtonContext, slot)?.["aria-label"];
+
   return (
-    <TooltipTrigger tooltip={label} placement="right">
+    <TooltipTrigger tooltip={label} repeatsName placement="right">
       <AriaButton
         slot={slot}
         className={cn(
@@ -71,6 +76,5 @@ function StepButton({ slot, label, icon: Icon }: StepButtonProps) {
 
 interface StepButtonProps {
   slot: "increment" | "decrement";
-  label: string;
   icon: IconComponent;
 }

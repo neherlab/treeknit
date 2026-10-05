@@ -70,13 +70,16 @@ export function Select<K extends string>({
   );
 }
 
-export interface SelectProps<K extends string>
-  extends Omit<AriaSelectProps, "className" | "children" | "value" | "onChange" | "selectionMode">, FieldProps {
-  options: readonly SelectOption<K>[];
-  value: K;
-  onChange: (value: K) => void;
-  className?: string;
-}
+export type SelectProps<K extends string> = Omit<
+  AriaSelectProps,
+  "className" | "children" | "value" | "onChange" | "selectionMode"
+> &
+  FieldProps & {
+    options: readonly SelectOption<K>[];
+    value: K;
+    onChange: (value: K) => void;
+    className?: string;
+  };
 
 export interface SelectOption<K extends string> {
   id: K;

@@ -3,6 +3,9 @@ import { cva } from "class-variance-authority";
 export const focusRing =
   "outline-hidden data-focus-visible:outline-2 data-focus-visible:outline-offset-2 data-focus-visible:outline-focus";
 
+export const nativeFocusRing =
+  "outline-hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
+
 export const groupFocusRing =
   "group-data-focus-visible:outline-2 group-data-focus-visible:outline-offset-2 group-data-focus-visible:outline-focus";
 

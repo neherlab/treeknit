@@ -9,7 +9,7 @@ import { descriptionStyle, errorStyle, labelStyle } from "./styles";
 export function FieldLabel({ label, labelHidden = false, info }: FieldLabelProps) {
   const text = <Label className={cn(labelStyle, labelHidden && "sr-only")}>{label}</Label>;
 
-  if (info === undefined) {
+  if (labelHidden || info === undefined) {
     return text;
   }
 
@@ -46,13 +46,26 @@ export function FieldErrorMessage({ children }: { children: string | undefined }
   );
 }
 
-export interface FieldLabelProps {
+interface FieldLabelProps {
   label: string;
   labelHidden?: boolean | undefined;
   info?: ReactNode;
 }
 
-export interface FieldProps extends FieldLabelProps {
+export type FieldProps = FieldText & (VisibleFieldLabel | HiddenFieldLabel);
+
+interface FieldText {
+  label: string;
   description?: ReactNode;
   errorMessage?: string;
+}
+
+interface VisibleFieldLabel {
+  labelHidden?: false;
+  info?: ReactNode;
+}
+
+interface HiddenFieldLabel {
+  labelHidden: true;
+  info?: never;
 }

@@ -42,10 +42,11 @@ export function TextField({
   );
 }
 
-export interface TextFieldProps extends Omit<AriaTextFieldProps, "className" | "children">, FieldProps {
-  multiline?: boolean;
-  mono?: boolean;
-  rows?: number;
-  placeholder?: string;
-  className?: string;
-}
+export type TextFieldProps = Omit<AriaTextFieldProps, "className" | "children"> &
+  FieldProps & {
+    multiline?: boolean;
+    mono?: boolean;
+    rows?: number;
+    placeholder?: string;
+    className?: string;
+  };

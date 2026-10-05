@@ -39,7 +39,7 @@ export function InlineNotice({ tone, title, action, className, children }: Inlin
   const Icon = TONE_ICONS[tone];
 
   return (
-    <div role={tone === "danger" ? "alert" : "status"} className={cn(noticeStyle({ tone }), className)}>
+    <div role={tone === "danger" ? "alert" : undefined} className={cn(noticeStyle({ tone }), className)}>
       <Icon aria-hidden className={noticeIconStyle({ tone })} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         {title === undefined ? null : <p className="font-semibold">{title}</p>}
@@ -54,6 +54,20 @@ export interface InlineNoticeProps {
   tone: NoticeTone;
   title?: ReactNode;
   action?: ReactNode;
+  className?: string;
+  children?: ReactNode;
+}
+
+export function NoticeRegion({ className, children }: NoticeRegionProps) {
+  return (
+    // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- <output> allows only phrasing content, and a notice holds paragraphs
+    <div role="status" className={cn("flex flex-col gap-2", className)}>
+      {children}
+    </div>
+  );
+}
+
+export interface NoticeRegionProps {
   className?: string;
   children?: ReactNode;
 }

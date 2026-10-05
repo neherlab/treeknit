@@ -61,7 +61,11 @@ export function ToggleButton({ label, icon: Icon, iconOnly = false, ...props }: 
     return button;
   }
 
-  return <TooltipTrigger tooltip={label}>{button}</TooltipTrigger>;
+  return (
+    <TooltipTrigger tooltip={label} repeatsName>
+      {button}
+    </TooltipTrigger>
+  );
 }
 
 export interface ToggleButtonProps extends Pick<AriaToggleButtonProps, "isDisabled"> {

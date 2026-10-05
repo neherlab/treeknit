@@ -38,10 +38,11 @@ export function RadioGroup({
   );
 }
 
-export interface RadioGroupProps extends Omit<AriaRadioGroupProps, "className" | "children">, FieldProps {
-  children: ReactNode;
-  className?: string;
-}
+export type RadioGroupProps = Omit<AriaRadioGroupProps, "className" | "children"> &
+  FieldProps & {
+    children: ReactNode;
+    className?: string;
+  };
 
 export function Radio({ description, children, ...props }: RadioProps) {
   return (

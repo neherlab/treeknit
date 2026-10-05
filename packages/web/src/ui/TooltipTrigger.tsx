@@ -11,7 +11,13 @@ const TOOLTIP_DELAY_MS = 600;
 
 const TOOLTIP_OFFSET_PX = 6;
 
-export function TooltipTrigger({ tooltip, placement = "top", children, ...props }: TooltipTriggerProps) {
+export function TooltipTrigger({
+  tooltip,
+  placement = "top",
+  repeatsName = false,
+  children,
+  ...props
+}: TooltipTriggerProps) {
   return (
     <AriaTooltipTrigger delay={TOOLTIP_DELAY_MS} {...props}>
       {children}
@@ -25,7 +31,7 @@ export function TooltipTrigger({ tooltip, placement = "top", children, ...props 
             <path d="M0 0 L4 4 L8 0" />
           </svg>
         </OverlayArrow>
-        {tooltip}
+        {repeatsName ? <span aria-hidden>{tooltip}</span> : tooltip}
       </Tooltip>
     </AriaTooltipTrigger>
   );
@@ -34,4 +40,5 @@ export function TooltipTrigger({ tooltip, placement = "top", children, ...props 
 export interface TooltipTriggerProps extends TooltipTriggerComponentProps {
   tooltip: ReactNode;
   placement?: TooltipProps["placement"];
+  repeatsName?: boolean;
 }

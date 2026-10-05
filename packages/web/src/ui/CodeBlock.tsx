@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import CopiedIcon from "~icons/lucide/check";
 import FailedIcon from "~icons/lucide/circle-alert";
 import CopyIcon from "~icons/lucide/copy";
@@ -9,6 +9,7 @@ import { type CodeLine, codeLines, type TextRange } from "./codeLines";
 import { copyFeedback, type CopyState } from "./copyFeedback";
 import type { IconComponent } from "./icon";
 import { revealScroll } from "./revealScroll";
+import { nativeFocusRing } from "./styles";
 
 const COPY_BUTTON: Record<CopyState, { label: string; icon: IconComponent }> = {
   idle: { label: "Copy", icon: CopyIcon },
@@ -23,6 +24,7 @@ export function CodeBlock({ code, label, highlight, lineNumbers, className }: Co
   const showLineNumbers = lineNumbers ?? lines.length > 1;
   const button = COPY_BUTTON[copyState];
   const copy = useCallback(() => void feedback.copy(code), [feedback, code]);
+  const captionId = useId();
 
   useEffect(
     () => () => {
@@ -34,7 +36,9 @@ export function CodeBlock({ code, label, highlight, lineNumbers, className }: Co
   return (
     <figure className={cn("rounded-control border-rule bg-pane flex min-w-0 flex-col border", className)}>
       <div className="border-rule flex h-9 items-center justify-between gap-3 border-b pr-1 pl-3">
-        <figcaption className="text-ink-muted truncate text-xs">{label}</figcaption>
+        <figcaption id={captionId} className="text-ink-muted truncate text-xs">
+          {label}
+        </figcaption>
         <Button
           variant="quiet"
           size="sm"
@@ -46,25 +50,26 @@ export function CodeBlock({ code, label, highlight, lineNumbers, className }: Co
         </Button>
         <output className="sr-only">{copyState === "idle" ? "" : button.label}</output>
       </div>
-      <pre
-        className={cn(
-          "rounded-b-control text-ink max-h-96 overflow-auto px-3 py-2.5 font-mono text-sm",
-          "focus-visible:outline-focus focus-visible:outline-2 focus-visible:outline-offset-2",
-        )}
-      >
-        <code className={cn("grid", showLineNumbers ? "grid-cols-[auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")}>
-          {lines.map((line) => (
-            <CodeLineRow
-              key={line.number}
-              line={line}
-              lineNumber={showLineNumbers}
-              revealKey={
-                line.number === highlight?.start.line ? `${highlight.start.line}:${highlight.start.column}` : undefined
-              }
-            />
-          ))}
-        </code>
-      </pre>
+      <section aria-labelledby={captionId} className={cn("rounded-b-control max-h-96 overflow-auto", nativeFocusRing)}>
+        <pre className="text-ink px-3 py-2.5 font-mono text-sm">
+          <code
+            className={cn("grid", showLineNumbers ? "grid-cols-[auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")}
+          >
+            {lines.map((line) => (
+              <CodeLineRow
+                key={line.number}
+                line={line}
+                lineNumber={showLineNumbers}
+                revealKey={
+                  line.number === highlight?.start.line
+                    ? `${highlight.start.line}:${highlight.start.column}`
+                    : undefined
+                }
+              />
+            ))}
+          </code>
+        </pre>
+      </section>
     </figure>
   );
 }
@@ -129,7 +134,7 @@ interface CodeLineRowProps {
 }
 
 function revealMark(mark: HTMLElement | null) {
-  const container = mark?.closest("pre");
+  const container = mark?.closest("section");
 
   if (mark === null || container === null || container === undefined) {
     return;

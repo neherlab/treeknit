@@ -16,7 +16,7 @@ export function IconButton({
   ...props
 }: IconButtonProps) {
   return (
-    <TooltipTrigger tooltip={label} placement={tooltipPlacement}>
+    <TooltipTrigger tooltip={label} repeatsName placement={tooltipPlacement}>
       <AriaButton
         {...props}
         aria-label={label}
