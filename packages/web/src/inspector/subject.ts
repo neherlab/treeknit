@@ -1,0 +1,102 @@
+import type {
+  ArgNodeView,
+  ArgView,
+  ConstellationCell,
+  ConstellationTable,
+  DrawNode,
+  MccInfo,
+  PairView,
+} from "@neherlab/treeknit-wasm";
+
+import type { Selection } from "../drawing/selection";
+import { cladeSize, leafIndex, nodeIndex, TREE_SIDES, type TreeSide } from "../drawing/trees";
+
+export interface InspectorData {
+  pair: PairView | undefined;
+  arg: ArgView | null | undefined;
+  constellation: ConstellationTable | undefined;
+}
+
+export interface LeafCopy {
+  side: TreeSide;
+  tree: string;
+  node: DrawNode;
+}
+
+export interface LeafPair {
+  pair: number;
+  labels: readonly [string, string];
+  cell: ConstellationCell | null;
+}
+
+export type InspectorSubject =
+  | { kind: "none"; mccs: readonly MccInfo[] }
+  | { kind: "leaf"; name: string; copies: LeafCopy[]; mcc: MccInfo | undefined; ambiguous: boolean; pairs: LeafPair[] }
+  | { kind: "mcc"; mcc: MccInfo }
+  | { kind: "node"; side: TreeSide; tree: string; node: DrawNode; cladeSize: number; mcc: MccInfo | undefined }
+  | { kind: "argNode"; node: ArgNodeView };
+
+export function inspectorSubject(selection: Selection, data: InspectorData): InspectorSubject {
+  const { pair, arg } = data;
+  const { node, leaf, mcc } = selection;
+
+  if (node?.side === "arg") {
+    const argNode = arg?.nodes.find((candidate) => candidate.label === node.name);
+
+    if (argNode !== undefined) {
+      return { kind: "argNode", node: argNode };
+    }
+  } else if (node !== undefined && pair !== undefined) {
+    const tree = pair[node.side];
+    const index = nodeIndex(tree, node.name);
+    const drawn = index === undefined ? undefined : tree.nodes[index];
+
+    if (index !== undefined && drawn !== undefined) {
+      return {
+        kind: "node",
+        side: node.side,
+        tree: tree.label,
+        node: drawn,
+        cladeSize: cladeSize(tree.nodes, index),
+        mcc: drawn.mcc === null ? undefined : pair.mccs[drawn.mcc],
+      };
+    }
+  }
+
+  if (leaf !== undefined) {
+    return leafSubject(leaf, data);
+  }
+
+  const info = mcc === undefined ? undefined : pair?.mccs[mcc];
+
+  return info === undefined ? { kind: "none", mccs: pair?.mccs ?? [] } : { kind: "mcc", mcc: info };
+}
+
+export function leafPairs(constellation: ConstellationTable | undefined, name: string): LeafPair[] {
+  const row = constellation?.leaves.indexOf(name) ?? -1;
+  const cells = row === -1 ? undefined : constellation?.cells[row];
+
+  return (constellation?.pairs ?? []).map((labels, pair) => ({ pair, labels, cell: cells?.[pair] ?? null }));
+}
+
+function leafSubject(name: string, { pair, constellation }: InspectorData): InspectorSubject {
+  const copies = TREE_SIDES.flatMap((side): LeafCopy[] => {
+    const tree = pair?.[side];
+    const index = tree === undefined ? undefined : leafIndex(tree, name);
+    const node = index === undefined ? undefined : tree?.nodes[index];
+
+    return tree === undefined || node === undefined ? [] : [{ side, tree: tree.label, node }];
+  });
+
+  const mccIndex = copies.find(({ node }) => node.mcc !== null)?.node.mcc ?? undefined;
+  const mcc = mccIndex === undefined ? undefined : pair?.mccs[mccIndex];
+
+  return {
+    kind: "leaf",
+    name,
+    copies,
+    mcc,
+    ambiguous: mcc !== undefined && mcc.ambiguous && mcc.imputedLeaves.includes(name),
+    pairs: leafPairs(constellation, name),
+  };
+}
