@@ -1,7 +1,5 @@
 import { type ComponentType, useCallback, useMemo } from "react";
 import type { Key } from "react-aria-components";
-import PanelLeftIcon from "~icons/lucide/panel-left";
-import PanelRightIcon from "~icons/lucide/panel-right";
 
 import { ArgPanel } from "../arg/ArgPanel";
 import { AuspicePanel } from "../auspice/AuspicePanel";
@@ -12,14 +10,12 @@ import { FilesView } from "../results/FilesView";
 import { ConstellationPanel } from "../tables/ConstellationPanel";
 import { MccTablePanel } from "../tables/MccTablePanel";
 import { TanglegramPanel } from "../tanglegram/TanglegramPanel";
-import { Button } from "../ui/Button";
 import { PanelBoundary } from "../ui/PanelBoundary";
-import { Tab, TabList, TabPanel, Tabs } from "../ui/Tabs";
+import { Tab, TabList, TabPanel } from "../ui/Tabs";
 import { useWorkspaceAvailability } from "../workspace/availability";
 import { WORKSPACE_VIEWS, type WorkspaceView } from "../workspace/search";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
-import { INSPECTOR_TITLE, RAIL_TITLE } from "./layout";
-import { viewTabs } from "./viewTabs";
+import { type ViewTab, viewTabs } from "./viewTabs";
 
 const VIEW_PANELS: Record<WorkspaceView, ComponentType> = {
   overview: Overview,
@@ -32,7 +28,7 @@ const VIEW_PANELS: Record<WorkspaceView, ComponentType> = {
   diagnostics: DiagnosticsView,
 };
 
-export function CenterViews({ onOpenRail, onOpenInspector }: CenterViewsProps) {
+export function useViewTabs(): ViewTabsState {
   const { search, update } = useWorkspaceSearch();
   const availability = useWorkspaceAvailability();
   const tabs = useMemo(() => viewTabs(availability), [availability]);
@@ -49,48 +45,38 @@ export function CenterViews({ onOpenRail, onOpenInspector }: CenterViewsProps) {
     [update],
   );
 
-  return (
-    <Tabs
-      selectedKey={search.view}
-      disabledKeys={disabledKeys}
-      onSelectionChange={selectView}
-      className="min-h-0 flex-1"
-    >
-      <div className="border-rule box-content flex h-10 shrink-0 items-center gap-2 border-b px-2">
-        {onOpenRail === undefined ? null : (
-          <Button variant="quiet" size="sm" icon={PanelLeftIcon} onPress={onOpenRail}>
-            {RAIL_TITLE}
-          </Button>
-        )}
-        <TabList aria-label="Views" items={tabs} className="min-w-0 flex-1 border-b-0">
-          {(tab) => (
-            <Tab id={tab.view}>
-              {tab.view === "diagnostics" ? <DiagnosticsTabLabel label={tab.label} /> : tab.label}
-            </Tab>
-          )}
-        </TabList>
-        {onOpenInspector === undefined ? null : (
-          <Button variant="quiet" size="sm" icon={PanelRightIcon} onPress={onOpenInspector}>
-            {INSPECTOR_TITLE}
-          </Button>
-        )}
-      </div>
-      {tabs.map(({ view }) => {
-        const Panel = VIEW_PANELS[view];
+  return { tabs, disabledKeys, selectedKey: search.view, selectView };
+}
 
-        return (
-          <TabPanel key={view} id={view} className="overflow-y-auto">
-            <PanelBoundary title="This view could not be shown">
-              <Panel />
-            </PanelBoundary>
-          </TabPanel>
-        );
-      })}
-    </Tabs>
+export interface ViewTabsState {
+  tabs: ViewTab[];
+  disabledKeys: WorkspaceView[];
+  selectedKey: WorkspaceView;
+  selectView: (key: Key) => void;
+}
+
+export function ViewTabList({ tabs }: { tabs: readonly ViewTab[] }) {
+  return (
+    <TabList aria-label="Views" items={tabs} className="h-full min-w-0 flex-1 border-b-0">
+      {(tab) => (
+        <Tab id={tab.view} tooltip={tab.tooltip}>
+          {tab.view === "diagnostics" ? <DiagnosticsTabLabel label={tab.label} /> : tab.label}
+        </Tab>
+      )}
+    </TabList>
   );
 }
 
-export interface CenterViewsProps {
-  onOpenRail?: (() => void) | undefined;
-  onOpenInspector?: (() => void) | undefined;
+export function ViewPanels({ tabs }: { tabs: readonly ViewTab[] }) {
+  return tabs.map(({ view }) => {
+    const Panel = VIEW_PANELS[view];
+
+    return (
+      <TabPanel key={view} id={view} className="relative min-h-0 overflow-y-auto">
+        <PanelBoundary title="This view could not be shown">
+          <Panel />
+        </PanelBoundary>
+      </TabPanel>
+    );
+  });
 }

@@ -11,15 +11,15 @@ import { useEscapeKey } from "./useEscapeKey";
 
 export type PaneWidthPx = 260 | 320 | 336;
 
-const PANE_WIDTHS: Record<PaneWidthPx, PaneWidthClasses> = {
-  260: { pane: "w-[260px]", left: "ml-[260px]", right: "mr-[260px]" },
-  320: { pane: "w-[320px]", left: "ml-[320px]", right: "mr-[320px]" },
-  336: { pane: "w-[336px]", left: "ml-[336px]", right: "mr-[336px]" },
+const PANE_WIDTHS: Record<PaneWidthPx, string> = {
+  260: "w-[260px]",
+  320: "w-[320px]",
+  336: "w-[336px]",
 };
 
 const railStyle = cva(
   [
-    "absolute top-0 bottom-0 z-3 max-w-[calc(100%-40px)]",
+    "absolute top-0 bottom-0 max-w-[calc(100cqw-40px)]",
     "transition-transform duration-300 ease-out will-change-transform motion-reduce:transition-none",
   ],
   {
@@ -96,7 +96,33 @@ const tabStyle = cva(["absolute top-0 flex h-11 cursor-pointer items-center just
   ],
 });
 
-export function CollapsiblePane({
+export function CollapsiblePane({ children, className, ...pane }: CollapsiblePaneProps) {
+  const { side, isOverlay, isOpen, onOpenChange } = pane;
+
+  const close = useCallback(() => {
+    onOpenChange(false);
+  }, [onOpenChange]);
+
+  const sidePane = <SidePane {...pane} />;
+
+  return (
+    <div className={cn("@container relative isolate flex min-h-0 min-w-0 flex-1 overflow-hidden", className)}>
+      {side === "left" ? sidePane : null}
+      {isOverlay && isOpen ? (
+        <div aria-hidden role="presentation" className="absolute inset-0 z-2" onPointerDown={close} />
+      ) : null}
+      <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
+      {side === "right" ? sidePane : null}
+    </div>
+  );
+}
+
+export interface CollapsiblePaneProps extends SidePaneProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export function SidePane({
   side,
   width,
   title,
@@ -107,9 +133,8 @@ export function CollapsiblePane({
   isOverlay,
   look,
   pane,
-  children,
   className,
-}: CollapsiblePaneProps) {
+}: SidePaneProps & { className?: string }) {
   const paneId = useId();
   const railRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<HTMLElement>(null);
@@ -117,8 +142,6 @@ export function CollapsiblePane({
   const reserved = useReservedSpace(railRef, isOpen);
   const label = `${isOpen ? "Hide" : "Show"} ${name}`;
   const tooltip = shortcut === undefined ? label : `${label} (${shortcut})`;
-  const widths = PANE_WIDTHS[width];
-  const space = !isOverlay && reserved ? widths[side] : undefined;
   const Chevron = isOpen === (side === "left") ? ChevronLeftIcon : ChevronRightIcon;
 
   useLayoutEffect(() => {
@@ -138,8 +161,8 @@ export function CollapsiblePane({
   const escapeProps = useEscapeKey(isOverlay && isOpen ? close : null);
 
   return (
-    <div className={cn("relative isolate flex min-h-0 min-w-0 flex-1 overflow-hidden", className)}>
-      <div ref={railRef} {...escapeProps} className={cn(railStyle({ side, isOpen }), widths.pane)}>
+    <div className={cn("relative z-3 shrink-0", !isOverlay && reserved ? PANE_WIDTHS[width] : "w-0", className)}>
+      <div ref={railRef} {...escapeProps} className={cn(railStyle({ side, isOpen }), PANE_WIDTHS[width])}>
         <aside
           ref={paneRef}
           id={paneId}
@@ -162,15 +185,11 @@ export function CollapsiblePane({
           </Button>
         </TooltipTrigger>
       </div>
-      {isOverlay && isOpen ? (
-        <div aria-hidden role="presentation" className="absolute inset-0 z-2" onPointerDown={close} />
-      ) : null}
-      <div className={cn("relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden", space)}>{children}</div>
     </div>
   );
 }
 
-export interface CollapsiblePaneProps {
+export interface SidePaneProps {
   side: "left" | "right";
   width: PaneWidthPx;
   title: string;
@@ -181,14 +200,6 @@ export interface CollapsiblePaneProps {
   isOverlay: boolean;
   look: "app" | "auspice";
   pane: ReactNode;
-  children: ReactNode;
-  className?: string;
-}
-
-interface PaneWidthClasses {
-  pane: string;
-  left: string;
-  right: string;
 }
 
 function useReservedSpace(rail: { current: HTMLElement | null }, isOpen: boolean): boolean {

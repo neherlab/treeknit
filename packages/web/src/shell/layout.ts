@@ -1,6 +1,6 @@
-export const RAIL_WIDTH_PX = 336;
+export const RAIL_WIDTH_PX = 336 as const;
 
-export const INSPECTOR_WIDTH_PX = 320;
+export const INSPECTOR_WIDTH_PX = 320 as const;
 
 export const CENTER_MIN_WIDTH_PX = 640;
 

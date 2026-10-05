@@ -78,5 +78,5 @@ export type PaneShortcutKey = Pick<
 export interface TextEntryCandidate {
   tagName: string;
   isContentEditable: boolean;
-  type?: string;
+  type?: string | undefined;
 }

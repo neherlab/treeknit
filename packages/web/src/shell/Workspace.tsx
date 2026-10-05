@@ -1,83 +1,141 @@
-import { cn } from "cn";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import PanelLeftIcon from "~icons/lucide/panel-left";
+import PanelRightIcon from "~icons/lucide/panel-right";
 
+import { isBehindModal } from "../run/runControl";
 import { useRunShortcut } from "../run/useRunShortcut";
+import { SidePane } from "../ui/CollapsiblePane";
 import { Dialog } from "../ui/Dialog";
+import { IconButton } from "../ui/IconButton";
 import { PanelBoundary } from "../ui/PanelBoundary";
-import { CenterViews } from "./CenterViews";
+import { Tabs } from "../ui/Tabs";
+import { useViewTabs, ViewPanels, ViewTabList } from "./CenterViews";
+import { Header } from "./Header";
 import { Inspector } from "./Inspector";
 import {
   INSPECTOR_TITLE,
   INSPECTOR_WIDTH_CLASS,
+  INSPECTOR_WIDTH_PX,
   keepSheetOpen,
   type PanePlacement,
   RAIL_TITLE,
   RAIL_WIDTH_CLASS,
+  RAIL_WIDTH_PX,
 } from "./layout";
+import { isTextEntry, PANE_SHORTCUTS, paneShortcut } from "./panes";
+import { togglePane, usePaneOpen } from "./paneStore";
 import { Rail } from "./Rail";
 import { RunBar } from "./RunBar";
 import { useShellLayout } from "./useShellLayout";
 
+const INSPECTOR = (
+  <PanelBoundary title="The inspector could not be shown">
+    <Inspector />
+  </PanelBoundary>
+);
+
 export function Workspace() {
   const layout = useShellLayout();
-  const [railOpen, setRailOpen] = useSheetOpen(layout.rail);
-  const [inspectorOpen, setInspectorOpen] = useSheetOpen(layout.inspector);
-  const railSheet = layout.rail === "sheet";
-  const inspectorSheet = layout.inspector === "sheet";
+  const [railSheetOpen, setRailSheetOpen] = useSheetOpen(layout.rail);
+  const [inspectorSheetOpen, setInspectorSheetOpen] = useSheetOpen(layout.inspector);
+  const [railOpen, setRailOpen] = usePaneOpen("rail", false);
+  const [inspectorOpen, setInspectorOpen] = usePaneOpen("inspector", false);
+  const railPane = layout.rail === "pane";
+  const inspectorPane = layout.inspector === "pane";
+  const { tabs, disabledKeys, selectedKey, selectView } = useViewTabs();
   const root = useRef<HTMLDivElement>(null);
 
   useRunShortcut(root);
+  usePaneShortcuts(root, railPane, inspectorPane);
 
   const openRail = useCallback(() => {
-    setRailOpen(true);
-  }, [setRailOpen]);
+    setRailSheetOpen(true);
+  }, [setRailSheetOpen]);
 
   const openInspector = useCallback(() => {
-    setInspectorOpen(true);
-  }, [setInspectorOpen]);
+    setInspectorSheetOpen(true);
+  }, [setInspectorSheetOpen]);
+
+  const inspectorButton = inspectorPane ? null : (
+    <IconButton label={INSPECTOR_TITLE} icon={PanelRightIcon} onPress={openInspector} />
+  );
+
+  const tabList = <ViewTabList tabs={tabs} />;
+
+  const railPaneContent = useMemo(() => <RailPane showRunBar={railOpen} />, [railOpen]);
+
+  const main = (
+    <main className="col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col">
+      {railPane ? null : (
+        <div className="border-rule flex h-10 shrink-0 items-stretch gap-1 border-b px-1">
+          <div className="flex items-center">
+            <IconButton label={RAIL_TITLE} icon={PanelLeftIcon} onPress={openRail} />
+          </div>
+          {tabList}
+          <div className="flex items-center">{inspectorButton}</div>
+        </div>
+      )}
+      <ViewPanels tabs={tabs} />
+      {railPane && railOpen ? null : (
+        <div className="border-rule bg-pane shrink-0 border-t">
+          <RunBar />
+        </div>
+      )}
+    </main>
+  );
+
+  const headerCenter = railPane ? (
+    <>
+      {tabList}
+      {inspectorButton === null ? null : <div className="flex items-center px-1">{inspectorButton}</div>}
+    </>
+  ) : undefined;
 
   return (
-    <div ref={root} className="flex min-h-0 flex-1">
-      {railSheet ? null : (
-        <aside
-          aria-label={RAIL_TITLE}
-          className={cn("border-rule bg-pane flex shrink-0 flex-col border-r", RAIL_WIDTH_CLASS)}
-        >
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <Rail />
-          </div>
-          <div className="border-rule border-t">
-            <RunBar />
-          </div>
-        </aside>
-      )}
-      <main className="flex min-w-0 flex-1 flex-col">
-        <CenterViews
-          onOpenRail={railSheet ? openRail : undefined}
-          onOpenInspector={inspectorSheet ? openInspector : undefined}
+    <div
+      ref={root}
+      className="@container isolate grid min-h-0 flex-1 grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[auto_minmax(0,1fr)]"
+    >
+      <Tabs selectedKey={selectedKey} disabledKeys={disabledKeys} onSelectionChange={selectView} className="contents">
+        <Header center={headerCenter} className="col-span-3" />
+        {main}
+      </Tabs>
+      {railPane ? (
+        <SidePane
+          className="col-start-1 row-start-2"
+          side="left"
+          width={RAIL_WIDTH_PX}
+          title={RAIL_TITLE}
+          name="trees and settings"
+          shortcut={PANE_SHORTCUTS.rail}
+          isOpen={railOpen}
+          onOpenChange={setRailOpen}
+          isOverlay={false}
+          look="app"
+          pane={railPaneContent}
         />
-        {railSheet ? (
-          <div className="border-rule bg-pane shrink-0 border-t">
-            <RunBar />
-          </div>
-        ) : null}
-      </main>
-      {inspectorSheet ? null : (
-        <aside
-          aria-label={INSPECTOR_TITLE}
-          className={cn("border-rule bg-pane shrink-0 overflow-y-auto border-l", INSPECTOR_WIDTH_CLASS)}
-        >
-          <PanelBoundary title="The inspector could not be shown">
-            <Inspector />
-          </PanelBoundary>
-        </aside>
-      )}
+      ) : null}
+      {inspectorPane ? (
+        <SidePane
+          className="col-start-3 row-start-2"
+          side="right"
+          width={INSPECTOR_WIDTH_PX}
+          title={INSPECTOR_TITLE}
+          name="details"
+          shortcut={PANE_SHORTCUTS.inspector}
+          isOpen={inspectorOpen}
+          onOpenChange={setInspectorOpen}
+          isOverlay={false}
+          look="app"
+          pane={INSPECTOR}
+        />
+      ) : null}
       <Dialog
         title={RAIL_TITLE}
         placement="left"
         className={RAIL_WIDTH_CLASS}
-        isOpen={railOpen}
-        onOpenChange={setRailOpen}
+        isOpen={railSheetOpen}
+        onOpenChange={setRailSheetOpen}
       >
         <Rail />
       </Dialog>
@@ -85,15 +143,70 @@ export function Workspace() {
         title={INSPECTOR_TITLE}
         placement="right"
         className={INSPECTOR_WIDTH_CLASS}
-        isOpen={inspectorOpen}
-        onOpenChange={setInspectorOpen}
+        isOpen={inspectorSheetOpen}
+        onOpenChange={setInspectorSheetOpen}
       >
-        <PanelBoundary title="The inspector could not be shown">
-          <Inspector />
-        </PanelBoundary>
+        {INSPECTOR}
       </Dialog>
     </div>
   );
+}
+
+function RailPane({ showRunBar }: { showRunBar: boolean }) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <Rail />
+      </div>
+      {showRunBar ? (
+        <div className="border-rule border-t">
+          <RunBar />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function usePaneShortcuts(root: { current: HTMLElement | null }, railPane: boolean, inspectorPane: boolean): void {
+  const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    const pane = paneShortcut(event);
+    const element = root.current;
+
+    if (pane === null || element === null || isBehindModal(element)) {
+      return;
+    }
+
+    const focused = document.activeElement;
+
+    if (focused instanceof HTMLElement && isTextEntry(textEntryOf(focused))) {
+      return;
+    }
+
+    if ((pane === "rail" && railPane) || (pane === "inspector" && inspectorPane)) {
+      event.preventDefault();
+      togglePane(pane);
+    }
+  });
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent): void => {
+      onKeyDown(event);
+    };
+
+    document.addEventListener("keydown", listener);
+
+    return () => {
+      document.removeEventListener("keydown", listener);
+    };
+  }, []);
+}
+
+function textEntryOf(element: HTMLElement) {
+  return {
+    tagName: element.tagName,
+    isContentEditable: element.isContentEditable,
+    type: element instanceof HTMLInputElement ? element.type : undefined,
+  };
 }
 
 function useSheetOpen(placement: PanePlacement): [boolean, (open: boolean) => void] {

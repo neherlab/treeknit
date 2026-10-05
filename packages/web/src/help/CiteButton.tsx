@@ -3,20 +3,25 @@ import { Dialog, DialogTrigger, Heading, Popover } from "react-aria-components";
 import QuoteIcon from "~icons/lucide/quote";
 
 import { Button, type ButtonProps } from "../ui/Button";
+import { IconButton } from "../ui/IconButton";
 import { popoverStyle } from "../ui/styles";
 import { TooltipTrigger } from "../ui/TooltipTrigger";
 import { CITE_REQUEST, Citation } from "./Citation";
 
 const POPOVER_OFFSET_PX = 6;
 
-export function CiteButton({ variant, size, placement }: CiteButtonProps) {
+export function CiteButton({ variant, size, placement, iconOnly = false }: CiteButtonProps) {
   return (
     <DialogTrigger>
-      <TooltipTrigger tooltip="Cite the TreeKnit paper">
-        <Button variant={variant} size={size} icon={QuoteIcon}>
-          Cite
-        </Button>
-      </TooltipTrigger>
+      {iconOnly ? (
+        <IconButton label="Cite" icon={QuoteIcon} variant={variant} size={size} tooltipPlacement="bottom" />
+      ) : (
+        <TooltipTrigger tooltip="Cite the TreeKnit paper">
+          <Button variant={variant} size={size} icon={QuoteIcon}>
+            Cite
+          </Button>
+        </TooltipTrigger>
+      )}
       <Popover
         placement={placement}
         offset={POPOVER_OFFSET_PX}
@@ -38,4 +43,5 @@ export interface CiteButtonProps {
   variant?: ButtonProps["variant"];
   size?: ButtonProps["size"];
   placement: "bottom end" | "bottom start";
+  iconOnly?: boolean;
 }

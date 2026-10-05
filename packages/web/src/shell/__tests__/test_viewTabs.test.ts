@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { NO_WORKSPACE, type WorkspaceAvailability } from "../../workspace/search";
-import { viewTabs } from "../viewTabs";
+import { UNAVAILABLE_VIEW_TOOLTIP, viewTabs } from "../viewTabs";
 
 function tabsOf(availability: Partial<WorkspaceAvailability>) {
   return viewTabs({ ...NO_WORKSPACE, ...availability }).map(({ view, isDisabled }) => ({ view, isDisabled }));
@@ -57,5 +57,27 @@ describe("viewTabs", () => {
       "Files",
       "Diagnostics",
     ]);
+  });
+});
+
+describe("viewTabs tooltips", () => {
+  test("describe each enabled view and give the reason for each disabled one", () => {
+    const tabs = viewTabs({ ...NO_WORKSPACE, hasResult: false, treeCount: 2 });
+
+    expect(tabs.map(({ view, tooltip }) => ({ view, tooltip }))).toStrictEqual([
+      { view: "overview", tooltip: "The trees, their leaves, and the result of the run" },
+      { view: "tanglegram", tooltip: UNAVAILABLE_VIEW_TOOLTIP },
+      { view: "auspice", tooltip: UNAVAILABLE_VIEW_TOOLTIP },
+      { view: "arg", tooltip: UNAVAILABLE_VIEW_TOOLTIP },
+      { view: "mccs", tooltip: UNAVAILABLE_VIEW_TOOLTIP },
+      { view: "files", tooltip: UNAVAILABLE_VIEW_TOOLTIP },
+      { view: "diagnostics", tooltip: UNAVAILABLE_VIEW_TOOLTIP },
+    ]);
+  });
+
+  test("describe the tanglegram once a run has a result", () => {
+    const tabs = viewTabs({ ...NO_WORKSPACE, hasResult: true, treeCount: 2, resultTreeCount: 2, pairCount: 1 });
+
+    expect(tabs.find(({ view }) => view === "tanglegram")?.tooltip).toBe("Both trees side by side, linked by MCC");
   });
 });
