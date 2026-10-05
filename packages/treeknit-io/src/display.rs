@@ -360,7 +360,7 @@ pub struct ArgEdge {
   /// The segments the edge carries, ascending.
   pub segments: Vec<usize>,
   /// The child is a hybrid node and the edge is not on the child's chain to the top root, along
-  /// which `x_div` is measured. Each hybrid node has one reticulation edge.
+  /// which the node's x is measured. Each hybrid node has one reticulation edge.
   pub reticulation: bool,
 }
 
