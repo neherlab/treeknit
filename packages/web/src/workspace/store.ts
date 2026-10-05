@@ -50,7 +50,6 @@ export interface WorkspaceData {
   result: RunResult | null;
   undo: UndoEntry | null;
   restored: boolean;
-  persistence: boolean;
   nextTreeNumber: number;
   resetRevision: number;
 }
@@ -70,7 +69,6 @@ export interface WorkspaceActions {
   runProgressed(runId: number, progress: Progress): void;
   runFinished(runId: number, outcome: RunOutcome): void;
   resultLost(sessionId: number): void;
-  setPersistence(enabled: boolean): void;
 }
 
 export type WorkspaceState = WorkspaceData & WorkspaceActions;
@@ -192,7 +190,6 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
         result: null,
         undo: null,
         restored: start.restored !== null,
-        persistence: false,
         nextTreeNumber: restoredTrees.length + 1,
         resetRevision: 0,
 
@@ -397,12 +394,6 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
             if (state.run.status !== "running") {
               state.run = { status: "failed", kind: "internal", message: RESULTS_LOST_MESSAGE };
             }
-          });
-        },
-
-        setPersistence(enabled) {
-          set((state) => {
-            state.persistence = enabled;
           });
         },
       };

@@ -2,16 +2,21 @@ import * as z from "zod";
 
 import { treeSourceSchema } from "../workspace/treeSource";
 
+export const RECORD_VERSION = 1;
+
 const generationSchema = z.int().min(0);
+
+const versionSchema = z.literal(RECORD_VERSION);
 
 export const storedRecordSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("workspace"),
+    version: versionSchema,
     generation: generationSchema,
     sessionFile: z.string(),
     sources: z.array(treeSourceSchema),
   }),
-  z.object({ kind: z.literal("off"), generation: generationSchema }),
+  z.object({ kind: z.literal("off"), version: versionSchema, generation: generationSchema }),
 ]);
 
 export type StoredRecord = z.output<typeof storedRecordSchema>;

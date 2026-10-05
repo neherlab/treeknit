@@ -1,7 +1,7 @@
 import type { AnalysisRequest, OutputFile } from "@neherlab/treeknit-wasm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { SAVE_DELAY_MS, type WorkspaceSnapshot, WorkspacePersistence } from "../persistence";
+import { SAVE_DELAY_MS, type StoredWorkspace, type WorkspaceSnapshot, WorkspacePersistence } from "../persistence";
 import type { PersistenceChannel, StoredRecord } from "../record";
 import { MemoryChannelHub, MemoryStorage } from "./memoryStorage";
 
@@ -47,7 +47,7 @@ describe("workspace persistence", () => {
   });
 
   test("turning the switch on stores the workspace with the next generation", async () => {
-    const storage = new MemoryStorage({ kind: "off", generation: 4 });
+    const storage = new MemoryStorage({ kind: "off", version: 1, generation: 4 });
     const tab = new Tab(storage);
 
     await tab.persistence.enable(ONE_TREE);
@@ -86,7 +86,7 @@ describe("workspace persistence", () => {
     await tab.persistence.disable();
 
     expect({ record: storage.record, switches: tab.switches }).toStrictEqual({
-      record: { kind: "off", generation: 2 },
+      record: { kind: "off", version: 1, generation: 2 },
       switches: [true, false],
     });
   });
@@ -95,7 +95,7 @@ describe("workspace persistence", () => {
     const storage = new MemoryStorage(workspaceRecord(3, TWO_TREES));
     const tab = new Tab(storage);
 
-    const restored = await tab.persistence.restore();
+    const restored = await tab.restore();
 
     expect({ restored, switches: tab.switches, enabled: tab.persistence.enabled }).toStrictEqual({
       restored: { sessionFile: sessionFileText(TWO_TREES.request), sources: TWO_TREES.sources },
@@ -105,12 +105,12 @@ describe("workspace persistence", () => {
   });
 
   test("an off marker or no record restores nothing and leaves the switch off", async () => {
-    const off = new Tab(new MemoryStorage({ kind: "off", generation: 2 }));
+    const off = new Tab(new MemoryStorage({ kind: "off", version: 1, generation: 2 }));
     const none = new Tab(new MemoryStorage());
 
     expect({
-      off: await off.persistence.restore(),
-      none: await none.persistence.restore(),
+      off: await off.restore(),
+      none: await none.restore(),
       switches: [...off.switches, ...none.switches],
     }).toStrictEqual({ off: null, none: null, switches: [] });
   });
@@ -124,7 +124,7 @@ describe("workspace persistence", () => {
     await tab.persistence.disable();
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS * 2);
 
-    expect(storage.record).toStrictEqual({ kind: "off", generation: 2 });
+    expect(storage.record).toStrictEqual({ kind: "off", version: 1, generation: 2 });
   });
 
   test("a save still waiting for the session file is dropped when the switch is turned off", async () => {
@@ -139,10 +139,10 @@ describe("workspace persistence", () => {
     tab.files.release();
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(storage.record).toStrictEqual({ kind: "off", generation: 2 });
+    expect(storage.record).toStrictEqual({ kind: "off", version: 1, generation: 2 });
   });
 
-  test("clearing the workspace drops a pending save and a save waiting for the session file", async () => {
+  test("a newer change drops a pending save and a save waiting for the session file", async () => {
     const storage = new MemoryStorage();
     const tab = new Tab(storage);
 
@@ -165,7 +165,7 @@ describe("workspace persistence", () => {
     });
   });
 
-  test("keeps the previous stored value when the session file fails", async () => {
+  test("a failed session file keeps the previous stored value and reports the failed save until a save succeeds", async () => {
     const storage = new MemoryStorage();
     const tab = new Tab(storage);
 
@@ -173,10 +173,197 @@ describe("workspace persistence", () => {
     tab.files.failNext();
     tab.persistence.changed(TWO_TREES);
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
+    const failed = { record: storage.record, state: tab.persistence.state };
 
-    expect({ record: storage.record, enabled: tab.persistence.enabled }).toStrictEqual({
-      record: workspaceRecord(1, ONE_TREE),
-      enabled: true,
+    tab.persistence.changed(EMPTY);
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
+
+    expect({ failed, record: storage.record, state: tab.persistence.state }).toStrictEqual({
+      failed: {
+        record: workspaceRecord(1, ONE_TREE),
+        state: { enabled: true, problem: { kind: "save", message: "internal error" } },
+      },
+      record: workspaceRecord(1, EMPTY),
+      state: { enabled: true, problem: null },
+    });
+  });
+
+  test("a failed storage write reports the failed save, and saving now writes the unsaved workspace", async () => {
+    const storage = new MemoryStorage();
+    const tab = new Tab(storage);
+
+    await tab.persistence.enable(ONE_TREE);
+    storage.failNextUpdate(new Error("The quota has been exceeded."));
+    tab.persistence.changed(TWO_TREES);
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
+    const failed = { record: storage.record, state: tab.persistence.state };
+
+    await tab.persistence.saveNow();
+
+    expect({ failed, record: storage.record, state: tab.persistence.state }).toStrictEqual({
+      failed: {
+        record: workspaceRecord(1, ONE_TREE),
+        state: { enabled: true, problem: { kind: "save", message: "The quota has been exceeded." } },
+      },
+      record: workspaceRecord(1, TWO_TREES),
+      state: { enabled: true, problem: null },
+    });
+  });
+
+  test("saving now writes a pending change before the save delay", async () => {
+    const storage = new MemoryStorage();
+    const tab = new Tab(storage);
+
+    await tab.persistence.enable(ONE_TREE);
+    tab.persistence.changed(TWO_TREES);
+    await tab.persistence.saveNow();
+    const saved = storage.record;
+
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS * 2);
+
+    expect({ saved, writes: storage.writes }).toStrictEqual({ saved: workspaceRecord(1, TWO_TREES), writes: 2 });
+  });
+
+  test("a change made while turning the switch on is stored before the switch is on", async () => {
+    const storage = new MemoryStorage();
+    const tab = new Tab(storage);
+
+    tab.files.hold();
+    const enabling = tab.persistence.enable(ONE_TREE);
+
+    tab.persistence.changed(TWO_TREES);
+    tab.files.release();
+    await enabling;
+
+    expect({ record: storage.record, writes: storage.writes, switches: tab.switches }).toStrictEqual({
+      record: workspaceRecord(1, TWO_TREES),
+      writes: 1,
+      switches: [true],
+    });
+  });
+
+  test("a change made during the storage write of turning on is saved after the save delay", async () => {
+    const storage = new MemoryStorage();
+    const tab = new Tab(storage);
+
+    storage.holdUpdate();
+    const enabling = tab.persistence.enable(ONE_TREE);
+
+    await storage.updateStarted();
+    tab.persistence.changed(TWO_TREES);
+    storage.releaseUpdate();
+    await enabling;
+    const enabled = storage.record;
+
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
+
+    expect({ enabled, saved: storage.record }).toStrictEqual({
+      enabled: workspaceRecord(1, ONE_TREE),
+      saved: workspaceRecord(1, TWO_TREES),
+    });
+  });
+
+  test("turning the switch off while it is turning on leaves it off with an off marker", async () => {
+    const storage = new MemoryStorage(workspaceRecord(3, ONE_TREE));
+    const tab = new Tab(storage);
+
+    tab.files.hold();
+    const enabling = tab.persistence.enable(TWO_TREES);
+
+    await tab.persistence.disable();
+    tab.files.release();
+    await enabling;
+
+    expect({ record: storage.record, switches: tab.switches, enabled: tab.persistence.enabled }).toStrictEqual({
+      record: { kind: "off", version: 1, generation: 4 },
+      switches: [],
+      enabled: false,
+    });
+  });
+
+  test("turning the switch off during the storage write of turning on leaves it off with an off marker", async () => {
+    const storage = new MemoryStorage();
+    const tab = new Tab(storage);
+
+    storage.holdUpdate();
+    const enabling = tab.persistence.enable(ONE_TREE);
+
+    await storage.updateStarted();
+    const disabling = tab.persistence.disable();
+
+    storage.releaseUpdate();
+    await Promise.all([enabling, disabling]);
+
+    expect({ record: storage.record, switches: tab.switches }).toStrictEqual({
+      record: { kind: "off", version: 1, generation: 1 },
+      switches: [],
+    });
+  });
+
+  test("a failed storage write when turning on reports it and leaves the switch off", async () => {
+    const storage = new MemoryStorage();
+    const tab = new Tab(storage);
+
+    storage.failNextUpdate(new Error("The quota has been exceeded."));
+    await tab.persistence.enable(ONE_TREE);
+
+    expect({ record: storage.record, state: tab.persistence.state }).toStrictEqual({
+      record: undefined,
+      state: { enabled: false, problem: { kind: "enable", message: "The quota has been exceeded." } },
+    });
+  });
+
+  test("a failed off marker reports it, stops saving, and turning off again writes the marker", async () => {
+    const storage = new MemoryStorage();
+    const tab = new Tab(storage);
+
+    await tab.persistence.enable(ONE_TREE);
+    storage.failNextUpdate(new Error("The database was closed."));
+    await tab.persistence.disable();
+    const failed = { record: storage.record, state: tab.persistence.state };
+
+    tab.persistence.changed(TWO_TREES);
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
+    const afterChange = storage.record;
+
+    await tab.persistence.disable();
+
+    expect({ failed, afterChange, record: storage.record, state: tab.persistence.state }).toStrictEqual({
+      failed: {
+        record: workspaceRecord(1, ONE_TREE),
+        state: { enabled: false, problem: { kind: "disable", message: "The database was closed." } },
+      },
+      afterChange: workspaceRecord(1, ONE_TREE),
+      record: { kind: "off", version: 1, generation: 2 },
+      state: { enabled: false, problem: null },
+    });
+  });
+
+  test("a stored workspace that cannot be read back stays stored, with the switch off and the failure reported", async () => {
+    const storage = new MemoryStorage(workspaceRecord(3, TWO_TREES));
+    const tab = new Tab(storage);
+
+    const restored = await tab.persistence.restore(() => Promise.reject(new Error("not a TreeKnit session file")));
+
+    tab.persistence.changed(ONE_TREE);
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
+
+    expect({ restored, record: storage.record, state: tab.persistence.state }).toStrictEqual({
+      restored: null,
+      record: workspaceRecord(3, TWO_TREES),
+      state: { enabled: false, problem: { kind: "restore", message: "not a TreeKnit session file" } },
+    });
+  });
+
+  test("a storage that cannot be read reports the failed restore", async () => {
+    const storage = new MemoryStorage();
+    const tab = new Tab(storage);
+
+    storage.failNextRead(new Error("The stored workspace record is not readable."));
+
+    expect({ restored: await tab.restore(), state: tab.persistence.state }).toStrictEqual({
+      restored: null,
+      state: { enabled: false, problem: { kind: "restore", message: "The stored workspace record is not readable." } },
     });
   });
 
@@ -185,8 +372,8 @@ describe("workspace persistence", () => {
     const first = new Tab(storage);
     const second = new Tab(storage);
 
-    await first.persistence.restore();
-    await second.persistence.restore();
+    await first.restore();
+    await second.restore();
     second.files.hold();
     second.persistence.changed(TWO_TREES);
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
@@ -195,7 +382,7 @@ describe("workspace persistence", () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect({ record: storage.record, second: second.switches, enabled: second.persistence.enabled }).toStrictEqual({
-      record: { kind: "off", generation: 2 },
+      record: { kind: "off", version: 1, generation: 2 },
       second: [true, false],
       enabled: false,
     });
@@ -206,8 +393,8 @@ describe("workspace persistence", () => {
     const first = new Tab(storage);
     const second = new Tab(storage);
 
-    await first.persistence.restore();
-    await second.persistence.restore();
+    await first.restore();
+    await second.restore();
     second.files.hold();
     second.persistence.changed(TWO_TREES);
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
@@ -227,8 +414,8 @@ describe("workspace persistence", () => {
     const first = new Tab(storage);
     const second = new Tab(storage);
 
-    await first.persistence.restore();
-    await second.persistence.restore();
+    await first.restore();
+    await second.restore();
     await first.persistence.disable();
     await first.persistence.enable(EMPTY);
     second.persistence.changed(TWO_TREES);
@@ -245,8 +432,8 @@ describe("workspace persistence", () => {
     const first = new Tab(storage);
     const second = new Tab(storage);
 
-    await first.persistence.restore();
-    await second.persistence.restore();
+    await first.restore();
+    await second.restore();
     first.persistence.changed(ONE_TREE);
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
     const afterFirst = storage.record;
@@ -271,8 +458,8 @@ describe("workspace persistence", () => {
     const first = new Tab(storage, hub.channel());
     const second = new Tab(storage, hub.channel());
 
-    await first.persistence.restore();
-    await second.persistence.restore();
+    await first.restore();
+    await second.restore();
     await first.persistence.disable();
 
     expect({ second: second.switches, writes: storage.writes }).toStrictEqual({ second: [true, false], writes: 1 });
@@ -284,7 +471,7 @@ describe("workspace persistence", () => {
     const first = new Tab(storage, hub.channel());
     const second = new Tab(storage, hub.channel());
 
-    await second.persistence.restore();
+    await second.restore();
     await first.persistence.enable(EMPTY);
 
     expect({ first: first.switches, second: second.switches }).toStrictEqual({ first: [true], second: [true, false] });
@@ -301,10 +488,18 @@ class Tab {
       storage,
       channel,
       requestFile: async (request) => this.files.requestFile(request),
-      onSwitchChange: (enabled) => {
-        this.switches.push(enabled);
-      },
     });
+    this.persistence.subscribe(() => {
+      const { enabled } = this.persistence.state;
+
+      if (this.switches.at(-1) !== enabled && (this.switches.length > 0 || enabled)) {
+        this.switches.push(enabled);
+      }
+    });
+  }
+
+  async restore(): Promise<StoredWorkspace | null> {
+    return this.persistence.restore((stored) => Promise.resolve(stored));
   }
 }
 
@@ -343,6 +538,7 @@ class SessionFiles {
 function workspaceRecord(generation: number, snapshot: WorkspaceSnapshot): StoredRecord {
   return {
     kind: "workspace",
+    version: 1,
     generation,
     sessionFile: sessionFileText(snapshot.request),
     sources: snapshot.sources,

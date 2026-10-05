@@ -18,27 +18,22 @@ export interface WorkspaceRuntime {
   persistence: WorkspacePersistence;
 }
 
-interface StoreRelay {
-  store: WorkspaceStore | null;
-}
-
 export async function startWorkspace(client: AnalysisClient, queryClient: QueryClient): Promise<WorkspaceRuntime> {
-  const relay: StoreRelay = { store: null };
-
   const persistence = new WorkspacePersistence({
     storage: storageOrNull() ?? unavailableStorage(),
     channel: broadcastChannel(),
     requestFile: async (request) => client.requestFile(request),
-    onSwitchChange: (enabled) => {
-      relay.store?.getState().setPersistence(enabled);
-    },
   });
 
-  const [defaults, restored] = await Promise.all([client.defaultSettings(), restoreWorkspace(client, persistence)]);
-  const store = createWorkspaceStore(client, { defaults, restored });
+  const [defaults, restored] = await Promise.all([
+    client.defaultSettings(),
+    persistence.restore(async (stored): Promise<RestoredWorkspace> => ({
+      request: await client.readRequest(stored.sessionFile),
+      sources: stored.sources,
+    })),
+  ]);
 
-  relay.store = store;
-  store.getState().setPersistence(persistence.enabled);
+  const store = createWorkspaceStore(client, { defaults, restored });
 
   store.subscribe((state, previous) => {
     if (state.trees !== previous.trees || state.settings !== previous.settings) {
@@ -57,6 +52,10 @@ export async function startWorkspace(client: AnalysisClient, queryClient: QueryC
     store.getState().resultLost(sessionId);
   });
 
+  globalThis.addEventListener("pagehide", () => {
+    void persistence.saveNow();
+  });
+
   return { store, persistence };
 }
 
@@ -64,27 +63,12 @@ export function workspaceSnapshot(state: WorkspaceData): WorkspaceSnapshot {
   return { request: selectRequest(state), sources: state.trees.map(({ source }) => source) };
 }
 
-async function restoreWorkspace(
-  client: AnalysisClient,
-  persistence: WorkspacePersistence,
-): Promise<RestoredWorkspace | null> {
-  const stored = await persistence.restore().catch(() => null);
-
-  if (stored === null) {
-    return null;
-  }
-
-  const request = await client.readRequest(stored.sessionFile).catch(() => null);
-
-  return request === null ? null : { request, sources: stored.sources };
-}
-
 function storageOrNull(): RecordStorage | null {
   return "indexedDB" in globalThis ? indexedDbStorage() : null;
 }
 
 function unavailableStorage(): RecordStorage {
-  return { read: rejectUnavailable, update: rejectUnavailable };
+  return { read: () => Promise.resolve(undefined), update: rejectUnavailable };
 }
 
 function rejectUnavailable(): Promise<never> {

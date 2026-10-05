@@ -1,4 +1,5 @@
 import { createStore, get, update } from "idb-keyval";
+import * as z from "zod";
 
 import {
   type PersistenceChannel,
@@ -21,7 +22,19 @@ export function indexedDbStorage(): RecordStorage {
 
   return {
     async read() {
-      return storedRecordSchema.safeParse(await get<unknown>(RECORD_KEY, store)).data;
+      const stored = await get<unknown>(RECORD_KEY, store);
+
+      if (stored === undefined) {
+        return undefined;
+      }
+
+      const record = storedRecordSchema.safeParse(stored);
+
+      if (!record.success) {
+        throw new Error(`The workspace stored in this browser is not readable.\n${z.prettifyError(record.error)}`);
+      }
+
+      return record.data;
     },
     async update(updater) {
       await update<unknown>(RECORD_KEY, (current) => updater(storedRecordSchema.safeParse(current).data), store);

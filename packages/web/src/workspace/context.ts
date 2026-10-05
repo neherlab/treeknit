@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext } from "react";
+import { createContext, useCallback, useContext, useSyncExternalStore } from "react";
 import { useStore } from "zustand";
 
+import type { PersistenceProblem } from "../persistence/persistence";
 import { type WorkspaceRuntime, workspaceSnapshot } from "./runtime";
 import { selectRequest, type WorkspaceState, type WorkspaceStore } from "./store";
 
@@ -20,7 +21,9 @@ export function useCurrentRequest() {
 
 export function usePersistenceSwitch(): PersistenceSwitch {
   const { store, persistence } = useWorkspaceRuntime();
-  const enabled = useStore(store, (state) => state.persistence);
+
+  const subscribe = useCallback((onChange: () => void) => persistence.subscribe(onChange), [persistence]);
+  const { enabled, problem } = useSyncExternalStore(subscribe, () => persistence.state);
 
   const setEnabled = useCallback(
     async (next: boolean) => {
@@ -29,12 +32,16 @@ export function usePersistenceSwitch(): PersistenceSwitch {
     [store, persistence],
   );
 
-  return { enabled, setEnabled };
+  const saveNow = useCallback(async () => persistence.saveNow(), [persistence]);
+
+  return { enabled, problem, setEnabled, saveNow };
 }
 
 export interface PersistenceSwitch {
   enabled: boolean;
+  problem: PersistenceProblem | null;
   setEnabled: (enabled: boolean) => Promise<void>;
+  saveNow: () => Promise<void>;
 }
 
 function useWorkspaceRuntime(): WorkspaceRuntime {

@@ -6,6 +6,7 @@ describe("stored workspace record", () => {
   test("accepts a workspace with every tree source kind", () => {
     const record = {
       kind: "workspace",
+      version: 1,
       generation: 3,
       sessionFile: "{}",
       sources: [
@@ -20,18 +21,24 @@ describe("stored workspace record", () => {
   });
 
   test("accepts an off marker without trees", () => {
-    expect(storedRecordSchema.parse({ kind: "off", generation: 0 })).toStrictEqual({ kind: "off", generation: 0 });
+    expect(storedRecordSchema.parse({ kind: "off", version: 1, generation: 0 })).toStrictEqual({
+      kind: "off",
+      version: 1,
+      generation: 0,
+    });
   });
 
-  test("rejects records with a missing or invalid generation, an unknown source, or an unknown kind", () => {
+  test("rejects records with a missing or other version, a missing or invalid generation, an unknown source, or an unknown kind", () => {
     const invalid = [
-      { kind: "off" },
-      { kind: "off", generation: -1 },
-      { kind: "off", generation: 1.5 },
-      { kind: "workspace", generation: 1, sessionFile: "{}", sources: [{ kind: "url", name: "x" }] },
-      { kind: "workspace", generation: 1, sessionFile: "{}", sources: [{ kind: "file" }] },
-      { kind: "workspace", generation: 1, sources: [] },
-      { kind: "deleted", generation: 1 },
+      { kind: "off", generation: 1 },
+      { kind: "off", version: 2, generation: 1 },
+      { kind: "off", version: 1 },
+      { kind: "off", version: 1, generation: -1 },
+      { kind: "off", version: 1, generation: 1.5 },
+      { kind: "workspace", version: 1, generation: 1, sessionFile: "{}", sources: [{ kind: "url", name: "x" }] },
+      { kind: "workspace", version: 1, generation: 1, sessionFile: "{}", sources: [{ kind: "file" }] },
+      { kind: "workspace", version: 1, generation: 1, sources: [] },
+      { kind: "deleted", version: 1, generation: 1 },
       "a string",
     ];
 
@@ -50,6 +57,8 @@ describe("stored workspace record", () => {
   });
 
   test("numbers the next generation after the stored one, starting at 1", () => {
-    expect([nextGeneration(undefined), nextGeneration({ kind: "off", generation: 4 })]).toStrictEqual([1, 5]);
+    expect([nextGeneration(undefined), nextGeneration({ kind: "off", version: 1, generation: 4 })]).toStrictEqual([
+      1, 5,
+    ]);
   });
 });

@@ -1,7 +1,14 @@
 import type { AnalysisRequest, OutputFile } from "@neherlab/treeknit-wasm";
 
 import type { TreeSource } from "../workspace/treeSource";
-import { nextGeneration, type PersistenceChannel, type PersistenceMessage, type RecordStorage } from "./record";
+import {
+  nextGeneration,
+  type PersistenceChannel,
+  type PersistenceMessage,
+  RECORD_VERSION,
+  type RecordStorage,
+  type StoredRecord,
+} from "./record";
 
 export const SAVE_DELAY_MS = 500;
 
@@ -15,16 +22,39 @@ export interface StoredWorkspace {
   sources: TreeSource[];
 }
 
+export type PersistenceProblemKind = "restore" | "enable" | "save" | "disable";
+
+export interface PersistenceProblem {
+  kind: PersistenceProblemKind;
+  message: string;
+}
+
+export interface PersistenceState {
+  enabled: boolean;
+  problem: PersistenceProblem | null;
+}
+
 export interface PersistenceServices {
   storage: RecordStorage;
   channel: PersistenceChannel | null;
   requestFile: (request: AnalysisRequest) => Promise<OutputFile>;
-  onSwitchChange: (enabled: boolean) => void;
+}
+
+interface Enabling {
+  latest: WorkspaceSnapshot;
+}
+
+interface WrittenRecord {
+  generation: number | null;
 }
 
 export class WorkspacePersistence {
   readonly #services: PersistenceServices;
+  readonly #listeners = new Set<() => void>();
+  #state: PersistenceState = { enabled: false, problem: null };
   #generation: number | null = null;
+  #enabling: Enabling | undefined;
+  #unsaved: WorkspaceSnapshot | undefined;
   #epoch = 0;
   #timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -35,103 +65,229 @@ export class WorkspacePersistence {
     });
   }
 
+  get state(): PersistenceState {
+    return this.#state;
+  }
+
   get enabled(): boolean {
     return this.#generation !== null;
   }
 
-  async restore(): Promise<StoredWorkspace | null> {
-    const record = await this.#services.storage.read();
+  subscribe(listener: () => void): () => void {
+    this.#listeners.add(listener);
 
-    if (record?.kind !== "workspace") {
+    return () => {
+      this.#listeners.delete(listener);
+    };
+  }
+
+  async restore<T>(read: (stored: StoredWorkspace) => Promise<T>): Promise<T | null> {
+    try {
+      const record = await this.#services.storage.read();
+
+      if (record?.kind !== "workspace") {
+        return null;
+      }
+
+      const restored = await read({ sessionFile: record.sessionFile, sources: record.sources });
+
+      this.#switchOn(record.generation);
+
+      return restored;
+    } catch (error) {
+      this.#report("restore", error);
+
       return null;
     }
-
-    this.#switchOn(record.generation);
-
-    return { sessionFile: record.sessionFile, sources: record.sources };
   }
 
   async enable(snapshot: WorkspaceSnapshot): Promise<void> {
     const epoch = this.#invalidate();
-    const file = await this.#services.requestFile(snapshot.request);
+    const enabling: Enabling = { latest: snapshot };
 
-    if (epoch !== this.#epoch) {
-      return;
+    this.#enabling = enabling;
+
+    try {
+      await this.#enable(enabling, epoch);
+    } catch (error) {
+      if (epoch === this.#epoch) {
+        this.#report("enable", error);
+      }
+    } finally {
+      if (this.#enabling === enabling) {
+        this.#enabling = undefined;
+      }
     }
-
-    const written = { generation: 0 };
-
-    await this.#services.storage.update((current) => {
-      written.generation = nextGeneration(current);
-
-      return {
-        kind: "workspace",
-        generation: written.generation,
-        sessionFile: file.text,
-        sources: snapshot.sources,
-      };
-    });
-    this.#switchOn(written.generation);
-    this.#services.channel?.post({ state: "on", generation: written.generation });
   }
 
   async disable(): Promise<void> {
-    if (this.#generation === null) {
+    if (this.#generation === null && this.#enabling === undefined && this.#state.problem?.kind !== "disable") {
       return;
     }
 
+    this.#enabling = undefined;
     this.#switchOff();
+    this.#setProblem(null);
 
-    const written = { generation: 0 };
+    const epoch = this.#epoch;
 
-    await this.#services.storage.update((current) => {
-      written.generation = nextGeneration(current);
+    try {
+      const generation = await this.#write(epoch, (current) => ({
+        kind: "off",
+        version: RECORD_VERSION,
+        generation: nextGeneration(current),
+      }));
 
-      return { kind: "off", generation: written.generation };
-    });
-    this.#services.channel?.post({ state: "off", generation: written.generation });
+      if (generation !== null) {
+        this.#services.channel?.post({ state: "off", generation });
+      }
+    } catch (error) {
+      if (epoch === this.#epoch) {
+        this.#report("disable", error);
+      }
+    }
   }
 
   changed(snapshot: WorkspaceSnapshot): void {
+    if (this.#enabling !== undefined) {
+      this.#enabling.latest = snapshot;
+
+      return;
+    }
+
     if (this.#generation === null) {
       return;
     }
 
     const epoch = this.#invalidate();
 
+    this.#unsaved = snapshot;
     this.#timer = setTimeout(() => {
       this.#timer = undefined;
       void this.#save(snapshot, epoch);
     }, SAVE_DELAY_MS);
   }
 
-  async #save(snapshot: WorkspaceSnapshot, epoch: number): Promise<void> {
-    const file = await this.#services.requestFile(snapshot.request).catch(() => undefined);
-    const generation = this.#generation;
+  async saveNow(): Promise<void> {
+    const snapshot = this.#unsaved;
 
-    if (file === undefined || epoch !== this.#epoch || generation === null) {
+    if (snapshot === undefined || this.#generation === null) {
       return;
     }
 
-    const outcome = { conflict: false };
+    await this.#save(snapshot, this.#invalidate());
+  }
+
+  async #enable(enabling: Enabling, epoch: number): Promise<void> {
+    const written = enabling.latest;
+    const file = await this.#services.requestFile(written.request);
+
+    if (epoch !== this.#epoch) {
+      return;
+    }
+
+    if (enabling.latest !== written) {
+      await this.#enable(enabling, epoch);
+
+      return;
+    }
+
+    const generation = await this.#write(epoch, (current) => ({
+      kind: "workspace",
+      version: RECORD_VERSION,
+      generation: nextGeneration(current),
+      sessionFile: file.text,
+      sources: written.sources,
+    }));
+
+    if (epoch !== this.#epoch || generation === null) {
+      return;
+    }
+
+    this.#enabling = undefined;
+    this.#setProblem(null);
+    this.#switchOn(generation);
+    this.#services.channel?.post({ state: "on", generation });
+
+    if (enabling.latest !== written) {
+      this.changed(enabling.latest);
+    }
+  }
+
+  async #save(snapshot: WorkspaceSnapshot, epoch: number): Promise<void> {
+    const generation = this.#generation;
+
+    if (generation === null) {
+      return;
+    }
+
+    try {
+      const file = await this.#services.requestFile(snapshot.request);
+
+      if (epoch !== this.#epoch || generation !== this.#generation) {
+        return;
+      }
+
+      const outcome = { conflict: false };
+
+      await this.#services.storage.update((current) => {
+        if (epoch !== this.#epoch) {
+          return current;
+        }
+
+        if (current?.generation !== generation) {
+          outcome.conflict = true;
+
+          return current;
+        }
+
+        return {
+          kind: "workspace",
+          version: RECORD_VERSION,
+          generation,
+          sessionFile: file.text,
+          sources: snapshot.sources,
+        };
+      });
+
+      if (outcome.conflict) {
+        if (this.#generation === generation) {
+          this.#switchOff();
+        }
+
+        return;
+      }
+
+      if (epoch === this.#epoch && this.#unsaved === snapshot) {
+        this.#unsaved = undefined;
+
+        if (this.#state.problem?.kind === "save") {
+          this.#setProblem(null);
+        }
+      }
+    } catch (error) {
+      if (epoch === this.#epoch && generation === this.#generation) {
+        this.#report("save", error);
+      }
+    }
+  }
+
+  async #write(epoch: number, record: (current: StoredRecord | undefined) => StoredRecord): Promise<number | null> {
+    const written: WrittenRecord = { generation: null };
 
     await this.#services.storage.update((current) => {
       if (epoch !== this.#epoch) {
         return current;
       }
 
-      if (current?.generation !== generation) {
-        outcome.conflict = true;
+      const next = record(current);
 
-        return current;
-      }
+      written.generation = next.generation;
 
-      return { kind: "workspace", generation, sessionFile: file.text, sources: snapshot.sources };
+      return next;
     });
 
-    if (outcome.conflict && this.#generation === generation) {
-      this.#switchOff();
-    }
+    return written.generation;
   }
 
   #received(message: PersistenceMessage): void {
@@ -142,15 +298,34 @@ export class WorkspacePersistence {
 
   #switchOn(generation: number): void {
     this.#generation = generation;
-    this.#services.onSwitchChange(true);
+    this.#setState({ ...this.#state, enabled: true });
   }
 
   #switchOff(): void {
     this.#invalidate();
+    this.#unsaved = undefined;
 
     if (this.#generation !== null) {
       this.#generation = null;
-      this.#services.onSwitchChange(false);
+      this.#setState({ ...this.#state, enabled: false });
+    }
+  }
+
+  #report(kind: PersistenceProblemKind, cause: unknown): void {
+    this.#setProblem({ kind, message: cause instanceof Error ? cause.message : String(cause) });
+  }
+
+  #setProblem(problem: PersistenceProblem | null): void {
+    if (problem !== null || this.#state.problem !== null) {
+      this.#setState({ ...this.#state, problem });
+    }
+  }
+
+  #setState(state: PersistenceState): void {
+    this.#state = state;
+
+    for (const listener of this.#listeners) {
+      listener();
     }
   }
 
