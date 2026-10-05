@@ -1,10 +1,11 @@
 //! The ARG of two trees laid out in one tree column.
 
+use super::names::unique_labels;
 use super::shapes::arg_shapes;
 use super::tree::{add_length, row};
 use super::{ArgEdge, ArgNodeView, ArgView, RootCase, Scale};
 use crate::run::RunResult;
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, VecDeque};
 use treeknit_core::arg::{Anc, Arg};
 
 /// Label of the synthetic top root, as in `ARG/arg.nwk`.
@@ -70,37 +71,6 @@ fn layout(arg: &Arg, scale: Scale) -> ArgView {
     root_case,
     shapes,
   }
-}
-
-/// `labels` made unique and non-empty, because views select nodes by label. Leaves keep their
-/// labels, which are distinct taxon names. An internal node whose label is empty or taken by an
-/// earlier node gets the first `<label>_<k>`, k ≥ 2 (`NODE_<k>` for an empty label), that no
-/// node has: a leaf can be named like an internal ARG node (`ARGNode_3`) or the synthetic root.
-fn unique_labels(labels: Vec<String>, leaf: &[bool]) -> Vec<String> {
-  let all: BTreeSet<String> = labels.iter().cloned().collect();
-  let mut taken: BTreeSet<String> = labels
-    .iter()
-    .zip(leaf)
-    .filter(|(_, l)| **l)
-    .map(|(s, _)| s.clone())
-    .collect();
-  labels
-    .into_iter()
-    .zip(leaf)
-    .map(|(label, &is_leaf)| {
-      if is_leaf || (!label.is_empty() && taken.insert(label.clone())) {
-        return label;
-      }
-      let base = if label.is_empty() { "NODE" } else { label.as_str() };
-      // At most `all.len() + taken.len()` candidates are in use, so one of these is free.
-      let free = (2..=all.len() + taken.len() + 2)
-        .map(|k| format!("{base}_{k}"))
-        .find(|c| !all.contains(c) && !taken.contains(c))
-        .unwrap_or_default();
-      taken.insert(free.clone());
-      free
-    })
-    .collect()
 }
 
 /// The root case and the top root, following the extended Newick writer of `crate::arg`: a
@@ -296,6 +266,7 @@ mod tests {
   use pretty_assertions::assert_eq;
   use rand::{Rng, SeedableRng};
   use rand_xoshiro::Xoshiro256PlusPlus;
+  use std::collections::BTreeSet;
 
   fn run_trees(trees: &[(&str, &str)]) -> RunResult {
     let texts: Vec<TreeText> = trees
@@ -469,14 +440,6 @@ mod tests {
         "leaf {leaf} keeps its label"
       );
     }
-  }
-
-  #[test]
-  fn unique_labels_rename_taken_and_empty_internal_labels() {
-    let labels = ["x", "a", "x", "", "a_2", "a"].map(String::from).to_vec();
-    let leaf = [false, true, false, false, false, false];
-    let expected = ["x", "a", "x_2", "NODE_2", "a_2", "a_3"].map(String::from).to_vec();
-    assert_eq!(expected, unique_labels(labels, &leaf));
   }
 
   #[test]

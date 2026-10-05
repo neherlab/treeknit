@@ -1,7 +1,7 @@
 //! An SVG document writer over `quick-xml`, which escapes attribute values and text, with the
 //! pixel frame, path data, text width estimate, and legend shared by the figures.
 
-use crate::display::{Bezier, DRAWING_RULES, Point};
+use crate::display::{Bezier, DRAWING_RULES, Point, shorten};
 use quick_xml::Writer;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 
@@ -30,8 +30,6 @@ const ENTRY_GAP: f64 = 20.0;
 /// fraction (9/16), so that widths of whole characters are exact and a label that fits its
 /// column is never shortened by a rounding error.
 const CHAR_EM: f64 = 0.5625;
-/// Replaces the middle of a shortened label (U+2026, the character of the interactive views).
-const ELLIPSIS: char = '\u{2026}';
 
 /// Fonts of the figure text.
 const FONT_FAMILY: &str = "IBM Plex Sans, Helvetica, Arial, sans-serif";
@@ -296,23 +294,6 @@ fn chars_fitting(width: f64) -> usize {
   }
 }
 
-/// `name` shortened in the middle to at most `max` characters, with an ellipsis in place of the
-/// removed characters: the first half of the kept characters (rounded up), the ellipsis, then the
-/// rest from the end. The interactive views shorten labels the same way.
-pub(super) fn shorten(name: &str, max: usize) -> String {
-  let chars: Vec<char> = name.chars().collect();
-  if chars.len() <= max {
-    return name.to_owned();
-  }
-  let kept = max.saturating_sub(1);
-  let head = kept.div_ceil(2);
-  let tail = kept - head;
-  let mut text: String = chars[..head].iter().collect();
-  text.push(ELLIPSIS);
-  text.extend(&chars[chars.len() - tail..]);
-  text
-}
-
 /// `v` with at most two decimals and without trailing zeros, so that equal figures have equal
 /// text: `12`, `0.5`, `-3.25`.
 pub(super) fn num(v: f64) -> String {
@@ -517,28 +498,6 @@ mod tests {
   #[trace]
   fn num_writes_at_most_two_decimals_without_trailing_zeros(#[case] v: f64, #[case] expected: &str) {
     assert_eq!(expected, num(v));
-  }
-
-  #[rustfmt::skip]
-  #[rstest]
-  #[case::short(     "A/New York/392/2004", 40, "A/New York/392/2004")]
-  #[case::at_max(    "abcdef",              6,  "abcdef")]
-  // Oracle: 5 kept characters, 3 from the start and 2 from the end, as `shortenLabel` of the web
-  // app.
-  #[case::odd_kept(  "abcdefgh",            6,  "abc\u{2026}gh")]
-  #[case::even_kept( "abcdefgh",            5,  "ab\u{2026}gh")]
-  #[case::multibyte( "αβγδεζηθ",            4,  "αβ\u{2026}θ")]
-  #[case::one(       "abc",                 1,  "\u{2026}")]
-  #[trace]
-  fn shorten_keeps_the_start_and_the_end(#[case] name: &str, #[case] max: usize, #[case] expected: &str) {
-    assert_eq!(expected, shorten(name, max));
-    assert!(shorten(name, max).chars().count() <= max);
-  }
-
-  #[test]
-  fn shorten_of_a_long_label_has_the_rule_length() {
-    let name = "x".repeat(50);
-    assert_eq!(40, shorten(&name, 40).chars().count());
   }
 
   #[rustfmt::skip]

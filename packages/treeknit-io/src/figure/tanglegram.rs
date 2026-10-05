@@ -4,10 +4,10 @@
 use super::svg::{
   BRANCH_WIDTH, Column, DASH, DOT, LABEL_FONT_FAMILY, LABEL_GAP, LEADER_OPACITY, LEADER_WIDTH, LINK_WIDTH, LegendEntry,
   MARGIN, Path, REASSORTMENT_WIDTH, RIBBON_OPACITY, Rows, Svg, Symbol, baseline, drawing_top, figure_height,
-  label_column, legend_top, num, shorten,
+  label_column, legend_top, num,
 };
 use super::{FigureOptions, labels_shown};
-use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes};
+use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes, shorten};
 use crate::palette::{ThemeColors, palette};
 
 /// The label column takes at most this share of half the inner width.

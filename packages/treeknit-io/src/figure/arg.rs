@@ -2,10 +2,10 @@
 
 use super::svg::{
   BRANCH_WIDTH, Column, DASH, DOT, LABEL_FONT_FAMILY, LABEL_GAP, LEADER_OPACITY, LEADER_WIDTH, LegendEntry, MARGIN,
-  Path, Rows, Svg, Symbol, baseline, drawing_top, figure_height, label_column, legend_top, num, shorten,
+  Path, Rows, Svg, Symbol, baseline, drawing_top, figure_height, label_column, legend_top, num,
 };
 use super::{FigureOptions, labels_shown};
-use crate::display::{ArgView, EdgePath};
+use crate::display::{ArgView, EdgePath, shorten};
 use crate::palette::{ThemeColors, palette};
 
 /// The label column takes at most this share of the inner width.

@@ -9,6 +9,7 @@
 
 mod arg_view;
 mod constellation;
+mod names;
 mod pair;
 mod shapes;
 mod slots;
@@ -16,6 +17,7 @@ mod tree;
 
 pub use arg_view::arg_view;
 pub use constellation::constellation;
+pub use names::shorten;
 pub use pair::pair_view;
 
 use serde::{Deserialize, Serialize};
