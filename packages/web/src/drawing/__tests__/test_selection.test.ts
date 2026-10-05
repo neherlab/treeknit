@@ -128,7 +128,7 @@ describe("pairSelectionRows", () => {
       { mcc: 0, node: { side: "left", name: "NODE_2" } },
       { first: 0, last: 1 },
     ],
-    ["the row of a selected leaf", { mcc: 0, leaf: "X" }, { first: 4, last: 4 }],
+    ["the rows of both copies of a selected leaf", { mcc: 0, leaf: "X" }, { first: 2, last: 4 }],
     ["the rows of the leaves of a selected MCC in both trees", { mcc: 0 }, { first: 0, last: 4 }],
     ["the MCC rows when the selected leaf is not drawn", { mcc: 1, leaf: "Z" }, { first: 2, last: 4 }],
     ["nothing without a selection", {}, null],

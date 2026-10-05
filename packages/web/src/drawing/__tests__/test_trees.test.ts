@@ -1,6 +1,15 @@
 import { describe, expect, test } from "vitest";
 
-import { argNodePoints, cladeSize, leafNames, leafRow, leafRows, rowCount, treeNodePoints } from "../trees";
+import {
+  argNodePoints,
+  cladeSize,
+  leafNames,
+  leafRows,
+  pairLeafRows,
+  rowCenter,
+  rowCount,
+  treeNodePoints,
+} from "../trees";
 import { exampleArgView, examplePairView } from "./fixtures";
 
 const VIEW = examplePairView();
@@ -82,8 +91,16 @@ describe("tree lookups", () => {
     expect(leafNames(VIEW.right)).toStrictEqual(["A", "B", "X", "C", "D"]);
   });
 
-  test("finds the row of a leaf in the left tree first", () => {
-    expect(leafRow(VIEW.left, VIEW.right, "X")).toBe(4);
+  test("spans the rows of a leaf's copies in both trees", () => {
+    expect({
+      both: pairLeafRows(VIEW.left, VIEW.right, "X"),
+      same: pairLeafRows(VIEW.left, VIEW.right, "A"),
+      none: pairLeafRows(VIEW.left, VIEW.right, "nope"),
+    }).toStrictEqual({ both: { first: 2, last: 4 }, same: { first: 0, last: 0 }, none: null });
+  });
+
+  test("centers a row range between its first and last row", () => {
+    expect(rowCenter({ first: 2, last: 4 })).toBe(3);
   });
 
   test("counts the rows of the taller tree", () => {

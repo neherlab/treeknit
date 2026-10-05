@@ -70,16 +70,14 @@ export function leafIndex(tree: DrawTree, name: string): number | undefined {
   return index === -1 ? undefined : index;
 }
 
-export function leafRow(left: DrawTree, right: DrawTree, name: string): number | undefined {
-  const inLeft = leafIndex(left, name);
+export function pairLeafRows(left: DrawTree, right: DrawTree, name: string): RowRange | null {
+  return rowSpan(
+    [left, right].flatMap((tree) => tree.nodes.flatMap((node) => (node.leaf && node.name === name ? [node.y] : []))),
+  );
+}
 
-  if (inLeft !== undefined) {
-    return left.nodes[inLeft]?.y;
-  }
-
-  const inRight = leafIndex(right, name);
-
-  return inRight === undefined ? undefined : right.nodes[inRight]?.y;
+export function rowCenter({ first, last }: RowRange): number {
+  return (first + last) / 2;
 }
 
 export function nodeIndex(tree: DrawTree, name: string): number | undefined {

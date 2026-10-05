@@ -7,8 +7,8 @@ import { examplePairView } from "./fixtures";
 const VIEW = examplePairView();
 
 describe("focusRows", () => {
-  test("centers a leaf on its row in the left tree", () => {
-    expect(focusRows(VIEW, { kind: "leaf", name: "C" })).toStrictEqual({ first: 2, last: 2 });
+  test("spans a leaf's rows in both trees", () => {
+    expect(focusRows(VIEW, { kind: "leaf", name: "C" })).toStrictEqual({ first: 2, last: 3 });
   });
 
   test("fits the rows of an MCC's leaves in both trees", () => {

@@ -3,7 +3,7 @@ import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 
 import type { RowRange } from "../canvas/viewState";
-import { leafRow, rowSpan } from "./trees";
+import { pairLeafRows, rowSpan } from "./trees";
 
 export type FocusTarget = { kind: "leaf"; name: string } | { kind: "mcc"; mcc: number };
 
@@ -44,9 +44,7 @@ export function focusDone(id: number): void {
 
 export function focusRows(view: PairView, target: FocusTarget): RowRange | null {
   if (target.kind === "leaf") {
-    const row = leafRow(view.left, view.right, target.name);
-
-    return row === undefined ? null : { first: row, last: row };
+    return pairLeafRows(view.left, view.right, target.name);
   }
 
   return mccRows(view, target.mcc);

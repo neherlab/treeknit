@@ -4,7 +4,7 @@ import { omit } from "remeda";
 import type { RowRange } from "../canvas/viewState";
 import type { NodeRef, WorkspaceSearch } from "../workspace/search";
 import { mccRows } from "./focus";
-import { leafIndex, leafRow, leafRows, nodeIndex, type TreeSide } from "./trees";
+import { leafIndex, leafRows, nodeIndex, pairLeafRows, type TreeSide } from "./trees";
 
 export const UNSELECTED_OPACITY = 0.25;
 
@@ -130,10 +130,10 @@ export function pairSelectionRows(view: PairView, selection: Selection): RowRang
     return leafRows(view[node.side].nodes, node.node);
   }
 
-  const row = selection.leaf === undefined ? undefined : leafRow(view.left, view.right, selection.leaf);
+  const rows = selection.leaf === undefined ? null : pairLeafRows(view.left, view.right, selection.leaf);
 
-  if (row !== undefined) {
-    return { first: row, last: row };
+  if (rows !== null) {
+    return rows;
   }
 
   return selection.mcc === undefined ? null : mccRows(view, selection.mcc);

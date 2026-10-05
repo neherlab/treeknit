@@ -13,7 +13,7 @@ import { focusDone, type FocusTarget, focusRows, useFocusRequest } from "../draw
 import { counted } from "../drawing/format";
 import { LeafSearch } from "../drawing/LeafSearch";
 import { selectionOf, type Selection, withSelection } from "../drawing/selection";
-import { leafNames, leafRow, rowCount } from "../drawing/trees";
+import { leafNames, pairLeafRows, rowCenter, rowCount } from "../drawing/trees";
 import { useDrawingView } from "../drawing/useDrawingView";
 import { Select, type SelectOption } from "../ui/Select";
 import { Switch } from "../ui/Switch";
@@ -69,10 +69,10 @@ function Tanglegram({ result }: { result: RunResult }) {
     (name: string) => {
       select({ leaf: name });
 
-      const row = data === undefined ? undefined : leafRow(data.left, data.right, name);
+      const rows = data === undefined ? null : pairLeafRows(data.left, data.right, name);
 
-      if (row !== undefined) {
-        view.actions.panTo(row);
+      if (rows !== null) {
+        view.actions.panTo(rowCenter(rows));
       }
     },
     [data, select, view.actions],
@@ -186,7 +186,7 @@ function applyFocus(actions: TreeViewActions, target: FocusTarget, range: RowRan
   }
 
   if (target.kind === "leaf") {
-    actions.panTo(range.first);
+    actions.panTo(rowCenter(range));
   } else {
     actions.fitRows(range);
   }
