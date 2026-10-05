@@ -79,3 +79,57 @@ jobs:
           # The action skips paths under a directory whose name starts with a dot, such as .out/.
           include-hidden-files: true
           if-no-files-found: error
+
+  # The Linux x86_64 binaries in the distribution images of
+  # dev/cross/distros-glibc and dev/cross/distros-other, on a simulated case with
+  # the same result required everywhere. Each run pulls every image of its
+  # list, most from Docker Hub, so it runs on pushes and manual runs only,
+  # logged in when the token is set, to stay within the Docker Hub pull limits.
+  test-distros:
+    name: "Test on Linux distributions (${{ matrix.target }})"
+    needs: [build-cli]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+
+    steps:
+      - name: "Check out"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: "Check for the Docker Hub token"
+        id: dockerhub
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN }}
+        run: printf 'token=%s\n' "${DOCKERHUB_TOKEN:+set}" >>"${GITHUB_OUTPUT}"
+
+      - name: "Log in to Docker Hub"
+        if: ${{ steps.dockerhub.outputs.token == 'set' }}
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN }}
+
+      - name: "Download the binary"
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: treeknit-${{ matrix.target }}
+          path: .out
+
+      - name: "Run in the distribution images"
+        run: |
+          chmod +x ".out/treeknit-${{ matrix.target }}"
+          dev/cross/test-distros treeknit "${{ matrix.target }}"
+
+      - name: "Upload the logs"
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-distros-${{ matrix.target }}
+          path: tmp/cross/distros/${{ matrix.target }}/
+          retention-days: 7
