@@ -31,7 +31,8 @@ julia --project=/tmp/tkref/fixedenv /workspace/treeknit-rs/ref/simulate.jl      
 
 - `fixture_lib.jl`: computes all fields for one case (`make_fixture`).
 - `dump_fixtures.jl`: the case list taken from docs, tests and real data.
-- `simulate.jl`: the ARGTools simulation grid. It also contains a port of `TestRecombTools.remove_branches!`, with a guard so the root is never deleted.
+- `simulate.jl`: the ARGTools simulation grid.
+- `sim_lib.jl`: a port of `TestRecombTools.remove_branches!`, which collapses short branches into polytomies, with a guard so the root is never deleted; shared with `perf/simulate.jl`.
 
 ## Format notes
 
@@ -49,3 +50,49 @@ These go beyond the spec in the task.
   - `pairwise_naive_mccs` maps `"i-j"` to the naive MCCs of that pair.
   - `multi_runs` holds 5 runs of `run_treeknit!(copies, OptArgs(K))` with `Random.seed!(i)`. Each run maps `"i-j"` to its MCCs.
 - Simulated cases also have `sim_params` and `true_mccs`, which maps `"i-j"` to `ARGTools.MCCs_from_arg(arg, i+1, j+1)`.
+
+## Comparison with TreeKnit.jl (`perf/`)
+
+The scripts in `perf/` measure the runtime of TreeKnit.jl and compare its results with the port's. The findings are in `kb/reports/julia-rust-equivalence.md` and `kb/reports/performance.md`.
+
+### Environment
+
+TreeKnit.jl 0.5.8 (commit `dbbc89a`) with TreeTools 0.6.14 on Julia 1.13.1, in the official `julia:1.13.1-trixie` image, started from the repository root:
+
+```sh
+docker run --rm -it --volume="$PWD:$PWD" --workdir="$PWD" julia:1.13.1-trixie bash
+```
+
+In the container, install a C compiler, which TreeKnit.jl (its package build installs the command line with Comonicon) and PackageCompiler need, then the packages, and build a system image, which removes the compilation time from every run:
+
+```sh
+apt-get update && apt-get install --yes --no-install-recommends build-essential time
+export JULIA_PROJECT=/opt/tkperf
+julia -e 'using Pkg;
+  Pkg.add(url="https://github.com/PierreBarrat/TreeKnit.jl", rev="dbbc89ac691fed0949a622eedbae103787b89320");
+  Pkg.add(name="TreeTools", version="0.6.14");
+  Pkg.add(url="https://github.com/PierreBarrat/ARGTools", rev="824b371cd0a2fd79fe80d4848e3445b3e6718686");
+  Pkg.add(["JSON3", "Distributions", "PackageCompiler"])'
+julia -e 'using PackageCompiler; create_sysimage(["TreeKnit"]; sysimage_path="/opt/tkperf/treeknit.so",
+  precompile_execution_file="ref/perf/precompile.jl", cpu_target="native")'
+alias jl='julia --sysimage=/opt/tkperf/treeknit.so --startup-file=no'
+```
+
+Keep the default optimization level. `-O3` makes Julia reject the precompiled package images, which adds about 50 s to loading TreeKnit without the system image, and it does not change the speed of warm runs.
+
+The port: `./dev/docker/run just build prod` writes `.out/treeknit`.
+
+### Commands
+
+Output goes to `tmp/perf/` in these examples.
+
+- Seeded runs of the TreeKnit.jl command line, with in-process times: `jl ref/perf/seeds.jl tmp/perf/jl 1 100 data/h3n2-2017/ha.nwk data/h3n2-2017/na.nwk [-- OPTION...]`
+- Seeded runs with options that the TreeKnit.jl command line ignores (`--no-likelihood`, `--no-pre-resolve`, `--better-MCCs`): `jl ref/perf/api_seeds.jl tmp/perf/jl 1 300 A.nwk B.nwk -- --no-pre-resolve --no-likelihood`
+- Seeded runs of the port, with wall-clock times: `./dev/docker/run bash -c 'for s in $(seq 1 100); do .out/treeknit data/h3n2-2017/ha.nwk data/h3n2-2017/na.nwk --better-MCCs --threads 1 --seed "$s" --verbosity-level -1 -o tmp/perf/rs/s"$s"; done'`. Give the port the method flag that TreeKnit.jl selects by default: `--better-MCCs` for two trees, `--better-trees` for more
+- Distributions of the two sets of runs: `jl ref/perf/compare.jl tmp/perf/jl tmp/perf/rs [NPERM] [--freq]`
+- MCCs that are not compatible with the input trees: `jl ref/perf/check_mccs.jl data/h3n2-2017 tmp/perf/jl tmp/perf/rs`
+- Splits of the resolved output trees of two runs: `jl ref/perf/splits.jl tmp/perf/jl/s1 tmp/perf/rs/s1`
+- Random subsets of the four segment trees: `jl ref/perf/subset.jl tmp/perf/k4-n400 400 400 data/h3n2-2k-4-segments/{ha,na,pb1,pb2}.nwk`
+- Simulated ARGs with true MCCs, then accuracy of each set of runs stored as `tmp/perf/runs/<simulation>/<arm>/s<seed>/`: `jl ref/perf/simulate.jl tmp/perf/sim`, then `jl ref/perf/accuracy.jl tmp/perf/sim tmp/perf/runs jl rs`
+- Cost of one energy computation: `jl ref/perf/energy.jl A.nwk B.nwk` for TreeKnit.jl, and `./dev/docker/run just example energy_cost A.nwk B.nwk` for the port, which also times the incremental update
+- Wall-clock time and peak memory of one command: `/usr/bin/time -v` (Debian package `time`)
