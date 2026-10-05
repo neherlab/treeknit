@@ -156,18 +156,22 @@ impl FileEntry {
 }
 
 impl OutputFile {
-  /// A file at `path` with its media type taken from the extension.
+  /// A file at `path` with the `media_type` of the path.
   pub fn new(path: String, text: String) -> Self {
-    let media_type = match Path::new(&path).extension().and_then(|e| e.to_str()) {
-      Some(e) if e.eq_ignore_ascii_case("json") => "application/json",
-      Some(e) if e.eq_ignore_ascii_case("svg") => "image/svg+xml",
-      _ => "text/plain",
-    };
     OutputFile {
+      media_type: media_type(&path).to_owned(),
       path,
-      media_type: media_type.to_owned(),
       text,
     }
+  }
+}
+
+/// The media type of an output file at `path`, from its extension: JSON, SVG, or plain text.
+pub fn media_type(path: &str) -> &'static str {
+  match Path::new(path).extension().and_then(|e| e.to_str()) {
+    Some(e) if e.eq_ignore_ascii_case("json") => "application/json",
+    Some(e) if e.eq_ignore_ascii_case("svg") => "image/svg+xml",
+    _ => "text/plain",
   }
 }
 
@@ -228,12 +232,14 @@ pub fn output_files(run: &RunResult, opts: &Options, options: &OutputOptions) ->
     );
   }
   if options.figures {
-    // `figure_files` lists only figures that `run` has, so each has a text.
-    files.extend(
-      figure_files(run)
-        .into_iter()
-        .filter_map(|f| Some(OutputFile::new(f.path, figure_text(run, opts, f.figure)?))),
-    );
+    files.extend(figure_files(run).into_iter().map(|f| {
+      #[expect(
+        clippy::expect_used,
+        reason = "`figure_files` lists only figures that `run` has, so each has a text"
+      )]
+      let text = figure_text(run, opts, f.figure).expect("a listed figure has a text");
+      OutputFile::new(f.path, text)
+    }));
   }
   files
 }

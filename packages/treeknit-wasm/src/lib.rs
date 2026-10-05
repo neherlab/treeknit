@@ -357,16 +357,13 @@ impl SessionFile {
       SessionFile::Text(f) => FileEntry::new(f.path.clone(), f.media_type.clone(), Some(f.text.len()), None),
       SessionFile::Figure { file, svg } => FileEntry::new(
         file.path.clone(),
-        FIGURE_MEDIA_TYPE.to_owned(),
+        output::media_type(&file.path).to_owned(),
         svg.get().map(String::len),
         Some(file.figure),
       ),
     }
   }
 }
-
-/// Media type of the figure files.
-const FIGURE_MEDIA_TYPE: &str = "image/svg+xml";
 
 /// A JavaScript `Error` named `ValidationError` whose message joins the messages of `errors`, one
 /// per line, so the caller tells an invalid request from an internal failure.
