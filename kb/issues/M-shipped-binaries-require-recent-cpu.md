@@ -2,7 +2,7 @@
 
 ## Summary
 
-The shipped builds (`just build prod`, `just build-cross prod`, and the artifacts of `.github/workflows/cli-build.yml`) compile for a fixed CPU baseline, set in `dev/lib/dist-flags.sh`: Haswell (x86-64-v3 with AVX2 and FMA) on x86_64, and ARMv8.2-A extensions (LSE atomics, RDM, and others) on Linux aarch64. A binary built this way stops with `SIGILL` (illegal instruction) on an older CPU. The CLI help and the README do not state the requirement; only the developer guide does.
+The shipped builds (`just build prod`, `just build-cross prod`, and the nightly releases) compile for a fixed CPU baseline, set in `dev/lib/dist-flags.sh`: Haswell (x86-64-v3 with AVX2 and FMA) on x86_64, and ARMv8.2-A extensions (LSE atomics, RDM, and others) on Linux aarch64. A binary built this way stops with `SIGILL` (illegal instruction) on an older CPU. The notes of each nightly release state the requirement; the CLI help and the README do not.
 
 ## Evidence
 
@@ -23,7 +23,7 @@ The shipped builds (`just build prod`, `just build-cross prod`, and the artifact
 
 - Lower the baseline to `x86-64-v2` and generic aarch64, if the benchmarks show a small cost
 - Or ship two builds per architecture (baseline and optimized), and select one at installation or with a small launcher
-- Or keep the baseline, state the CPU requirement where users download the binaries, and print a clear error at startup when the CPU lacks a required feature
+- Or keep the baseline (the release notes already state it) and print a clear error at startup when the CPU lacks a required feature
 
 ## Validation
 
