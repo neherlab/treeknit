@@ -1,5 +1,13 @@
 import type { ArgView, TreeInspection, TreeText } from "@neherlab/treeknit-wasm";
-import { keepPreviousData, type QueryKey, useQueries, useQuery, type UseQueryResult } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  type QueryKey,
+  skipToken,
+  type SkipToken,
+  useQueries,
+  useQuery,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import { isDeepEqual } from "remeda";
 
 import { useAnalysisClient } from "./context";
@@ -12,6 +20,8 @@ const INPUT_QUERY_GC_MS = 5000;
 const PAIR_SCOPE = 4;
 
 const SESSION_SCOPE = 3;
+
+const NO_SESSION = ["session", null] as const;
 
 export const analysisKeys = {
   defaultSettings: () => ["defaultSettings"] as const,
@@ -104,56 +114,76 @@ export function useSettingsSchema(...args: StatelessArgs<"settingsSchema">): Ans
   });
 }
 
-export function useSessionFiles(sessionId: number): Answer<SessionResult<"files">> {
-  const client = useAnalysisClient();
-
-  return useQuery({ queryKey: analysisKeys.files(sessionId), queryFn: async () => client.files(sessionId) });
-}
-
-export function useCommandLine(sessionId: number): Answer<SessionResult<"commandLine">> {
+export function useSessionFiles(sessionId: number | null): Answer<SessionResult<"files">> {
   const client = useAnalysisClient();
 
   return useQuery({
-    queryKey: analysisKeys.commandLine(sessionId),
-    queryFn: async () => client.commandLine(sessionId),
+    queryKey: sessionKey(sessionId, analysisKeys.files),
+    queryFn: sessionQuery(sessionId, async (id) => client.files(id)),
   });
 }
 
-export function usePairView(sessionId: number, ...args: SessionArgs<"pairView">): Answer<SessionResult<"pairView">> {
+export function useCommandLine(sessionId: number | null): Answer<SessionResult<"commandLine">> {
   const client = useAnalysisClient();
-  const queryKey = analysisKeys.pairView(sessionId, ...args);
+
+  return useQuery({
+    queryKey: sessionKey(sessionId, analysisKeys.commandLine),
+    queryFn: sessionQuery(sessionId, async (id) => client.commandLine(id)),
+  });
+}
+
+export function usePairView(
+  sessionId: number | null,
+  ...args: SessionArgs<"pairView">
+): Answer<SessionResult<"pairView">> {
+  const client = useAnalysisClient();
+  const queryKey = sessionKey(sessionId, (id) => analysisKeys.pairView(id, ...args));
 
   return useQuery({
     queryKey,
-    queryFn: async () => client.pairView(sessionId, ...args),
+    queryFn: sessionQuery(sessionId, async (id) => client.pairView(id, ...args)),
     placeholderData: (previous, previousQuery) =>
       sharesScope(previousQuery?.queryKey, queryKey, PAIR_SCOPE) ? previous : undefined,
   });
 }
 
-export function useArgView(sessionId: number, ...args: SessionArgs<"argView">): UseQueryResult<ArgView | null> {
+export function useArgView(sessionId: number | null, ...args: SessionArgs<"argView">): UseQueryResult<ArgView | null> {
   const client = useAnalysisClient();
-  const queryKey = analysisKeys.argView(sessionId, ...args);
+  const queryKey = sessionKey(sessionId, (id) => analysisKeys.argView(id, ...args));
 
   return useQuery({
     queryKey,
-    queryFn: async () => (await client.argView(sessionId, ...args)) ?? null,
+    queryFn: sessionQuery(sessionId, async (id) => (await client.argView(id, ...args)) ?? null),
     placeholderData: (previous, previousQuery) =>
       sharesScope(previousQuery?.queryKey, queryKey, SESSION_SCOPE) ? previous : undefined,
   });
 }
 
-export function useConstellation(sessionId: number): Answer<SessionResult<"constellation">> {
+export function useConstellation(sessionId: number | null): Answer<SessionResult<"constellation">> {
   const client = useAnalysisClient();
 
   return useQuery({
-    queryKey: analysisKeys.constellation(sessionId),
-    queryFn: async () => client.constellation(sessionId),
+    queryKey: sessionKey(sessionId, analysisKeys.constellation),
+    queryFn: sessionQuery(sessionId, async (id) => client.constellation(id)),
   });
 }
 
 export function sharesScope(previous: QueryKey | undefined, next: QueryKey, depth: number): boolean {
   return previous !== undefined && isDeepEqual(previous.slice(0, depth), next.slice(0, depth));
+}
+
+function sessionKey<Key extends QueryKey>(
+  sessionId: number | null,
+  key: (sessionId: number) => Key,
+): Key | typeof NO_SESSION {
+  return sessionId === null ? NO_SESSION : key(sessionId);
+}
+
+function sessionQuery<T>(
+  sessionId: number | null,
+  load: (sessionId: number) => Promise<T>,
+): (() => Promise<T>) | SkipToken {
+  return sessionId === null ? skipToken : async () => load(sessionId);
 }
 
 function inspectionData(results: readonly UseQueryResult<TreeInspection>[]): (TreeInspection | undefined)[] {
