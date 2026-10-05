@@ -52,7 +52,6 @@ The tests compare the port with fixtures that TreeKnit.jl writes (see [`ref/READ
 ## Issues found in this survey
 
 - [`H-pairs-with-fewer-than-two-shared-leaves.md`](../issues/H-pairs-with-fewer-than-two-shared-leaves.md): a pair without shared leaves panics, and a pair with one shared leaf gives one MCC of all leaves
-- [`H-cli-accepts-invalid-settings.md`](../issues/H-cli-accepts-invalid-settings.md): the command line accepts a negative γ and zero sequence lengths, and zero lengths make it panic
 - [`M-arg-fails-after-imputation.md`](../issues/M-arg-fails-after-imputation.md): the ARG construction fails when imputed trees disagree inside an MCC
 - [`M-arg-outputs-unquoted-labels.md`](../issues/M-arg-outputs-unquoted-labels.md): `ARG/arg.nwk` writes labels without quotes
 - [`N-undocumented-differences-from-treeknit-jl.md`](../issues/N-undocumented-differences-from-treeknit-jl.md): differences from TreeKnit.jl that need a decision

@@ -29,7 +29,7 @@ Counterpart: [`v0/pipeline.md`](v0/pipeline.md). `treeknit_core::run` runs the p
 
 - [x] **Keyword constructor**: Rust struct update syntax, for example `Options { gamma: 3.0, ..Options::default() }`, sets any field
 - [x] **`OptArgs(K; method)`**: `Options::treeknit_jl(k, method)` gives `BetterTrees` (no resolution) for $K > 2$ and `BetterMccs` (strict resolution) for $K = 2$, both with pre-resolution [[src](../../packages/treeknit-core/src/options.rs#L107-L117)]. It drops no keyword, because callers set fields directly
-- [x] **Rounds and the clean-up rule**: `fn former_options` of the command line applies the TreeKnit.jl rules for `rounds` and `final_no_resolve`, including the clean-up rule, and converts them to `rounds` and `final_unresolved_round` [[src](../../packages/treeknit-cli/src/main.rs#L356-L435)]
+- [x] **Rounds and the clean-up rule**: `fn former_options` of the command line applies the TreeKnit.jl rules for `rounds` and `final_no_resolve`, including the clean-up rule, and converts them to `rounds` and `final_unresolved_round` [[src](../../packages/treeknit-cli/src/main.rs#L398-L477)]
 
 ## Sequence of a run
 

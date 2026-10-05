@@ -4,13 +4,13 @@ TreeKnit.jl has no browser version. `packages/treeknit-wasm` compiles the core a
 
 ## WebAssembly bindings
 
-`packages/treeknit-wasm` [[src](../../packages/treeknit-wasm/src/lib.rs#L9-L32)]:
+`packages/treeknit-wasm` [[src](../../packages/treeknit-wasm/src/lib.rs#L1-L41)] binds the shared module `treeknit_io::analysis` [[src](../../packages/treeknit-io/src/analysis.rs#L1-L6)], which the command line uses too:
 
-- [x] **`analyze(request)`**: runs the pipeline on labeled Newick texts and returns the MCCs of each pair, the ARG outcome for two trees (hybrid count or failure message), and the output files [[src](../../packages/treeknit-wasm/src/analysis.rs#L9-L48)]
+- [ ] **Run**: no export runs an analysis yet
 - [x] **`defaultSettings()`**: the settings of a request without settings, which are the command-line defaults
-- [/] **Settings**: `gamma`, `seqLengths`, `nMcmcIt`, `resolve`, `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, and `seed` [[src](../../packages/treeknit-wasm/src/analysis.rs#L67-L113)]. The former method options of the command line and the thread count are not available; analyses run on one thread
-- [x] **Validation**: at least two trees, non-empty and unique labels, γ finite and not negative, at least one round, one positive sequence length per tree, and no unknown fields [[src](../../packages/treeknit-wasm/src/analysis.rs#L180-L222)]. Errors name the field or position. The command line does not check the same ranges ([`H-cli-accepts-invalid-settings.md`](../issues/H-cli-accepts-invalid-settings.md))
-- [/] **Output files**: `MCCs.json`, `MCCs.dat` or `MCCs_<a>_<b>.dat`, `<label>_resolved.nwk`, `<label>_imputed.nwk`, and for two trees `arg.nwk`, `nodes.dat`, `<label>_liberal_resolved.nwk`, under the command-line names with the extension `.nwk` [[src](../../packages/treeknit-wasm/src/analysis.rs#L224-L264)]. The Auspice JSON files, `parameters.json`, and the log are missing ([`N-web-app-partial-settings-and-outputs.md`](../issues/N-web-app-partial-settings-and-outputs.md))
+- [/] **Settings**: `gamma`, `seqLengths`, `nMcmcIt`, `resolve`, `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, and `seed` [[src](../../packages/treeknit-io/src/analysis.rs#L41-L70)]. The former method options of the command line and the thread count are not available; analyses run on one thread
+- [x] **`validate(request)`**: the checks of the command line [[src](../../packages/treeknit-wasm/src/lib.rs#L18-L22)]: at least two trees, labels usable as file names and unique, distinct pair file names, Newick syntax, at least two shared leaves per pair, γ finite and not negative, one finite positive sequence length per tree, at least one round and one MCMC step, and a seed of at most 2^53 - 1. Each error has the camelCase path of its field (`settings.seqLengths[1]`, `trees[0].newick`) and, for a Newick error with a position, the 1-based line and column in characters. A request of the wrong shape (unknown fields, wrong types) throws an error with the JSON position
+- [ ] **Output files**: no export returns output files ([`N-web-app-partial-settings-and-outputs.md`](../issues/N-web-app-partial-settings-and-outputs.md))
 - [x] **TypeScript declarations**: tsify derives them from the Rust types; the generated file is committed and `just generated-check` detects stale declarations
 - [x] **Panics**: a panic hook writes the message to the browser console. A panic traps the module
 

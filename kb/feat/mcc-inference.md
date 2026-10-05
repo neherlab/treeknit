@@ -60,7 +60,7 @@ Counterpart: [`v0/mcc-inference.md`](v0/mcc-inference.md). `fn infer_pair` takes
 
 - [x] **Order of the rules**: drop the configuration that removes nothing; take the only one left; without the likelihood, take one at random; otherwise keep the highest likelihood, then the lowest energy, then take one at random
 - [x] **Missing branch lengths**: they contribute 0, so no configuration has a missing likelihood and no warning is needed. TreeKnit.jl prefers the configurations with a `missing` likelihood. The port avoids this on purpose ([README](../../README.md#deliberate-differences-from-treeknitjl))
-- [/] **Undefined likelihood**: zero sequence lengths give `NaN` for every configuration, and the choice then panics ([`H-cli-accepts-invalid-settings.md`](../issues/H-cli-accepts-invalid-settings.md))
+- [x] **Undefined likelihood**: zero sequence lengths would give `NaN` for every configuration, and the choice would panic. The shared validation accepts only finite positive sequence lengths, on the command line and in the web app [[src](../../packages/treeknit-io/src/analysis.rs#L228-L269)]
 
 ## Branch-length likelihood
 

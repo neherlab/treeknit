@@ -4,7 +4,7 @@ TreeKnit.jl requires all trees to have the same leaves and stops with "Trees mus
 
 ## Inference on shared leaves
 
-- [x] **Taxon table**: the union of the leaves of all trees. The command line logs, for each tree, how many leaves it lacks [[src](../../packages/treeknit-cli/src/main.rs#L495-L507)]
+- [x] **Taxon table**: the union of the leaves of all trees. The command line logs, for each tree, how many leaves it lacks [[src](../../packages/treeknit-cli/src/main.rs#L537-L549)]
 - [x] **Restriction**: each pair is restricted to its shared leaves. Unary nodes are removed and their branch lengths added [[src](../../packages/treeknit-core/src/pipeline.rs#L237-L251)]. A unit test checks that a pair with one extra leaf gives the same MCCs as the pair without it
 - [x] **Pre-resolution**: splits are compared on the leaves each two trees share (see [`resolution.md`](resolution.md#resolution-with-topology-only))
 - [x] **Resolution with MCCs**: on the restricted pair, then inserted into the full trees with the shared leaves as mask, so subtrees of other leaves do not move

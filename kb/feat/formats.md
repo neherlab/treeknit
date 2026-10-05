@@ -4,18 +4,18 @@ Counterpart: [`v0/formats.md`](v0/formats.md). `treeknit-io` reads and writes al
 
 ## Input: Newick
 
-`fn parse` and `fn parse_first` [[src](../../packages/treeknit-io/src/newick.rs#L140-L163)]:
+`fn parse` and `fn parse_first` [[src](../../packages/treeknit-io/src/newick.rs#L173-L195)]:
 
 - [/] **Several trees in one file**: the first tree is used, with the warning "<label>: more than one tree in file, using the first". TreeKnit.jl reads a vector, which its command line does not handle
 - [x] **Terminator**: `;` is required. Whitespace and `\r` after it are accepted; TreeTools.jl rejects them
-- [x] **Branch lengths**: parsed as `f64`. An invalid length becomes missing with the warning "ignoring invalid branch length" [[src](../../packages/treeknit-io/src/newick.rs#L92-L113)]. TreeTools.jl gives no warning
+- [x] **Branch lengths**: parsed as `f64`. An invalid length becomes missing with the warning "ignoring invalid branch length" [[src](../../packages/treeknit-io/src/newick.rs#L124-L145)]. TreeTools.jl gives no warning
 - [x] **Root**: the root branch length is dropped. A root polytomy stays a polytomy
-- [x] **Unnamed internal nodes**: `NODE_<k>`, numbered in pre-order for each tree [[src](../../packages/treeknit-io/src/newick.rs#L165-L196)]
+- [x] **Unnamed internal nodes**: `NODE_<k>`, numbered in pre-order for each tree [[src](../../packages/treeknit-io/src/newick.rs#L197-L228)]
 - [/] **Unnamed leaves**: an error "unnamed leaf". TreeTools.jl names them `NODE_<k>`
 - [/] **Numeric internal labels**: support values such as `87` or `0.95` become `NODE_<k>`, so the output has the same names in every run and loses the support values. TreeTools.jl renames them `<label>__<random>`
 - [x] **Duplicate leaf names**: an error, as in TreeTools.jl
 - [/] **Duplicate internal names**: renamed `NODE_<k>`. TreeTools.jl raises an error
-- [x] **Quoted labels (new)**: `'a b'`, with `''` for a quote character [[src](../../packages/treeknit-io/src/newick.rs#L58-L90)]
+- [x] **Quoted labels (new)**: `'a b'`, with `''` for a quote character [[src](../../packages/treeknit-io/src/newick.rs#L90-L122)]
 - [x] **Comments (new)**: `[...]` is skipped, including annotations such as `[&x=1]`
 - [x] **Whitespace (new)**: allowed between all tokens
 - [x] **Nodes with one child**: accepted without a warning
@@ -38,7 +38,7 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 
 ## Resolved trees
 
-`fn write` [[src](../../packages/treeknit-io/src/newick.rs#L206-L256)]:
+`fn write` [[src](../../packages/treeknit-io/src/newick.rs#L239-L288)]:
 
 - [x] **Order**: children in stored order
 - [x] **Labels**: every node label, including internal nodes
@@ -50,7 +50,7 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 
 ## `parameters.json`
 
-`fn params_json` [[src](../../packages/treeknit-cli/src/main.rs#L437-L456)]:
+`fn params_json` [[src](../../packages/treeknit-cli/src/main.rs#L479-L498)]:
 
 - [x] **Time of writing**: before the inference
 - [/] **Fields**: `gamma`, `itmax`, `likelihood_sort`, `resolution`, `seq_lengths`, `pre_resolve`, `rounds`, `final_unresolved_round`, `nMCMC`, `sa_rep`, `Tmin`, `Tmax`, `nT`, `cooling_schedule`, `naive`, and `seed`. TreeKnit.jl writes the `OptArgs` fields: `γ`, `resolve`, `strict`, `final_no_resolve`, `parallel`, and `Trange`, which the port does not write. A reader of the TreeKnit.jl file cannot read this file
