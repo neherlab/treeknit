@@ -267,8 +267,8 @@ impl Session {
     let _log = log_capture::discard();
     let version = from_js("version", version)?;
     let scale = from_js("scale", scale)?;
-    let view = display::pair_view(&self.run, &self.options, pair, version, scale)
-      .ok_or_else(|| JsError::new(&format!("no pair {pair}: the run has {} pairs", self.run.pairs.len())))?;
+    let view =
+      display::pair_view(&self.run, &self.options, pair, version, scale).ok_or_else(|| no_pair(&self.run, pair))?;
     to_js(&view)
   }
 
@@ -296,7 +296,7 @@ impl Session {
     let version = from_js("version", version)?;
     let options = figure_options(options)?;
     let view = display::pair_view(&self.run, &self.options, pair, version, options.scale)
-      .ok_or_else(|| JsError::new(&format!("no pair {pair}: the run has {} pairs", self.run.pairs.len())))?;
+      .ok_or_else(|| no_pair(&self.run, pair))?;
     figure::tanglegram_svg(&view, &options).map_err(|e| validation_error(&e))
   }
 
@@ -311,6 +311,15 @@ impl Session {
     let segments = output::segment_labels(&self.run).ok_or_else(no_arg)?;
     figure::arg_svg(&view, segments, &options).map_err(|e| validation_error(&e))
   }
+}
+
+/// The error for a pair index that `run` does not have.
+fn no_pair(run: &RunResult, pair: usize) -> JsError {
+  let pairs = match run.pairs.len() {
+    1 => "1 pair".to_owned(),
+    n => format!("{n} pairs"),
+  };
+  JsError::new(&format!("no pair {pair}: the run has {pairs}"))
 }
 
 /// An output file of a session: its text, or a figure rendered on first use.

@@ -441,7 +441,7 @@ mod tests {
   fn session_figure_of_an_unknown_pair_or_a_missing_arg_throws() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let error = Error::from(session.figure(1, &ts(&json!("resolved")), &ts(&json!({}))).unwrap_err());
-    assert_eq!("no pair 1: the run has 1 pairs", String::from(error.message()));
+    assert_eq!("no pair 1: the run has 1 pair", String::from(error.message()));
     let t = "((A,B),(C,D));";
     let three =
       json!({"trees": [{"label": "ha", "newick": t}, {"label": "na", "newick": t}, {"label": "pb2", "newick": t}]});
@@ -611,7 +611,7 @@ mod tests {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     match session.pair_view(1, &ts(&json!("resolved")), &ts(&json!("div"))) {
       Ok(_) => panic!("expected an error"),
-      Err(e) => assert_eq!("no pair 1: the run has 1 pairs", message(e)),
+      Err(e) => assert_eq!("no pair 1: the run has 1 pair", message(e)),
     }
     match session.pair_view(0, &ts(&json!("final")), &ts(&json!("div"))) {
       Ok(_) => panic!("expected an error"),
