@@ -16,3 +16,6 @@ rand.workspace = true
 rand_xoshiro.workspace = true
 rayon.workspace = true
 log.workspace = true
+
+[lints]
+workspace = true

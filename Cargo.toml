@@ -73,3 +73,228 @@ simplelog = "=0.12.2"
 
 treeknit-core = { path = "packages/treeknit-core" }
 treeknit-io = { path = "packages/treeknit-io" }
+
+[workspace.lints.rust]
+# Lint groups
+# https://doc.rust-lang.org/rustc/lints/groups.html
+warnings = { level = "warn", priority = -100 }
+future_incompatible = { level = "warn", priority = -90 }
+deprecated_in_future = { level = "warn", priority = -80 }
+deprecated_safe = { level = "warn", priority = -81 }
+
+rust_2018_compatibility = { level = "warn", priority = -70 }
+rust_2018_idioms = { level = "warn", priority = -70 }
+rust_2021_compatibility = { level = "warn", priority = -70 }
+rust_2024_compatibility = { level = "warn", priority = -70 }
+
+let_underscore = { level = "warn", priority = -50 }
+nonstandard_style = { level = "warn", priority = -50 }
+refining_impl_trait = { level = "warn", priority = -50 }
+unused = { level = "warn", priority = -50 }
+
+# Disable some of the lints enabled by default
+# https://doc.rust-lang.org/rustc/lints/listing/warn-by-default.html
+edition_2024_expr_fragment_specifier = "allow"
+elided_lifetimes_in_paths = "allow"
+non_snake_case = "allow"
+unused_variables = "allow"
+
+# Enable lints not enabled by default
+# https://doc.rust-lang.org/rustc/lints/listing/allowed-by-default.html
+absolute_paths_not_starting_with_crate = "warn"
+explicit_outlives_requirements = "warn"
+ffi_unwind_calls = "warn"
+keyword_idents_2018 = "warn"
+keyword_idents_2024 = "warn"
+let_underscore_drop = "warn"
+macro_use_extern_crate = "warn"
+meta_variable_misuse = "warn"
+missing_abi = "warn"
+missing_unsafe_on_extern = "warn"
+non_ascii_idents = "warn"
+non_local_definitions = "warn"
+redundant_lifetimes = "warn"
+rust_2021_incompatible_closure_captures = "warn"
+rust_2021_incompatible_or_patterns = "warn"
+rust_2021_prefixes_incompatible_syntax = "warn"
+rust_2021_prelude_collisions = "warn"
+single_use_lifetimes = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unit_bindings = "warn"
+unnameable_types = "warn"
+unsafe_code = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+unstable_features = "warn"
+unused_extern_crates = "warn"
+unused_import_braces = "warn"
+unused_lifetimes = "warn"
+unused_macro_rules = "warn"
+unused_qualifications = "warn"
+variant_size_differences = "warn"
+# Crate-internal items live in private modules as `pub(crate)`, so every `pub`
+# item is part of the crate's external interface.
+unreachable_pub = "warn"
+# We might need to reconsider these
+unused_crate_dependencies = "allow"
+# missing_copy_implementations = "warn"
+# missing_debug_implementations = "warn"
+
+# An unrecognized lint name is a hard error rather than a warning, so a typo or
+# a lint removed upstream fails the build instead of silently doing nothing.
+unknown_lints = "deny"
+
+
+[workspace.lints.clippy]
+# https://rust-lang.github.io/rust-clippy/stable/
+# This is a strict (sometimes too much) Clippy setup.
+# We go bold and enable all Clippy lints, then disable the ones that we don't need.
+# This has an advantage that when upgrading Rust and Clippy, we receive new lints automatically.
+all = { level = "warn", priority = -2 }
+blanket_clippy_restriction_lints = "allow"
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+restriction = { level = "warn", priority = -1 }
+
+# Additional correctness, precision, and hygiene lints promoted to warnings.
+# Enabling these surfaces pre-existing violations across the workspace; they
+# stay at "warn" (not "deny") so the read-only gate reports them without
+# blocking, and new code is expected to avoid them. The panic-path lints
+# (unwrap/expect/panic/indexing) are exempted inside tests through clippy.toml.
+as_conversions = "warn"
+expect_used = "warn"
+float_cmp_const = "warn"
+integer_division = "warn"
+iter_over_hash_type = "warn"
+lossy_float_literal = "warn"
+panic = "warn"
+str_to_string = "warn"
+tests_outside_test_module = "warn"
+unwrap_used = "warn"
+
+# Disable some of the Clippy lints
+absolute_paths = "allow"
+allow_attributes = "allow"
+arbitrary_source_item_ordering = "allow"
+assign_op_pattern = "allow"
+assigning_clones = "allow"
+bool_to_int_with_if = "allow"
+cast_lossless = "allow"
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+char_lit_as_u8 = "allow"
+cognitive_complexity = "allow"
+comparison_chain = "allow"
+deref_by_slicing = "allow"
+doc_markdown = "allow"
+doc_paragraphs_missing_punctuation = "allow"
+else_if_without_else = "allow"
+equatable_if_let = "allow"
+exhaustive_enums = "allow"
+exhaustive_structs = "allow"
+# Crate-internal fields are `pub(crate)`, following the `unreachable_pub` policy.
+field_scoped_visibility_modifiers = "allow"
+float_arithmetic = "allow"
+if_not_else = "allow"
+impl_trait_in_params = "allow"
+implicit_hasher = "allow"
+implicit_return = "allow"
+inconsistent_digit_grouping = "allow"
+# Restriction lints that contradict the project conventions: inline `mod tests`
+# blocks and inline trait bounds are the house style.
+inline_modules = "allow"
+inline_trait_bounds = "allow"
+iter_nth_zero = "allow"
+large_digit_groups = "allow"
+len_zero = "allow"
+let_underscore_must_use = "allow"
+manual_string_new = "allow"
+integer_division_remainder_used = "allow"
+match_same_arms = "allow"
+min_ident_chars = "allow"
+missing_const_for_fn = "allow"
+missing_docs_in_private_items = "allow"
+missing_errors_doc = "allow"
+missing_inline_in_public_items = "allow"
+missing_panics_doc = "allow"
+missing_trait_methods = "allow"
+mod_module_files = "allow"
+module_inception = "allow"
+module_name_repetitions = "allow"
+modulo_arithmetic = "allow"
+must_use_candidate = "allow"
+needless_for_each = "allow"
+needless_raw_string_hashes = "allow"
+needless_raw_strings = "allow"
+new_without_default = "allow"
+non_ascii_literal = "allow"
+option_if_let_else = "allow"
+panic_in_result_fn = "allow"
+pattern_type_mismatch = "allow"
+print_stderr = "allow"
+print_stdout = "allow"
+pub_use = "allow"
+pub_with_shorthand = "allow"
+question_mark_used = "allow"
+redundant_closure_for_method_calls = "allow"
+# Contradicts rustc `unreachable_pub`: private modules hold `pub(crate)` items.
+redundant_pub_crate = "allow"
+redundant_test_prefix = "allow"
+renamed_function_params = "allow"
+return_and_then = "allow"
+self_named_module_files = "allow"
+semicolon_inside_block = "allow"
+semicolon_outside_block = "allow"
+separated_literal_suffix = "allow"
+shadow_reuse = "allow"
+shadow_same = "allow"
+shadow_unrelated = "allow"
+should_implement_trait = "allow"
+significant_drop_in_scrutinee = "allow"
+significant_drop_tightening = "allow"
+similar_names = "allow"
+single_call_fn = "allow"
+single_char_lifetime_names = "allow"
+std_instead_of_alloc = "allow"
+std_instead_of_core = "allow"
+struct_excessive_bools = "allow"
+struct_field_names = "allow"
+suboptimal_flops = "allow"
+too_long_first_doc_paragraph = "allow"
+too_many_arguments = "allow"
+type_repetition_in_bounds = "allow"
+unimplemented = "allow"
+unnecessary_wraps = "allow"
+unreachable = "allow"
+unreadable_literal = "allow"
+unsafe_derive_deserialize = "allow"
+unused_self = "allow"
+unused_trait_names = "allow"
+unused_unit = "allow"
+unwrap_in_result = "allow"
+use_self = "allow"
+useless_transmute = "allow"
+
+# We might need to reconsider these
+collapsible_if = "allow"
+needless_range_loop = "allow"
+non_std_lazy_statics = "warn"
+allow_attributes_without_reason = "allow"
+arithmetic_side_effects = "allow"
+default_numeric_fallback = "allow"
+indexing_slicing = "allow"
+missing_assert_message = "allow"
+needless_collect = "allow"
+too_many_lines = "allow"
+use_debug = "allow"
+wildcard_enum_match_arm = "allow"
+
+todo = "allow"
+let_underscore_untyped = "allow"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "warn"
+bare_urls = "warn"
+
