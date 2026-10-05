@@ -113,11 +113,11 @@ export function TreeCanvas({
 
   return (
     <div className={cn("relative min-h-0 min-w-0 overflow-hidden", className)}>
-      {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the double-click zooms to a clade; the keyboard zooms through the deck.gl controller */}
+      {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- jsx-a11y counts the application role as non-interactive, but it is the ARIA role of an element that handles its own pointer and keys; the double-click zooms to a clade */}
       <div
-        // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- an img element cannot hold the WebGL canvas
-        role="img"
-        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the deck.gl controller pans and zooms with the keyboard while the drawing has focus
+        role="application"
+        aria-roledescription="tree drawing"
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- jsx-a11y counts the application role as non-interactive; the deck.gl controller pans and zooms with the keyboard while the drawing has focus
         tabIndex={0}
         aria-label={label}
         aria-describedby={descriptionId}
