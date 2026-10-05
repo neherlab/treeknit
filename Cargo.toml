@@ -13,6 +13,52 @@ license = "MIT"
 publish = false
 keywords = ["biology", "evolution", "phylogenetics", "reassortment", "virus"]
 
+
+# Dependencies build optimized in development and tests, so the test suites
+# stay fast while the workspace crates keep fast incremental builds.
+[profile.dev.package."*"]
+opt-level = 2
+
+# Development build with optimized workspace crates, for long runs on real
+# datasets. Rebuilds are slower than `dev`.
+[profile.dev-opt]
+inherits = "dev"
+opt-level = 1
+lto = "off"
+
+# Optimized build that stays fast to rebuild, for local runs. Line tables keep
+# readable backtraces, and overflow checks stay on for numeric correctness.
+[profile.release]
+codegen-units = 16
+debug = "line-tables-only"
+incremental = true
+lto = "off"
+overflow-checks = true
+
+# The shipped artifact: fat LTO and one codegen unit for speed. Integer overflow
+# checks stay in the release profile for development and are off here.
+# Stripping the debug info makes the binaries several times smaller; backtraces
+# keep function names but lose file and line numbers.
+[profile.dist]
+inherits = "release"
+codegen-units = 1
+incremental = false
+lto = "fat"
+overflow-checks = false
+strip = "debuginfo"
+
+# The shipped artifact with full debug info, for profilers.
+[profile.profiling]
+inherits = "dist"
+debug = true
+strip = "none"
+
+# Benchmarks measure the shipped artifact, with debug info kept for profilers.
+[profile.bench]
+inherits = "dist"
+strip = "none"
+
+
 [workspace.dependencies]
 treeknit-core = { path = "packages/treeknit-core" }
 treeknit-io = { path = "packages/treeknit-io" }
@@ -26,9 +72,3 @@ serde_json = { version = "1", features = ["preserve_order"] }
 clap = { version = "4.5", features = ["derive"] }
 anyhow = "1"
 simplelog = "0.12"
-
-[profile.quick]
-inherits = "release"
-opt-level = 2
-incremental = true
-codegen-units = 64
