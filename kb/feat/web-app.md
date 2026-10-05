@@ -29,7 +29,7 @@ TreeKnit.jl has no browser version. `packages/treeknit-wasm` compiles the core a
 - [ ] **Drawing**: no tree, tanglegram, or ARG drawing (see [`visualization.md`](visualization.md#arg-viewers))
 - [x] **Local data**: the trees stay in the browser
 - [x] **Self-hosted assets**: the fonts, styles, scripts, and the WebAssembly module are bundled. The Content Security Policy allows WebAssembly compilation with `'wasm-unsafe-eval'`
-- [x] **Hosting**: the workflow `.github/workflows/nightly.yml` deploys the app to GitHub Pages every night, from relative asset paths that work under any path. `just run-web prod` builds and serves it locally
+- [x] **Hosting**: the workflow `.github/workflows/release.yml` deploys the app to GitHub Pages every night, from relative asset paths that work under any path. `just run-web prod` builds and serves it locally
 
 ## Tests
 
