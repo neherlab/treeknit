@@ -40,6 +40,7 @@ export interface AnalysisClient {
   commandLine(sessionId: number): SessionResult<"commandLine">;
   pairView(sessionId: number, ...args: SessionArgs<"pairView">): SessionResult<"pairView">;
   auspiceView(sessionId: number, ...args: SessionArgs<"auspiceView">): SessionResult<"auspiceView">;
+  auspiceFiles(sessionId: number, ...args: SessionArgs<"auspiceFiles">): SessionResult<"auspiceFiles">;
   argView(sessionId: number, ...args: SessionArgs<"argView">): SessionResult<"argView">;
   constellation(sessionId: number): SessionResult<"constellation">;
   figure(sessionId: number, ...args: SessionArgs<"figure">): SessionResult<"figure">;
@@ -187,6 +188,10 @@ export class WorkerAnalysisClient implements AnalysisClient {
 
   async auspiceView(sessionId: number, ...args: SessionArgs<"auspiceView">): SessionResult<"auspiceView"> {
     return this.#inSession(sessionId, (remote) => remote.auspiceView(...args));
+  }
+
+  async auspiceFiles(sessionId: number, ...args: SessionArgs<"auspiceFiles">): SessionResult<"auspiceFiles"> {
+    return this.#inSession(sessionId, (remote) => remote.auspiceFiles(...args));
   }
 
   async argView(sessionId: number, ...args: SessionArgs<"argView">): SessionResult<"argView"> {

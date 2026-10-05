@@ -68,6 +68,8 @@ export const analysisKeys = {
   auspiceViewScope,
   auspiceView: (sessionId: number, ...[pair, ...rest]: SessionArgs<"auspiceView">) =>
     [...auspiceViewScope(sessionId, pair), ...rest] as const,
+  auspiceFiles: (sessionId: number, ...args: SessionArgs<"auspiceFiles">) =>
+    ["session", sessionId, "auspiceFiles", ...args] as const,
   argViewScope,
   argView: (sessionId: number, ...args: SessionArgs<"argView">) => [...argViewScope(sessionId), ...args] as const,
   constellation: (sessionId: number) => ["session", sessionId, "constellation"] as const,
@@ -222,6 +224,18 @@ export function useAuspiceView(
       )
         ? previous
         : undefined,
+  });
+}
+
+export function useAuspiceFiles(
+  sessionId: number | null,
+  ...args: SessionArgs<"auspiceFiles">
+): Answer<SessionResult<"auspiceFiles">> {
+  const client = useAnalysisClient();
+
+  return useQuery({
+    queryKey: sessionKey(sessionId, (id) => analysisKeys.auspiceFiles(id, ...args)),
+    queryFn: sessionQuery(sessionId, async (id) => client.auspiceFiles(id, ...args)),
   });
 }
 

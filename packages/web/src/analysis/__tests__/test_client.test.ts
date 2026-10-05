@@ -481,6 +481,7 @@ function fakeApi(overrides: Partial<FakeApi>): FakeApi {
     commandLine: missing,
     pairView: missing,
     auspiceView: missing,
+    auspiceFiles: missing,
     argView: missing,
     constellation: missing,
     figure: missing,

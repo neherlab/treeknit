@@ -1,7 +1,7 @@
 //! Output files of a run, as the command line writes them and the web app lists them.
 
 use crate::analysis::{AnalysisRequest, ValidationError};
-use crate::display::{self, Scale, TreeVersion};
+use crate::display::{self, AuspiceTrees, Scale, TreeVersion};
 use crate::figure::{self, FigureOptions};
 use crate::run::RunResult;
 use crate::summary::Diagnostic;
@@ -512,6 +512,62 @@ pub fn arg_figure(run: &RunResult, options: &FigureOptions) -> Result<Option<Fig
   }))
 }
 
+/// The downloads of the Auspice view: the name of its SVG figure and the datasets of the shown
+/// trees.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct AuspiceFiles {
+  /// File name of the SVG figure without `.svg`, which Auspice's figure download appends:
+  /// `auspice_<a>_<b>` for both trees, with the tree label appended for one tree, and with the
+  /// version and the shown scale appended unless they are `resolved` and `div`.
+  pub svg_prefix: String,
+  /// One Auspice v2 dataset per shown tree, as pretty-printed JSON named `<stem>_<label>.json`.
+  /// The names differ from the listed `auspice_<label>.json` files of the command line, which
+  /// hold other fields.
+  pub json: Vec<OutputFile>,
+}
+
+/// The downloads of the Auspice view of pair `pair` (pipeline order) of `run` in `version` with
+/// `scale` and the shown `trees`; `None` when `run` lacks the pair. The datasets are those of
+/// `display::auspice_view`, and the names tell the shown scale of that view.
+pub fn auspice_files(
+  run: &RunResult,
+  pair: usize,
+  version: TreeVersion,
+  scale: Scale,
+  trees: AuspiceTrees,
+) -> Option<AuspiceFiles> {
+  let view = display::auspice_view(run, pair, version, scale)?;
+  let p = &run.pairs[pair];
+  let [a, b] = [&run.trees[p.i].label, &run.trees[p.j].label];
+  let pair_stem = analysis::pair_stem(a, b);
+  let stem = if version == TreeVersion::Resolved && view.scale == Scale::Div {
+    format!("auspice_{pair_stem}")
+  } else {
+    format!("auspice_{pair_stem}_{}_{}", wire_name(version), wire_name(view.scale))
+  };
+  let json = [(true, a, &view.left), (false, b, &view.right)]
+    .into_iter()
+    .filter(|&(left, _, _)| trees.shows(left))
+    .map(|(_, label, dataset)| {
+      #[expect(clippy::expect_used, reason = "an Auspice dataset serializes to JSON")]
+      let text = serde_json::to_string_pretty(dataset).expect("a dataset serializes to JSON");
+      OutputFile {
+        path: format!("{stem}_{label}.json"),
+        media_type: "application/json".to_owned(),
+        text,
+      }
+    })
+    .collect();
+  let svg_prefix = match trees {
+    AuspiceTrees::Both => stem,
+    AuspiceTrees::Left => format!("{stem}_{a}"),
+    AuspiceTrees::Right => format!("{stem}_{b}"),
+  };
+  Some(AuspiceFiles { svg_prefix, json })
+}
+
 /// The download name of a figure whose listed file is at `path`, drawn in `version` (`None` for
 /// the ARG) with `options` and the shown `scale`; see `FigureDownload.file_name`.
 #[expect(
@@ -767,6 +823,9 @@ mod tests {
   /// The two-tree example: X moved between the trees.
   const HA: &str = "((A,B),(C,(D,X)));";
   const NA: &str = "((A,(B,X)),(C,D));";
+  /// The two-tree example with branch lengths, so that the scale `div` is shown.
+  const HA_LENGTHS: &str = "((A:1,B:1):1,(C:1,(D:1,X:1):1):1);";
+  const NA_LENGTHS: &str = "((A:1,(B:1,X:1):1):1,(C:1,D:1):1);";
 
   fn run_trees(trees: &[(&str, &str)]) -> RunResult {
     let texts: Vec<TreeText> = trees
@@ -1152,6 +1211,51 @@ mod tests {
     };
     assert_eq!(Some(expected), pair_figure(&r, 0, TreeVersion::Input, &depth).unwrap());
     assert_eq!(None, pair_figure(&r, 1, TreeVersion::Input, &depth).unwrap());
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::resolved_div_both(("ha", "na", true),                        TreeVersion::Resolved, Scale::Div,   AuspiceTrees::Both,  ("auspice_ha_na",                                             vec!["auspice_ha_na_ha.json", "auspice_ha_na_na.json"]))]
+  #[case::imputed_depth_both(("ha", "na", true),                        TreeVersion::Imputed,  Scale::Depth, AuspiceTrees::Both,  ("auspice_ha_na_imputed_depth",                               vec!["auspice_ha_na_imputed_depth_ha.json", "auspice_ha_na_imputed_depth_na.json"]))]
+  #[case::input_div_left(("ha", "na", true),                        TreeVersion::Input,    Scale::Div,   AuspiceTrees::Left,  ("auspice_ha_na_input_div_ha",                                vec!["auspice_ha_na_input_div_ha.json"]))]
+  #[case::resolved_div_right(("ha", "na", true),                        TreeVersion::Resolved, Scale::Div,   AuspiceTrees::Right, ("auspice_ha_na_na",                                          vec!["auspice_ha_na_na.json"]))]
+  #[case::div_shown_as_depth_without_lengths_is_in_the_name(("ha", "na", false), TreeVersion::Resolved, Scale::Div, AuspiceTrees::Both, ("auspice_ha_na_resolved_depth", vec!["auspice_ha_na_resolved_depth_ha.json", "auspice_ha_na_resolved_depth_na.json"]))]
+  #[case::long_labels(("segment_4_hemagglutinin", "segment_6_neuraminidase", true), TreeVersion::Resolved, Scale::Div, AuspiceTrees::Both, ("auspice_segment_4_hemagglutinin_segment_6_neuraminidase", vec!["auspice_segment_4_hemagglutinin_segment_6_neuraminidase_segment_4_hemagglutinin.json", "auspice_segment_4_hemagglutinin_segment_6_neuraminidase_segment_6_neuraminidase.json"]))]
+  #[trace]
+  fn auspice_files_names_tell_the_pair_version_scale_and_shown_trees(
+    #[case] (a, b, lengths): (&str, &str, bool),
+    #[case] version: TreeVersion,
+    #[case] scale: Scale,
+    #[case] trees: AuspiceTrees,
+    #[case] (svg_prefix, json): (&str, Vec<&str>),
+  ) {
+    let (ha, na) = if lengths { (HA_LENGTHS, NA_LENGTHS) } else { (HA, NA) };
+    let r = run_trees(&[(a, ha), (b, na)]);
+    let files = auspice_files(&r, 0, version, scale, trees).unwrap();
+    let paths: Vec<&str> = files.json.iter().map(|f| f.path.as_str()).collect();
+    assert_eq!((svg_prefix, json), (files.svg_prefix.as_str(), paths));
+  }
+
+  #[test]
+  fn auspice_files_hold_the_datasets_of_the_auspice_view_as_json() {
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
+    let view = display::auspice_view(&r, 0, TreeVersion::Resolved, Scale::Div).unwrap();
+    let files = auspice_files(&r, 0, TreeVersion::Resolved, Scale::Div, AuspiceTrees::Both).unwrap();
+    let parsed: Vec<Value> = files
+      .json
+      .iter()
+      .map(|f| serde_json::from_str(&f.text).unwrap())
+      .collect();
+    let expected = vec![
+      serde_json::to_value(&view.left).unwrap(),
+      serde_json::to_value(&view.right).unwrap(),
+    ];
+    assert_eq!(expected, parsed);
+    assert!(files.json.iter().all(|f| f.media_type == "application/json"));
+    assert_eq!(
+      None,
+      auspice_files(&r, 1, TreeVersion::Resolved, Scale::Div, AuspiceTrees::Both)
+    );
   }
 
   #[rustfmt::skip]

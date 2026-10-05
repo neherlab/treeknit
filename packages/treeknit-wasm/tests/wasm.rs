@@ -728,6 +728,49 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
+  fn session_auspice_files_hold_the_datasets_of_the_auspice_view() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let (version, scale) = (ts(&json!("imputed")), ts(&json!("depth")));
+    let auspice = plain(&session.auspice_view(0, &version, &scale).unwrap().js_value());
+    let files = plain(
+      &session
+        .auspice_files(0, &version, &scale, &ts(&json!("right")))
+        .unwrap()
+        .js_value(),
+    );
+    let labels = plain(&session.summary().unwrap().js_value())["pairs"][0]["labels"].clone();
+    let stem = format!(
+      "auspice_{}_{}_imputed_depth",
+      labels[0].as_str().unwrap(),
+      labels[1].as_str().unwrap()
+    );
+    let json = files["json"].as_array().unwrap();
+    assert_eq!(
+      json!(format!("{stem}_{}", labels[1].as_str().unwrap())),
+      files["svgPrefix"]
+    );
+    assert_eq!(1, json.len());
+    assert_eq!(
+      json!(format!("{stem}_{}.json", labels[1].as_str().unwrap())),
+      json[0]["path"]
+    );
+    let text: Value = serde_json::from_str(json[0]["text"].as_str().unwrap()).unwrap();
+    // A JavaScript round trip writes whole numbers without a fraction, so numbers compare as f64.
+    assert_eq!(numbers_as_f64(&auspice["right"]), numbers_as_f64(&text));
+  }
+
+  /// `value` with every number as an `f64`, so values that differ only in the integer or float
+  /// form of their numbers compare equal.
+  fn numbers_as_f64(value: &Value) -> Value {
+    match value {
+      Value::Number(n) => json!(n.as_f64().unwrap()),
+      Value::Array(items) => Value::Array(items.iter().map(numbers_as_f64).collect()),
+      Value::Object(fields) => Value::Object(fields.iter().map(|(k, v)| (k.clone(), numbers_as_f64(v))).collect()),
+      other => other.clone(),
+    }
+  }
+
+  #[wasm_bindgen_test]
   fn session_arg_view_of_the_two_tree_example_is_plain() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let view = plain(&session.arg_view(&ts(&json!("depth"))).unwrap().unwrap().js_value());

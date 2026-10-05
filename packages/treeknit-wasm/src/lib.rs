@@ -6,11 +6,13 @@ use serde::de::DeserializeOwned;
 use std::cell::{OnceCell, RefCell};
 use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
 use treeknit_io::display::{
-  self, ArgView, AuspicePair, ConstellationTable, DrawingRules, PairView, Scale, TreeVersion,
+  self, ArgView, AuspicePair, AuspiceTrees, ConstellationTable, DrawingRules, PairView, Scale, TreeVersion,
 };
 use treeknit_io::figure::FigureOptions;
 use treeknit_io::inspect::{self, Overlap, TreeInspection};
-use treeknit_io::output::{self, Archive, FigureDownload, FigureFile, FileEntry, OutputFile, OutputOptions, WebFile};
+use treeknit_io::output::{
+  self, Archive, AuspiceFiles, FigureDownload, FigureFile, FileEntry, OutputFile, OutputOptions, WebFile,
+};
 use treeknit_io::palette::{self, Palette};
 use treeknit_io::progress::Progress;
 use treeknit_io::run::{self, RunResult};
@@ -283,6 +285,26 @@ impl Session {
     let scale = from_js("scale", scale)?;
     let view = display::auspice_view(&self.run, pair, version, scale).ok_or_else(|| no_pair(&self.run, pair))?;
     to_js(&view)
+  }
+
+  /// The downloads of the Auspice view of pair `pair` (pipeline order) in `version` with `scale`
+  /// and the shown `trees`: the name of its SVG figure and the datasets of `auspiceView` as JSON
+  /// files.
+  #[wasm_bindgen(js_name = auspiceFiles)]
+  pub fn auspice_files(
+    &self,
+    pair: usize,
+    version: &Ts<TreeVersion>,
+    scale: &Ts<Scale>,
+    trees: &Ts<AuspiceTrees>,
+  ) -> Result<Ts<AuspiceFiles>, JsError> {
+    let _log = log_capture::discard();
+    let version = from_js("version", version)?;
+    let scale = from_js("scale", scale)?;
+    let trees = from_js("trees", trees)?;
+    let files =
+      output::auspice_files(&self.run, pair, version, scale, trees).ok_or_else(|| no_pair(&self.run, pair))?;
+    to_js(&files)
   }
 
   /// The ARG laid out with `scale`, or with `depth` when `scale` is `div` and the ARG has no

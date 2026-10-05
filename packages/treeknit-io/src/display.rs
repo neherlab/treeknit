@@ -570,6 +570,31 @@ pub struct AuspicePair {
   pub right: AuspiceDataset,
 }
 
+/// The trees of a pair that the Auspice view shows: both as a tanglegram, or one alone.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "lowercase")]
+pub enum AuspiceTrees {
+  #[default]
+  Both,
+  /// The first tree of the pair (pipeline order).
+  Left,
+  /// The second tree of the pair.
+  Right,
+}
+
+impl AuspiceTrees {
+  /// Whether the view shows the left tree (`true`) or the right tree (`false`) of the pair.
+  #[must_use]
+  pub fn shows(self, left: bool) -> bool {
+    match self {
+      Self::Both => true,
+      Self::Left => left,
+      Self::Right => !left,
+    }
+  }
+}
+
 /// An Auspice v2 dataset of one tree, with the field names of Auspice's schema.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]

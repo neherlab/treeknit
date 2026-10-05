@@ -994,6 +994,25 @@ export interface Leader {
 }
 
 /**
+ * The downloads of the Auspice view: the name of its SVG figure and the datasets of the shown
+ * trees.
+ */
+export interface AuspiceFiles {
+    /**
+     * File name of the SVG figure without `.svg`, which Auspice's figure download appends:
+     * `auspice_<a>_<b>` for both trees, with the tree label appended for one tree, and with the
+     * version and the shown scale appended unless they are `resolved` and `div`.
+     */
+    svgPrefix: string;
+    /**
+     * One Auspice v2 dataset per shown tree, as pretty-printed JSON named `<stem>_<label>.json`.
+     * The names differ from the listed `auspice_<label>.json` files of the command line, which
+     * hold other fields.
+     */
+    json: OutputFile[];
+}
+
+/**
  * The drawing rules that the consumer applies, because they depend on the drawn size: the
  * thresholds of the row height, the columns of a drawing, and the strokes and marks in px. The
  * label width that the columns take is measured by the consumer: the interactive views measure
@@ -1277,6 +1296,11 @@ export interface PairView {
 export type RootCase = "shared" | "synthetic" | "oneShared";
 
 /**
+ * The trees of a pair that the Auspice view shows: both as a tanglegram, or one alone.
+ */
+export type AuspiceTrees = "both" | "left" | "right";
+
+/**
  * The two copies of one leaf.
  */
 export interface Link {
@@ -1378,6 +1402,12 @@ export class Session {
      * than two trees or a failed ARG.
      */
     argView(scale: Scale): ArgView | undefined;
+    /**
+     * The downloads of the Auspice view of pair `pair` (pipeline order) in `version` with `scale`
+     * and the shown `trees`: the name of its SVG figure and the datasets of `auspiceView` as JSON
+     * files.
+     */
+    auspiceFiles(pair: number, version: TreeVersion, scale: Scale, trees: AuspiceTrees): AuspiceFiles;
     /**
      * The trees of pair `pair` (pipeline order) in `version` as Auspice datasets, with `div` from
      * `scale`: the trees of `pairView`, colored by MCC.
@@ -1512,6 +1542,7 @@ export interface InitOutput {
     readonly requestFile: (a: any) => [number, number, number];
     readonly session_argFigure: (a: number, b: any) => [number, number, number];
     readonly session_argView: (a: number, b: any) => [number, number, number];
+    readonly session_auspiceFiles: (a: number, b: number, c: any, d: any, e: any) => [number, number, number];
     readonly session_auspiceView: (a: number, b: number, c: any, d: any) => [number, number, number];
     readonly session_commandLine: (a: number) => [number, number];
     readonly session_constellation: (a: number) => [number, number, number];

@@ -86,6 +86,10 @@ class AnalysisWorker implements WorkerApi {
     return this.#current().auspiceView(...args);
   }
 
+  auspiceFiles(...args: SessionArgs<"auspiceFiles">) {
+    return this.#current().auspiceFiles(...args);
+  }
+
   argView(...args: SessionArgs<"argView">) {
     return this.#current().argView(...args);
   }
