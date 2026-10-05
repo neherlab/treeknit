@@ -2,11 +2,12 @@
 
 use super::shapes::pair_shapes;
 use super::slots::{block_neighbors, color_slots};
-use super::tree::{draw_tree, row};
+use super::tree::draw_tree;
 use super::{Block, DrawTree, Link, MccInfo, PairView, Scale, TreeVersion};
 use crate::run::RunResult;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
+use treeknit_core::impute::Attachment;
 use treeknit_core::mcc_map::leaf_mcc_map;
 use treeknit_core::pipeline::{keeps_run_order, sort_for_pair, sort_strictness};
 use treeknit_core::{Options, PairResult, Tree};
@@ -25,22 +26,14 @@ use treeknit_core::{Options, PairResult, Tree};
 /// MCC colors come from the `resolved` version, so they stay put across versions.
 pub fn pair_view(run: &RunResult, opts: &Options, pair: usize, version: TreeVersion, scale: Scale) -> Option<PairView> {
   let p = run.pairs.get(pair)?;
-  let resolved = Layout::new(run, opts, p, TreeVersion::Resolved);
-  let slots = resolved.slots(p);
-  let layout = if version == TreeVersion::Resolved {
-    resolved
+  let layout = Layout::new(run, opts, p, version);
+  let slots = if version == TreeVersion::Resolved {
+    run.pair_slots[pair].get_or_init(|| layout.slots(p))
   } else {
-    Layout::new(run, opts, p, version)
+    pair_slots(run, opts, pair)
   };
-  let mccs = mcc_infos(run, p, &slots);
-  let shapes = pair_shapes(
-    &layout.left,
-    &layout.right,
-    &layout.links,
-    &layout.blocks,
-    &slots,
-    scale,
-  );
+  let mccs = mcc_infos(run, p, slots);
+  let shapes = pair_shapes(&layout.left, &layout.right, &layout.links, &layout.blocks, slots, scale);
   Some(PairView {
     left: layout.left,
     right: layout.right,
@@ -51,9 +44,13 @@ pub fn pair_view(run: &RunResult, opts: &Options, pair: usize, version: TreeVers
   })
 }
 
-/// The color slot of every MCC of pair `p`, computed on its `resolved` version.
-pub(super) fn pair_slots(run: &RunResult, opts: &Options, p: &PairResult) -> Vec<usize> {
-  Layout::new(run, opts, p, TreeVersion::Resolved).slots(p)
+/// The color slot of every MCC of pair `pair`, computed on its `resolved` version once per run
+/// and kept in `run`.
+pub(super) fn pair_slots<'a>(run: &'a RunResult, opts: &Options, pair: usize) -> &'a [usize] {
+  run.pair_slots[pair].get_or_init(|| {
+    let p = &run.pairs[pair];
+    Layout::new(run, opts, p, TreeVersion::Resolved).slots(p)
+  })
 }
 
 /// The two drawn trees of a pair in one version, with their links and blocks.
@@ -134,20 +131,22 @@ fn links(left: &DrawTree, right: &DrawTree) -> Vec<Link> {
 }
 
 /// Runs of links of one MCC whose leaves are consecutive in both trees, in left order: each next
-/// leaf follows the previous one in the left tree, and its right rank is the previous one plus
+/// leaf follows the previous one in the left tree, and its right row is the previous one plus
 /// or minus 1, in the same direction throughout the block.
+#[expect(
+  clippy::float_cmp,
+  reason = "leaf rows are whole numbers far below 2^53, so steps of 1 are exact"
+)]
 fn blocks(left: &DrawTree, right: &DrawTree, links: &[Link]) -> Vec<Block> {
-  let left_rank = leaf_ranks(left);
-  let right_rank = leaf_ranks(right);
-  // Each block: its MCC, the ranks of its first and last leaf on both sides, and its direction.
-  let mut runs: Vec<(usize, [usize; 2], [usize; 2], Option<bool>)> = Vec::new();
+  // Each block: its MCC, the rows of its first and last leaf on both sides, and its direction.
+  let mut runs: Vec<(usize, [f64; 2], [f64; 2], Option<bool>)> = Vec::new();
   for link in links {
-    let (l, r) = (left_rank[link.left], right_rank[link.right]);
+    let (l, r) = (left.nodes[link.left].y, right.nodes[link.right].y);
     if let Some((mcc, ls, rs, down)) = runs.last_mut() {
-      let step_down = r.checked_sub(1) == Some(rs[1]);
-      let step_up = rs[1].checked_sub(1) == Some(r);
+      let step_down = r == rs[1] + 1.0;
+      let step_up = r == rs[1] - 1.0;
       let extends = *mcc == link.mcc
-        && l == ls[1] + 1
+        && l == ls[1] + 1.0
         && match *down {
           None => step_down || step_up,
           Some(true) => step_down,
@@ -164,38 +163,22 @@ fn blocks(left: &DrawTree, right: &DrawTree, links: &[Link]) -> Vec<Block> {
   }
   runs
     .into_iter()
-    .map(|(mcc, ls, rs, _)| Block {
-      mcc,
-      left: [row(ls[0]), row(ls[1])],
-      right: [row(rs[0]), row(rs[1])],
-    })
-    .collect()
-}
-
-/// The rank of each leaf in display order, by node index; 0 for an internal node.
-fn leaf_ranks(tree: &DrawTree) -> Vec<usize> {
-  let mut rank = 0;
-  tree
-    .nodes
-    .iter()
-    .map(|n| {
-      if n.leaf {
-        rank += 1;
-        rank - 1
-      } else {
-        0
-      }
-    })
+    .map(|(mcc, left, right, _)| Block { mcc, left, right })
     .collect()
 }
 
 /// The MCCs of pair `p`, with their attached members and color slots.
 fn mcc_infos(run: &RunResult, p: &PairResult, slots: &[usize]) -> Vec<MccInfo> {
+  let mut by_mcc: Vec<Vec<&Attachment>> = vec![Vec::new(); p.mccs.len()];
+  for a in &p.attached {
+    by_mcc[a.mcc].push(a);
+  }
   p.mccs
     .iter()
+    .zip(by_mcc)
     .enumerate()
-    .map(|(i, m)| {
-      let attached = p.attached.iter().filter(|a| a.mcc == i);
+    .map(|(i, (m, attached))| {
+      let attached = attached.into_iter();
       MccInfo {
         index: i,
         size: m.len(),

@@ -445,13 +445,14 @@ pub enum EdgePath {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ConstellationTable {
-  /// Every taxon: first the leaves of the first tree in the display order of its resolved
-  /// version, then the leaves it lacks, in the order of the first tree that has them.
+  /// Every taxon: first the leaves of the first tree in the leaf order of its final tree, the
+  /// order of its `_resolved` output file, then the leaves it lacks, in the order of the first
+  /// tree that has them. The pair views can order the first tree differently, because they sort
+  /// both trees of a pair for that pair.
   pub leaves: Vec<String>,
   /// Labels of the two trees of each pair, in pipeline order.
   pub pairs: Vec<[String; 2]>,
-  /// `cells[leaf][pair]`; `None` when the pair gives the leaf no MCC: the leaf is in neither
-  /// tree of the pair, or the pair has no MCCs.
+  /// `cells[leaf][pair]`; `None` when the leaf is in neither tree of the pair.
   pub cells: Vec<Vec<Option<ConstellationCell>>>,
 }
 

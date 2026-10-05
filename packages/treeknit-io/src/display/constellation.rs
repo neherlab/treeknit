@@ -4,13 +4,14 @@ use super::pair::pair_slots;
 use super::{ConstellationCell, ConstellationTable};
 use crate::run::RunResult;
 use treeknit_core::Options;
+use treeknit_core::mcc_map::leaf_mcc_map;
 
 /// The MCC of every taxon of `run` in every pair, with the color slots of the pair views.
 /// `opts` are the options of the run.
 pub fn constellation(run: &RunResult, opts: &Options) -> ConstellationTable {
   let n = run.taxa.len();
-  // Taxa in row order: the first tree in its resolved display order, then each later tree's
-  // leaves that no earlier tree has.
+  // Taxa in row order: the leaves of the first final tree, then each later tree's leaves that no
+  // earlier tree has.
   let mut seen = vec![false; n];
   let mut rows = Vec::with_capacity(n);
   for tree in &run.trees {
@@ -21,18 +22,20 @@ pub fn constellation(run: &RunResult, opts: &Options) -> ConstellationTable {
       }
     }
   }
-  let leaf_sets: Vec<_> = run.trees.iter().map(|t| t.leaf_set(n)).collect();
-  let slots: Vec<Vec<usize>> = run.pairs.iter().map(|p| pair_slots(run, opts, p)).collect();
+  // An MCC holds only leaves of the two trees of its pair, so a leaf has an MCC in every pair
+  // that has it.
+  let leaf_mccs: Vec<Vec<Option<usize>>> = run.pairs.iter().map(|p| leaf_mcc_map(&p.mccs, n)).collect();
+  let slots: Vec<&[usize]> = (0..run.pairs.len()).map(|i| pair_slots(run, opts, i)).collect();
   let cells = rows
     .iter()
     .map(|&x| {
       run
         .pairs
         .iter()
+        .zip(&leaf_mccs)
         .zip(&slots)
-        .map(|(p, slots)| {
-          let in_pair = leaf_sets[p.i].contains(x) || leaf_sets[p.j].contains(x);
-          let mcc = p.mcc_of(x).filter(|_| in_pair)?;
+        .map(|((p, leaf_mcc), slots)| {
+          let mcc = leaf_mcc[x]?;
           Some(ConstellationCell {
             mcc,
             size: p.mccs[mcc].len(),

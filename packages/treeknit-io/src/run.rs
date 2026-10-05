@@ -3,11 +3,16 @@
 
 use crate::analysis::ParsedTrees;
 use crate::summary::ArgOutcome;
+use std::sync::OnceLock;
 use treeknit_core::arg::{Arg, ArgError, arg_from_trees};
 use treeknit_core::{Options, PairResult, Progress, Taxa, Tree};
 
 /// The trees, MCCs, imputed trees, and ARG of one run.
 #[derive(Debug)]
+#[expect(
+  clippy::partial_pub_fields,
+  reason = "the cache of color slots is filled only by the display data of this crate"
+)]
 pub struct RunResult {
   /// The parsed trees, before resolution.
   pub input_trees: Vec<Tree>,
@@ -22,6 +27,9 @@ pub struct RunResult {
   /// The ARG of two trees whose pair has MCCs, or the reason it could not be built; `None`
   /// otherwise.
   pub arg: Option<Result<Arg, ArgError>>,
+  /// The color slots of the MCCs of each pair, computed on the first display of the pair (see
+  /// `display`), because they need a full layout of its resolved trees.
+  pub(crate) pair_slots: Vec<OnceLock<Vec<usize>>>,
 }
 
 impl RunResult {
@@ -55,6 +63,7 @@ pub fn run(parsed: ParsedTrees, opts: &Options, seed: u64, observe: &dyn Fn(Prog
     [pair] if !pair.mccs.is_empty() => Some(build_arg(&trees, pair, &taxa)),
     _ => None,
   };
+  let pair_slots = pairs.iter().map(|_| OnceLock::new()).collect();
   RunResult {
     input_trees,
     trees,
@@ -62,6 +71,7 @@ pub fn run(parsed: ParsedTrees, opts: &Options, seed: u64, observe: &dyn Fn(Prog
     pairs,
     imputed,
     arg,
+    pair_slots,
   }
 }
 
