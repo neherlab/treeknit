@@ -5,10 +5,45 @@ mod tests {
   use std::path::{Path, PathBuf};
   use std::process::Command;
 
-  fn run(args: &[&str], out: &Path) {
-    if out.exists() {
-      std::fs::remove_dir_all(out).unwrap();
+  /// Directory under the system temporary directory, removed when dropped.
+  struct TempDir(PathBuf);
+
+  impl TempDir {
+    fn new(name: &str) -> Self {
+      let path = std::env::temp_dir().join(format!("treeknit-cli-test-{name}-{}", std::process::id()));
+      if path.exists() {
+        std::fs::remove_dir_all(&path).unwrap();
+      }
+      std::fs::create_dir_all(&path).unwrap();
+      TempDir(path)
     }
+
+    fn path(&self) -> &Path {
+      &self.0
+    }
+  }
+
+  impl Drop for TempDir {
+    fn drop(&mut self) {
+      if let Err(e) = std::fs::remove_dir_all(&self.0) {
+        eprintln!("removing {}: {e}", self.0.display());
+      }
+    }
+  }
+
+  /// Write each `(name, newick)` of `files` to `<dir>/<name>.nwk`.
+  fn write_trees(dir: &Path, files: &[(&str, &str)]) -> Vec<PathBuf> {
+    files
+      .iter()
+      .map(|(name, newick)| {
+        let p = dir.join(format!("{name}.nwk"));
+        std::fs::write(&p, newick).unwrap();
+        p
+      })
+      .collect()
+  }
+
+  fn run(args: &[&str], out: &Path) {
     let status = Command::new(env!("CARGO_BIN_EXE_treeknit"))
       .args(args)
       .arg("-o")
@@ -19,24 +54,28 @@ mod tests {
     assert!(status.success());
   }
 
+  /// A failed run: its directory with the input files and the output directory `out`, the exit
+  /// code, the error output, and whether any result file was written.
+  struct Failure {
+    dir: TempDir,
+    code: Option<i32>,
+    stderr: String,
+    results: bool,
+  }
+
   /// Run `treeknit` on Newick `trees` written to files `t0.nwk`, `t1.nwk`, ..., expecting a
-  /// failure; return the exit code, the error output, and whether any result file was written.
-  fn fail(name: &str, trees: &[&str], args: &[&str]) -> (Option<i32>, String, bool) {
-    let dir = tmp(&format!("{name}-in"));
-    std::fs::create_dir_all(&dir).unwrap();
-    let paths: Vec<PathBuf> = trees
-      .iter()
-      .enumerate()
-      .map(|(i, t)| {
-        let p = dir.join(format!("t{i}.nwk"));
-        std::fs::write(&p, t).unwrap();
-        p
-      })
-      .collect();
-    let out = tmp(name);
-    if out.exists() {
-      std::fs::remove_dir_all(&out).unwrap();
-    }
+  /// failure.
+  fn fail(name: &str, trees: &[&str], args: &[&str]) -> Failure {
+    let names: Vec<String> = (0..trees.len()).map(|i| format!("t{i}")).collect();
+    let files: Vec<(&str, &str)> = names.iter().map(String::as_str).zip(trees.iter().copied()).collect();
+    fail_named(name, &files, args)
+  }
+
+  /// Run `treeknit` on the `(name, newick)` trees of `files`, expecting a failure.
+  fn fail_named(name: &str, files: &[(&str, &str)], args: &[&str]) -> Failure {
+    let dir = TempDir::new(name);
+    let paths = write_trees(dir.path(), files);
+    let out = dir.path().join("out");
     let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
       .args(&paths)
       .args(args)
@@ -47,7 +86,21 @@ mod tests {
       .unwrap();
     // The log is written from the start; result files only after validation.
     let results = std::fs::read_dir(&out).is_ok_and(|d| d.filter_map(Result::ok).any(|e| e.file_name() != "log.txt"));
-    (output.status.code(), String::from_utf8(output.stderr).unwrap(), results)
+    Failure {
+      dir,
+      code: output.status.code(),
+      stderr: String::from_utf8(output.stderr).unwrap(),
+      results,
+    }
+  }
+
+  /// Assert that `f` exited with 1, printed exactly `message` as the error, and wrote no result.
+  fn assert_failed(f: &Failure, message: &str, case: &str) {
+    assert_eq!(
+      (Some(1), format!("Error: {message}\n").as_str(), false),
+      (f.code, f.stderr.as_str(), f.results),
+      "{case}"
+    );
   }
 
   const HA: &str = "((A:1,B:1):1,(C:1,(D:1,X:1):1):1);";
@@ -60,42 +113,44 @@ mod tests {
       ("gamma-negative", &["--gamma=-1"][..],            "gamma must be a non-negative number, got -1"),
       ("gamma-nan",      &["--gamma=nan"],               "gamma must be a non-negative number, got NaN"),
       ("lengths-zero",   &["--seq-lengths", "0 0"],      "sequence length 1 must be a positive number, got 0\nsequence length 2 must be a positive number, got 0"),
-      ("lengths-former", &["--better-MCCs", "--seq-lengths", "0 0"], "sequence length 1 must be a positive number, got 0"),
+      ("lengths-former", &["--better-MCCs", "--seq-lengths", "0 0"], "sequence length 1 must be a positive number, got 0\nsequence length 2 must be a positive number, got 0"),
       ("seed-large",     &["--seed", "9007199254740992"], "seed must be at most 9007199254740991, got 9007199254740992"),
       ("mcmc-zero",      &["--n-mcmc-it", "0"],          "MCMC steps per leaf must be at least 1"),
       ("mcmc-former",    &["--better-MCCs", "--n-mcmc-it", "0"], "MCMC steps per leaf must be at least 1"),
       ("rounds-former",  &["--better-MCCs", "--rounds", "0"],    "rounds must be at least 1"),
     ] {
-      let (code, stderr, results) = fail(name, &[HA, NA], args);
-      assert_eq!(Some(1), code, "{name}");
-      assert!(stderr.contains(message), "{name}: {stderr}");
-      assert!(!results, "{name}: result files written");
+      assert_failed(&fail(name, &[HA, NA], args), message, name);
     }
   }
 
   #[test]
   fn every_flag_error_is_reported_with_the_tree_errors() {
-    let args = ["--better-MCCs", "--resolve", "none", "--seq-lengths", "x 1", "--gamma=-1"];
-    let (code, stderr, results) = fail("all-errors", &[HA, NA], &args);
-    let expected = "Error: --seq-lengths should look like \"1500 2000\", got \"x 1\": invalid float literal\n\
+    let args = [
+      "--better-MCCs",
+      "--resolve",
+      "none",
+      "--seq-lengths",
+      "x 1",
+      "--gamma=-1",
+    ];
+    let expected = "--seq-lengths should look like \"1500 2000\", got \"x 1\": invalid float literal\n\
       former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, \
       --resolve-all-rounds, --no-pre-resolve, --match-topologies) cannot be combined with \
       --resolve, --pre-resolve or --no-final-round; see --help-resolve\n\
-      gamma must be a non-negative number, got -1\n";
-    assert_eq!((Some(1), expected, false), (code, stderr.as_str(), results));
+      gamma must be a non-negative number, got -1";
+    assert_failed(&fail("all-errors", &[HA, NA], &args), expected, "all errors");
   }
 
   #[test]
   fn tree_errors_name_the_input_file_and_position() {
-    let (code, stderr, results) = fail("parse", &[HA, "((A,B),\n(C,D)x y);", "((A,A),(C,D));"], &[]);
-    let dir = tmp("parse-in");
+    let f = fail("parse", &[HA, "((A,B),\n(C,D)x y);", "((A,A),(C,D));"], &[]);
     let expected = format!(
-      "Error: {}:2:8: tree \"t1\": Newick parse error: expected ',' or ')' at byte 15\n\
-       {}: tree \"t2\": Newick parse error: duplicate leaf name A\n",
-      dir.join("t1.nwk").display(),
-      dir.join("t2.nwk").display(),
+      "{}:2:8: tree \"t1\": Newick parse error: expected ',' or ')' at byte 15\n\
+       {}: tree \"t2\": Newick parse error: duplicate leaf name A",
+      f.dir.path().join("t1.nwk").display(),
+      f.dir.path().join("t2.nwk").display(),
     );
-    assert_eq!((Some(1), expected, false), (code, stderr, results));
+    assert_failed(&f, &expected, "parse");
   }
 
   #[rustfmt::skip]
@@ -107,44 +162,19 @@ mod tests {
       ("disjoint-former",    "(P,(Q,R));", &["--better-trees"]),
       ("one-shared-former",  "(A,(Q,R));", &["--better-MCCs"]),
     ] {
-      let (code, stderr, results) = fail(name, &[HA, other], args);
-      assert_eq!(Some(1), code, "{name}");
-      assert!(stderr.contains("trees \"t0\" and \"t1\" share fewer than 2 leaves"), "{name}: {stderr}");
-      assert!(!results, "{name}: result files written");
+      assert_failed(&fail(name, &[HA, other], args), "trees \"t0\" and \"t1\" share fewer than 2 leaves", name);
     }
   }
 
   #[test]
   fn colliding_pair_names_exit_before_writing_results() {
-    let dir = tmp("stems-in");
-    std::fs::create_dir_all(&dir).unwrap();
-    let paths: Vec<PathBuf> = ["a_b", "c", "a", "b_c"]
-      .iter()
-      .map(|l| {
-        let p = dir.join(format!("{l}.nwk"));
-        std::fs::write(&p, "((A,B),(C,D));").unwrap();
-        p
-      })
-      .collect();
-    let out = tmp("stems");
-    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
-      .args(&paths)
-      .arg("-o")
-      .arg(&out)
-      .args(["--verbosity-level", "-1"])
-      .output()
-      .unwrap();
-    assert_eq!(Some(1), output.status.code());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(
-      stderr.contains("tree pairs (\"a_b\", \"c\") and (\"a\", \"b_c\") give the same output file names (\"a_b_c\")"),
-      "{stderr}"
+    let t = "((A,B),(C,D));";
+    let f = fail_named("stems", &[("a_b", t), ("c", t), ("a", t), ("b_c", t)], &[]);
+    assert_failed(
+      &f,
+      "tree pairs (\"a_b\", \"c\") and (\"a\", \"b_c\") give the same output file names (\"a_b_c\"); rename a tree",
+      "stems",
     );
-    assert!(!out.join("MCCs.json").exists());
-  }
-
-  fn tmp(name: &str) -> PathBuf {
-    std::env::temp_dir().join(format!("treeknit-cli-test-{name}-{}", std::process::id()))
   }
 
   fn mccs(out: &Path) -> serde_json::Value {
@@ -157,7 +187,8 @@ mod tests {
     if !Path::new(ex).exists() {
       return;
     }
-    let out = tmp("two");
+    let dir = TempDir::new("two");
+    let out = dir.path().join("out");
     run(
       &[
         &format!("{ex}/tree_h3n2_ha.nwk"),
@@ -190,23 +221,19 @@ mod tests {
 
   #[test]
   fn three_trees_partial_overlap_imputed() {
-    let dir = tmp("three-in");
-    std::fs::create_dir_all(&dir).unwrap();
-    let trees = [
-      "((A,B),(C,(D,(E,X))));",
-      "((A,(B,X)),(C,D,E,P));",
-      "((A,(B,P)),((C,D),(E,X)));",
-    ];
-    let paths: Vec<String> = trees
-      .iter()
-      .enumerate()
-      .map(|(i, t)| {
-        let p = dir.join(format!("seg{i}.nwk"));
-        std::fs::write(&p, t).unwrap();
-        p.to_string_lossy().into_owned()
-      })
-      .collect();
-    let out = tmp("three");
+    let dir = TempDir::new("three");
+    let paths: Vec<String> = write_trees(
+      dir.path(),
+      &[
+        ("seg0", "((A,B),(C,(D,(E,X))));"),
+        ("seg1", "((A,(B,X)),(C,D,E,P));"),
+        ("seg2", "((A,(B,P)),((C,D),(E,X)));"),
+      ],
+    )
+    .iter()
+    .map(|p| p.to_string_lossy().into_owned())
+    .collect();
+    let out = dir.path().join("out");
     let mut args: Vec<&str> = paths.iter().map(|s| s.as_str()).collect();
     args.push("--impute");
     run(&args, &out);
