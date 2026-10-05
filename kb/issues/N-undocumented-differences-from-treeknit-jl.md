@@ -15,6 +15,7 @@ The README section "Deliberate differences from TreeKnit.jl" and `kb/decisions/`
 ## Command line
 
 - **`--rounds 1` with the former method options**: TreeKnit.jl applies `--rounds` only when the value is not 1, so `--better-MCCs --rounds 1` keeps two rounds for more than two trees. The port applies the value 1 ([main.rs#L534-L536](../../packages/treeknit-cli/src/main.rs#L578-L580)). The README says that the former options reproduce the TreeKnit.jl results
+- **`--gamma`, `--n-mcmc-it`, `--no-likelihood`, `--seq-lengths`, `--parallel`**: the TreeKnit.jl command line passes these values to `OptArgs(K; ...)`, which reads none of them (and reads the sequence lengths under the misspelled key `seq_lenghts`), so every TreeKnit.jl run uses γ = 2, 50 steps per leaf, the likelihood test, and sequence lengths 1 (`kb/feat/v0/documented-vs-actual.md`). The port applies the values. The `--help-resolve` text says that the former options reproduce the TreeKnit.jl results, which holds only when these options are left at their defaults
 - **`--help-defaults`**: TreeKnit.jl explains the method presets. The port prints the `--help-resolve` text
 - **Extension of output trees**: TreeKnit.jl uses the extension of the first input file for all output trees. The port uses the extension of each input file
 
