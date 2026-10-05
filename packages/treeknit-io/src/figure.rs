@@ -336,6 +336,23 @@ mod tests {
     assert!(texts(&svg).contains(&label.to_owned()));
   }
 
+  #[test]
+  fn tanglegram_svg_replaces_characters_that_xml_does_not_allow() {
+    let mut view = example_view(Scale::Depth);
+    let leaf = view.left.nodes.iter().position(|n| n.name == "A").unwrap();
+    view.left.nodes[leaf].name = "a\u{1}b\tc\u{ffff}".to_owned();
+    view.left.label = "h\u{8}a".to_owned();
+    let svg = tanglegram_svg(&view, &options(1200.0, 12.0, Scale::Depth, LabelMode::On)).unwrap();
+    // Oracle: the production `Char` of XML 1.0, section 2.2, allows tab but not U+0001, U+0008,
+    // or U+FFFF.
+    let xml_char =
+      |c: char| matches!(c, '\t' | '\n' | '\r' | '\u{20}'..='\u{d7ff}' | '\u{e000}'..='\u{fffd}' | '\u{10000}'..);
+    assert!(svg.chars().all(xml_char), "{svg:?}");
+    assert!(texts(&svg).contains(&"a\u{fffd}b\tc\u{fffd}".to_owned()), "{svg}");
+    let title = elements(&svg).into_iter().find(|e| e.name == "title").unwrap();
+    assert_eq!("h\u{fffd}a and na", title.text);
+  }
+
   #[rustfmt::skip]
   #[rstest]
   #[case::auto_below(LabelMode::Auto, 9.99, false)]

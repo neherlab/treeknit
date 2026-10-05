@@ -4,6 +4,7 @@
 use crate::display::{Bezier, Point, label_max_chars, shorten};
 use quick_xml::Writer;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
+use std::borrow::Cow;
 
 /// Space around the drawing, in px; the margin of the interactive views.
 pub(super) const MARGIN: f64 = 16.0;
@@ -112,7 +113,7 @@ impl Svg {
   /// An element with text content.
   pub(super) fn text(&mut self, name: &str, attributes: &[(&str, String)], text: &str) {
     self.open(name, attributes);
-    self.write(Event::Text(BytesText::new(text)));
+    self.write(Event::Text(BytesText::new(&xml_chars(text))));
     self.close(name);
   }
 
@@ -472,7 +473,25 @@ fn s_curve(from: Point, to: Point) -> Bezier {
 }
 
 fn start<'a>(name: &'a str, attributes: &'a [(&'a str, String)]) -> BytesStart<'a> {
-  BytesStart::new(name).with_attributes(attributes.iter().map(|(k, v)| (*k, v.as_str())))
+  let mut element = BytesStart::new(name);
+  for (k, v) in attributes {
+    element.push_attribute((*k, xml_chars(v).as_ref()));
+  }
+  element
+}
+
+/// `text` with every character that XML 1.0 does not allow (section 2.2: the C0 controls other
+/// than tab, line feed, and carriage return, and U+FFFE and U+FFFF) replaced by U+FFFD, the
+/// replacement character. Newick names can hold such characters, and a viewer refuses an SVG file
+/// that contains them.
+fn xml_chars(text: &str) -> Cow<'_, str> {
+  let allowed =
+    |c: char| !matches!(c, '\u{0}'..='\u{8}' | '\u{b}' | '\u{c}' | '\u{e}'..='\u{1f}' | '\u{fffe}' | '\u{ffff}');
+  if text.chars().all(allowed) {
+    Cow::Borrowed(text)
+  } else {
+    Cow::Owned(text.chars().map(|c| if allowed(c) { c } else { '\u{fffd}' }).collect())
+  }
 }
 
 #[cfg(test)]
