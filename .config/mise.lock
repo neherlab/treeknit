@@ -136,6 +136,33 @@ url = "https://github.com/Boshen/cargo-shear/releases/download/v1.13.4/cargo-she
 url_api = "https://api.github.com/repos/Boshen/cargo-shear/releases/assets/510342729"
 provenance = "github-attestations"
 
+[[tools."github:WebAssembly/binaryen"]]
+version = "133"
+backend = "github:WebAssembly/binaryen"
+
+[tools."github:WebAssembly/binaryen".options]
+version_prefix = "version_"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-arm64"]
+checksum = "sha256:89c07ea56faf38d0fbecf36ca8ec0721756716185f265b568e133d427f299bf8"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-aarch64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580038503"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-x64"]
+checksum = "sha256:2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580050094"
+
+[tools."github:WebAssembly/binaryen"."platforms.macos-arm64"]
+checksum = "sha256:ad66da82ac13f163e424b1643f16c6dfcccc98b5966296b43e52d3cab04f84a8"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-arm64-macos.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580039733"
+
+[tools."github:WebAssembly/binaryen"."platforms.macos-x64"]
+checksum = "sha256:13a9b90be775c6389ce3d1f879cb8627bea56708ba8c122983941d53a8199b95"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-macos.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580039734"
+
 [[tools."github:kunobi-ninja/kache"]]
 version = "0.26.3"
 backend = "github:kunobi-ninja/kache"
@@ -177,6 +204,34 @@ url_api = "https://api.github.com/repos/sourcefrog/cargo-mutants/releases/assets
 checksum = "sha256:7109a9e9673fe0b977f622e6f32383b6d1cbbf3fbb63b7c30db3267462c74670"
 url = "https://github.com/sourcefrog/cargo-mutants/releases/download/v27.1.0/cargo-mutants-x86_64-apple-darwin.tar.gz"
 url_api = "https://api.github.com/repos/sourcefrog/cargo-mutants/releases/assets/436336082"
+
+[[tools."github:wasm-bindgen/wasm-bindgen"]]
+version = "0.2.129"
+backend = "github:wasm-bindgen/wasm-bindgen"
+
+[tools."github:wasm-bindgen/wasm-bindgen"."platforms.linux-arm64"]
+checksum = "sha256:1797c349a0f45d30946e8986b184135e12839ab576c9a04203e85febfc5dcb35"
+url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/wasm-bindgen-0.2.129-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/587769532"
+provenance = "github-attestations"
+
+[tools."github:wasm-bindgen/wasm-bindgen"."platforms.linux-x64"]
+checksum = "sha256:82d12bb940e2d4e72e0d5605387fc1b8ca179044e012b620f0ce4e7440e8320e"
+url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/wasm-bindgen-0.2.129-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/587769529"
+provenance = "github-attestations"
+
+[tools."github:wasm-bindgen/wasm-bindgen"."platforms.macos-arm64"]
+checksum = "sha256:81d4a23d56b3c3eb8187658329116d50e0b228a93b343825fb71f70179051cd1"
+url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/wasm-bindgen-0.2.129-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/587769526"
+provenance = "github-attestations"
+
+[tools."github:wasm-bindgen/wasm-bindgen"."platforms.macos-x64"]
+checksum = "sha256:7e028879a68ec53dae14048b55cc5215f6df75b17a9c1426fac8fa086d3202fd"
+url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.129/wasm-bindgen-0.2.129-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/wasm-bindgen/wasm-bindgen/releases/assets/587769520"
+provenance = "github-attestations"
 
 [[tools.hadolint]]
 version = "2.15.1"
@@ -295,6 +350,26 @@ url_api = "https://api.github.com/repos/rui314/mold/releases/assets/557035958"
 checksum = "sha256:6ff270c9bf07d2bec5c98aa324eb7c4daf6a1a4d815c05ff1708049616047855"
 url = "https://github.com/rui314/mold/releases/download/v2.42.1/mold-2.42.1-x86_64-linux.tar.gz"
 url_api = "https://api.github.com/repos/rui314/mold/releases/assets/557036001"
+
+[[tools.node]]
+version = "24.21.0"
+backend = "core:node"
+
+[tools.node."platforms.linux-arm64"]
+checksum = "sha256:724282c3b43aec998aa9527380465b45d229e021b58035f5f4f63095eabfe5d5"
+url = "https://nodejs.org/dist/v24.21.0/node-v24.21.0-linux-arm64.tar.gz"
+
+[tools.node."platforms.linux-x64"]
+checksum = "sha256:6e1db87ef58b8819e5d5402eff1536491b18edd8eb7bee5ef7897876e88dc5ff"
+url = "https://nodejs.org/dist/v24.21.0/node-v24.21.0-linux-x64.tar.gz"
+
+[tools.node."platforms.macos-arm64"]
+checksum = "sha256:bed7eea5325e1108f32ce5228ddd6a5f0f08a499ee42aa7442aea583702f6057"
+url = "https://nodejs.org/dist/v24.21.0/node-v24.21.0-darwin-arm64.tar.gz"
+
+[tools.node."platforms.macos-x64"]
+checksum = "sha256:1462cb3b3046b815cf8ea436d3da450ec1a9f11dac7e5a46b0ada5305d7e8097"
+url = "https://nodejs.org/dist/v24.21.0/node-v24.21.0-darwin-x64.tar.gz"
 
 [[tools.ripgrep]]
 version = "15.2.0"
