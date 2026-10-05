@@ -196,10 +196,9 @@ pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationErro
   }
   let taxa = Taxa::from_trees(&parsed);
   for t in &mut parsed {
-    // The taxon table holds every leaf of every tree, so no leaf is unknown.
-    if let Err(e) = t.assign_taxa(&taxa) {
-      errors.push(ValidationError::at("trees", e));
-    }
+    #[expect(clippy::expect_used, reason = "the table is built from these trees, so it holds every leaf")]
+    t.assign_taxa(&taxa)
+      .expect("the taxon table built from the trees holds every leaf of every tree");
   }
   errors.extend(
     shared_leaf_counts(&parsed, taxa.len())
