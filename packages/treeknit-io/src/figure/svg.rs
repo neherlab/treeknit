@@ -28,9 +28,9 @@ const SYMBOL_GAP: f64 = 6.0;
 const ENTRY_GAP: f64 = 20.0;
 /// Advance widths of the printable ASCII characters, U+0020 to U+007E, in 1/1000 em: those of
 /// Helvetica (Adobe font metrics of the standard PostScript fonts), which Arial shares. SVG text
-/// has no width before a viewer lays it out, so the figures estimate widths from these fallback
-/// fonts, which are wider than the IBM Plex Sans Condensed of the labels; a label then fits its
-/// column in each of the label fonts.
+/// has no width before a viewer lays it out, so the figures estimate widths from these metrics.
+/// They are an estimate, not a bound: the condensed cut of the labels is narrower, and a viewer
+/// that falls back to a wider font can draw a label past its column.
 #[rustfmt::skip]
 const ASCII_ADVANCE: [u32; 95] = [
   // space to /
@@ -46,8 +46,59 @@ const ASCII_ADVANCE: [u32; 95] = [
   // p to ~
   556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584,
 ];
-/// Advance of any other character in 1/1000 em: the full em of a CJK ideograph, which bounds the
-/// letters of other scripts too. A combining mark takes no width in a viewer but counts here.
+/// First character of `LATIN_ADVANCE`.
+const LATIN_FIRST: u32 = 0xA0;
+/// Advance widths of Latin-1 Supplement and Latin Extended-A, U+00A0 to U+017F, in 1/1000 em:
+/// those of the Helvetica glyphs of the characters (Adobe Glyph List names). A letter that
+/// Helvetica lacks takes the width of its base letter (`Ĉ` that of `C`), and the ligatures `Ĳ`,
+/// `ĳ`, and `ŉ` the sum of their parts.
+#[rustfmt::skip]
+const LATIN_ADVANCE: [u32; 224] = [
+  // U+00A0 to U+00AF
+  278, 333, 556, 556, 556, 556, 260, 556, 333, 737, 370, 556, 584, 333, 737, 333,
+  // U+00B0 to U+00BF
+  400, 584, 333, 333, 333, 556, 537, 278, 333, 333, 365, 556, 834, 834, 834, 611,
+  // U+00C0 to U+00CF
+  667, 667, 667, 667, 667, 667, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278,
+  // U+00D0 to U+00DF
+  722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611,
+  // U+00E0 to U+00EF
+  556, 556, 556, 556, 556, 556, 889, 500, 556, 556, 556, 556, 278, 278, 278, 278,
+  // U+00F0 to U+00FF
+  556, 556, 556, 556, 556, 556, 556, 584, 611, 556, 556, 556, 556, 500, 556, 500,
+  // U+0100 to U+010F
+  667, 556, 667, 556, 667, 556, 722, 500, 722, 500, 722, 500, 722, 500, 722, 643,
+  // U+0110 to U+011F
+  722, 556, 667, 556, 667, 556, 667, 556, 667, 556, 667, 556, 778, 556, 778, 556,
+  // U+0120 to U+012F
+  778, 556, 778, 556, 722, 556, 722, 556, 278, 222, 278, 278, 278, 222, 278, 222,
+  // U+0130 to U+013F
+  278, 278, 778, 444, 500, 222, 667, 500, 500, 556, 222, 556, 222, 556, 299, 556,
+  // U+0140 to U+014F
+  222, 556, 222, 722, 556, 722, 556, 722, 556, 778, 667, 556, 778, 556, 778, 556,
+  // U+0150 to U+015F
+  778, 556, 1000, 944, 722, 333, 722, 333, 722, 333, 667, 500, 667, 500, 667, 500,
+  // U+0160 to U+016F
+  667, 500, 611, 278, 611, 317, 611, 278, 722, 556, 722, 556, 722, 556, 722, 556,
+  // U+0170 to U+017F
+  722, 556, 722, 556, 944, 722, 667, 500, 667, 611, 500, 611, 500, 611, 500, 278,
+];
+/// Characters that take no width: combining marks (U+0300 to U+036F, U+1AB0 to U+1AFF, U+1DC0
+/// to U+1DFF, U+20D0 to U+20FF, U+FE20 to U+FE2F), zero-width spaces and joiners and the
+/// direction marks (U+200B to U+200F), and variation selectors (U+FE00 to U+FE0F, U+E0100 to
+/// U+E01EF).
+const ZERO_WIDTH: [(char, char); 8] = [
+  ('\u{300}', '\u{36f}'),
+  ('\u{1ab0}', '\u{1aff}'),
+  ('\u{1dc0}', '\u{1dff}'),
+  ('\u{200b}', '\u{200f}'),
+  ('\u{20d0}', '\u{20ff}'),
+  ('\u{fe00}', '\u{fe0f}'),
+  ('\u{fe20}', '\u{fe2f}'),
+  ('\u{e0100}', '\u{e01ef}'),
+];
+/// Typical advance of any other character in 1/1000 em: the full em of a CJK ideograph. The
+/// letters of most other scripts are narrower, and a few symbols are wider (U+2E3B is 3 em).
 const OTHER_ADVANCE: u32 = 1000;
 
 /// Fonts of the figure text.
@@ -379,16 +430,22 @@ fn text_width(text: &str) -> f64 {
 
 /// The estimated advance of `text` in 1/1000 em.
 fn advance(text: &str) -> u32 {
-  text
-    .chars()
-    .map(|c| {
-      u32::from(c)
-        .checked_sub(0x20)
-        .and_then(|i| ASCII_ADVANCE.get(usize::try_from(i).ok()?))
-        .copied()
-        .unwrap_or(OTHER_ADVANCE)
-    })
-    .fold(0, u32::saturating_add)
+  text.chars().map(char_advance).fold(0, u32::saturating_add)
+}
+
+/// The estimated advance of `c` in 1/1000 em: from the Helvetica tables for ASCII and Latin
+/// letters, 0 for a character without width, and `OTHER_ADVANCE` otherwise.
+fn char_advance(c: char) -> u32 {
+  let at = |table: &[u32], first: u32| {
+    let i = usize::try_from(u32::from(c).checked_sub(first)?).ok()?;
+    table.get(i).copied()
+  };
+  if ZERO_WIDTH.iter().any(|&(low, high)| (low..=high).contains(&c)) {
+    return 0;
+  }
+  at(&ASCII_ADVANCE, 0x20)
+    .or_else(|| at(&LATIN_ADVANCE, LATIN_FIRST))
+    .unwrap_or(OTHER_ADVANCE)
 }
 
 /// The label column of a drawing in px, and the room its labels have.
@@ -692,12 +749,17 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  // Oracle: the Helvetica widths of the Adobe font metrics, in 1/1000 em, and 1000 for any
-  // character outside ASCII.
+  // Oracle: the Helvetica widths of the Adobe font metrics (Helvetica.afm), in 1/1000 em: Z 611,
+  // udieresis 556, r 333, i 222, c 500, h 556, and Ccircumflex, which Helvetica lacks, as C 722;
+  // 0 for a combining mark and a zero-width joiner, and 1000 for other characters.
   #[case::capitals( "AW",          667 + 944)]
   #[case::narrow(   "il",          222 + 222)]
+  #[case::latin_1(  "Zürich",      611 + 556 + 333 + 222 + 500 + 556)]
+  #[case::extended( "Ĉ",           722)]
   #[case::greek(    "αβ",          1000 + 1000)]
-  #[case::combining("a\u{301}",    556 + 1000)]
+  #[case::combining("a\u{301}",    556)]
+  #[case::joiner(   "a\u{200d}b",  556 + 556)]
+  #[case::cjk(      "流感",        1000 + 1000)]
   #[case::empty(    "",            0)]
   #[trace]
   fn advance_adds_the_widths_of_the_characters(#[case] text: &str, #[case] expected: u32) {
