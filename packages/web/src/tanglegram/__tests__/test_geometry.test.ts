@@ -79,7 +79,7 @@ describe("tanglegramGeometry", () => {
       },
     };
 
-    expect(tanglegramGeometry(view, COLUMNS, "y").leaders).toStrictEqual([
+    expect(tanglegramGeometry(view, COLUMNS, "y", 64).leaders).toStrictEqual([
       {
         side: "left",
         node: 2,
