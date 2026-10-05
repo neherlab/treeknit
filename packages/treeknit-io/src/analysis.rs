@@ -2,7 +2,8 @@
 //! validation, and the conversion of the settings to core `Options`.
 //!
 //! Both surfaces validate with the same functions, so a request that one accepts the other
-//! accepts too. A request that passes `validate` runs without a panic in the core.
+//! accepts too. The checks reject the inputs known to make the core panic, because a panic
+//! traps the WebAssembly instance.
 
 use crate::newick;
 use serde::{Deserialize, Serialize};
