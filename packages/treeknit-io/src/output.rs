@@ -438,22 +438,52 @@ pub fn log_file(records: &[Diagnostic]) -> OutputFile {
   OutputFile::new(LOG_FILE.to_owned(), text)
 }
 
-/// A ZIP archive of `files`, each under `treeknit_results/` at its path. Every entry is deflated,
-/// dated 1980-01-01 00:00 (the earliest ZIP time), and made by a Unix system with the permissions
-/// `rw-r--r--`, so equal files give a byte-identical archive on every host. Fails when two files
-/// have one path.
+/// A ZIP archive of `files`, as `Archive` writes it.
 pub fn zip_archive(files: &[OutputFile]) -> Result<Vec<u8>, ArchiveError> {
-  let options = SimpleFileOptions::default()
-    .compression_method(CompressionMethod::Deflated)
-    .last_modified_time(DateTime::DEFAULT)
-    .system(System::Unix)
-    .unix_permissions(0o644);
-  let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
+  let mut archive = Archive::new();
   for f in files {
-    zip.start_file(format!("{RESULTS_DIR}/{}", f.path), options)?;
-    zip.write_all(f.text.as_bytes()).map_err(ZipError::from)?;
+    archive.add(&f.path, &f.text)?;
   }
-  Ok(zip.finish()?.into_inner())
+  archive.finish()
+}
+
+/// A ZIP archive under construction, so that each file can be added while its text exists. Each
+/// file is under `treeknit_results/` at its path. Every entry is deflated, dated 1980-01-01 00:00
+/// (the earliest ZIP time), and made by a Unix system with the permissions `rw-r--r--`, so equal
+/// files give a byte-identical archive on every host.
+pub struct Archive {
+  zip: ZipWriter<Cursor<Vec<u8>>>,
+}
+
+impl Archive {
+  pub fn new() -> Archive {
+    Archive {
+      zip: ZipWriter::new(Cursor::new(Vec::new())),
+    }
+  }
+
+  /// Add the file `text` at `path`; fails when the archive has a file at `path`.
+  pub fn add(&mut self, path: &str, text: &str) -> Result<(), ArchiveError> {
+    let options = SimpleFileOptions::default()
+      .compression_method(CompressionMethod::Deflated)
+      .last_modified_time(DateTime::DEFAULT)
+      .system(System::Unix)
+      .unix_permissions(0o644);
+    self.zip.start_file(format!("{RESULTS_DIR}/{path}"), options)?;
+    self.zip.write_all(text.as_bytes()).map_err(ZipError::from)?;
+    Ok(())
+  }
+
+  /// The bytes of the archive.
+  pub fn finish(self) -> Result<Vec<u8>, ArchiveError> {
+    Ok(self.zip.finish()?.into_inner())
+  }
+}
+
+impl Default for Archive {
+  fn default() -> Self {
+    Archive::new()
+  }
 }
 
 /// Failure to build the ZIP archive of `zip_archive`.

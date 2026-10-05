@@ -1145,7 +1145,9 @@ export class Session {
      */
     summary(): Summary;
     /**
-     * A ZIP archive of every listed file, under `treeknit_results/`, figures included.
+     * A ZIP archive of every listed file, under `treeknit_results/`, figures included. A figure
+     * not yet read is rendered into the archive and not kept, so the archive needs the memory of
+     * one figure at a time.
      */
     zip(): Uint8Array;
 }

@@ -521,6 +521,43 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
+  fn session_zip_renders_unread_figures_without_keeping_them() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let bytes = session.zip().unwrap();
+    let (r, opts) = native_run(&two_trees());
+    let request: AnalysisRequest = serde_json::from_value(two_trees()).unwrap();
+    // Oracle: the files of the command line with the web options, figures included, from the
+    // same run without WebAssembly. The session file and the log are plain texts of the session.
+    let native: Vec<OutputFile> = output::output_files(&r, &opts, &output::OutputOptions::web(2))
+      .into_iter()
+      .chain([output::parameters_file(&opts, request.settings.seed)])
+      .collect();
+    let listed = plain_list(&session.files().unwrap());
+    let files: Vec<OutputFile> = listed
+      .as_array()
+      .unwrap()
+      .iter()
+      .map(|f| {
+        let path = f["path"].as_str().unwrap();
+        native.iter().find(|n| n.path == path).cloned().unwrap_or_else(|| {
+          assert!([output::REQUEST_FILE, output::LOG_FILE].contains(&path), "{path}");
+          OutputFile::new(path.to_owned(), session.file_text(path).unwrap())
+        })
+      })
+      .collect();
+    assert_eq!(output::zip_archive(&files).unwrap(), bytes);
+    // The listing after the archive: the figures still have no size, because none was kept.
+    let sizes: Vec<&Value> = listed
+      .as_array()
+      .unwrap()
+      .iter()
+      .filter(|f| !f["figure"].is_null())
+      .map(|f| &f["size"])
+      .collect();
+    assert_eq!(vec![&Value::Null, &Value::Null], sizes);
+  }
+
+  #[wasm_bindgen_test]
   fn session_command_line_runs_the_session_file() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     assert_eq!(

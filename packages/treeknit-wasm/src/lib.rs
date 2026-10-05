@@ -9,7 +9,7 @@ use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, Validatio
 use treeknit_io::display::{self, ArgView, ConstellationTable, DrawingRules, PairView, Scale, TreeVersion};
 use treeknit_io::figure::FigureOptions;
 use treeknit_io::inspect::{self, Overlap, TreeInspection};
-use treeknit_io::output::{self, FigureFile, FileEntry, OutputFile, OutputOptions, WebFile};
+use treeknit_io::output::{self, Archive, FigureFile, FileEntry, OutputFile, OutputOptions, WebFile};
 use treeknit_io::palette::{self, Palette};
 use treeknit_io::progress::Progress;
 use treeknit_io::run::{self, RunResult};
@@ -237,21 +237,25 @@ impl Session {
     Ok(file.text(&self.run, &self.options)?.to_owned())
   }
 
-  /// A ZIP archive of every listed file, under `treeknit_results/`, figures included.
+  /// A ZIP archive of every listed file, under `treeknit_results/`, figures included. A figure
+  /// not yet read is rendered into the archive and not kept, so the archive needs the memory of
+  /// one figure at a time.
   #[wasm_bindgen]
   pub fn zip(&self) -> Result<Vec<u8>, JsError> {
     let _log = log_capture::discard();
-    let files = self
-      .files
-      .iter()
-      .map(|f| {
-        Ok(OutputFile::new(
-          f.path().to_owned(),
-          f.text(&self.run, &self.options)?.to_owned(),
-        ))
-      })
-      .collect::<Result<Vec<_>, JsError>>()?;
-    output::zip_archive(&files).map_err(|e| JsError::new(&e.to_string()))
+    let archive_error = |e: output::ArchiveError| JsError::new(&e.to_string());
+    let mut archive = Archive::new();
+    for f in &self.files {
+      match f {
+        SessionFile::Text(file) => archive.add(&file.path, &file.text),
+        SessionFile::Figure { file, svg } => match svg.get() {
+          Some(text) => archive.add(&file.path, text),
+          None => archive.add(&file.path, &render(file, &self.run, &self.options)?),
+        },
+      }
+      .map_err(archive_error)?;
+    }
+    archive.finish().map_err(archive_error)
   }
 
   /// The command that reproduces the file set of the run from the extracted archive.
@@ -345,8 +349,7 @@ impl SessionFile {
         if let Some(text) = svg.get() {
           return Ok(text);
         }
-        let text = output::figure_text(run, options, file.figure)
-          .ok_or_else(|| JsError::new(&format!("no figure {}", file.path)))?;
+        let text = render(file, run, options)?;
         Ok(svg.get_or_init(|| text))
       },
     }
@@ -363,6 +366,12 @@ impl SessionFile {
       ),
     }
   }
+}
+
+/// The SVG text of the figure `file` of `run` with the default options; `options` are the
+/// options of the run.
+fn render(file: &FigureFile, run: &RunResult, options: &Options) -> Result<String, JsError> {
+  output::figure_text(run, options, file.figure).ok_or_else(|| JsError::new(&format!("no figure {}", file.path)))
 }
 
 /// A JavaScript `Error` named `ValidationError` whose message joins the messages of `errors`, one
