@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+#
+# Usage: $0 [--profile=<cargo profile>] <bin> [target]
+#
+# Build a binary for a target inside its cross image and copy it to
+# .out/<bin>-<target>. The target defaults to CROSS_COMPILE, which the cross
+# images set. Build output goes to .build/cross/<target>/.
+#
+# Options:
+#   -h, --help                Show this help
+#   --profile=<cargo profile> Cargo profile (default: dist, the shipped build,
+#                             which also gets the shipped CPU flags)
+#
+# Examples:
+#   CROSS_COMPILE=aarch64-apple-darwin dev/docker/run dev/cross/build treeknit
+#   CROSS_COMPILE=x86_64-pc-windows-gnu dev/docker/run dev/cross/build --profile=release treeknit
+#
+set -euo pipefail
+shopt -s inherit_errexit
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+
+main() {
+  local profile="dist"
+  while (($# > 0)); do
+    case "${1}" in
+    -h | --help)
+      sed -n '2,${/^#/!q; s/^# \?//p}' "${BASH_SOURCE[0]}" | sed "s|\$0|${0##*/}|g"
+      exit 0
+      ;;
+    --profile=*) profile="${1#--profile=}" ;;
+    -*)
+      printf 'Unknown option: %s\n' "${1}" >&2
+      exit 1
+      ;;
+    *) break ;;
+    esac
+    shift
+  done
+  local bin="${1:?binary name}"
+  local target="${2:-${CROSS_COMPILE:?target}}"
+  cd "${root}"
+
+  # RUSTFLAGS, even empty, replaces the target rustflags of .cargo/config.toml,
+  # whose mold linker the cross images lack. The shipped build gets the CPU
+  # flags of the shipped builds.
+  export RUSTFLAGS=""
+  if [[ "${profile}" == dist ]]; then
+    # shellcheck source=../lib/dist-flags.sh
+    source "${root}/dev/lib/dist-flags.sh"
+    export_dist_flags "${target}"
+  fi
+  # Windows binaries link the GCC runtime statically, so they need no MinGW DLL
+  # next to them. musl targets link statically by default.
+  if [[ "${target}" == *-windows-gnu ]]; then
+    RUSTFLAGS="${RUSTFLAGS:+${RUSTFLAGS} }-C target-feature=+crt-static"
+  fi
+
+  # The optional kache compiler cache (KACHE_STORE in .env.example), one store
+  # per kache version and target, next to the stores of the justfile.
+  if [[ -n "${KACHE_STORE:-}" ]]; then
+    local kache_version
+    kache_version="$(kache --version)"
+    export RUSTC_WRAPPER="kache"
+    export KACHE_CACHE_DIR="${KACHE_STORE}/${kache_version##* }/docker-cross-${target}"
+    export KACHE_MAX_SIZE="${KACHE_MAX_SIZE:-100GiB}"
+  fi
+
+  local target_dir="${root}/.build/cross/${target}"
+  cargo build --locked --profile="${profile}" --target="${target}" --target-dir="${target_dir}" --bin="${bin}"
+
+  local ext=""
+  [[ "${target}" == *-windows-* ]] && ext=".exe"
+  mkdir -p .out
+  # Cargo writes the dev profile to the debug directory.
+  local profile_dir="${profile}"
+  [[ "${profile}" == dev ]] && profile_dir="debug"
+  cp "${target_dir}/${target}/${profile_dir}/${bin}${ext}" ".out/${bin}-${target}${ext}"
+  printf 'Built .out/%s-%s%s\n' "${bin}" "${target}" "${ext}" >&2
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi

@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+#
+# Usage: $0 <bin> [target]
+#
+# Check a binary that dev/cross/build put into .out/: print its format and the
+# libraries it needs, and fail when it needs a library that a user system does
+# not provide. Runs inside the cross image of the target, whose binary tools it
+# uses; the target defaults to CROSS_COMPILE.
+#
+# Libraries a user system provides:
+#   Linux glibc   glibc and the GCC runtime (libgcc_s); the newest glibc
+#                 symbol version the binary needs is printed
+#   Linux musl    none: the binary must be static
+#   Windows       system DLLs; MinGW runtime DLLs (lib*.dll) fail
+#   macOS         libraries under /usr/lib and /System; the oldest macOS
+#                 version the binary supports is printed
+#
+# An arm64 macOS binary must also carry a code signature (the ad-hoc signature
+# of the linker), because macOS does not start an unsigned arm64 binary.
+#
+set -euo pipefail
+shopt -s inherit_errexit
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+
+GLIBC_LIBRARIES='^(ld-linux.*|libc|libdl|libgcc_s|libm|libpthread|librt)\.so\.[0-9]+$'
+
+# Print the libraries a binary needs, one per line.
+dependencies() {
+  local file="${1}" target="${2}"
+  case "${target}" in
+  *-apple-darwin) "${CROSS_OTOOL:?}" -L "${file}" | awk 'NR > 1 { print $1 }' ;;
+  *-windows-gnu) "${CROSS_OBJDUMP:?}" -p "${file}" | awk '/DLL Name:/ { print $3 }' ;;
+  *-linux-*) "${CROSS_READELF:?}" --dynamic "${file}" | awk '/\(NEEDED\)/ { gsub(/[][]/, "", $NF); print $NF }' ;;
+  *)
+    printf 'Unsupported target: %s\n' "${target}" >&2
+    return 1
+    ;;
+  esac
+}
+
+# Print the libraries that a user system does not provide, one per line.
+foreign_dependencies() {
+  local target="${1}"
+  case "${target}" in
+  *-apple-darwin) awk '$0 !~ /^(\/usr\/lib\/|\/System\/)/' ;;
+  *-windows-gnu) awk 'tolower($0) ~ /^lib/' ;;
+  *-linux-musl) cat ;;
+  *-linux-gnu) awk -v allowed="${GLIBC_LIBRARIES}" '$0 !~ allowed' ;;
+  esac
+}
+
+# Print the oldest macOS version that a binary supports.
+macos_version() {
+  "${CROSS_OTOOL:?}" -l "${1}" | awk '
+    $1 == "cmd" { cmd = $2 }
+    !found && ((cmd == "LC_VERSION_MIN_MACOSX" && $1 == "version") || (cmd == "LC_BUILD_VERSION" && $1 == "minos")) { print $2; found = 1 }
+  '
+}
+
+# Print each input line as a list item.
+bullets() {
+  local line
+  while IFS= read -r line; do
+    printf '  * %s\n' "${line}"
+  done
+}
+
+# Print the newest glibc symbol version that a binary needs.
+glibc_version() {
+  "${CROSS_OBJDUMP:?}" -T "${1}" | awk 'match($0, /GLIBC_[0-9.]+/) { print substr($0, RSTART + 6, RLENGTH - 6) }' | sort -uV | tail -n 1
+}
+
+main() {
+  if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
+    sed -n '2,${/^#/!q; s/^# \?//p}' "${BASH_SOURCE[0]}" | sed "s|\$0|${0##*/}|g"
+    exit 0
+  fi
+  local bin="${1:?binary name}"
+  local target="${2:-${CROSS_COMPILE:?target}}"
+  cd "${root}"
+
+  local ext=""
+  [[ "${target}" == *-windows-* ]] && ext=".exe"
+  local file=".out/${bin}-${target}${ext}"
+  file --brief "${file}"
+
+  local needed foreign
+  needed="$(dependencies "${file}" "${target}")"
+  foreign="$(foreign_dependencies "${target}" <<<"${needed}")"
+  if [[ -n "${needed}" ]]; then
+    printf 'Needs:\n'
+    bullets <<<"${needed}"
+  else
+    printf 'Needs no shared library\n'
+  fi
+  if [[ "${target}" == *-linux-gnu ]]; then
+    printf 'Needs glibc %s or newer\n' "$(glibc_version "${file}")"
+  fi
+  if [[ "${target}" == *-apple-darwin ]]; then
+    printf 'Needs macOS %s or newer\n' "$(macos_version "${file}")"
+    local commands
+    commands="$("${CROSS_OTOOL:?}" -l "${file}")"
+    if [[ "${target}" == aarch64-* && "${commands}" != *LC_CODE_SIGNATURE* ]]; then
+      printf '%s has no code signature, which macOS requires for arm64 binaries\n' "${file}" >&2
+      exit 1
+    fi
+  fi
+  if [[ "${target}" == *-linux-musl ]]; then
+    local headers
+    headers="$("${CROSS_READELF:?}" --program-headers "${file}")"
+    if [[ "${headers}" == *INTERP* ]]; then
+      printf '%s is not static: it names a dynamic linker\n' "${file}" >&2
+      exit 1
+    fi
+  fi
+  if [[ -n "${foreign}" ]]; then
+    printf '%s needs libraries that user systems do not provide:\n' "${file}" >&2
+    bullets <<<"${foreign}" >&2
+    exit 1
+  fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 # The CPU flags of the shipped builds, shared by the prod, profiling, and bench
-# builds of the justfile, so a local `just build prod` compiles the code that
-# ships.
+# builds of the justfile and the prod cross builds of dev/cross/build, so a local
+# `just build prod` compiles the code that ships.
 
 # Export RUSTFLAGS of the shipped build for a target, by default the host.
 # RUSTFLAGS replaces the target rustflags of .cargo/config.toml (mold, frame

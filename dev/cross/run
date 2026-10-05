@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#
+# Usage: $0 <bin> [target] [args...]
+#
+# Run a binary that dev/cross/build put into .out/, inside the cross image of
+# its target: with QEMU for Linux aarch64, with Wine for Windows, and directly
+# for Linux x86_64. macOS binaries cannot run here. The target defaults to
+# CROSS_COMPILE; pass it explicitly when passing arguments.
+#
+# Examples:
+#   CROSS_COMPILE=aarch64-unknown-linux-musl dev/docker/run dev/cross/run treeknit
+#   CROSS_COMPILE=x86_64-pc-windows-gnu dev/docker/run dev/cross/run treeknit x86_64-pc-windows-gnu --help
+#
+set -euo pipefail
+shopt -s inherit_errexit
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+
+main() {
+  if [[ "${1:-}" =~ ^(-h|--help)$ ]]; then
+    sed -n '2,${/^#/!q; s/^# \?//p}' "${BASH_SOURCE[0]}" | sed "s|\$0|${0##*/}|g"
+    exit 0
+  fi
+  local bin="${1:?binary name}"
+  local target="${2:-${CROSS_COMPILE:?target}}"
+  shift
+  (($# > 0)) && shift
+  cd "${root}"
+
+  if [[ "${target}" == *-apple-darwin ]]; then
+    printf 'macOS binaries cannot run in the cross image of %s\n' "${target}" >&2
+    exit 1
+  fi
+  local ext=""
+  if [[ "${target}" == *-windows-* ]]; then
+    ext=".exe"
+    export WINEPREFIX="${HOME}/wine"
+    mkdir -p "${WINEPREFIX}/drive_c/windows/system32"
+    cp /opt/wine/bcryptprimitives.dll "${WINEPREFIX}/drive_c/windows/system32/"
+  fi
+
+  local runner=()
+  if [[ -n "${CROSS_RUNNER:-}" ]]; then
+    runner=("${CROSS_RUNNER}")
+  fi
+  exec "${runner[@]+"${runner[@]}"}" ".out/${bin}-${target}${ext}" "$@"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi

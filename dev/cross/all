@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+#
+# Usage: $0 [options] <bin>...
+#
+# Cross-compile binaries for every target in dev/cross/targets, each in its
+# cross image (dev/cross/build), in parallel, and check the
+# libraries each binary needs (dev/cross/check). Runs on the host and needs
+# Docker. Output goes to .out/<bin>-<target>, one log per target to
+# tmp/cross/<target>.log. Portable to the bash 3.2 of macOS.
+#
+# Options:
+#   -h, --help                Show this help
+#   --profile=<cargo profile> Cargo profile (default: dist, the shipped build)
+#   --target=<triple>         Build this target only (repeatable)
+#   --serial                  Build one target after another, with output streamed
+#   --run                     Run each binary on a simulated case after building,
+#                             with output in tmp/cross/run-<target>/ (QEMU,
+#                             Wine; macOS binaries cannot run in the cross images)
+#
+# Examples:
+#   $0 treeknit
+#   $0 --profile=release --target=aarch64-apple-darwin --target=x86_64-pc-windows-gnu treeknit
+#
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+example="fixtures/sim/sim_k2_n50_r0.02"
+
+build_one() {
+  local target="${1}" profile="${2}" run="${3}" bin
+  shift 3
+  for bin in "$@"; do
+    CROSS_COMPILE="${target}" dev/docker/run dev/cross/build --profile="${profile}" "${bin}" "${target}"
+    CROSS_COMPILE="${target}" dev/docker/run dev/cross/check "${bin}" "${target}"
+    if [[ -n "${run}" && "${target}" != *-apple-darwin ]]; then
+      CROSS_COMPILE="${target}" dev/docker/run dev/cross/run "${bin}" "${target}" \
+        "${example}/tree1.nwk" "${example}/tree2.nwk" --seed=1 --outdir="tmp/cross/run-${target}"
+    fi
+  done
+}
+
+main() {
+  local targets=() bins=() profile="dist" serial="" run="" target
+  while (($# > 0)); do
+    case "${1}" in
+    -h | --help)
+      sed -n '2,${/^#/!q; s/^# \?//p}' "${BASH_SOURCE[0]}" | sed "s|\$0|${0##*/}|g"
+      exit 0
+      ;;
+    --profile=*) profile="${1#--profile=}" ;;
+    --target=*) targets+=("${1#--target=}") ;;
+    --serial) serial=1 ;;
+    --run) run=1 ;;
+    -*)
+      printf 'Unknown option: %s\n' "${1}" >&2
+      exit 1
+      ;;
+    *) bins+=("${1}") ;;
+    esac
+    shift
+  done
+  if ((${#bins[@]} == 0)); then
+    printf 'No binary given; see --help\n' >&2
+    exit 1
+  fi
+  cd "${root}"
+  if ((${#targets[@]} == 0)); then
+    while IFS= read -r target; do
+      targets+=("${target}")
+    done <dev/cross/targets
+  fi
+
+  mkdir -p tmp/cross
+  if [[ -n "${serial}" ]]; then
+    for target in "${targets[@]}"; do
+      build_one "${target}" "${profile}" "${run}" "${bins[@]}"
+    done
+    return
+  fi
+
+  local pids=() failed=() i
+  for target in "${targets[@]}"; do
+    build_one "${target}" "${profile}" "${run}" "${bins[@]}" >"tmp/cross/${target}.log" 2>&1 &
+    pids+=("$!")
+  done
+  printf 'Building %s targets in parallel; logs in tmp/cross/\n' "${#targets[@]}" >&2
+  for i in "${!pids[@]}"; do
+    if wait "${pids[${i}]}"; then
+      printf 'PASS %s\n' "${targets[${i}]}" >&2
+    else
+      printf 'FAIL %s (tmp/cross/%s.log)\n' "${targets[${i}]}" "${targets[${i}]}" >&2
+      failed+=("${targets[${i}]}")
+    fi
+  done
+  ((${#failed[@]} == 0))
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi

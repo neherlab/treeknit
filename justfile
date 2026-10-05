@@ -121,6 +121,12 @@ build mode *args:
     if [[ {{ quote(mode) }} == prod || {{ quote(mode) }} == profiling ]]; then source dev/lib/dist-flags.sh && export_dist_flags; fi; cargo build --locked --profile={{ quote(cargo_profile(mode)) }} --bin treeknit "${@:2}"
     if [[ {{ quote(mode) }} == release || {{ quote(mode) }} == prod ]]; then mkdir -p .out && cp {{ quote(CARGO_TARGET_DIR / cargo_profile_dir(mode) / "treeknit") }} .out/; fi
 
+# Cross-compile the CLI for the release targets into .out/treeknit-<target> and check its libraries (host only, needs Docker): just build-cross <dev|release|prod> [--target=<triple>] [--run] [--serial]; prod is the shipped build (dist profile)
+[arg("mode", pattern="dev|release|prod")]
+[group("build")]
+build-cross mode *args:
+    dev/cross/all --profile={{ quote(cargo_profile(mode)) }} "${@:2}" treeknit
+
 # Build the WebAssembly package into packages/treeknit-wasm/pkg/: just build-wasm <dev|release|prod>; prod, as shipped, uses the dist profile and adds wasm-opt
 [arg("mode", pattern="dev|release|prod")]
 [group("build")]
@@ -140,6 +146,13 @@ build-web mode: _js (build-wasm (if mode == "dev" { "release" } else { "prod" })
 [group("run")]
 run mode *args:
     if [[ {{ quote(mode) }} == prod ]]; then source dev/lib/dist-flags.sh && export_dist_flags; fi; args=("${@:2}"); [[ "${args[0]:-}" != "--" ]] || args=("${args[@]:1}"); cargo run --locked --profile={{ quote(cargo_profile(mode)) }} --bin treeknit -- ${args[@]+"${args[@]}"}
+
+# Cross-compile the CLI for one release target and run it in its cross image, under QEMU or Wine (host only, needs Docker): just run-cross <dev|release|prod> <target> [CLI args]
+[arg("mode", pattern="dev|release|prod")]
+[group("run")]
+run-cross mode target *args:
+    CROSS_COMPILE={{ quote(target) }} dev/docker/run dev/cross/build --profile={{ quote(cargo_profile(mode)) }} treeknit {{ quote(target) }}
+    args=("${@:3}"); [[ "${args[0]:-}" != "--" ]] || args=("${args[@]:1}"); CROSS_COMPILE={{ quote(target) }} dev/docker/run dev/cross/run treeknit {{ quote(target) }} ${args[@]+"${args[@]}"}
 
 # Run an example (release profile): just example accuracy
 [group("run")]
