@@ -7,11 +7,13 @@
 //! the data; the consumer mirrors its column. The SVG figures and the interactive views draw the
 //! same shapes and only map these units to pixels.
 
+mod constellation;
 mod pair;
 mod shapes;
 mod slots;
 mod tree;
 
+pub use constellation::constellation;
 pub use pair::pair_view;
 
 use serde::{Deserialize, Serialize};
@@ -394,7 +396,8 @@ pub struct ConstellationTable {
   pub leaves: Vec<String>,
   /// Labels of the two trees of each pair, in pipeline order.
   pub pairs: Vec<[String; 2]>,
-  /// `cells[leaf][pair]`; `None` when the leaf is in neither tree of the pair.
+  /// `cells[leaf][pair]`; `None` when the pair gives the leaf no MCC: the leaf is in neither
+  /// tree of the pair, or the pair has no MCCs.
   pub cells: Vec<Vec<Option<ConstellationCell>>>,
 }
 
