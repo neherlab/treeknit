@@ -50,7 +50,7 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 
 ## `parameters.json`
 
-`fn parameters_file` [[src](../../packages/treeknit-io/src/output.rs#L143-L147)]:
+`fn parameters_file` [[src](../../packages/treeknit-io/src/output.rs#L144-L148)]:
 
 - [x] **Time of writing**: before the inference, so the file exists when a run fails
 - [x] **Line end**: no newline after the closing brace
@@ -87,7 +87,7 @@ See [`arg.md`](arg.md#extended-newick-output).
 
 ## Session file (`treeknit_request.json`, new)
 
-The analysis request of the web app: the trees with their labels and Newick texts, and the settings. `fn request_file` writes it [[src](../../packages/treeknit-io/src/output.rs#L164-L173)], and `fn read_request` reads it [[src](../../packages/treeknit-io/src/analysis.rs#L323-L346)].
+The analysis request of the web app: the trees with their labels and Newick texts, and the settings. `fn request_file` writes it [[src](../../packages/treeknit-io/src/output.rs#L176-L185)], and `fn read_request` reads it [[src](../../packages/treeknit-io/src/analysis.rs#L331-L354)].
 
 - [x] **Structure**: `{"trees": [{"label": ..., "newick": ...}], "settings": {...}}`, pretty JSON with a newline at the end. The settings use the camelCase names of the web app (`gamma`, `seqLengths`, `nMcmcIt`, `resolve`, `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed`); a missing setting takes its default
 - [x] **Reading**: checks the structure only: types, required and unknown fields, and a seed of at most 2^53 - 1, which a JavaScript number holds exactly. A file with a broken tree or an out-of-range setting loads, so the web app can show the errors at their fields; the command line applies the shared validation after reading
