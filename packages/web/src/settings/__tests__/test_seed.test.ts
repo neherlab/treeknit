@@ -45,7 +45,7 @@ describe("new seed", () => {
       fc.property(fc.maxSafeNat(), fc.maxSafeNat(), (draw, max) => {
         const seed = randomSeed(draws(draw, 0), max);
 
-        return Number.isSafeInteger(seed) && seed >= 0 && seed <= max;
+        expect(Number.isSafeInteger(seed) && seed >= 0 && seed <= max).toBe(true);
       }),
     );
   });

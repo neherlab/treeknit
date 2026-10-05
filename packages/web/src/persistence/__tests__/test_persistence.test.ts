@@ -328,17 +328,22 @@ describe("workspace persistence", () => {
 
     await tab.persistence.disable();
 
-    expect({ failed, afterChange, record: storage.record, state: tab.persistence.state, switches: tab.switches })
-      .toStrictEqual({
-        failed: {
-          record: workspaceRecord(1, ONE_TREE),
-          state: { enabled: true, problem: { kind: "disable", message: "The database was closed." } },
-        },
-        afterChange: workspaceRecord(1, TWO_TREES),
-        record: { kind: "off", version: 1, generation: 2 },
-        state: { enabled: false, problem: null },
-        switches: [true, false],
-      });
+    expect({
+      failed,
+      afterChange,
+      record: storage.record,
+      state: tab.persistence.state,
+      switches: tab.switches,
+    }).toStrictEqual({
+      failed: {
+        record: workspaceRecord(1, ONE_TREE),
+        state: { enabled: true, problem: { kind: "disable", message: "The database was closed." } },
+      },
+      afterChange: workspaceRecord(1, TWO_TREES),
+      record: { kind: "off", version: 1, generation: 2 },
+      state: { enabled: false, problem: null },
+      switches: [true, false],
+    });
   });
 
   test("the switch stays on until the off marker is written", async () => {

@@ -1,7 +1,6 @@
+import type { AnalysisRequest } from "@neherlab/treeknit-wasm";
 import { useMemo } from "react";
 import RunIcon from "~icons/lucide/rotate-ccw";
-
-import type { AnalysisRequest } from "@neherlab/treeknit-wasm";
 
 import type { FailureKind } from "../analysis/client";
 import { useVersion } from "../analysis/queries";
