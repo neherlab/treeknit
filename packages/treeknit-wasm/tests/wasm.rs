@@ -10,7 +10,12 @@ mod tests {
   use std::collections::BTreeSet;
   use std::rc::Rc;
   use treeknit_core::{Options, Resolution, Taxa, Tree};
+  use treeknit_io::analysis::{self, AnalysisRequest};
+  use treeknit_io::display::{self, Scale, TreeVersion};
+  use treeknit_io::figure::{self, FigureOptions, LabelMode};
   use treeknit_io::newick;
+  use treeknit_io::output::{self, Figure, OutputFile};
+  use treeknit_io::run::{self, RunResult};
   use treeknit_wasm::Session;
   use tsify::{Ts, Tsify};
   use wasm_bindgen::prelude::Closure;
@@ -274,18 +279,144 @@ mod tests {
       "ARG/nodes.dat",
       "ARG/ha_liberal_resolved.nwk",
       "ARG/na_liberal_resolved.nwk",
+      "tanglegram_ha_na.svg",
+      "ARG/arg.svg",
       "parameters.json",
       "log.txt",
     ];
     assert_eq!(expected, paths);
-    let sizes_match = files.as_array().unwrap().iter().all(|f| {
-      let text = session.file_text(f["path"].as_str().unwrap()).unwrap();
-      f["size"] == json!(text.len())
-    });
+    let sizes_match = files
+      .as_array()
+      .unwrap()
+      .iter()
+      .filter(|f| f["figure"].is_null())
+      .all(|f| {
+        let text = session.file_text(f["path"].as_str().unwrap()).unwrap();
+        f["size"] == json!(text.len())
+      });
     assert!(sizes_match, "{files}");
     assert_eq!(
-      json!({"path": "MCCs.dat", "mediaType": "text/plain", "size": 9}),
+      json!({"path": "MCCs.dat", "mediaType": "text/plain", "size": 9, "figure": null}),
       files[2]
+    );
+  }
+
+  #[wasm_bindgen_test]
+  fn session_figure_files_have_a_size_once_read() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let figures = |session: &Session| -> Vec<Value> {
+      plain_list(&session.files().unwrap())
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| !f["figure"].is_null())
+        .cloned()
+        .collect()
+    };
+    let expected = vec![
+      json!({"path": "tanglegram_ha_na.svg", "mediaType": "image/svg+xml", "size": null, "figure": {"kind": "pair", "pair": 0}}),
+      json!({"path": "ARG/arg.svg", "mediaType": "image/svg+xml", "size": null, "figure": {"kind": "arg"}}),
+    ];
+    assert_eq!(expected, figures(&session));
+    let text = session.file_text("tanglegram_ha_na.svg").unwrap();
+    let sizes: Vec<Value> = figures(&session).iter().map(|f| f["size"].clone()).collect();
+    assert_eq!(vec![json!(text.len()), Value::Null], sizes);
+  }
+
+  #[wasm_bindgen_test]
+  fn session_figure_files_equal_the_native_figures() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let (r, opts) = native_run(&two_trees());
+    // Oracle: the figure files of the command line, from the same run without WebAssembly.
+    let expected = (
+      output::figure_text(&r, &opts, Figure::Pair { pair: 0 }).unwrap(),
+      output::figure_text(&r, &opts, Figure::Arg).unwrap(),
+    );
+    let actual = (
+      session.file_text("tanglegram_ha_na.svg").unwrap(),
+      session.file_text("ARG/arg.svg").unwrap(),
+    );
+    assert_eq!(expected, actual);
+  }
+
+  #[wasm_bindgen_test]
+  fn session_figure_draws_custom_options_and_keeps_the_default_files() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let (r, opts) = native_run(&two_trees());
+    let custom = FigureOptions {
+      width: 640.0,
+      row_height: 20.0,
+      scale: Scale::Depth,
+      labels: LabelMode::Off,
+    };
+    let view = display::pair_view(&r, &opts, 0, TreeVersion::Imputed, Scale::Depth).unwrap();
+    assert_eq!(
+      figure::tanglegram_svg(&view, &custom).unwrap(),
+      session.figure(0, &ts(&json!("imputed")), &ts(&json!(custom))).unwrap()
+    );
+    let arg = display::arg_view(&r, Scale::Depth).unwrap();
+    assert_eq!(
+      figure::arg_svg(&arg, ["ha", "na"], &custom).unwrap(),
+      session.arg_figure(&ts(&json!(custom))).unwrap()
+    );
+    // The figure files keep the default options after a custom figure.
+    let default = output::figure_text(&r, &opts, Figure::Pair { pair: 0 }).unwrap();
+    assert_eq!(default, session.file_text("tanglegram_ha_na.svg").unwrap());
+    let files: Vec<OutputFile> = plain_list(&session.files().unwrap())
+      .as_array()
+      .unwrap()
+      .iter()
+      .map(|f| {
+        let path = f["path"].as_str().unwrap();
+        OutputFile::new(path.to_owned(), session.file_text(path).unwrap())
+      })
+      .collect();
+    // Oracle: the archive of the listed texts; equal files give a byte-identical archive.
+    assert_eq!(output::zip_archive(&files).unwrap(), session.zip().unwrap());
+    assert!(
+      files
+        .iter()
+        .any(|f| f.path == "tanglegram_ha_na.svg" && f.text == default)
+    );
+  }
+
+  #[wasm_bindgen_test]
+  fn session_figure_throws_validation_error_for_invalid_options() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let options = ts(&json!({"width": 0, "rowHeight": -2}));
+    let errors: Vec<(String, String)> = [
+      session.figure(0, &ts(&json!("resolved")), &options).unwrap_err(),
+      session.arg_figure(&options).unwrap_err(),
+    ]
+    .into_iter()
+    .map(|e| {
+      let e = Error::from(e);
+      (String::from(e.name()), String::from(e.message()))
+    })
+    .collect();
+    let expected = (
+      "ValidationError".to_owned(),
+      "figure width must be a positive number, got 0\nrow height must be a positive number, got -2".to_owned(),
+    );
+    assert_eq!(vec![expected.clone(), expected], errors);
+  }
+
+  #[wasm_bindgen_test]
+  fn session_figure_of_an_unknown_pair_or_a_missing_arg_throws() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let error = Error::from(session.figure(1, &ts(&json!("resolved")), &ts(&json!({}))).unwrap_err());
+    assert_eq!("no pair 1: the run has 1 pairs", String::from(error.message()));
+    let t = "((A,B),(C,D));";
+    let three =
+      json!({"trees": [{"label": "ha", "newick": t}, {"label": "na", "newick": t}, {"label": "pb2", "newick": t}]});
+    let session = Session::run(&ts(&three), &Function::new_no_args("")).unwrap();
+    let error = Error::from(session.arg_figure(&ts(&json!({}))).unwrap_err());
+    assert_eq!(
+      (
+        "Error".to_owned(),
+        "the run has no ARG: it needs two trees and a built ARG".to_owned()
+      ),
+      (String::from(error.name()), String::from(error.message()))
     );
   }
 
@@ -342,7 +473,7 @@ mod tests {
   fn session_command_line_runs_the_session_file() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     assert_eq!(
-      "treeknit --request treeknit_results/treeknit_request.json --impute --auspice-view",
+      "treeknit --request treeknit_results/treeknit_request.json --impute --auspice-view --plot",
       session.command_line()
     );
   }
@@ -574,6 +705,15 @@ mod tests {
             {"label": "na", "newick": "((A,(B,X)),(C,D));"},
         ],
     })
+  }
+
+  /// The run of `request` and its options, as `Session::run` builds them, without WebAssembly
+  /// bindings.
+  fn native_run(request: &Value) -> (RunResult, Options) {
+    let request: AnalysisRequest = serde_json::from_value(request.clone()).unwrap();
+    let opts = analysis::options(&request.settings, request.trees.len(), false).unwrap();
+    let parsed = analysis::parse_trees(&request.trees).unwrap();
+    (run::run(parsed, &opts, request.settings.seed, &|_| {}), opts)
   }
 
   fn ts<T: Tsify>(v: &Value) -> Ts<T> {
