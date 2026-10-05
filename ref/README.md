@@ -4,7 +4,7 @@ Reference version: TreeKnit 0.5.8 from `/workspace/legacy_julia_version`, branch
 `fix/issues-from-rust-port` (commit `186bf0d`), with TreeTools 0.6.14 on Julia 1.13.1. That branch
 fixes bugs found during the port; the Rust implementation follows it, including the strict-resolution
 fix for sisters whose MCC continues above a polytomy. Output goes to `../fixtures/<case>.json`.
-Simulated trees are also written to `../fixtures/sim/<case>/tree<k>.nwk`.
+Simulated trees are also written to `../fixtures/sim/<case>/tree<k>.nwk`. The web app bundles these files as the examples of its **Load example** menu.
 
 ## Environment
 
