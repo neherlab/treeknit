@@ -15,22 +15,19 @@ import {
   type PopoverProps,
   Separator,
 } from "react-aria-components";
-import { omit, pick } from "remeda";
 import CheckIcon from "~icons/lucide/check";
 
 import { listBoxStyle, popoverStyle } from "./styles";
 
 const POPOVER_OFFSET_PX = 4;
 
-const OPEN_STATE_PROPS = ["isOpen", "defaultOpen", "onOpenChange"] as const;
-
 export function Menu<T extends object>({ trigger, placement = "bottom start", className, ...props }: MenuProps<T>) {
   return (
-    <MenuTrigger {...pick(props, OPEN_STATE_PROPS)}>
+    <MenuTrigger>
       {trigger}
       <Popover placement={placement} offset={POPOVER_OFFSET_PX} className={cn(popoverStyle, "min-w-48")}>
         <AriaMenu
-          {...omit(props, OPEN_STATE_PROPS)}
+          {...props}
           className={composeRenderProps(className, (custom) => cn(listBoxStyle, custom))}
         />
       </Popover>
@@ -38,8 +35,7 @@ export function Menu<T extends object>({ trigger, placement = "bottom start", cl
   );
 }
 
-export interface MenuProps<T extends object>
-  extends AriaMenuProps<T>, Pick<AriaMenuTriggerProps, (typeof OPEN_STATE_PROPS)[number]> {
+export interface MenuProps<T extends object> extends AriaMenuProps<T> {
   trigger: AriaMenuTriggerProps["children"];
   placement?: PopoverProps["placement"];
 }

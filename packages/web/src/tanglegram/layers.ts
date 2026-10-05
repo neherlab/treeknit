@@ -13,9 +13,9 @@ import { type BranchItem, type LinkItem, PAIR_LAYER, type TanglegramGeometry } f
 
 export const RIBBON_OPACITY = 0.55;
 
-export const SELECTED_LINK_WIDTH_PX = 2.5;
+const SELECTED_LINK_WIDTH_PX = 2.5;
 
-export const LINK_WIDTH_PX = 1;
+const LINK_WIDTH_PX = 1;
 
 export const LEADER_LAYER = "leaders";
 

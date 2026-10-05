@@ -31,14 +31,13 @@ export type DialogPlacement = "center" | "left" | "right";
 export function Dialog({
   title,
   placement = "center",
-  isDismissable = true,
   footer,
   className,
   children,
   ...props
 }: DialogProps) {
   return (
-    <ModalOverlay {...props} isDismissable={isDismissable} className={overlayStyle({ placement })}>
+    <ModalOverlay {...props} isDismissable className={overlayStyle({ placement })}>
       <Modal className={cn(panelStyle({ placement }), className)}>
         <AriaDialog className="flex min-h-0 flex-1 flex-col outline-hidden">
           {({ close }) => (
@@ -63,7 +62,7 @@ export function Dialog({
   );
 }
 
-export interface DialogProps extends Omit<ModalOverlayProps, "children" | "className"> {
+export interface DialogProps extends Omit<ModalOverlayProps, "children" | "className" | "isDismissable"> {
   title: string;
   placement?: DialogPlacement;
   footer?: ReactNode;

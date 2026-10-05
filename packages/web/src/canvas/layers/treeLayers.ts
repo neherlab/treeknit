@@ -6,19 +6,19 @@ import type { WorldPosition } from "../projection";
 import { markLayer } from "./markLayer";
 import { pathLayer } from "./pathLayer";
 
-export const BRANCH_WIDTH_PX = 1.5;
+const BRANCH_WIDTH_PX = 1.5;
 
 export const REASSORTMENT_WIDTH_PX = 2;
 
-export const MARK_RADIUS_PX = 3.5;
+const MARK_RADIUS_PX = 3.5;
 
-export const MARK_LINE_PX = 1.5;
+const MARK_LINE_PX = 1.5;
 
-export const SELECTION_RADIUS_PX = 7;
+const SELECTION_RADIUS_PX = 7;
 
-export const SELECTION_LINE_PX = 2;
+const SELECTION_LINE_PX = 2;
 
-export const HOVER_OPACITY = 0.35;
+const HOVER_OPACITY = 0.35;
 
 export interface BranchLayerOptions<D> {
   id: string;
@@ -68,7 +68,6 @@ export interface RingLayerOptions<D> {
   getPosition: (object: D) => WorldPosition;
   getLineColor: Accessor<D, Color>;
   colors: DrawingColors;
-  hollow?: boolean;
   colorTriggers: readonly unknown[];
 }
 
@@ -78,7 +77,6 @@ export function ringLayer<D>({
   getPosition,
   getLineColor,
   colors,
-  hollow = true,
   colorTriggers,
 }: RingLayerOptions<D>) {
   return markLayer({
@@ -86,7 +84,7 @@ export function ringLayer<D>({
     data,
     getPosition,
     getLineColor,
-    ...(hollow ? { getFillColor: colors.ground } : undefined),
+    getFillColor: colors.ground,
     radiusPx: MARK_RADIUS_PX,
     lineWidthPx: MARK_LINE_PX,
     colorTriggers,

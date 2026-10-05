@@ -17,7 +17,7 @@ const LABEL_MODE_OPTIONS: SelectOption<LabelMode>[] = LABEL_MODES.map((mode) => 
   label: { auto: "Automatic", on: "On", off: "Off" }[mode],
 }));
 
-export const FIGURE_BUTTON_LABEL = "Download figure (SVG)";
+const FIGURE_BUTTON_LABEL = "Download figure (SVG)";
 
 export function ScaleToggle({ value, onChange }: ChoiceProps<Scale>) {
   return (

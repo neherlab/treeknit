@@ -12,7 +12,7 @@ export function counted(count: number, one: string, many: string): string {
   return `${formatCount(count)} ${count === 1 ? one : many}`;
 }
 
-export function mccNumber(index: number): number {
+function mccNumber(index: number): number {
   return index + 1;
 }
 

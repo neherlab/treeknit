@@ -1,7 +1,7 @@
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { type RefObject, useCallback } from "react";
 
-export const TABLE_ROW_PX = 32;
+const TABLE_ROW_PX = 32;
 
 const OVERSCAN_ROWS = 12;
 
