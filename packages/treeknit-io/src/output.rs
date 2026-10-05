@@ -143,9 +143,10 @@ impl OutputOptions {
 }
 
 impl FileEntry {
-  /// The entry of the file at `path`, with its `file_name`.
-  pub fn new(path: String, media_type: String, size: Option<usize>, figure: Option<Figure>) -> Self {
+  /// The entry of the file at `path`, with its `file_name` and the media type of the path.
+  pub fn new(path: String, size: Option<usize>, figure: Option<Figure>) -> Self {
     let file_name = path.rsplit_once('/').map_or(path.as_str(), |(_, name)| name).to_owned();
+    let media_type = media_type(&path).to_owned();
     FileEntry {
       path,
       file_name,
@@ -168,7 +169,7 @@ impl OutputFile {
 }
 
 /// The media type of an output file at `path`, from its extension: JSON, SVG, or plain text.
-pub fn media_type(path: &str) -> &'static str {
+fn media_type(path: &str) -> &'static str {
   match Path::new(path).extension().and_then(|e| e.to_str()) {
     Some(e) if e.eq_ignore_ascii_case("json") => "application/json",
     Some(e) if e.eq_ignore_ascii_case("svg") => "image/svg+xml",
@@ -1443,12 +1444,7 @@ mod tests {
 
   #[test]
   fn file_entry_serializes_camel_case_with_null_size() {
-    let entry = FileEntry::new(
-      "tanglegram_ha_na.svg".into(),
-      "image/svg+xml".into(),
-      None,
-      Some(Figure::Pair { pair: 2 }),
-    );
+    let entry = FileEntry::new("tanglegram_ha_na.svg".into(), None, Some(Figure::Pair { pair: 2 }));
     let expected = json!({
       "path": "tanglegram_ha_na.svg", "fileName": "tanglegram_ha_na.svg", "mediaType": "image/svg+xml", "size": null,
       "figure": {"kind": "pair", "pair": 2},
@@ -1462,7 +1458,7 @@ mod tests {
   #[case::directory("ARG/ha_liberal_resolved.nwk", "ha_liberal_resolved.nwk")]
   #[trace]
   fn file_entry_names_the_file_by_the_last_segment_of_its_path(#[case] path: &str, #[case] expected: &str) {
-    let entry = FileEntry::new(path.to_owned(), "text/plain".to_owned(), Some(0), None);
+    let entry = FileEntry::new(path.to_owned(), Some(0), None);
     assert_eq!(expected, entry.file_name);
   }
 }
