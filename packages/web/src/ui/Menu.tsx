@@ -15,25 +15,31 @@ import {
   type PopoverProps,
   Separator,
 } from "react-aria-components";
+import { omit, pick } from "remeda";
 import CheckIcon from "~icons/lucide/check";
-import ChevronRightIcon from "~icons/lucide/chevron-right";
 
 import { listBoxStyle, popoverStyle } from "./styles";
 
 const POPOVER_OFFSET_PX = 4;
 
+const OPEN_STATE_PROPS = ["isOpen", "defaultOpen", "onOpenChange"] as const;
+
 export function Menu<T extends object>({ trigger, placement = "bottom start", className, ...props }: MenuProps<T>) {
   return (
-    <MenuTrigger>
+    <MenuTrigger {...pick(props, OPEN_STATE_PROPS)}>
       {trigger}
       <Popover placement={placement} offset={POPOVER_OFFSET_PX} className={cn(popoverStyle, "min-w-48")}>
-        <AriaMenu {...props} className={composeRenderProps(className, (custom) => cn(listBoxStyle, custom))} />
+        <AriaMenu
+          {...omit(props, OPEN_STATE_PROPS)}
+          className={composeRenderProps(className, (custom) => cn(listBoxStyle, custom))}
+        />
       </Popover>
     </MenuTrigger>
   );
 }
 
-export interface MenuProps<T extends object> extends AriaMenuProps<T> {
+export interface MenuProps<T extends object>
+  extends AriaMenuProps<T>, Pick<AriaMenuTriggerProps, (typeof OPEN_STATE_PROPS)[number]> {
   trigger: AriaMenuTriggerProps["children"];
   placement?: PopoverProps["placement"];
 }
@@ -51,12 +57,11 @@ export function MenuItem({ icon: Icon, tone = "default", className, children, ..
         ),
       )}
     >
-      {composeRenderProps(children, (content, { selectionMode, isSelected, hasSubmenu }) => (
+      {composeRenderProps(children, (content, { selectionMode, isSelected }) => (
         <>
           {selectionMode === "none" ? null : <CheckIcon aria-hidden className={cn(!isSelected && "invisible")} />}
           {Icon === undefined ? null : <Icon aria-hidden className={tone === "danger" ? "" : "text-ink-muted"} />}
           <span className="flex-1 truncate">{content}</span>
-          {hasSubmenu ? <ChevronRightIcon aria-hidden className="text-ink-muted" /> : null}
         </>
       ))}
     </AriaMenuItem>
