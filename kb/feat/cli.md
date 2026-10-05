@@ -5,7 +5,7 @@ Counterpart: [`v0/cli.md`](v0/cli.md). The port parses the command line with `cl
 ## Installation
 
 - [x] **Native binary**: `cargo build --release`, or `just build prod` for the shipped profile, builds the `treeknit` binary. There is no compilation at start-up, so each run starts in milliseconds
-- [x] **Prebuilt binaries (new)**: the workflow `.github/workflows/release.yml` builds the CLI every night for the targets in `dev/cross/targets` (Linux x86_64 and aarch64 with glibc and musl, Windows x86_64, macOS x86_64 and aarch64) and publishes the binaries that build as a prerelease on the releases page; a pushed version tag publishes them as a release (`dev/release`). The shipped builds need a recent CPU ([`M-shipped-binaries-require-recent-cpu.md`](../issues/M-shipped-binaries-require-recent-cpu.md))
+- [x] **Prebuilt binaries (new)**: the workflow `.github/workflows/release.yml` builds the CLI every night for the targets in `dev/cross/targets` (Linux x86_64 and aarch64 with glibc and musl, Windows x86_64, macOS x86_64 and aarch64) and publishes the binaries that build as a prerelease on the releases page; a pushed version tag publishes them as a release (`dev/release`) once every target builds. The shipped builds need a recent CPU ([`M-shipped-binaries-require-recent-cpu.md`](../issues/M-shipped-binaries-require-recent-cpu.md))
 - [ ] **Shell completion**: Comonicon installs completion for `treeknit`. The port has none
 - [x] **`--version` (new)**: prints `treeknit <version>`: `<crate version>-dev` for local builds, `<crate version>-nightly.<UTC time>+<commit>` for nightlies, and the crate version for releases [[src](../../packages/treeknit-cli/build.rs)]
 

@@ -178,10 +178,10 @@ The dependency recipes run in the main checkout only.
 
 ## Releases
 
-`.github/workflows/release.yml`, the only workflow, publishes two kinds of releases on the releases page. It runs no checks; a failed target leaves only its binary out of the release. The release notes hold download hints: `chmod +x`, the glibc and musl builds, unsigned macOS executables, and the CPU requirement.
+`.github/workflows/release.yml`, the only workflow, publishes two kinds of releases on the releases page. It runs no checks. A failed target leaves only its binary out of a nightly, and a release publishes only once every target builds. The release notes hold download hints: `chmod +x`, the glibc and musl builds, unsigned macOS executables, and the CPU requirement.
 
 - **Nightly**: every night at 03:40 UTC, when `main` has changed since the latest nightly, it builds the shipped CLI for every release target, one job per target in its cross image, and publishes the binaries as a prerelease tagged `<version>-nightly.<UTC time>+<commit>`. GitHub adds the pull requests merged since the previous release to the notes. It also deploys the web app to GitHub Pages (`just build-web prod`). The site is public even though the repository is private; the build uses relative asset paths (Vite `base: "./"`), so it works under the `/treeknit-rs/` path of Pages and at any other path
-- **Release**: a pushed tag `v<version>` builds the same binaries and publishes them as the latest release, with the section `## <version>` of `CHANGELOG.md` as its notes. The tag must match the workspace version in `Cargo.toml`. The next nightly deploys the web app of `main`, which holds the release commit
+- **Release**: a pushed tag `v<version>` builds the same binaries and publishes them as the latest release, with the section `## <version>` of `CHANGELOG.md` as its notes. The tag must match the workspace version in `Cargo.toml`. When a target fails, the release publishes nothing; "Re-run failed jobs" builds the failed targets again and then publishes. The next nightly deploys the web app of `main`, which holds the release commit
 
 Every release stays on the releases page.
 

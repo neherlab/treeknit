@@ -6,7 +6,8 @@ name: "Release"
 # dev/trigger-nightly and the "Run workflow" button start one by hand.
 #
 # Release: a pushed version tag (dev/release) publishes the binaries of the tag
-# as a release, with the section of the version in CHANGELOG.md as its notes.
+# as a release, with the section of the version in CHANGELOG.md as its notes,
+# once every target builds.
 on:
   schedule:
     - cron: "40 3 * * *"
@@ -113,8 +114,9 @@ jobs:
     if: needs.version.outputs.cli == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    # A failed target leaves only its binary out of the release.
-    continue-on-error: true
+    # A failed target leaves only its binary out of a nightly; a release needs
+    # every target.
+    continue-on-error: ${{ needs.version.outputs.nightly == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -155,7 +157,11 @@ jobs:
   publish:
     name: "Publish the release"
     needs: [version, build]
-    if: ${{ !cancelled() && needs.version.outputs.cli == 'true' }}
+    # A release with a failed target publishes nothing; "Re-run failed jobs"
+    # builds the failed targets again and then publishes.
+    if: >-
+      ${{ !cancelled() && needs.version.outputs.cli == 'true'
+      && (needs.version.outputs.nightly == 'true' || needs.build.result == 'success') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
