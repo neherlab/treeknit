@@ -1,7 +1,9 @@
 import type { Color, Position } from "@deck.gl/core";
 import { describe, expect, test } from "vitest";
 
+import { fillLayer } from "../layers/fillLayer";
 import { type LabelAnchor, labelLayer } from "../layers/labelLayer";
+import { markLayer } from "../layers/markLayer";
 import { DASH_PX, pathLayer } from "../layers/pathLayer";
 
 interface Leaf {
@@ -34,6 +36,57 @@ const LABELS = {
 describe("labelLayer", () => {
   test("waits for the label font before building a text layer", () => {
     expect(labelLayer({ ...LABELS, fontReady: false })).toBeNull();
+  });
+
+  test("builds its glyphs from the data, because strain names hold letters outside ASCII", () => {
+    expect(labelLayer({ ...LABELS, fontReady: true })?.props.characterSet).toBe("auto");
+  });
+});
+
+describe("selection and hover change colors without rebuilding geometry", () => {
+  const TRIGGERS = ["selected MCC 3", "hovered leaf 7"];
+
+  const SQUARE: [number, number][] = [
+    [0, 0],
+    [1, 0],
+    [1, 1],
+  ];
+
+  test.each([
+    ["labels", labelLayer({ ...LABELS, fontReady: true, colorTriggers: TRIGGERS })?.props.updateTriggers, ["getColor"]],
+    [
+      "paths",
+      pathLayer({
+        id: "p",
+        data: [SQUARE],
+        getPath: (path) => path,
+        getColor: INK,
+        widthPx: 1,
+        colorTriggers: TRIGGERS,
+      }).props.updateTriggers,
+      ["getColor"],
+    ],
+    [
+      "fills",
+      fillLayer({ id: "f", data: [SQUARE], getPolygon: (path) => path, getFillColor: INK, colorTriggers: TRIGGERS })
+        .props.updateTriggers,
+      ["getFillColor"],
+    ],
+    [
+      "marks",
+      markLayer({
+        id: "m",
+        data: [[0, 0]],
+        getPosition: (point: [number, number]) => point,
+        getLineColor: INK,
+        radiusPx: 3,
+        lineWidthPx: 1,
+        colorTriggers: TRIGGERS,
+      }).props.updateTriggers,
+      ["getFillColor", "getLineColor"],
+    ],
+  ])("ties only the color accessors of %s to the color triggers", (_kind, triggers, colorAccessors) => {
+    expect(triggers).toStrictEqual(Object.fromEntries(colorAccessors.map((accessor) => [accessor, TRIGGERS])));
   });
 });
 
