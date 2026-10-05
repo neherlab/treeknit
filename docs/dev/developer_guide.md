@@ -57,6 +57,7 @@ Optional settings go into the gitignored `.env` in the checkout; `.env.example` 
 | Clippy                                       | `just lint-rs` (`just l`)                        |
 | Format                                       | `just fmt`                                       |
 | Accuracy against the simulated cases         | `just example accuracy [drop]`                   |
+| Large tree pair for performance checks       | `just example large_tree_pair <leaves> <outdir> [seed] [moves]` |
 | Build the web app                            | `just build-web <dev\|prod>`                     |
 | Run the web app                              | `just run-web <dev\|prod>`                       |
 | TypeScript types, lints, tests               | `just typecheck`, `just lint-ts`, `just test-ts` |
@@ -66,6 +67,8 @@ Optional settings go into the gitignored `.env` in the checkout; `.env.example` 
 In the container, prefix each command with `./dev/docker/run`.
 
 `check` runs its checks in parallel through `dev/run-checks`, keeps going past failures, and lists the failed checks at the end. Each check writes its output to `tmp/checks/<check>.log`. Warnings fail the checks, and a missing tool is a failure, not a skipped check.
+
+`just example large_tree_pair 10000 tmp/large-pair` writes input for performance checks of the CLI and the web app: `tree_a.nwk`, a random binary tree under the Kingman coalescent with leaf names like `A/Sim/17/2020`, and `tree_b.nwk`, the same tree after random subtree moves. The seed (default 1) and the number of moves (default 10) are the optional third and fourth arguments, and the same arguments write the same files. The tests of the examples run with `just test-rs --examples`.
 
 ## Web app
 
