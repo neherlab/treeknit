@@ -7,6 +7,8 @@
 //! the data; the consumer mirrors its column. The SVG figures and the interactive views draw the
 //! same shapes and only map these units to pixels.
 
+mod tree;
+
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
@@ -86,7 +88,7 @@ pub struct DrawNode {
   pub parent: Option<usize>,
   /// Indices of the children, in display order.
   pub children: Vec<usize>,
-  /// Branch length as parsed; `None` when the tree gives none.
+  /// Branch length as parsed; `None` when the tree gives none or the length is not finite.
   pub branch_length: Option<f64>,
   /// Divergence from the root; a missing or negative length counts as 0.
   pub x_div: f64,
