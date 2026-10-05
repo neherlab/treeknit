@@ -1,1 +1,2 @@
-www/pkg/
+pkg/*
+!pkg/treeknit_wasm.d.ts
