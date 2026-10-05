@@ -9,4 +9,5 @@ pub mod newick;
 pub mod output;
 pub mod progress;
 pub mod schema;
+pub mod summary;
 pub mod version;
