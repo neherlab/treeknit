@@ -176,15 +176,27 @@ Rust dependencies are pinned exactly in the workspace `Cargo.toml`, JavaScript d
 
 The dependency recipes run in the main checkout only.
 
-## Nightly releases
+## Releases
 
-`.github/workflows/nightly.yml`, the only workflow, runs every night at 03:40 UTC on `main` and does nothing when `main` has not changed since the latest nightly. It runs no checks. Otherwise it:
+`.github/workflows/release.yml`, the only workflow, publishes two kinds of releases on the releases page. It runs no checks; a failed target leaves only its binary out of the release. The release notes hold download hints: `chmod +x`, the glibc and musl builds, unsigned macOS executables, and the CPU requirement.
 
-- **Publishes the CLI**: builds the shipped CLI for every release target, one job per target in its cross image, and publishes the binaries that build as a release on the releases page. A failed target leaves only its binary out. The release notes hold download hints and the pull requests merged since the previous nightly, which GitHub generates. Every nightly stays on the releases page
-- **Deploys the web app**: `just build-web prod`, published to GitHub Pages. The site is public even though the repository is private. The build uses relative asset paths (Vite `base: "./"`), so it works under the `/treeknit-rs/` path of Pages and at any other path
+- **Nightly**: every night at 03:40 UTC, when `main` has changed since the latest nightly, it builds the shipped CLI for every release target, one job per target in its cross image, and publishes the binaries as a prerelease tagged `<version>-nightly.<UTC time>+<commit>`. GitHub adds the pull requests merged since the previous release to the notes. It also deploys the web app to GitHub Pages (`just build-web prod`). The site is public even though the repository is private; the build uses relative asset paths (Vite `base: "./"`), so it works under the `/treeknit-rs/` path of Pages and at any other path
+- **Release**: a pushed tag `v<version>` builds the same binaries and publishes them as the latest release, with the section `## <version>` of `CHANGELOG.md` as its notes. The tag must match the workspace version in `Cargo.toml`. The next nightly deploys the web app of `main`, which holds the release commit
 
-Start a nightly by hand, from `main`, with the GitHub CLI: `gh workflow run nightly.yml`, or `gh workflow run nightly.yml -f force=true` to publish even when `main` has not changed.
+Every release stays on the releases page.
 
-`treeknit --version` reports the crate version with the suffix of `TREEKNIT_VERSION_SUFFIX` at build time (`packages/treeknit-cli/build.rs`): `0.1.0-dev` when unset, `0.1.0-nightly.20261005T040000Z+abc1234` for a nightly. The tag of a nightly release is the same version.
+### Start a nightly by hand
 
-The jobs pull the container images from Docker Hub by the hash of their build inputs, and build them when the inputs changed. With the Docker Hub secrets set in the repository, they push the images they build.
+`just trigger-nightly` (host only, needs the GitHub CLI) starts a nightly on `main`. `--force` publishes even when `main` has not changed, and `--only cli` or `--only web` publishes only the CLI release or only the web app; a web-only run always deploys. The "Run workflow" button of the workflow on GitHub takes the same options.
+
+### Publish a release
+
+1. Describe the changes under `## Unreleased` in `CHANGELOG.md`
+2. Run `just release <version>` (host only, in the main checkout on `main`). `dev/release` checks that the version is newer than the current one, that `main` contains `origin/main`, that nothing but `CHANGELOG.md` is uncommitted, and that the tag is new; then it runs `just check-all`, sets the workspace version with `cargo set-version` (which also updates `Cargo.lock`), renames `## Unreleased` to `## <version>`, commits `chore: release <version>`, and tags `v<version>`
+3. Confirm the push: `dev/release` pushes `main` and the tag in one atomic push, and the tag starts the release build. Answering no leaves the commit and the tag local
+
+### Version of a build
+
+`treeknit --version` reports `TREEKNIT_VERSION` from build time (`packages/treeknit-cli/build.rs`), which must be the workspace version or start with it followed by `-`: `0.1.0-dev` when unset, `0.1.0-nightly.20261005T034000Z+abc1234` for a nightly, `0.1.0` for a release.
+
+The workflow jobs pull the container images from Docker Hub by the hash of their build inputs, and build them when the inputs changed. With the Docker Hub secrets set in the repository, they push the images they build.

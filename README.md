@@ -14,7 +14,7 @@ Compared with the Julia version:
 
 ## Usage
 
-Nightly builds of `main` are on the [releases page](https://github.com/neherlab/treeknit-rs/releases): the CLI for Linux, macOS, and Windows. The [web app](https://neherlab.github.io/treeknit-rs/) runs the same analyses in the browser. To build the CLI from source:
+Releases and nightly builds of `main` are on the [releases page](https://github.com/neherlab/treeknit-rs/releases): the CLI for Linux, macOS, and Windows, with the changes of each release in `CHANGELOG.md`. The [web app](https://neherlab.github.io/treeknit-rs/) runs the same analyses in the browser. To build the CLI from source:
 
 ```sh
 cargo build --release
