@@ -1,11 +1,173 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+ * A cubic Bézier segment.
+ */
+export interface Bezier {
+    from: Point;
+    c1: Point;
+    c2: Point;
+    to: Point;
+}
+
+/**
  * A labeled tree in Newick format.
  */
 export interface TreeText {
     label: string;
     newick: string;
+}
+
+/**
+ * A log record of a run.
+ */
+export interface Diagnostic {
+    level: Level;
+    message: string;
+    /**
+     * RFC 3339 time of the record.
+     */
+    time: string;
+}
+
+/**
+ * A node of a `DrawTree`.
+ */
+export interface DrawNode {
+    name: string;
+    /**
+     * Index of the parent; `None` for the root.
+     */
+    parent: number | null;
+    /**
+     * Indices of the children, in display order.
+     */
+    children: number[];
+    /**
+     * Branch length as parsed; `None` when the tree gives none.
+     */
+    branchLength: number | null;
+    /**
+     * Divergence from the root; a missing or negative length counts as 0.
+     */
+    xDiv: number;
+    /**
+     * Cladogram position: all leaves at the largest leaf depth, each internal node one step left
+     * of its closest child.
+     */
+    xDepth: number;
+    /**
+     * Leaf rank 0 to n-1 in display order; an internal node sits at the midpoint of its first and
+     * last child.
+     */
+    y: number;
+    leaf: boolean;
+    /**
+     * An internal node that the parsed input tree lacks, added by resolution or imputation.
+     */
+    added: boolean;
+    /**
+     * A leaf that the input tree lacks, placed by imputation.
+     */
+    imputed: boolean;
+    /**
+     * Index of the node's MCC in `PairView.mccs`; `None` for a node without an MCC.
+     */
+    mcc: number | null;
+    /**
+     * The branch above the node is a reassortment branch: the node is not the root, has an MCC,
+     * and its parent's MCC is a different one or none.
+     */
+    mccBreak: boolean;
+}
+
+/**
+ * A node of an `ArgView`.
+ */
+export interface ArgNodeView {
+    label: string;
+    /**
+     * Parent index per segment; `None` where the node is a root of the segment or lacks it.
+     */
+    parents: [number | null, number | null];
+    /**
+     * Indices of the children, in display order.
+     */
+    children: number[];
+    /**
+     * Length of the branch to the parent, per segment.
+     */
+    tau: [number | null, number | null];
+    /**
+     * The node has different parents in the two segments.
+     */
+    hybrid: boolean;
+    leaf: boolean;
+    /**
+     * The segments the node carries (0, 1, or both), ascending.
+     */
+    segments: number[];
+    /**
+     * Distance from the top root along the parent chain that leads to it; a missing or negative
+     * length counts as 0.
+     */
+    x: number;
+    /**
+     * Cladogram position along the same chain, with all leaves at the largest leaf depth.
+     */
+    xDepth: number;
+    /**
+     * Leaf rank in display order; an internal node sits at the midpoint of its children.
+     */
+    y: number;
+}
+
+/**
+ * A numeric setting.
+ */
+export interface NumberSetting {
+    default: number;
+    /**
+     * Smallest accepted value; validation states whether the bound itself is accepted.
+     */
+    min: number;
+    /**
+     * Largest accepted value; `None` without an upper bound.
+     */
+    max: number | null;
+    /**
+     * Step of the input control.
+     */
+    step: number;
+    /**
+     * The setting changes the result of a run with the current settings.
+     */
+    applies: boolean;
+    /**
+     * Why the setting does not apply; `None` when it applies.
+     */
+    reason: string | null;
+    /**
+     * One-sentence help text.
+     */
+    help: string;
+}
+
+/**
+ * A point `[x, y]` in normalized units.
+ */
+export type Point = [number, number];
+
+/**
+ * A point mark on a drawing.
+ */
+export interface Mark {
+    kind: MarkKind;
+    /**
+     * Index of the node the mark belongs to.
+     */
+    node: number;
+    at: Point;
 }
 
 /**
@@ -26,6 +188,394 @@ export interface ValidationError {
      * 1-based column of a parse error, in Unicode characters.
      */
     column: number | null;
+}
+
+/**
+ * A resolution mode with its display name and its effect.
+ */
+export interface ModeInfo {
+    mode: ResolveMode;
+    /**
+     * Display name, such as "Matched".
+     */
+    name: string;
+    /**
+     * One-line effect of the mode on the trees.
+     */
+    effect: string;
+}
+
+/**
+ * A result file with its text, at its path in the results directory of the command line.
+ */
+export interface OutputFile {
+    /**
+     * Path relative to the results directory, with `/` separators, such as `ARG/arg.nwk`.
+     */
+    path: string;
+    /**
+     * Media type of the text, such as `application/json`.
+     */
+    mediaType: string;
+    /**
+     * The bytes the command line writes, newline rule included.
+     */
+    text: string;
+}
+
+/**
+ * A set of leaves of one MCC, consecutive in both trees.
+ */
+export interface Block {
+    /**
+     * Index of the MCC in `PairView.mccs`.
+     */
+    mcc: number;
+    /**
+     * First and last leaf row of the block in the left tree.
+     */
+    left: [number, number];
+    /**
+     * First and last leaf row of the block in the right tree, in left order: the first value
+     * belongs to the first leaf of the block in the left tree.
+     */
+    right: [number, number];
+}
+
+/**
+ * A tree laid out for drawing, with the MCCs of one pair.
+ */
+export interface DrawTree {
+    label: string;
+    /**
+     * One node per tree node, indexed from 0 in preorder; node 0 is the root.
+     */
+    nodes: DrawNode[];
+}
+
+/**
+ * An MCC of a pair.
+ */
+export interface MccInfo {
+    /**
+     * Index of the MCC in `PairView.mccs`, the order of `MCCs.json`.
+     */
+    index: number;
+    /**
+     * Number of leaves, attached leaves included.
+     */
+    size: number;
+    /**
+     * Leaf names.
+     */
+    leaves: string[];
+    /**
+     * Names of the members that imputation attached (leaves in one tree of the pair only).
+     */
+    imputedLeaves: string[];
+    /**
+     * An attachment of a member is ambiguous.
+     */
+    ambiguous: boolean;
+    /**
+     * Color slot, 0 to 7, the same in every version of the pair.
+     */
+    slot: number;
+}
+
+/**
+ * An edge of an `ArgView`, from parent to child.
+ */
+export interface ArgEdge {
+    parent: number;
+    child: number;
+    /**
+     * The segments the edge carries, ascending.
+     */
+    segments: number[];
+    /**
+     * The child is a hybrid node.
+     */
+    reticulation: boolean;
+}
+
+/**
+ * An entry of the file list of a run, without its text.
+ */
+export interface FileEntry {
+    /**
+     * Path relative to the results directory, as in `OutputFile`.
+     */
+    path: string;
+    mediaType: string;
+    /**
+     * Size in bytes; `None` for a figure not rendered yet.
+     */
+    size: number | null;
+}
+
+/**
+ * An on-off setting.
+ */
+export interface ToggleSetting {
+    default: boolean;
+    /**
+     * The setting changes the result of a run with the current settings.
+     */
+    applies: boolean;
+    /**
+     * Why the setting does not apply; `None` when it applies.
+     */
+    reason: string | null;
+    /**
+     * One-sentence help text.
+     */
+    help: string;
+}
+
+/**
+ * Branch scale of a drawing.
+ */
+export type Scale = "div" | "depth";
+
+/**
+ * Branches and marks of one tree.
+ */
+export interface TreeShapes {
+    /**
+     * One elbow per non-root node.
+     */
+    elbows: Elbow[];
+    marks: Mark[];
+}
+
+/**
+ * Drawing colors of both themes.
+ */
+export interface Palette {
+    light: ThemeColors;
+    dark: ThemeColors;
+}
+
+/**
+ * Drawing colors of one theme, each as `#rrggbb`.
+ */
+export interface ThemeColors {
+    /**
+     * The eight MCC color slots.
+     */
+    mcc: [string, string, string, string, string, string, string, string];
+    /**
+     * Branches of nodes without an MCC.
+     */
+    noMcc: string;
+    ground: string;
+    ink: string;
+    inkMuted: string;
+    /**
+     * Reassortment, and nothing else.
+     */
+    signal: string;
+    focus: string;
+    /**
+     * Segment A (the first tree) of the ARG.
+     */
+    segmentA: string;
+    /**
+     * Segment B (the second tree) of the ARG.
+     */
+    segmentB: string;
+}
+
+/**
+ * Leaf overlap of the input trees and of each pair, before a run.
+ */
+export interface Overlap {
+    /**
+     * Number of distinct leaves over the trees that parse.
+     */
+    totalLeaves: number;
+    /**
+     * The trees that parse, in input order.
+     */
+    trees: TreeOverlap[];
+    /**
+     * Pairs of trees that parse, in pipeline order (0,1), (0,2), ..., (1,2), ...
+     */
+    pairs: PairOverlap[];
+    /**
+     * Input indices of the trees that do not parse.
+     */
+    failed: number[];
+}
+
+/**
+ * Leaves of one tree against all leaves.
+ */
+export interface TreeOverlap {
+    /**
+     * Input index of the tree.
+     */
+    index: number;
+    label: string;
+    /**
+     * Number of leaves of the tree.
+     */
+    leaves: number;
+    /**
+     * Number of leaves that other trees have and this tree lacks.
+     */
+    missing: number;
+}
+
+/**
+ * Leaves shared by the trees `i` and `j` (input indices, `i < j`).
+ */
+export interface PairOverlap {
+    i: number;
+    j: number;
+    /**
+     * Number of shared leaves.
+     */
+    shared: number;
+    /**
+     * The pair shares fewer than `analysis::MIN_SHARED_LEAVES` leaves, so the request does not
+     * validate.
+     */
+    blocked: boolean;
+}
+
+/**
+ * MCCs of one pair of trees.
+ */
+export interface PairSummary {
+    /**
+     * Index of the pair in pipeline order.
+     */
+    index: number;
+    /**
+     * Labels of the two trees.
+     */
+    labels: [string, string];
+    /**
+     * Number of MCCs.
+     */
+    mccCount: number;
+    /**
+     * The MCCs as leaf-name lists, as in `MCCs.json`.
+     */
+    mccs: string[][];
+    /**
+     * Number of leaves in one tree of the pair only, attached to an MCC of the pair.
+     */
+    imputedCount: number;
+    /**
+     * Number of these attached leaves whose attachment is ambiguous.
+     */
+    ambiguousCount: number;
+}
+
+/**
+ * Meaning of a mark.
+ */
+export type MarkKind = "reassortment" | "imputed" | "hybrid";
+
+/**
+ * Outcome of building the ARG of two trees.
+ */
+export type ArgOutcome = { status: "built"; reassortments: number } | { status: "failed"; message: string };
+
+/**
+ * Parse error of a Newick text.
+ */
+export interface TreeError {
+    message: string;
+    /**
+     * 1-based line of the error; `None` for an error without a position.
+     */
+    line: number | null;
+    /**
+     * 1-based column of the error, in Unicode characters.
+     */
+    column: number | null;
+}
+
+/**
+ * Part of a run that is in progress.
+ */
+export type Phase = "pairs" | "matching" | "done";
+
+/**
+ * Path of an ARG edge: an elbow, or a dashed S-curve for a reticulation edge.
+ */
+export type EdgePath = { kind: "elbow"; points: [Point, Point, Point] } | { kind: "curve"; curve: Bezier };
+
+/**
+ * Presence of branch lengths in a tree.
+ */
+export type BranchLengths = "all" | "some" | "none";
+
+/**
+ * Progress of a run: the completed fraction, and the round and pair in progress.
+ */
+export interface Progress {
+    phase: Phase;
+    /**
+     * Completed fraction of the run, from 0 to 1, never decreasing during a run.
+     */
+    fraction: number;
+    /**
+     * Round in progress, 1-based.
+     */
+    round: number;
+    /**
+     * Number of rounds, including the final round without resolution.
+     */
+    rounds: number;
+    /**
+     * Pair in progress, 1-based, in pipeline order.
+     */
+    pair: number;
+    /**
+     * Number of pairs.
+     */
+    pairs: number;
+}
+
+/**
+ * Results of a run at a glance.
+ */
+export interface Summary {
+    /**
+     * Pairs in pipeline order (0,1), (0,2), ..., (1,2), ...
+     */
+    pairs: PairSummary[];
+    /**
+     * Outcome of the ARG; `None` for more than two trees.
+     */
+    arg: ArgOutcome | null;
+    /**
+     * Warnings and errors of the run, in the order they occurred.
+     */
+    diagnostics: Diagnostic[];
+}
+
+/**
+ * Rules and help of the settings for a request with a given number of trees and settings.
+ */
+export interface SettingsSchema {
+    /**
+     * One entry per setting, named as the field of `Settings`.
+     */
+    settings: SettingFields;
+    /**
+     * The resolution modes, in the order the web app lists them.
+     */
+    modes: ModeInfo[];
+    /**
+     * Help on why the order of the trees matters.
+     */
+    treeOrderHelp: string;
 }
 
 /**
@@ -79,6 +629,311 @@ export interface Settings {
 }
 
 /**
+ * Severity of a diagnostic.
+ */
+export type Level = "error" | "warn" | "info" | "debug";
+
+/**
+ * Shape of one input tree, or why it does not parse.
+ */
+export interface TreeInspection {
+    label: string;
+    /**
+     * Number of leaves; 0 when the tree does not parse.
+     */
+    leaves: number;
+    /**
+     * Number of internal nodes, the root included.
+     */
+    internalNodes: number;
+    /**
+     * Number of internal nodes with more than two children.
+     */
+    polytomies: number;
+    /**
+     * Which branches have a length.
+     */
+    branchLengths: BranchLengths;
+    /**
+     * Warnings of the Newick parser, such as "more than one tree in file, using the first".
+     */
+    warnings: string[];
+    /**
+     * Why the Newick text does not parse; `None` when it parses.
+     */
+    error: TreeError | null;
+}
+
+/**
+ * Size and content of a figure; a missing field takes its default.
+ */
+export interface FigureOptions {
+    /**
+     * Width in px.
+     */
+    width?: number;
+    /**
+     * Height of a leaf row in px.
+     */
+    rowHeight?: number;
+    /**
+     * Branch scale.
+     */
+    scale?: Scale;
+    /**
+     * When leaf labels are drawn.
+     */
+    labels?: LabelMode;
+}
+
+/**
+ * The ARG of two trees laid out for drawing, in one tree column. Segment 0 (A) is the first
+ * tree and segment 1 (B) the second.
+ */
+export interface ArgView {
+    /**
+     * The ARG nodes, with the synthetic `GlobalRoot` last when `root_case` is `synthetic`.
+     */
+    nodes: ArgNodeView[];
+    edges: ArgEdge[];
+    /**
+     * Index of the top root.
+     */
+    root: number;
+    /**
+     * How the top root relates to the segment roots, as in `ARG/arg.nwk`.
+     */
+    rootCase: RootCase;
+    /**
+     * The shapes of the drawing for the requested scale.
+     */
+    shapes: ArgShapes;
+}
+
+/**
+ * The MCC of every leaf in every pair.
+ */
+export interface ConstellationTable {
+    /**
+     * Every taxon: first the leaves of the first tree in the display order of its resolved
+     * version, then the leaves it lacks, in the order of the first tree that has them.
+     */
+    leaves: string[];
+    /**
+     * Labels of the two trees of each pair, in pipeline order.
+     */
+    pairs: [string, string][];
+    /**
+     * `cells[leaf][pair]`; `None` when the leaf is in neither tree of the pair.
+     */
+    cells: (ConstellationCell | null)[][];
+}
+
+/**
+ * The MCC of one leaf in one pair.
+ */
+export interface ConstellationCell {
+    /**
+     * Index of the MCC in the pair's `PairView.mccs`.
+     */
+    mcc: number;
+    /**
+     * Number of leaves of the MCC.
+     */
+    size: number;
+    /**
+     * Color slot of the MCC.
+     */
+    slot: number;
+}
+
+/**
+ * The S-curve of one link, with control points at x = 0.5.
+ */
+export interface LinkCurve {
+    /**
+     * Index of the link in `PairView.links`.
+     */
+    link: number;
+    /**
+     * Color slot of the link's MCC.
+     */
+    slot: number;
+    curve: Bezier;
+}
+
+/**
+ * The TreeKnit version and the source repository.
+ */
+export interface AppVersion {
+    /**
+     * Version as the command line reports it, such as `0.5.0` or `0.5.0-dev`.
+     */
+    version: string;
+    /**
+     * URL of the source repository, from the workspace `repository` field.
+     */
+    repository: string;
+}
+
+/**
+ * The rectangular branch above a node: from (parent x, parent y) to (parent x, node y) to
+ * (node x, node y).
+ */
+export interface Elbow {
+    /**
+     * Index of the node below the branch.
+     */
+    node: number;
+    points: [Point, Point, Point];
+    /**
+     * Color slot of the node's MCC; `None` for a node without an MCC.
+     */
+    slot: number | null;
+    /**
+     * The branch is a reassortment branch.
+     */
+    mccBreak: boolean;
+    /**
+     * The node is `added`; its branch is dashed.
+     */
+    added: boolean;
+}
+
+/**
+ * The ribbon of one block: its left and right y ranges, each extended by half a row, joined by
+ * two S-curves.
+ */
+export interface Ribbon {
+    /**
+     * Index of the block in `PairView.blocks`.
+     */
+    block: number;
+    /**
+     * Color slot of the block's MCC.
+     */
+    slot: number;
+    /**
+     * Closed outline: each segment starts where the previous one ends, and the last ends where
+     * the first starts.
+     */
+    outline: Bezier[];
+}
+
+/**
+ * The schema of each field of `Settings`, except `resolve`, which `SettingsSchema.modes`
+ * describes.
+ */
+export interface SettingFields {
+    gamma: NumberSetting;
+    /**
+     * One sequence length per tree; `default` is the length a newly added tree gets.
+     */
+    seqLengths: NumberSetting;
+    nMcmcIt: NumberSetting;
+    rounds: NumberSetting;
+    seed: NumberSetting;
+    preResolve: ToggleSetting;
+    finalRound: ToggleSetting;
+    likelihood: ToggleSetting;
+    naive: ToggleSetting;
+}
+
+/**
+ * The shape of one ARG edge.
+ */
+export interface ArgEdgeShape {
+    /**
+     * Index of the edge in `ArgView.edges`.
+     */
+    edge: number;
+    path: EdgePath;
+}
+
+/**
+ * The shapes of a tanglegram.
+ */
+export interface PairShapes {
+    /**
+     * Branches and marks of the left tree, x across the left tree column.
+     */
+    left: TreeShapes;
+    /**
+     * Branches and marks of the right tree, x across the right tree column, unmirrored.
+     */
+    right: TreeShapes;
+    /**
+     * One S-curve per link, x across the link zone: from (0, left y) to (1, right y).
+     */
+    links: LinkCurve[];
+    /**
+     * One outline per block, x across the link zone.
+     */
+    ribbons: Ribbon[];
+}
+
+/**
+ * The shapes of an ARG drawing, x across the tree column.
+ */
+export interface ArgShapes {
+    /**
+     * One shape per edge, in the order of `ArgView.edges`.
+     */
+    edges: ArgEdgeShape[];
+    /**
+     * Hybrid rings.
+     */
+    marks: Mark[];
+}
+
+/**
+ * The tanglegram of one pair of trees in one version.
+ */
+export interface PairView {
+    left: DrawTree;
+    right: DrawTree;
+    /**
+     * One link per leaf in both drawn trees, in the left display order.
+     */
+    links: Link[];
+    /**
+     * Runs of consecutive links of one MCC, in the left display order.
+     */
+    blocks: Block[];
+    /**
+     * The MCCs of the pair; `DrawNode.mcc`, `Link.mcc`, and `Block.mcc` index this list.
+     */
+    mccs: MccInfo[];
+    /**
+     * The shapes of the drawing for the requested scale.
+     */
+    shapes: PairShapes;
+}
+
+/**
+ * The three top-root cases of the extended Newick writer.
+ */
+export type RootCase = "shared" | "synthetic" | "oneShared";
+
+/**
+ * The two copies of one leaf.
+ */
+export interface Link {
+    /**
+     * Node index of the leaf in the left tree.
+     */
+    left: number;
+    /**
+     * Node index of the leaf in the right tree.
+     */
+    right: number;
+    /**
+     * Index of the leaf's MCC in `PairView.mccs`.
+     */
+    mcc: number;
+}
+
+/**
  * Trees to compare, and the settings of the analysis.
  */
 export interface AnalysisRequest {
@@ -86,28 +941,154 @@ export interface AnalysisRequest {
     settings?: Settings;
 }
 
+/**
+ * Version of the trees of a pair.
+ */
+export type Version = "input" | "resolved" | "imputed";
+
+/**
+ * When leaf labels are drawn.
+ */
+export type LabelMode = "auto" | "on" | "off";
+
 export type ResolveMode = "none" | "strict" | "liberal" | "matched";
 
+
+/**
+ * One run of TreeKnit and its results, kept for later queries.
+ */
+export class Session {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * The SVG figure of the ARG.
+     */
+    argFigure(options: FigureOptions): string;
+    /**
+     * The ARG laid out with `scale`; `undefined` for more than two trees or a failed ARG.
+     */
+    argView(scale: Scale): ArgView | undefined;
+    /**
+     * The command that reproduces the file set of the run from the extracted archive.
+     */
+    commandLine(): string;
+    /**
+     * The MCC of every leaf in every pair.
+     */
+    constellation(): ConstellationTable;
+    /**
+     * The SVG tanglegram of pair `pair` in `version`.
+     */
+    figure(pair: number, version: Version, options: FigureOptions): string;
+    /**
+     * The text of the listed file at `path`.
+     */
+    fileText(path: string): string;
+    /**
+     * Every output file of the run, without its text.
+     */
+    files(): FileEntry[];
+    /**
+     * The tanglegram of pair `pair` (pipeline order) in `version`, laid out with `scale`.
+     */
+    pairView(pair: number, version: Version, scale: Scale): PairView;
+    /**
+     * Validate and run `request`, calling `onProgress` with each `Progress`. Throws an `Error`
+     * named `ValidationError` when the request does not validate, and an `Error` otherwise.
+     */
+    static run(request: AnalysisRequest, onProgress: (progress: Progress) => void): Session;
+    /**
+     * The MCCs of each pair, the ARG outcome, and the diagnostics.
+     */
+    summary(): Summary;
+    /**
+     * A ZIP archive of every listed file, under `treeknit_results/`.
+     */
+    zip(): Uint8Array;
+}
 
 /**
  * The settings that a request without settings uses: the defaults of the command line.
  */
 export function defaultSettings(): Settings;
 
+/**
+ * Leaf, node, and polytomy counts, branch lengths, warnings, and parse error of one tree.
+ */
+export function inspectTree(label: string, text: string): TreeInspection;
+
+/**
+ * Leaf overlap of the trees and of each pair, with the pairs that block a run.
+ */
+export function overlap(trees: TreeText[]): Overlap;
+
+/**
+ * The drawing colors of the light and the dark theme.
+ */
+export function palette(): Palette;
+
+/**
+ * The request of a session file (`treeknit_request.json`); throws with the messages when its
+ * JSON structure is invalid.
+ */
+export function readRequest(text: string): AnalysisRequest;
+
+/**
+ * The session file of a request, `treeknit_request.json`.
+ */
+export function requestFile(request: AnalysisRequest): OutputFile;
+
+/**
+ * Defaults, ranges, applicability, and help of every setting, for `k` trees and `settings`.
+ */
+export function settingsSchema(k: number, settings: Settings): SettingsSchema;
+
 export function start(): void;
+
+/**
+ * Labels for trees loaded from `fileNames`: the file name without its last extension, with
+ * `_2`, `_3`, ... where it collides with `existingLabels` or an earlier new label.
+ */
+export function treeLabels(fileNames: string[], existingLabels: string[]): string[];
 
 /**
  * Every problem with the trees and the settings of the request; none when it runs.
  */
 export function validate(request: AnalysisRequest): ValidationError[];
 
+/**
+ * The TreeKnit version and the source repository.
+ */
+export function version(): AppVersion;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly __wbg_session_free: (a: number, b: number) => void;
     readonly defaultSettings: () => [number, number, number];
+    readonly inspectTree: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly overlap: (a: number, b: number) => [number, number, number];
+    readonly palette: () => [number, number, number];
+    readonly readRequest: (a: number, b: number) => [number, number, number];
+    readonly requestFile: (a: any) => [number, number, number];
+    readonly session_argFigure: (a: number, b: any) => [number, number, number, number];
+    readonly session_argView: (a: number, b: any) => [number, number, number];
+    readonly session_commandLine: (a: number) => [number, number, number, number];
+    readonly session_constellation: (a: number) => [number, number, number];
+    readonly session_figure: (a: number, b: number, c: any, d: any) => [number, number, number, number];
+    readonly session_fileText: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly session_files: (a: number) => [number, number, number, number];
+    readonly session_pairView: (a: number, b: number, c: any, d: any) => [number, number, number];
+    readonly session_run: (a: any, b: any) => [number, number, number];
+    readonly session_summary: (a: number) => [number, number, number];
+    readonly session_zip: (a: number) => [number, number, number, number];
+    readonly settingsSchema: (a: number, b: any) => [number, number, number];
     readonly start: () => void;
+    readonly treeLabels: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly validate: (a: any) => [number, number, number, number];
+    readonly version: () => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
