@@ -2,6 +2,7 @@
 
 use crate::analysis::AnalysisRequest;
 use crate::run::RunResult;
+use crate::summary::Diagnostic;
 use crate::{analysis, arg, auspice, mccs, newick};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -146,6 +147,16 @@ pub fn parameters_file(o: &Options, seed: u64) -> OutputFile {
   OutputFile::new("parameters.json".to_owned(), format!("{:#}", params_json(o, seed)))
 }
 
+/// `log.txt` of the web app: one line `<time> [LEVEL] <message>` per record, the layout of the
+/// command-line log without its thread ID, because the browser runs on one thread.
+pub fn log_file(records: &[Diagnostic]) -> OutputFile {
+  let text = records
+    .iter()
+    .map(|r| format!("{} [{}] {}\n", r.time, r.level, r.message))
+    .collect();
+  OutputFile::new("log.txt".to_owned(), text)
+}
+
 /// A ZIP archive of `files`, each under `treeknit_results/` at its path. Every entry is deflated
 /// and dated 1980-01-01 00:00, the earliest ZIP time, so equal files give a byte-identical
 /// archive. Fails when two files have one path.
@@ -205,6 +216,7 @@ mod tests {
   use super::*;
   use crate::analysis::{self, Settings, TreeText};
   use crate::run;
+  use crate::summary::Level;
   use pretty_assertions::assert_eq;
   use rstest::rstest;
   use serde_json::json;
@@ -444,6 +456,24 @@ mod tests {
       "treeknit --request treeknit_results/treeknit_request.json --impute --auspice-view",
       command_line()
     );
+  }
+
+  #[test]
+  fn log_file_writes_a_line_per_record_as_the_command_line_log() {
+    let record = |level, message: &str| Diagnostic {
+      level,
+      message: message.to_owned(),
+      time: "2026-10-05T12:00:00.000Z".to_owned(),
+    };
+    let file = log_file(&[record(Level::Info, "TreeKnit 1.0"), record(Level::Warn, "ignoring x")]);
+    // Oracle: simplelog with `set_time_format_rfc3339` and target off, as `setup_logging` of the
+    // command line configures it, writes `<time> [LEVEL] <message>` and a newline.
+    let expected = OutputFile {
+      path: "log.txt".to_owned(),
+      media_type: "text/plain".to_owned(),
+      text: "2026-10-05T12:00:00.000Z [INFO] TreeKnit 1.0\n2026-10-05T12:00:00.000Z [WARN] ignoring x\n".to_owned(),
+    };
+    assert_eq!(expected, file);
   }
 
   fn fixed_files() -> Vec<OutputFile> {
