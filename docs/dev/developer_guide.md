@@ -83,10 +83,10 @@ The root `package.json` declares the workspace, the scripts that the recipes cal
 
 Two recipes build and run the web app, each in two modes:
 
-|       | dev                                                                  | prod                                                       |
-| ----- | -------------------------------------------------------------------- | ---------------------------------------------------------- |
-| build | `just build-web dev`: unminified, with source maps                   | `just build-web prod`: minified, as shipped                |
-| run   | `just run-web dev`: Vite dev server with hot reload                  | `just run-web prod`: builds as shipped and serves the build |
+|       | dev                                                 | prod                                                        |
+| ----- | --------------------------------------------------- | ----------------------------------------------------------- |
+| build | `just build-web dev`: unminified, with source maps  | `just build-web prod`: minified, as shipped                 |
+| run   | `just run-web dev`: Vite dev server with hot reload | `just run-web prod`: builds as shipped and serves the build |
 
 The dev mode uses the WebAssembly module of the `release` profile, which is optimized and rebuilds incrementally; after a Rust change, `just build-wasm release` rebuilds it and the dev server reloads it. The prod mode uses the `dist` profile with `wasm-opt`. The build goes to `packages/web/dist/`.
 
