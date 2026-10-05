@@ -4,10 +4,18 @@ use crate::run::RunResult;
 use crate::{analysis, arg, auspice, mccs, newick};
 use serde::Serialize;
 use serde_json::{Value, json};
+use std::io::{Cursor, Write};
 use std::path::Path;
 use treeknit_core::{Options, Tree};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
+use zip::result::ZipError;
+use zip::write::SimpleFileOptions;
+use zip::{CompressionMethod, DateTime, ZipWriter};
+
+/// Default results directory of the command line, and the directory of the files in the ZIP
+/// archive.
+pub const RESULTS_DIR: &str = "treeknit_results";
 
 /// A result file with its text, at its path in the results directory of the command line.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -131,6 +139,21 @@ pub fn output_files(run: &RunResult, options: &OutputOptions) -> Vec<OutputFile>
 /// the inference, so it exists when a run fails.
 pub fn parameters_file(o: &Options, seed: u64) -> OutputFile {
   OutputFile::new("parameters.json".to_owned(), format!("{:#}", params_json(o, seed)))
+}
+
+/// A ZIP archive of `files`, each under `treeknit_results/` at its path. Every entry is deflated
+/// and dated 1980-01-01 00:00, the earliest ZIP time, so equal files give a byte-identical
+/// archive. Fails when two files have one path.
+pub fn zip_archive(files: &[OutputFile]) -> Result<Vec<u8>, ZipError> {
+  let options = SimpleFileOptions::default()
+    .compression_method(CompressionMethod::Deflated)
+    .last_modified_time(DateTime::DEFAULT);
+  let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
+  for f in files {
+    zip.start_file(format!("{RESULTS_DIR}/{}", f.path), options)?;
+    zip.write_all(f.text.as_bytes())?;
+  }
+  Ok(zip.finish()?.into_inner())
 }
 
 fn params_json(o: &Options, seed: u64) -> Value {
@@ -362,6 +385,76 @@ mod tests {
       (json!(3.5), json!(7), json!("matched")),
       (v["gamma"].clone(), v["seed"].clone(), v["resolution"].clone())
     );
+  }
+
+  fn fixed_files() -> Vec<OutputFile> {
+    vec![
+      OutputFile::new("MCCs.json".to_owned(), "{}\n".to_owned()),
+      OutputFile::new("ARG/arg.nwk".to_owned(), "(A,B);\n".to_owned()),
+      OutputFile::new("MCCs.dat".to_owned(), "A,B".to_owned()),
+    ]
+  }
+
+  #[test]
+  fn zip_archive_holds_every_file_under_the_results_directory() {
+    let bytes = zip_archive(&fixed_files()).unwrap();
+    let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).unwrap();
+    let entries: Vec<(String, String, Option<DateTime>, CompressionMethod)> = (0..archive.len())
+      .map(|i| {
+        let mut entry = archive.by_index(i).unwrap();
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut entry, &mut text).unwrap();
+        (
+          entry.name().to_owned(),
+          text,
+          entry.last_modified(),
+          entry.compression(),
+        )
+      })
+      .collect();
+    let entry = |name: &str, text: &str| {
+      (
+        name.to_owned(),
+        text.to_owned(),
+        Some(DateTime::DEFAULT),
+        CompressionMethod::Deflated,
+      )
+    };
+    let expected = vec![
+      entry("treeknit_results/MCCs.json", "{}\n"),
+      entry("treeknit_results/ARG/arg.nwk", "(A,B);\n"),
+      entry("treeknit_results/MCCs.dat", "A,B"),
+    ];
+    assert_eq!(expected, entries);
+  }
+
+  #[test]
+  fn zip_archive_of_equal_files_is_byte_identical() {
+    assert_eq!(
+      zip_archive(&fixed_files()).unwrap(),
+      zip_archive(&fixed_files()).unwrap()
+    );
+  }
+
+  #[test]
+  fn zip_archive_dates_entries_at_the_earliest_zip_time() {
+    // Oracle: the MS-DOS date of 1980-01-01 is 0x0021 (day 1, month 1, year 1980 + 0) and the
+    // time of 00:00:00 is 0; the local file header holds the time at byte 10 and the date at byte
+    // 12 (APPNOTE.TXT 4.3.7).
+    let bytes = zip_archive(&fixed_files()).unwrap();
+    assert_eq!(
+      [0x50, 0x4b, 0x03, 0x04, 0x00, 0x00, 0x21, 0x00],
+      [&bytes[..4], &bytes[10..14]].concat()[..]
+    );
+  }
+
+  #[test]
+  fn zip_archive_rejects_a_repeated_path() {
+    let files = vec![
+      OutputFile::new("MCCs.json".to_owned(), String::new()),
+      OutputFile::new("MCCs.json".to_owned(), String::new()),
+    ];
+    assert!(matches!(zip_archive(&files), Err(ZipError::InvalidArchive(_))));
   }
 
   #[rustfmt::skip]

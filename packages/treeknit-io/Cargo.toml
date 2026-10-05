@@ -22,6 +22,7 @@ serde_json.workspace = true
 treeknit-core.workspace = true
 tsify = { workspace = true, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
+zip.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true

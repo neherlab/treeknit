@@ -77,6 +77,8 @@ simplelog = "=0.12.2"
 tsify = "=0.5.8"
 wasm-bindgen = "=0.2.129"
 wasm-bindgen-test = "=0.3.79"
+# Deflate through the pure-Rust zlib-rs backend, so the archive builds for wasm32-unknown-unknown.
+zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 treeknit-core = { path = "packages/treeknit-core" }
 treeknit-io = { path = "packages/treeknit-io" }
