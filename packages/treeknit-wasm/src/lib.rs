@@ -7,7 +7,7 @@ use std::cell::{OnceCell, RefCell};
 use treeknit_core::Options;
 use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
 use treeknit_io::display::{self, ArgView, ConstellationTable, DrawingRules, PairView, Scale, TreeVersion};
-use treeknit_io::figure::{self, FigureOptions};
+use treeknit_io::figure::FigureOptions;
 use treeknit_io::inspect::{self, Overlap, TreeInspection};
 use treeknit_io::output::{self, FigureFile, FileEntry, OutputFile, OutputOptions, WebFile};
 use treeknit_io::palette::{self, Palette};
@@ -287,29 +287,30 @@ impl Session {
     to_js(&display::constellation(&self.run, &self.options))
   }
 
-  /// The SVG tanglegram of pair `pair` (pipeline order) in `version` with `options`. Throws an
-  /// `Error` named `ValidationError` when `options` are invalid. The figure files of `files()`
-  /// keep their default options.
+  /// The SVG tanglegram of pair `pair` (pipeline order) in `version` with `options`. With the
+  /// scale `div`, a pair where a tree has no branch lengths is drawn as cladograms, as in the
+  /// figure files. Throws an `Error` named `ValidationError` when `options` are invalid. The
+  /// figure files of `files()` keep their default options.
   #[wasm_bindgen]
   pub fn figure(&self, pair: usize, version: &Ts<TreeVersion>, options: &Ts<FigureOptions>) -> Result<String, JsValue> {
     let _log = log_capture::discard();
     let version = from_js("version", version)?;
-    let options = figure_options(options)?;
-    let view = display::pair_view(&self.run, &self.options, pair, version, options.scale)
-      .ok_or_else(|| no_pair(&self.run, pair))?;
-    figure::tanglegram_svg(&view, &options).map_err(|e| validation_error(&e))
+    let options = from_js("options", options)?;
+    output::pair_figure(&self.run, &self.options, pair, version, &options)
+      .map_err(|e| validation_error(&e))?
+      .ok_or_else(|| no_pair(&self.run, pair).into())
   }
 
-  /// The SVG figure of the ARG with `options`. Throws an `Error` named `ValidationError` when
+  /// The SVG figure of the ARG with `options`. With the scale `div`, an ARG where a segment has no
+  /// branch lengths is drawn as a cladogram. Throws an `Error` named `ValidationError` when
   /// `options` are invalid, and an `Error` for more than two trees or a failed ARG.
   #[wasm_bindgen(js_name = argFigure)]
   pub fn arg_figure(&self, options: &Ts<FigureOptions>) -> Result<String, JsValue> {
     let _log = log_capture::discard();
-    let options = figure_options(options)?;
-    let no_arg = || JsError::new("the run has no ARG: it needs two trees and a built ARG");
-    let view = display::arg_view(&self.run, options.scale).ok_or_else(no_arg)?;
-    let segments = output::segment_labels(&self.run).ok_or_else(no_arg)?;
-    figure::arg_svg(&view, segments, &options).map_err(|e| validation_error(&e))
+    let options = from_js("options", options)?;
+    output::arg_figure(&self.run, &options)
+      .map_err(|e| validation_error(&e))?
+      .ok_or_else(|| JsError::new("the run has no ARG: it needs two trees and a built ARG").into())
   }
 }
 
@@ -366,18 +367,6 @@ impl SessionFile {
 
 /// Media type of the figure files.
 const FIGURE_MEDIA_TYPE: &str = "image/svg+xml";
-
-/// The figure options of the argument `options`; throws an `Error` named `ValidationError` with
-/// the problems of `figure::check_figure_options`.
-fn figure_options(options: &Ts<FigureOptions>) -> Result<FigureOptions, JsValue> {
-  let options = from_js("options", options)?;
-  let errors = figure::check_figure_options(&options);
-  if errors.is_empty() {
-    Ok(options)
-  } else {
-    Err(validation_error(&errors))
-  }
-}
 
 /// A JavaScript `Error` named `ValidationError` whose message joins the messages of `errors`, one
 /// per line, so the caller tells an invalid request from an internal failure.

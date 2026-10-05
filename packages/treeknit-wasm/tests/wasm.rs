@@ -417,6 +417,21 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
+  fn session_figure_with_default_options_equals_the_figure_file() {
+    // The example trees have no branch lengths, so the default scale `div` falls back to `depth`
+    // in both.
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    assert_eq!(
+      session.file_text("tanglegram_ha_na.svg").unwrap(),
+      session.figure(0, &ts(&json!("resolved")), &ts(&json!({}))).unwrap()
+    );
+    assert_eq!(
+      session.file_text("ARG/arg.svg").unwrap(),
+      session.arg_figure(&ts(&json!({}))).unwrap()
+    );
+  }
+
+  #[wasm_bindgen_test]
   fn session_figure_throws_validation_error_for_invalid_options() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let options = ts(&json!({"width": 0, "rowHeight": -2}));

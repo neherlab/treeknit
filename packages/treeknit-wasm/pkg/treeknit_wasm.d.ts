@@ -1096,7 +1096,8 @@ export class Session {
     free(): void;
     [Symbol.dispose](): void;
     /**
-     * The SVG figure of the ARG with `options`. Throws an `Error` named `ValidationError` when
+     * The SVG figure of the ARG with `options`. With the scale `div`, an ARG where a segment has no
+     * branch lengths is drawn as a cladogram. Throws an `Error` named `ValidationError` when
      * `options` are invalid, and an `Error` for more than two trees or a failed ARG.
      */
     argFigure(options: FigureOptions): string;
@@ -1113,9 +1114,10 @@ export class Session {
      */
     constellation(): ConstellationTable;
     /**
-     * The SVG tanglegram of pair `pair` (pipeline order) in `version` with `options`. Throws an
-     * `Error` named `ValidationError` when `options` are invalid. The figure files of `files()`
-     * keep their default options.
+     * The SVG tanglegram of pair `pair` (pipeline order) in `version` with `options`. With the
+     * scale `div`, a pair where a tree has no branch lengths is drawn as cladograms, as in the
+     * figure files. Throws an `Error` named `ValidationError` when `options` are invalid. The
+     * figure files of `files()` keep their default options.
      */
     figure(pair: number, version: TreeVersion, options: FigureOptions): string;
     /**

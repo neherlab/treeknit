@@ -1,7 +1,7 @@
 //! Output files of a run, as the command line writes them and the web app lists them.
 
 use crate::analysis::{AnalysisRequest, ValidationError};
-use crate::display::{self, Scale, TreeVersion};
+use crate::display::{self, DrawTree, Scale, TreeVersion};
 use crate::figure::{self, FigureOptions};
 use crate::run::RunResult;
 use crate::summary::Diagnostic;
@@ -347,38 +347,63 @@ pub fn check_output_paths(labels: &[String], options: &OutputOptions) -> Vec<Val
 }
 
 /// The SVG text of `figure` of `run` with the default `FigureOptions`, a tanglegram of the
-/// resolved trees; `None` when `run` lacks the pair or the ARG. `opts` are the options of the
-/// run. Trees without branch lengths are drawn as cladograms (scale `depth`), because their
-/// divergence is 0 everywhere and the `div` scale would draw every node at the root.
+/// resolved trees, as `pair_figure` and `arg_figure` draw it; `None` when `run` lacks the pair or
+/// the ARG. `opts` are the options of the run.
 pub fn figure_text(run: &RunResult, opts: &Options, figure: Figure) -> Option<String> {
-  let div = FigureOptions::default();
-  let depth = FigureOptions {
-    scale: Scale::Depth,
-    ..div
-  };
+  let options = FigureOptions::default();
   let svg = match figure {
-    Figure::Pair { pair } => {
-      let view = display::pair_view(run, opts, pair, TreeVersion::Resolved, div.scale)?;
-      let flat = view.left.nodes.iter().chain(&view.right.nodes).all(|n| n.x_div <= 0.0);
-      if flat {
-        let view = display::pair_view(run, opts, pair, TreeVersion::Resolved, depth.scale)?;
-        figure::tanglegram_svg(&view, &depth)
-      } else {
-        figure::tanglegram_svg(&view, &div)
-      }
-    },
-    Figure::Arg => {
-      let segments = segment_labels(run)?;
-      let view = display::arg_view(run, div.scale)?;
-      if view.nodes.iter().all(|n| n.x_div <= 0.0) {
-        figure::arg_svg(&display::arg_view(run, depth.scale)?, segments, &depth)
-      } else {
-        figure::arg_svg(&view, segments, &div)
-      }
-    },
+    Figure::Pair { pair } => pair_figure(run, opts, pair, TreeVersion::Resolved, &options),
+    Figure::Arg => arg_figure(run, &options),
   };
   #[expect(clippy::expect_used, reason = "the default figure options are valid")]
-  Some(svg.expect("default figure options"))
+  svg.expect("default figure options")
+}
+
+/// The SVG tanglegram of pair `pair` (pipeline order) of `run` in `version` with `options`;
+/// `Ok(None)` when `run` lacks the pair, and the errors of `figure::check_figure_options` when
+/// `options` are invalid. `opts` are the options of the run. With the scale `div`, a pair where
+/// a tree has no branch lengths is drawn as cladograms (scale `depth`), because the divergence of
+/// that tree is 0 everywhere and `div` would draw all its nodes at the root.
+pub fn pair_figure(
+  run: &RunResult,
+  opts: &Options,
+  pair: usize,
+  version: TreeVersion,
+  options: &FigureOptions,
+) -> Result<Option<String>, Vec<ValidationError>> {
+  let Some(view) = display::pair_view(run, opts, pair, version, options.scale) else {
+    return Ok(None);
+  };
+  let flat = |tree: &DrawTree| tree.nodes.iter().all(|n| n.x_div <= 0.0);
+  if options.scale == Scale::Div && (flat(&view.left) || flat(&view.right)) {
+    let options = FigureOptions {
+      scale: Scale::Depth,
+      ..*options
+    };
+    let view = display::pair_view(run, opts, pair, version, options.scale);
+    return view.map(|v| figure::tanglegram_svg(&v, &options)).transpose();
+  }
+  figure::tanglegram_svg(&view, options).map(Some)
+}
+
+/// The SVG figure of the ARG of `run` with `options`; `Ok(None)` for more than two trees or a
+/// failed ARG, and the errors of `figure::check_figure_options` when `options` are invalid. With
+/// the scale `div`, an ARG without branch lengths is drawn as a cladogram (scale `depth`), as in
+/// `pair_figure`. The ARG has branch lengths when one of its trees has them, because the ARG
+/// takes the length of a branch from the other tree where one tree lacks it.
+pub fn arg_figure(run: &RunResult, options: &FigureOptions) -> Result<Option<String>, Vec<ValidationError>> {
+  let (Some(segments), Some(view)) = (segment_labels(run), display::arg_view(run, options.scale)) else {
+    return Ok(None);
+  };
+  if options.scale == Scale::Div && view.nodes.iter().all(|n| n.x_div <= 0.0) {
+    let options = FigureOptions {
+      scale: Scale::Depth,
+      ..*options
+    };
+    let view = display::arg_view(run, options.scale);
+    return view.map(|v| figure::arg_svg(&v, segments, &options)).transpose();
+  }
+  figure::arg_svg(&view, segments, options).map(Some)
 }
 
 /// The labels of the two trees of an ARG, segment A and then B; `None` for another number of
@@ -836,6 +861,39 @@ mod tests {
     let view = display::pair_view(&r, &opts, 0, TreeVersion::Resolved, Scale::Div).unwrap();
     let expected = figure::tanglegram_svg(&view, &FigureOptions::default()).unwrap();
     assert_eq!(Some(expected), figure_text(&r, &opts, Figure::Pair { pair: 0 }));
+  }
+
+  #[test]
+  fn figure_text_draws_a_pair_with_branch_lengths_in_one_tree_as_cladograms_and_its_arg_by_divergence() {
+    let (ha, na) = ("((A:1,B:1):1,(C:1,(D:1,X:1):1):1);", NA);
+    let (r, opts) = (run_trees(&[("ha", ha), ("na", na)]), run_options(2));
+    let depth = FigureOptions {
+      scale: Scale::Depth,
+      ..FigureOptions::default()
+    };
+    let view = display::pair_view(&r, &opts, 0, TreeVersion::Resolved, Scale::Depth).unwrap();
+    let expected = figure::tanglegram_svg(&view, &depth).unwrap();
+    assert_eq!(Some(expected), figure_text(&r, &opts, Figure::Pair { pair: 0 }));
+    let arg = display::arg_view(&r, Scale::Div).unwrap();
+    let expected = figure::arg_svg(&arg, ["ha", "na"], &FigureOptions::default()).unwrap();
+    assert_eq!(Some(expected), figure_text(&r, &opts, Figure::Arg));
+  }
+
+  #[test]
+  fn pair_figure_with_the_depth_scale_keeps_it() {
+    let (r, opts) = (run_trees(&[("ha", HA), ("na", NA)]), run_options(2));
+    let depth = FigureOptions {
+      scale: Scale::Depth,
+      width: 500.0,
+      ..FigureOptions::default()
+    };
+    let view = display::pair_view(&r, &opts, 0, TreeVersion::Input, Scale::Depth).unwrap();
+    let expected = figure::tanglegram_svg(&view, &depth).unwrap();
+    assert_eq!(
+      Some(expected),
+      pair_figure(&r, &opts, 0, TreeVersion::Input, &depth).unwrap()
+    );
+    assert_eq!(None, pair_figure(&r, &opts, 1, TreeVersion::Input, &depth).unwrap());
   }
 
   #[test]
