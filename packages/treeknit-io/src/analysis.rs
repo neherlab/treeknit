@@ -214,7 +214,14 @@ pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationErro
         p.log_warnings();
         parsed.push(p.tree);
       },
-      Err(e) => errors.push(parse_error(i, t, &e)),
+      Err(e) => {
+        // The warning holds whether or not the first tree parses, as `inspect::inspect_tree`
+        // reports it.
+        if newick::holds_several_trees(&t.newick) {
+          newick::ParseWarning::SeveralTrees.log(&t.label);
+        }
+        errors.push(parse_error(i, t, &e));
+      },
     }
   }
   if parsed.len() < trees.len() {
@@ -243,7 +250,7 @@ pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationErro
 }
 
 /// Number the leaves of `trees` with one taxon table built from all their leaves.
-pub fn number_leaves(mut trees: Vec<Tree>) -> ParsedTrees {
+pub(crate) fn number_leaves(mut trees: Vec<Tree>) -> ParsedTrees {
   let taxa = Taxa::from_trees(&trees);
   for t in &mut trees {
     #[expect(

@@ -1,7 +1,7 @@
 //! Newick reading and writing.
 //!
 //! Supported: quoted labels (`'a b'`, with `''` for a quote), comments in square brackets
-//! (skipped), branch lengths, whitespace. Unnamed or numeric (support value) internal
+//! (skipped; they do not nest, so a comment ends at its first `]`), branch lengths, whitespace. Unnamed or numeric (support value) internal
 //! nodes and duplicate internal names are renamed `NODE_i`.
 
 #![expect(
@@ -63,13 +63,9 @@ pub enum ParseWarning {
 }
 
 impl ParseWarning {
-  /// Log the warning for the tree labeled `label`, with the lines the command line has always
-  /// written.
+  /// Log the warning for the tree labeled `label`, as `<label>: <warning>`.
   pub fn log(&self, label: &str) {
-    match self {
-      ParseWarning::SeveralTrees => log::warn!("{label}: {self}"),
-      ParseWarning::InvalidLength(_) => log::warn!("{self}"),
-    }
+    log::warn!("{label}: {self}");
   }
 }
 
@@ -112,7 +108,7 @@ impl Parser<'_> {
     })
   }
 
-  /// Skip whitespace and `[...]` comments.
+  /// Skip whitespace and `[...]` comments, which end at their first `]`.
   fn skip(&mut self) -> Result<(), ParseError> {
     loop {
       while self.i < self.s.len() && self.s[self.i].is_ascii_whitespace() {
@@ -273,15 +269,16 @@ pub fn parse_first(content: &str, label: &str) -> Result<Parsed, ParseError> {
   };
   let tree = p.tree(label)?;
   let mut warnings = p.warnings;
+  // The further trees follow the first, so their warning comes after those of the first tree.
   if holds_several_trees(content) {
-    warnings.insert(0, ParseWarning::SeveralTrees);
+    warnings.push(ParseWarning::SeveralTrees);
   }
   Ok(Parsed { tree, warnings })
 }
 
 /// Whether `content` holds more than one tree: two `;` outside quoted labels and comments. This
 /// holds whether or not the first tree parses, so callers can report it next to a parse error.
-pub fn holds_several_trees(content: &str) -> bool {
+pub(crate) fn holds_several_trees(content: &str) -> bool {
   let mut p = Parser {
     s: content.as_bytes(),
     i: 0,
@@ -418,9 +415,9 @@ mod tests {
   fn parse_first_returns_the_warnings_in_text_order() {
     let parsed = parse_first("((A,B):0.R,C:x);\n(A,B,C);\n", "t").unwrap();
     let expected = vec![
-      ParseWarning::SeveralTrees,
       ParseWarning::InvalidLength("0.R".into()),
       ParseWarning::InvalidLength("x".into()),
+      ParseWarning::SeveralTrees,
     ];
     assert_eq!(expected, parsed.warnings);
     assert_eq!("((A,B)NODE_2,C)NODE_1;", write(&parsed.tree));
@@ -458,6 +455,9 @@ mod tests {
   #[case::broken_first_tree(     "(A,,;(C,D);",       true)]
   #[case::semicolons_in_quotes(  "('a;b',C);[;]",     false)]
   #[case::no_semicolon(          "(A,B)",             false)]
+  #[case::escaped_quote(         "('a'';',B);",       false)]
+  #[case::escaped_quote_after(   "(A,B);'x'';'",      false)]
+  #[case::comments_do_not_nest(  "(A,B);[a[;]b;]",    true)]
   #[trace]
   fn holds_several_trees_counts_semicolons_outside_quotes_and_comments(#[case] text: &str, #[case] expected: bool) {
     assert_eq!(expected, holds_several_trees(text));

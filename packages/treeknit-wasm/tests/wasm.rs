@@ -245,7 +245,7 @@ mod tests {
     // Oracle: the warning lines of `newick::ParseWarning::log`, which the command line writes.
     let expected = json!([
         {"level": "warn", "message": "ha: more than one tree in file, using the first"},
-        {"level": "warn", "message": "ignoring invalid branch length '0.R'"},
+        {"level": "warn", "message": "na: ignoring invalid branch length '0.R'"},
     ]);
     let without_time: Vec<Value> = diagnostics
       .as_array()

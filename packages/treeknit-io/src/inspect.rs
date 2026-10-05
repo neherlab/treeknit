@@ -243,8 +243,8 @@ mod tests {
   fn inspect_tree_reports_parser_warnings() {
     let inspection = inspect_tree("t", "((A,B):0.R,C);\n(A,B,C);\n");
     let expected = vec![
-      "more than one tree in file, using the first".to_owned(),
       "ignoring invalid branch length '0.R'".to_owned(),
+      "more than one tree in file, using the first".to_owned(),
     ];
     assert_eq!(expected, inspection.warnings);
     assert_eq!(None, inspection.error);

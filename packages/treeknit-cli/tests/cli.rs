@@ -295,7 +295,28 @@ mod tests {
       log.contains("[WARN] ha: more than one tree in file, using the first\n"),
       "{log}"
     );
-    assert!(log.contains("[WARN] ignoring invalid branch length 'x'\n"), "{log}");
+    assert!(log.contains("[WARN] na: ignoring invalid branch length 'x'\n"), "{log}");
+  }
+
+  #[test]
+  fn several_trees_warning_is_logged_for_a_tree_that_fails_to_parse() {
+    let dir = TempDir::new("warnings-error");
+    let paths = write_trees(dir.path(), &[("ha", HA), ("na", "((A,B;\n(C,D);")]);
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .args(&paths)
+      .arg("-o")
+      .arg(dir.path().join("out"))
+      .output()
+      .unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert_eq!(
+      (Some(1), true),
+      (
+        output.status.code(),
+        stderr.contains("na: more than one tree in file, using the first\n")
+      ),
+      "{stderr}"
+    );
   }
 
   #[test]
