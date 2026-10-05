@@ -197,6 +197,6 @@ Every release stays on the releases page.
 
 ### Version of a build
 
-`treeknit --version` reports `TREEKNIT_VERSION` from build time (`packages/treeknit-cli/build.rs`), which must be the workspace version or start with it followed by `-`: `0.1.0-dev` when unset, `0.1.0-nightly.20261005T034000Z+abc1234` for a nightly, `0.1.0` for a release.
+`treeknit --version` reports `TREEKNIT_VERSION` from build time (`packages/treeknit-cli/build.rs`), which must be the workspace version or start with it followed by `-`: `1.0.0-dev` when unset, `1.0.0-nightly.20261005T034000Z+abc1234` for a nightly, `1.0.0` for a release.
 
 The workflow jobs pull the container images from Docker Hub by the hash of their build inputs, and build them when the inputs changed. With the Docker Hub secrets set in the repository, they push the images they build.

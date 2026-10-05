@@ -784,7 +784,7 @@ dependencies = [
 
 [[package]]
 name = "treeknit-cli"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -798,7 +798,7 @@ dependencies = [
 
 [[package]]
 name = "treeknit-core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "fixedbitset",
  "log",
@@ -809,7 +809,7 @@ dependencies = [
 
 [[package]]
 name = "treeknit-io"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "log",
  "rand",
@@ -820,7 +820,7 @@ dependencies = [
 
 [[package]]
 name = "treeknit-wasm"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
