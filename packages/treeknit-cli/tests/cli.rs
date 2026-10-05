@@ -63,6 +63,8 @@ mod tests {
       ("lengths-former", &["--better-MCCs", "--seq-lengths", "0 0"], "sequence length 1 must be a positive number, got 0"),
       ("seed-large",     &["--seed", "9007199254740992"], "seed must be at most 9007199254740991, got 9007199254740992"),
       ("mcmc-zero",      &["--n-mcmc-it", "0"],          "MCMC steps per leaf must be at least 1"),
+      ("mcmc-former",    &["--better-MCCs", "--n-mcmc-it", "0"], "MCMC steps per leaf must be at least 1"),
+      ("rounds-former",  &["--better-MCCs", "--rounds", "0"],    "rounds must be at least 1"),
     ] {
       let (code, stderr, results) = fail(name, &[HA, NA], args);
       assert_eq!(Some(1), code, "{name}");

@@ -344,19 +344,14 @@ fn options(cli: &Cli, k: usize) -> Result<Result<Options, Vec<ValidationError>>>
                --resolve, --pre-resolve or --no-final-round; see --help-resolve"
     );
   }
-  let mut o = former_options(cli, k)?;
-  if o.rounds == 0 {
-    bail!("--rounds must be at least 1");
-  }
-  o.gamma = cli.gamma;
-  o.n_mcmc = cli.n_mcmc_it;
-  o.likelihood_sort = !cli.no_likelihood;
-  o.naive = cli.naive;
   // The former options have no settings of their own; the values they share with the
-  // settings get the same checks. The other fields keep valid defaults.
+  // settings get the same checks. The other fields keep valid defaults, and the rounds of a
+  // preset (1 or 2) are valid.
   let shared = Settings {
     gamma: cli.gamma,
     seq_lengths,
+    n_mcmc_it: cli.n_mcmc_it,
+    rounds: cli.rounds.unwrap_or_else(|| Settings::default().rounds),
     seed: cli.seed,
     ..Settings::default()
   };
@@ -364,6 +359,11 @@ fn options(cli: &Cli, k: usize) -> Result<Result<Options, Vec<ValidationError>>>
   if !errors.is_empty() {
     return Ok(Err(errors));
   }
+  let mut o = former_options(cli, k)?;
+  o.gamma = cli.gamma;
+  o.n_mcmc = cli.n_mcmc_it;
+  o.likelihood_sort = !cli.no_likelihood;
+  o.naive = cli.naive;
   if let Some(v) = shared.seq_lengths {
     o.seq_lengths = v;
   }
