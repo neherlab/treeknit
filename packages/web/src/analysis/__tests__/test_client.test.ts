@@ -174,7 +174,7 @@ describe("analysis client", () => {
 
   test("a utility worker that cannot be constructed rejects the call with a start error and starts again", async () => {
     const host = new FakeHost({
-      utility: [fakeApi({ version: () => ({ version: "0.5.0", repository: "r" }) })],
+      utility: [fakeApi({ version: () => ({ version: "0.5.0", repository: "r", releases: "r/releases" }) })],
       job: [],
     });
 
@@ -185,7 +185,7 @@ describe("analysis client", () => {
 
     expect({ refused, answered }).toStrictEqual({
       refused: "WorkerStartError",
-      answered: { version: "0.5.0", repository: "r" },
+      answered: { version: "0.5.0", repository: "r", releases: "r/releases" },
     });
     client.dispose();
   });
@@ -208,7 +208,10 @@ describe("analysis client", () => {
 
   test("replaces the utility worker after a WebAssembly trap", async () => {
     const host = new FakeHost({
-      utility: [fakeApi({ version: trap }), fakeApi({ version: () => ({ version: "0.5.0", repository: "r" }) })],
+      utility: [
+        fakeApi({ version: trap }),
+        fakeApi({ version: () => ({ version: "0.5.0", repository: "r", releases: "r/releases" }) }),
+      ],
       job: [],
     });
 
@@ -219,7 +222,7 @@ describe("analysis client", () => {
 
     expect({ trapped, answered, terminated: host.terminatedNames() }).toStrictEqual({
       trapped: "RuntimeError",
-      answered: { version: "0.5.0", repository: "r" },
+      answered: { version: "0.5.0", repository: "r", releases: "r/releases" },
       terminated: ["treeknit-utility#0"],
     });
     client.dispose();
@@ -242,8 +245,8 @@ describe("analysis client", () => {
   test("replaces a utility worker that stops while idle, so the next call does not fail", async () => {
     const host = new FakeHost({
       utility: [
-        fakeApi({ version: () => ({ version: "0.5.0", repository: "first" }) }),
-        fakeApi({ version: () => ({ version: "0.5.0", repository: "second" }) }),
+        fakeApi({ version: () => ({ version: "0.5.0", repository: "first", releases: "first/releases" }) }),
+        fakeApi({ version: () => ({ version: "0.5.0", repository: "second", releases: "second/releases" }) }),
       ],
       job: [],
     });

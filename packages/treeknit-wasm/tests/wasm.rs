@@ -881,7 +881,11 @@ mod tests {
     let version = option_env!("TREEKNIT_VERSION")
       .filter(|v| !v.is_empty())
       .map_or_else(|| format!("{}-dev", env!("CARGO_PKG_VERSION")), str::to_owned);
-    let expected = json!({"version": version, "repository": "https://github.com/neherlab/treeknit-rs"});
+    let expected = json!({
+      "version": version,
+      "repository": "https://github.com/neherlab/treeknit-rs",
+      "releases": "https://github.com/neherlab/treeknit-rs/releases",
+    });
     assert_eq!(expected, plain(&treeknit_wasm::version().unwrap().js_value()));
   }
 

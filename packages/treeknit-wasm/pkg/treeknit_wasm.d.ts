@@ -913,7 +913,7 @@ export interface LinkCurve {
 }
 
 /**
- * The TreeKnit version and the source repository.
+ * The TreeKnit version, the source repository, and its release page.
  */
 export interface AppVersion {
     /**
@@ -924,6 +924,10 @@ export interface AppVersion {
      * URL of the source repository, from the workspace `repository` field.
      */
     repository: string;
+    /**
+     * URL of the release page of the repository, where the command-line binaries are published.
+     */
+    releases: string;
 }
 
 /**
