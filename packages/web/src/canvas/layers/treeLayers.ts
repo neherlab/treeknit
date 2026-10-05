@@ -30,6 +30,7 @@ export interface BranchLayerOptions<D> {
   dashed?: boolean;
   opacity?: number;
   visible?: boolean;
+  pickable?: boolean;
   colorTriggers: readonly unknown[];
 }
 
@@ -43,6 +44,7 @@ export function branchLayer<D>({
   dashed = false,
   opacity = 1,
   visible = true,
+  pickable = true,
   colorTriggers,
 }: BranchLayerOptions<D>) {
   return pathLayer({
@@ -54,6 +56,7 @@ export function branchLayer<D>({
     dashed,
     opacity,
     visible,
+    pickable,
     highlightColor: hoverColor(colors),
     colorTriggers,
   });

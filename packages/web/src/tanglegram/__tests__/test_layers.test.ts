@@ -148,6 +148,14 @@ describe("tanglegramLayers", () => {
     expect(ids.indexOf("selected-link")).toBeGreaterThan(ids.indexOf(PAIR_LAYER.rightLabels));
   });
 
+  test("lets clicks on the selected link reach the link below it", () => {
+    const selected = deckLayers(
+      tanglegramLayers(GEOMETRY, { ...STYLE, emphasis: pairEmphasis(VIEW, { leaf: "X" }) }),
+    ).find((layer) => layer.id === "selected-link");
+
+    expect(selected?.props.pickable).toBe(false);
+  });
+
   test("rings a selected leaf in both trees", () => {
     expect(selectionPositions(GEOMETRY, pairEmphasis(VIEW, { leaf: "X" }))).toStrictEqual([
       GEOMETRY.nodes.left[8],

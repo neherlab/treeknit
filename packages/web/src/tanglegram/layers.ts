@@ -161,6 +161,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       getColor: (item) => mccColor(colors, item.slot),
       colors,
       widthPx: SELECTED_LINK_WIDTH_PX,
+      pickable: false,
       colorTriggers: triggers,
     }),
     selectionLayer("selection", selectionPositions(geometry, emphasis), colors),
