@@ -3,7 +3,6 @@ import { useCallback, useMemo } from "react";
 import { type FieldPathByValue, useController, useFormContext } from "react-hook-form";
 
 import { NumberField } from "../ui/NumberField";
-import { errorProps } from "../workspace/fieldErrors";
 import { draftError, type SettingsDraft } from "./draft";
 import { SettingInfo } from "./SettingInfo";
 
@@ -37,7 +36,7 @@ export function DraftNumberField({ name, label, setting, error, onCommit, classN
       onBlur={field.onBlur}
       isDisabled={!setting.applies}
       isRequired
-      {...errorProps(draftError(field.value) ?? error)}
+      errorMessage={draftError(field.value) ?? error}
       formatOptions={setting.integer ? INTEGER_FORMAT : DECIMAL_FORMAT}
       {...(setting.step === null ? undefined : { step: setting.step })}
       {...(setting.minExclusive ? undefined : { minValue: setting.min })}

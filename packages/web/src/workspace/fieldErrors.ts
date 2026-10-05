@@ -48,11 +48,9 @@ export function groupFieldErrors(errors: readonly ValidationError[], shown: Read
 }
 
 export function fieldMessage(errors: FieldErrors, field: string): string | undefined {
-  const messages = errors.byField.get(field)?.map(({ message }) => message) ?? [];
-
-  return messages.length === 0 ? undefined : messages.join("; ");
+  return joinedMessage(errors.byField.get(field) ?? []);
 }
 
-export function errorProps(message: string | undefined): { errorMessage: string } | undefined {
-  return message === undefined ? undefined : { errorMessage: message };
+export function joinedMessage(errors: readonly ValidationError[]): string | undefined {
+  return errors.length === 0 ? undefined : errors.map(({ message }) => message).join("; ");
 }
