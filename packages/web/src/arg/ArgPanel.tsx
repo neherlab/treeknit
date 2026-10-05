@@ -1,9 +1,9 @@
 import type { LabelMode, Scale } from "@neherlab/treeknit-wasm";
-import { lazy, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { getErrorMessage } from "react-error-boundary";
 
 import { useArgView } from "../analysis/queries";
-import { CanvasBoundary } from "../canvas/CanvasBoundary";
+import { CanvasBoundary, useLazyCanvas } from "../canvas/CanvasBoundary";
 import { ZoomControls } from "../canvas/ZoomControls";
 import { FigureButton, LabelModeSelect, ScaleToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
@@ -17,7 +17,7 @@ import type { RunResult } from "../workspace/store";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 import { argFailure } from "./outcome";
 
-const ArgCanvas = lazy(async () => import("./ArgCanvas"));
+const loadArgCanvas = async () => import("./ArgCanvas");
 
 export function ArgPanel() {
   const result = useWorkspace((state) => state.result);
@@ -26,6 +26,7 @@ export function ArgPanel() {
 }
 
 function Arg({ result }: { result: RunResult }) {
+  const [ArgCanvas, reloadArgCanvas] = useLazyCanvas(loadArgCanvas);
   const { search, update } = useWorkspaceSearch();
   const { x, labels } = search;
   const query = useArgView(result.sessionId, x);
@@ -101,7 +102,7 @@ function Arg({ result }: { result: RunResult }) {
       onEscape={clear}
     >
       {data === undefined ? null : (
-        <CanvasBoundary resultKey={`${String(result.sessionId)}:arg`}>
+        <CanvasBoundary onReset={reloadArgCanvas} resultKey={`${String(result.sessionId)}:arg`}>
           <ArgCanvas
             data={data}
             view={view}

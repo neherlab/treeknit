@@ -1,9 +1,9 @@
 import type { LabelMode, PairView, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
-import { lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getErrorMessage } from "react-error-boundary";
 
 import { usePairView } from "../analysis/queries";
-import { CanvasBoundary } from "../canvas/CanvasBoundary";
+import { CanvasBoundary, useLazyCanvas } from "../canvas/CanvasBoundary";
 import type { TreeView, TreeViewActions } from "../canvas/useTreeView";
 import type { RowRange } from "../canvas/viewState";
 import { ZoomControls } from "../canvas/ZoomControls";
@@ -21,7 +21,7 @@ import { selectPair, type WorkspaceSearch } from "../workspace/search";
 import type { RunResult } from "../workspace/store";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 
-const TanglegramCanvas = lazy(async () => import("./TanglegramCanvas"));
+const loadTanglegramCanvas = async () => import("./TanglegramCanvas");
 
 export function TanglegramPanel() {
   const result = useWorkspace((state) => state.result);
@@ -30,6 +30,7 @@ export function TanglegramPanel() {
 }
 
 function Tanglegram({ result }: { result: RunResult }) {
+  const [TanglegramCanvas, reloadTanglegramCanvas] = useLazyCanvas(loadTanglegramCanvas);
   const { search, update } = useWorkspaceSearch();
   const { pair, version, x, labels } = search;
   const query = usePairView(result.sessionId, pair, version, x);
@@ -144,7 +145,7 @@ function Tanglegram({ result }: { result: RunResult }) {
       onEscape={clear}
     >
       {data === undefined ? null : (
-        <CanvasBoundary resultKey={resultKey}>
+        <CanvasBoundary onReset={reloadTanglegramCanvas} resultKey={resultKey}>
           <TanglegramCanvas
             data={data}
             view={view}

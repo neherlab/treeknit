@@ -31,11 +31,7 @@ export function TextField({
   const correction = mono ? NO_TEXT_CORRECTION : undefined;
 
   return (
-    <AriaTextField
-      {...props}
-      {...fieldValidity(isInvalid, errorMessage)}
-      className={cn(fieldStyle, className)}
-    >
+    <AriaTextField {...props} {...fieldValidity(isInvalid, errorMessage)} className={cn(fieldStyle, className)}>
       <FieldLabel label={label} labelHidden={labelHidden} info={info} />
       {multiline ? (
         <TextArea

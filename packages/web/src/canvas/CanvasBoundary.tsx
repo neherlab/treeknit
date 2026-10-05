@@ -1,4 +1,13 @@
-import { type ReactNode, Suspense, useCallback, useMemo } from "react";
+import {
+  type ComponentType,
+  lazy,
+  type LazyExoticComponent,
+  type ReactNode,
+  Suspense,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import { ErrorBoundary, type FallbackProps, getErrorMessage } from "react-error-boundary";
 import RetryIcon from "~icons/lucide/rotate-ccw";
 
@@ -14,17 +23,30 @@ const LOADING = (
 
 export interface CanvasBoundaryProps {
   resultKey: string;
+  onReset: () => void;
   children: ReactNode;
 }
 
-export function CanvasBoundary({ resultKey, children }: CanvasBoundaryProps) {
+export function CanvasBoundary({ resultKey, onReset, children }: CanvasBoundaryProps) {
   const resetKeys = useMemo(() => [resultKey], [resultKey]);
 
   return (
-    <ErrorBoundary FallbackComponent={DrawingFailed} resetKeys={resetKeys}>
+    <ErrorBoundary FallbackComponent={DrawingFailed} resetKeys={resetKeys} onReset={onReset}>
       <Suspense fallback={LOADING}>{children}</Suspense>
     </ErrorBoundary>
   );
+}
+
+export function useLazyCanvas<P extends object>(
+  load: () => Promise<{ default: ComponentType<P> }>,
+): readonly [LazyExoticComponent<ComponentType<P>>, () => void] {
+  const [Canvas, setCanvas] = useState(() => lazy(load));
+
+  const reload = useCallback(() => {
+    setCanvas(() => lazy(load));
+  }, [load]);
+
+  return [Canvas, reload];
 }
 
 function DrawingFailed({ error, resetErrorBoundary }: FallbackProps) {
