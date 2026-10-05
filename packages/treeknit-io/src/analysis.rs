@@ -270,11 +270,14 @@ pub fn check_settings(s: &Settings, k: usize) -> Vec<ValidationError> {
   errors
 }
 
-/// Core options of the settings for `k` trees. The settings must pass `check_settings`; the
-/// core panics on settings that fail it.
-///
-/// `Options::parallel` keeps the core default: each surface decides about threads.
-pub fn options(s: &Settings, k: usize) -> Options {
+/// Core options of the settings for `k` trees, or every error of `check_settings`: the core
+/// panics on settings that fail it. `parallel` runs independent pairs on several threads; each
+/// surface states its choice, because browsers give WebAssembly no threads.
+pub fn options(s: &Settings, k: usize, parallel: bool) -> Result<Options, Vec<ValidationError>> {
+  let errors = check_settings(s, k);
+  if !errors.is_empty() {
+    return Err(errors);
+  }
   let mut o = Options::for_trees(k);
   if let Some(v) = &s.seq_lengths {
     o.seq_lengths.clone_from(v);
@@ -287,7 +290,8 @@ pub fn options(s: &Settings, k: usize) -> Options {
   o.final_unresolved_round = s.final_round;
   o.likelihood_sort = s.likelihood;
   o.naive = s.naive;
-  o
+  o.parallel = parallel;
+  Ok(o)
 }
 
 /// File-name stem of the pair of trees labeled `a` and `b`, as in `MCCs_<a>_<b>.dat`.
@@ -529,7 +533,7 @@ mod tests {
   #[trace]
   fn options_take_the_resolution_mode(#[case] resolve: ResolveMode, #[case] expected: Resolution) {
     let s = Settings { resolve, ..Settings::default() };
-    assert_eq!(expected, options(&s, 2).resolution);
+    assert_eq!(expected, options(&s, 2, false).unwrap().resolution);
   }
 
   #[test]
@@ -547,7 +551,7 @@ mod tests {
       naive: true,
       seed: 7,
     };
-    let o = options(&s, 3);
+    let o = options(&s, 3, false).unwrap();
     assert_eq!(3.5, o.gamma);
     assert_eq!(vec![1700.0, 1400.0, 900.0], o.seq_lengths);
     assert_eq!(10, o.n_mcmc);
@@ -561,12 +565,26 @@ mod tests {
 
   #[test]
   fn options_without_lengths_give_one_length_per_tree() {
-    assert_eq!(vec![1.0; 3], options(&Settings::default(), 3).seq_lengths);
+    assert_eq!(vec![1.0; 3], options(&Settings::default(), 3, false).unwrap().seq_lengths);
+  }
+
+  #[rstest]
+  #[case::parallel(true)]
+  #[case::sequential(false)]
+  #[trace]
+  fn options_take_the_thread_choice(#[case] parallel: bool) {
+    assert_eq!(parallel, options(&Settings::default(), 2, parallel).unwrap().parallel);
   }
 
   #[test]
-  fn options_keep_the_core_thread_default() {
-    assert_eq!(Options::default().parallel, options(&Settings::default(), 2).parallel);
+  fn options_reject_settings_that_fail_the_checks() {
+    let s = Settings {
+      gamma: -1.0,
+      rounds: 0,
+      ..Settings::default()
+    };
+    assert_eq!(Err(check_settings(&s, 2)), options(&s, 2, true).map(|_| ()));
+    assert_eq!(2, check_settings(&s, 2).len());
   }
 
   #[rstest]
@@ -580,7 +598,7 @@ mod tests {
       ..Settings::default()
     };
     let ParsedTrees { mut trees, taxa } = parse_trees(&trees(&[("ha", "(A,B,C,D);"), ("na", T)])).unwrap();
-    treeknit_core::run(&mut trees, &taxa, &options(&s, 2), s.seed);
+    treeknit_core::run(&mut trees, &taxa, &options(&s, 2, false).unwrap(), s.seed);
     assert_eq!(expected, clades(&newick::write(&trees[0])));
   }
 

@@ -206,12 +206,11 @@ fn main() -> Result<()> {
   if let Ok(p) = &parsed {
     report_overlap(&p.trees, &p.taxa);
   }
-  let (opts, settings_errors) = options(&cli, texts.len())?;
-  let ParsedTrees { mut trees, taxa } = match parsed {
-    Ok(p) if settings_errors.is_empty() => p,
-    Ok(_) => fail(&settings_errors)?,
-    Err(mut errors) => {
-      errors.extend(settings_errors);
+  let (ParsedTrees { mut trees, taxa }, opts) = match (parsed, options(&cli, texts.len())?) {
+    (Ok(p), Ok(o)) => (p, o),
+    (parsed, opts) => {
+      let mut errors = parsed.err().unwrap_or_default();
+      errors.extend(opts.err().unwrap_or_default());
       fail(&errors)?
     },
   };
@@ -310,8 +309,9 @@ fn fail<T>(errors: &[ValidationError]) -> Result<T> {
   )
 }
 
-/// Options of the flags for `k` trees, and the errors of the shared settings checks.
-fn options(cli: &Cli, k: usize) -> Result<(Options, Vec<ValidationError>)> {
+/// Options of the flags for `k` trees, or the errors of the shared settings checks. Independent
+/// pairs run in parallel.
+fn options(cli: &Cli, k: usize) -> Result<Result<Options, Vec<ValidationError>>> {
   let seq_lengths = cli
     .seq_lengths
     .as_ref()
@@ -335,9 +335,7 @@ fn options(cli: &Cli, k: usize) -> Result<(Options, Vec<ValidationError>)> {
       naive: cli.naive,
       seed: cli.seed,
     };
-    let mut o = analysis::options(&s, k);
-    o.parallel = true;
-    return Ok((o, analysis::check_settings(&s, k)));
+    return Ok(analysis::options(&s, k, true));
   }
   if cli.resolve.is_some() || cli.pre_resolve || cli.no_final_round {
     bail!(
@@ -354,7 +352,6 @@ fn options(cli: &Cli, k: usize) -> Result<(Options, Vec<ValidationError>)> {
   o.n_mcmc = cli.n_mcmc_it;
   o.likelihood_sort = !cli.no_likelihood;
   o.naive = cli.naive;
-  o.parallel = true;
   // The former options have no settings of their own; the values they share with the
   // settings get the same checks. The other fields keep valid defaults.
   let shared = Settings {
@@ -364,10 +361,13 @@ fn options(cli: &Cli, k: usize) -> Result<(Options, Vec<ValidationError>)> {
     ..Settings::default()
   };
   let errors = analysis::check_settings(&shared, k);
+  if !errors.is_empty() {
+    return Ok(Err(errors));
+  }
   if let Some(v) = shared.seq_lengths {
     o.seq_lengths = v;
   }
-  Ok((o, errors))
+  Ok(Ok(o))
 }
 
 fn log_options(o: &Options, k: usize) {
