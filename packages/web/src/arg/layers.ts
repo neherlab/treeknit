@@ -1,4 +1,5 @@
 import type { LayersList } from "@deck.gl/core";
+import type { DrawingRules } from "@neherlab/treeknit-wasm";
 
 import type { Rgba } from "../canvas/color";
 import type { DrawingColors } from "../canvas/drawingColors";
@@ -6,11 +7,11 @@ import { labelLayer } from "../canvas/layers/labelLayer";
 import { leaderLayer } from "../canvas/layers/leaderLayer";
 import { branchLayer, ringLayer, selectionLayer } from "../canvas/layers/treeLayers";
 import type { ArgEmphasis } from "../drawing/selection";
-import { LABEL_GAP_PX } from "../drawing/spacing";
 import { ARG_LAYER, type ArgGeometry } from "./geometry";
 
 export interface ArgStyle {
   colors: DrawingColors;
+  rules: DrawingRules;
   emphasis: ArgEmphasis;
   labels: boolean;
   fontReady: boolean;
@@ -36,7 +37,7 @@ export function argSelectionPositions(geometry: ArgGeometry, emphasis: ArgEmphas
 }
 
 export function argLayers(geometry: ArgGeometry, style: ArgStyle): LayersList {
-  const { colors } = style;
+  const { colors, rules } = style;
   const triggers = [colors];
 
   return [
@@ -46,6 +47,7 @@ export function argLayers(geometry: ArgGeometry, style: ArgStyle): LayersList {
       getPath: (item) => item.path,
       getColor: (item) => argEdgeColor(item.segments, colors),
       colors,
+      widthPx: rules.branchWidthPx,
       colorTriggers: triggers,
     }),
     branchLayer({
@@ -54,13 +56,15 @@ export function argLayers(geometry: ArgGeometry, style: ArgStyle): LayersList {
       getPath: (item) => item.path,
       getColor: (item) => argEdgeColor(item.segments, colors),
       colors,
-      dashed: true,
+      widthPx: rules.branchWidthPx,
+      dashPx: rules.dashPx,
       colorTriggers: triggers,
     }),
     leaderLayer({
       id: ARG_LAYER.leaders,
       data: geometry.leaders,
       colors,
+      rules,
       visible: style.labels && style.fontReady,
     }),
     ringLayer({
@@ -69,6 +73,7 @@ export function argLayers(geometry: ArgGeometry, style: ArgStyle): LayersList {
       getPosition: (item) => item.position,
       getLineColor: colors.signal,
       colors,
+      rules,
       colorTriggers: triggers,
     }),
     labelLayer({
@@ -80,7 +85,7 @@ export function argLayers(geometry: ArgGeometry, style: ArgStyle): LayersList {
       getText: (item) => item.text,
       getColor: colors.ink,
       anchor: "start",
-      offsetPx: [LABEL_GAP_PX, 0],
+      offsetPx: [rules.labelGapPx, 0],
       pickable: true,
       colorTriggers: triggers,
     }),

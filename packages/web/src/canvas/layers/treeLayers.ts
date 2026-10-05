@@ -1,18 +1,11 @@
 import type { Accessor, Color } from "@deck.gl/core";
+import type { DrawingRules } from "@neherlab/treeknit-wasm";
 
 import { type Rgba, withOpacity } from "../color";
 import type { DrawingColors } from "../drawingColors";
 import type { WorldPosition } from "../projection";
 import { markLayer } from "./markLayer";
 import { pathLayer } from "./pathLayer";
-
-export const BRANCH_WIDTH_PX = 1.5;
-
-export const REASSORTMENT_WIDTH_PX = 2;
-
-export const MARK_RADIUS_PX = 3.5;
-
-export const MARK_LINE_PX = 1.5;
 
 const SELECTION_RADIUS_PX = 7;
 
@@ -26,8 +19,8 @@ export interface BranchLayerOptions<D> {
   getPath: (object: D) => WorldPosition[];
   getColor: Accessor<D, Color>;
   colors: DrawingColors;
-  widthPx?: number;
-  dashed?: boolean;
+  widthPx: number;
+  dashPx?: readonly [number, number];
   opacity?: number;
   visible?: boolean;
   pickable?: boolean;
@@ -40,8 +33,8 @@ export function branchLayer<D>({
   getPath,
   getColor,
   colors,
-  widthPx = BRANCH_WIDTH_PX,
-  dashed = false,
+  widthPx,
+  dashPx,
   opacity = 1,
   visible = true,
   pickable = true,
@@ -53,7 +46,7 @@ export function branchLayer<D>({
     getPath,
     getColor,
     widthPx,
-    dashed,
+    ...(dashPx === undefined ? undefined : { dashPx }),
     opacity,
     visible,
     pickable,
@@ -68,18 +61,27 @@ export interface RingLayerOptions<D> {
   getPosition: (object: D) => WorldPosition;
   getLineColor: Accessor<D, Color>;
   colors: DrawingColors;
+  rules: DrawingRules;
   colorTriggers: readonly unknown[];
 }
 
-export function ringLayer<D>({ id, data, getPosition, getLineColor, colors, colorTriggers }: RingLayerOptions<D>) {
+export function ringLayer<D>({
+  id,
+  data,
+  getPosition,
+  getLineColor,
+  colors,
+  rules,
+  colorTriggers,
+}: RingLayerOptions<D>) {
   return markLayer({
     id,
     data,
     getPosition,
     getLineColor,
     getFillColor: colors.ground,
-    radiusPx: MARK_RADIUS_PX,
-    lineWidthPx: MARK_LINE_PX,
+    radiusPx: rules.markRadiusPx,
+    lineWidthPx: rules.markLinePx,
     colorTriggers,
   });
 }

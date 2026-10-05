@@ -5,10 +5,8 @@ import { useFadeIn } from "../canvas/motion";
 import { TreeCanvas } from "../canvas/TreeCanvas";
 import type { TreeViewHandle } from "../canvas/useTreeView";
 import { drawingCursor } from "../drawing/cursor";
-import { labelColumnPx } from "../drawing/labelWidth";
 import { useDrawingPicking } from "../drawing/picking";
 import { NO_SELECTION, pairEmphasis, type Selection } from "../drawing/selection";
-import { innerWidthPx } from "../drawing/spacing";
 import { pairLeafLabels } from "../drawing/trees";
 import { useDrawingCanvas, useDrawingGeometry } from "../drawing/useDrawingCanvas";
 import { tanglegramColumns } from "./columns";
@@ -36,8 +34,8 @@ export default function TanglegramCanvas({
   const { rowPx } = tree;
 
   const columns = useMemo(
-    () => tanglegramColumns(crossPx, labelColumnPx(innerWidthPx(crossPx) / 2, leafLabels.longestPx)),
-    [crossPx, leafLabels.longestPx],
+    () => tanglegramColumns(crossPx, leafLabels.longestPx, rules),
+    [crossPx, leafLabels.longestPx, rules],
   );
 
   const geometry = useDrawingGeometry(PAIR_GEOMETRY, data, columns, canvas);
@@ -45,6 +43,7 @@ export default function TanglegramCanvas({
   const style = useMemo<PairStyle>(
     () => ({
       colors,
+      rules,
       colorByMcc,
       emphasis: pairEmphasis(data, selection),
       ribbons: ribbonsShown(rowPx, rules),
@@ -61,6 +60,7 @@ export default function TanglegramCanvas({
     () =>
       tanglegramLayers(geometry, {
         colors,
+        rules,
         colorByMcc,
         emphasis: pairEmphasis(data, NO_SELECTION),
         ribbons: true,
@@ -68,7 +68,7 @@ export default function TanglegramCanvas({
         fontReady: false,
         fade: 1,
       }),
-    [geometry, colors, colorByMcc, data],
+    [geometry, colors, rules, colorByMcc, data],
   );
 
   const picking = useDrawingPicking(PAIR_PICK_RULES, data, geometry, selection, onSelect);
@@ -83,7 +83,7 @@ export default function TanglegramCanvas({
       className="h-full"
       {...picking}
     >
-      <TanglegramLegend colors={colors} colorByMcc={colorByMcc} ribbons={style.ribbons} />
+      <TanglegramLegend colors={colors} rules={rules} colorByMcc={colorByMcc} ribbons={style.ribbons} />
     </TreeCanvas>
   );
 }

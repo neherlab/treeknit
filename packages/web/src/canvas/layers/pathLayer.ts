@@ -5,10 +5,6 @@ import { PathLayer, type PathLayerProps } from "@deck.gl/layers";
 import type { Rgba } from "../color";
 import type { WorldPosition } from "../projection";
 
-export const DASH_PX: [number, number] = [4, 3];
-
-export const DOT_PX: [number, number] = [1, 3];
-
 const DASH_EXTENSIONS = [new PathStyleExtension({ dash: true })];
 
 export type StyledPathLayer<D> = PathLayer<D, PathStyleExtensionProps<D>>;
@@ -19,8 +15,7 @@ export interface PathLayerOptions<D> {
   getPath: (object: D) => WorldPosition[];
   getColor: Accessor<D, Color>;
   widthPx: number;
-  dashed?: boolean;
-  dashArray?: [number, number];
+  dashPx?: readonly [number, number];
   pickable?: boolean;
   opacity?: number;
   visible?: boolean;
@@ -34,8 +29,7 @@ export function pathLayer<D>({
   getPath,
   getColor,
   widthPx,
-  dashed = false,
-  dashArray = DASH_PX,
+  dashPx,
   pickable = true,
   opacity = 1,
   visible = true,
@@ -60,6 +54,8 @@ export function pathLayer<D>({
   };
 
   return new PathLayer<D, PathStyleExtensionProps<D>>(
-    dashed ? { ...solid, extensions: DASH_EXTENSIONS, getDashArray: dashArray, dashUnits: "pixels" } : solid,
+    dashPx === undefined
+      ? solid
+      : { ...solid, extensions: DASH_EXTENSIONS, getDashArray: [dashPx[0], dashPx[1]], dashUnits: "pixels" },
   );
 }

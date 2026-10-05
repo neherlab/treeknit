@@ -2,14 +2,21 @@ import type { Leader } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
 import { columnPixel } from "../../canvas/projection";
-import { examplePairView, LONG_LEAF_NAME, LONG_LEAF_SHORT_NAME } from "../../drawing/__tests__/fixtures";
+import {
+  exampleDrawingRules,
+  examplePairView,
+  LONG_LEAF_NAME,
+  LONG_LEAF_SHORT_NAME,
+} from "../../drawing/__tests__/fixtures";
 import { tanglegramColumns } from "../columns";
 import { PAIR_LAYER, pairTargetAt } from "../geometry";
 import { tanglegramGeometry } from "./geometry";
 
 const VIEW = examplePairView();
 
-const COLUMNS = tanglegramColumns(1232, 100);
+const RULES = exampleDrawingRules();
+
+const COLUMNS = tanglegramColumns(1232, 88, RULES);
 
 const GEOMETRY = tanglegramGeometry(VIEW, COLUMNS, "y", 64);
 
@@ -127,7 +134,7 @@ describe("tanglegramGeometry", () => {
   });
 
   test("swaps the axes on a narrow canvas", () => {
-    const columns = tanglegramColumns(400, 0);
+    const columns = tanglegramColumns(400, 0, RULES);
     const narrow = tanglegramGeometry(VIEW, columns, "x", 64);
 
     expect(narrow.nodes.left[8]).toStrictEqual([4, columnPixel(columns.left, 1)]);

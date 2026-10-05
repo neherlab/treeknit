@@ -1,6 +1,6 @@
+import type { DrawingRules } from "@neherlab/treeknit-wasm";
+
 import type { DrawingColors } from "../canvas/drawingColors";
-import { DASH_PX } from "../canvas/layers/pathLayer";
-import { BRANCH_WIDTH_PX, MARK_LINE_PX, MARK_RADIUS_PX } from "../canvas/layers/treeLayers";
 import type { LegendEntry, SymbolMark } from "../drawing/Legend";
 import { horizontalPath, SYMBOL_HEIGHT_PX, SYMBOL_MIDDLE_PX, sCurvePath } from "../drawing/legendSymbols";
 import type { SegmentLabels } from "../drawing/tooltip";
@@ -22,13 +22,13 @@ const SEGMENT_B = [1];
 
 const BOTH_SEGMENTS = [0, 1];
 
-export function argLegend(colors: DrawingColors, [a, b]: SegmentLabels): LegendEntry[] {
+export function argLegend(colors: DrawingColors, rules: DrawingRules, [a, b]: SegmentLabels): LegendEntry[] {
   const edge = (segments: readonly number[], path: string, dashed: boolean): SymbolMark => ({
     kind: "line",
     path,
     color: argEdgeColor(segments, colors),
-    widthPx: BRANCH_WIDTH_PX,
-    ...(dashed ? { dashPx: DASH_PX } : undefined),
+    widthPx: rules.branchWidthPx,
+    ...(dashed ? { dashPx: rules.dashPx } : undefined),
   });
 
   return [
@@ -45,8 +45,8 @@ export function argLegend(colors: DrawingColors, [a, b]: SegmentLabels): LegendE
           at: [19, SYMBOL_MIDDLE_PX],
           color: colors.signal,
           fill: colors.ground,
-          radiusPx: MARK_RADIUS_PX,
-          lineWidthPx: MARK_LINE_PX,
+          radiusPx: rules.markRadiusPx,
+          lineWidthPx: rules.markLinePx,
         },
       ],
     },

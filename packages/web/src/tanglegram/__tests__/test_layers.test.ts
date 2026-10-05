@@ -1,13 +1,11 @@
 import { Layer, type LayersList } from "@deck.gl/core";
 import { PathLayer } from "@deck.gl/layers";
-import type { DrawingRules } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
 import { withOpacity } from "../../canvas/color";
 import type { DrawingColors } from "../../canvas/drawingColors";
-import { LEADER_OPACITY } from "../../canvas/layers/leaderLayer";
-import { DOT_PX, type StyledPathLayer } from "../../canvas/layers/pathLayer";
-import { examplePairView } from "../../drawing/__tests__/fixtures";
+import type { StyledPathLayer } from "../../canvas/layers/pathLayer";
+import { exampleDrawingRules, examplePairView } from "../../drawing/__tests__/fixtures";
 import { pairEmphasis, UNSELECTED_OPACITY } from "../../drawing/selection";
 import { tanglegramColumns } from "../columns";
 import { PAIR_LAYER } from "../geometry";
@@ -17,7 +15,6 @@ import {
   leaderColor,
   linkColor,
   type PairStyle,
-  RIBBON_OPACITY,
   ribbonColor,
   ribbonsShown,
   selectionPositions,
@@ -48,10 +45,13 @@ const COLORS: DrawingColors = {
 
 const VIEW = examplePairView();
 
-const GEOMETRY = tanglegramGeometry(VIEW, tanglegramColumns(1232, 100), "y", 64);
+const RULES = exampleDrawingRules();
+
+const GEOMETRY = tanglegramGeometry(VIEW, tanglegramColumns(1232, 88, RULES), "y", 64);
 
 const STYLE: PairStyle = {
   colors: COLORS,
+  rules: RULES,
   colorByMcc: true,
   emphasis: pairEmphasis(VIEW, {}),
   ribbons: false,
@@ -63,28 +63,6 @@ const STYLE: PairStyle = {
 const SLOT_0 = COLORS.mcc[0] ?? COLORS.mccNone;
 
 const SLOT_3 = COLORS.mcc[3] ?? COLORS.mccNone;
-
-const RULES: DrawingRules = {
-  labelAutoMinRowPx: 10,
-  linkMinRowPx: 6,
-  labelMaxChars: 40,
-  marginPx: 16,
-  labelGapPx: 6,
-  linkZoneShare: 0.2,
-  linkZoneMinShare: 0.15,
-  tanglegramLabelColumnMaxShare: 0.25,
-  argLabelColumnMaxShare: 0.25,
-  branchWidthPx: 1.5,
-  reassortmentWidthPx: 2,
-  linkWidthPx: 1,
-  leaderWidthPx: 1,
-  leaderOpacity: 0.5,
-  markRadiusPx: 3.5,
-  markLinePx: 1.5,
-  ribbonOpacity: 0.55,
-  dashPx: [4, 3],
-  dotPx: [1, 3],
-};
 
 describe("ribbonsShown", () => {
   test.each([
@@ -136,8 +114,8 @@ describe("selection opacity", () => {
 
   test("fills ribbons at 55 percent and fades unselected ones further", () => {
     expect([ribbonColor({ mcc: 1, slot: 3 }, selected), ribbonColor({ mcc: 0, slot: 0 }, selected)]).toStrictEqual([
-      withOpacity(SLOT_3, RIBBON_OPACITY),
-      withOpacity(SLOT_0, RIBBON_OPACITY * UNSELECTED_OPACITY),
+      withOpacity(SLOT_3, RULES.ribbonOpacity),
+      withOpacity(SLOT_0, RULES.ribbonOpacity * UNSELECTED_OPACITY),
     ]);
   });
 });
@@ -193,16 +171,16 @@ describe("tanglegramLayers", () => {
       (layer): layer is StyledPathLayer<unknown> => layer instanceof PathLayer && layer.id === PAIR_LAYER.leaders,
     );
 
-    expect([leaders?.props.pickable, leaders?.props.getDashArray]).toStrictEqual([false, DOT_PX]);
+    expect([leaders?.props.pickable, leaders?.props.getDashArray]).toStrictEqual([false, RULES.dotPx]);
   });
 
   test("draws leaders in muted ink and dims them with the labels of other MCCs", () => {
     const selected = { ...STYLE, emphasis: pairEmphasis(VIEW, { mcc: 0 }) };
 
     expect([leaderColor(0, STYLE), leaderColor(0, selected), leaderColor(1, selected)]).toStrictEqual([
-      withOpacity(COLORS.inkMuted, LEADER_OPACITY),
-      withOpacity(COLORS.inkMuted, LEADER_OPACITY),
-      withOpacity(COLORS.inkMuted, LEADER_OPACITY * UNSELECTED_OPACITY),
+      withOpacity(COLORS.inkMuted, RULES.leaderOpacity),
+      withOpacity(COLORS.inkMuted, RULES.leaderOpacity),
+      withOpacity(COLORS.inkMuted, RULES.leaderOpacity * UNSELECTED_OPACITY),
     ]);
   });
 

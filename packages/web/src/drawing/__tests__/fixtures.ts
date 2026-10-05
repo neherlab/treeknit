@@ -3,6 +3,7 @@ import type {
   Bezier,
   Block,
   ConstellationTable,
+  DrawingRules,
   DrawNode,
   DrawTree,
   Elbow,
@@ -119,6 +120,30 @@ export function examplePairView(): PairView {
         outline: ribbonOutline(block.left, block.right),
       })),
     },
+  };
+}
+
+export function exampleDrawingRules(): DrawingRules {
+  return {
+    labelAutoMinRowPx: 10,
+    linkMinRowPx: 6,
+    labelMaxChars: 40,
+    marginPx: 16,
+    labelGapPx: 6,
+    linkZoneShare: 0.2,
+    linkZoneMinShare: 0.15,
+    tanglegramLabelColumnMaxShare: 0.25,
+    argLabelColumnMaxShare: 0.25,
+    branchWidthPx: 1.5,
+    reassortmentWidthPx: 2,
+    linkWidthPx: 1,
+    leaderWidthPx: 1,
+    leaderOpacity: 0.5,
+    markRadiusPx: 3.5,
+    markLinePx: 1.5,
+    ribbonOpacity: 0.55,
+    dashPx: [4, 3],
+    dotPx: [1, 3],
   };
 }
 

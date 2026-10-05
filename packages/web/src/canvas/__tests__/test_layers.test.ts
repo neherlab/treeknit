@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 import { fillLayer } from "../layers/fillLayer";
 import { type LabelAnchor, labelLayer } from "../layers/labelLayer";
 import { markLayer } from "../layers/markLayer";
-import { DASH_PX, pathLayer } from "../layers/pathLayer";
+import { pathLayer } from "../layers/pathLayer";
 
 interface Leaf {
   name: string;
@@ -113,10 +113,10 @@ describe("pathLayer", () => {
   });
 
   test("draws dashed lines with a dash pattern in pixels", () => {
-    const layer = pathLayer({ ...PATHS, dashed: true });
+    const layer = pathLayer({ ...PATHS, dashPx: [4, 3] });
 
     expect(layer.props.extensions).toHaveLength(1);
-    expect(layer.props.getDashArray).toStrictEqual(DASH_PX);
+    expect(layer.props.getDashArray).toStrictEqual([4, 3]);
     expect(layer.props.dashUnits).toBe("pixels");
   });
 });

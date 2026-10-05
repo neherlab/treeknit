@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { DrawingColors } from "../../canvas/drawingColors";
+import { exampleDrawingRules } from "../../drawing/__tests__/fixtures";
 import type { SymbolMark } from "../../drawing/Legend";
 import { tanglegramLegend } from "../legend";
 
@@ -26,7 +27,11 @@ const COLORS: DrawingColors = {
 };
 
 function marksOf(label: string, colorByMcc: boolean, ribbons: boolean): readonly SymbolMark[] {
-  return tanglegramLegend({ colors: COLORS, colorByMcc, ribbons }).find((entry) => entry.label === label)?.marks ?? [];
+  return (
+    tanglegramLegend({ colors: COLORS, rules: exampleDrawingRules(), colorByMcc, ribbons }).find(
+      (entry) => entry.label === label,
+    )?.marks ?? []
+  );
 }
 
 describe("tanglegramLegend", () => {

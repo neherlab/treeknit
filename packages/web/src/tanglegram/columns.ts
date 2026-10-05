@@ -1,9 +1,7 @@
+import type { DrawingRules } from "@neherlab/treeknit-wasm";
+
 import type { Column } from "../canvas/projection";
-import { DRAWING_MARGIN_PX, innerWidthPx } from "../drawing/spacing";
-
-export const LINK_ZONE_MIN_SHARE = 0.15;
-
-export const LINK_ZONE_SHARE = 0.2;
+import { innerWidthPx, labelColumnPx } from "../drawing/spacing";
 
 export interface TanglegramColumns {
   left: Column;
@@ -13,11 +11,12 @@ export interface TanglegramColumns {
   right: Column;
 }
 
-export function tanglegramColumns(crossPx: number, labelPx: number): TanglegramColumns {
-  const inner = innerWidthPx(crossPx);
-  const links = Math.max(LINK_ZONE_MIN_SHARE * inner, LINK_ZONE_SHARE * inner - 2 * labelPx);
+export function tanglegramColumns(crossPx: number, longestLabelPx: number, rules: DrawingRules): TanglegramColumns {
+  const inner = innerWidthPx(crossPx, rules);
+  const labelPx = labelColumnPx((rules.tanglegramLabelColumnMaxShare * inner) / 2, longestLabelPx, rules);
+  const links = Math.max(rules.linkZoneMinShare * inner, rules.linkZoneShare * inner - 2 * labelPx);
   const tree = Math.max((inner - links - 2 * labelPx) / 2, 0);
-  const leftStart = DRAWING_MARGIN_PX;
+  const leftStart = rules.marginPx;
   const leftEnd = leftStart + tree;
   const linksStart = leftEnd + labelPx;
   const linksEnd = linksStart + links;

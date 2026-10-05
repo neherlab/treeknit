@@ -3,7 +3,12 @@ import { describe, expect, test } from "vitest";
 import type { Rgba } from "../../canvas/color";
 import type { DrawingColors } from "../../canvas/drawingColors";
 import { columnPixel } from "../../canvas/projection";
-import { exampleArgView, LONG_LEAF_NAME, LONG_LEAF_SHORT_NAME } from "../../drawing/__tests__/fixtures";
+import {
+  exampleArgView,
+  exampleDrawingRules,
+  LONG_LEAF_NAME,
+  LONG_LEAF_SHORT_NAME,
+} from "../../drawing/__tests__/fixtures";
 import { argEmphasis } from "../../drawing/selection";
 import { ARG_LAYER, argColumn, argTargetAt } from "../geometry";
 import { argEdgeColor, argSelectionPositions } from "../layers";
@@ -14,7 +19,9 @@ import { argGeometry } from "./geometry";
 
 const VIEW = exampleArgView();
 
-const COLUMN = argColumn(1000, 112);
+const RULES = exampleDrawingRules();
+
+const COLUMN = argColumn(1000, 100, RULES);
 
 const GEOMETRY = argGeometry(VIEW, COLUMN, "y", 64);
 
@@ -25,7 +32,7 @@ const SEGMENT_COLORS: Pick<DrawingColors, "segmentA" | "segmentB" | "ink"> = {
 };
 
 describe("argColumn", () => {
-  test("leaves the 16 px margins and a 112 px label column at the right of a 1000 px drawing", () => {
+  test("leaves the 16 px margins and a label column of a 100 px label and its 6 px gaps at the right of a 1000 px drawing", () => {
     expect(COLUMN).toStrictEqual({ start: 16, end: 872, mirrored: false });
   });
 });
@@ -109,7 +116,7 @@ describe("argLegend", () => {
       mccNone: SEGMENT_COLORS.ink,
     };
 
-    const legend = argLegend(colors, ["ha", "na"]);
+    const legend = argLegend(colors, RULES, ["ha", "na"]);
 
     expect({ labels: legend.map(({ label }) => label), reassortment: legend.at(-1)?.marks }).toMatchObject({
       labels: ["Segment ha", "Segment na", "Both segments", "Reassortment"],

@@ -1,4 +1,4 @@
-import type { ArgView, EdgePath } from "@neherlab/treeknit-wasm";
+import type { ArgView, DrawingRules, EdgePath } from "@neherlab/treeknit-wasm";
 
 import {
   type Column,
@@ -11,7 +11,7 @@ import {
 import { type LeafAxis, worldPosition } from "../canvas/viewState";
 import { type LayerPicks, pickTarget } from "../drawing/picking";
 import type { ArgTarget } from "../drawing/selection";
-import { DRAWING_MARGIN_PX } from "../drawing/spacing";
+import { innerWidthPx, labelColumnPx } from "../drawing/spacing";
 import { argNodePoints } from "../drawing/trees";
 
 export interface EdgeItem {
@@ -57,10 +57,12 @@ type DrawnEdge = ArgView["shapes"]["edges"][number];
 
 type ArgLayerId = (typeof ARG_LAYER)[keyof typeof ARG_LAYER];
 
-export function argColumn(crossPx: number, labelPx: number): Column {
+export function argColumn(crossPx: number, longestLabelPx: number, rules: DrawingRules): Column {
+  const labelPx = labelColumnPx(rules.argLabelColumnMaxShare * innerWidthPx(crossPx, rules), longestLabelPx, rules);
+
   return {
-    start: DRAWING_MARGIN_PX,
-    end: Math.max(crossPx - DRAWING_MARGIN_PX - labelPx, DRAWING_MARGIN_PX),
+    start: rules.marginPx,
+    end: Math.max(crossPx - rules.marginPx - labelPx, rules.marginPx),
     mirrored: false,
   };
 }

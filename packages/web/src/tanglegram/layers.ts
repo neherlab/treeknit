@@ -5,17 +5,12 @@ import { type Rgba, withOpacity } from "../canvas/color";
 import { type DrawingColors, mccColor } from "../canvas/drawingColors";
 import { fillLayer } from "../canvas/layers/fillLayer";
 import { labelLayer } from "../canvas/layers/labelLayer";
-import { LEADER_OPACITY, leaderLayer } from "../canvas/layers/leaderLayer";
-import { branchLayer, hoverColor, REASSORTMENT_WIDTH_PX, ringLayer, selectionLayer } from "../canvas/layers/treeLayers";
+import { leaderLayer } from "../canvas/layers/leaderLayer";
+import { branchLayer, hoverColor, ringLayer, selectionLayer } from "../canvas/layers/treeLayers";
 import { emphasisOpacity, type PairEmphasis } from "../drawing/selection";
-import { LABEL_GAP_PX } from "../drawing/spacing";
 import { type BranchItem, type LinkItem, type MarkItem, PAIR_LAYER, type TanglegramGeometry } from "./geometry";
 
-export const RIBBON_OPACITY = 0.55;
-
 const SELECTED_LINK_WIDTH_PX = 2.5;
-
-export const LINK_WIDTH_PX = 1;
 
 export type BranchKind = "plain" | "added" | "reassortment";
 
@@ -23,6 +18,7 @@ export type MarkKind = "imputed" | "reassortment";
 
 export interface PairStyle {
   colors: DrawingColors;
+  rules: DrawingRules;
   colorByMcc: boolean;
   emphasis: PairEmphasis;
   ribbons: boolean;
@@ -31,7 +27,7 @@ export interface PairStyle {
   fade: number;
 }
 
-export type ColorStyle = Pick<PairStyle, "colors" | "colorByMcc"> & { emphasis: Pick<PairEmphasis, "mcc"> };
+export type ColorStyle = Pick<PairStyle, "colors" | "colorByMcc" | "rules"> & { emphasis: Pick<PairEmphasis, "mcc"> };
 
 export function ribbonsShown(rowPx: number, rules: DrawingRules): boolean {
   return rowPx < rules.linkMinRowPx;
@@ -48,7 +44,10 @@ export function linkColor(item: Pick<LinkItem, "mcc" | "slot">, style: ColorStyl
 }
 
 export function ribbonColor(item: Pick<LinkItem, "mcc" | "slot">, style: ColorStyle): Rgba {
-  return withOpacity(mccColor(style.colors, item.slot), RIBBON_OPACITY * emphasisOpacity(item.mcc, style.emphasis.mcc));
+  return withOpacity(
+    mccColor(style.colors, item.slot),
+    style.rules.ribbonOpacity * emphasisOpacity(item.mcc, style.emphasis.mcc),
+  );
 }
 
 export function markColor(item: Pick<MarkItem, "mcc" | "slot">, kind: MarkKind, style: ColorStyle): Rgba {
@@ -62,7 +61,7 @@ export function labelColor(mcc: number | null, style: ColorStyle): Rgba {
 }
 
 export function leaderColor(mcc: number | null, style: ColorStyle): Rgba {
-  return withOpacity(style.colors.inkMuted, LEADER_OPACITY * emphasisOpacity(mcc, style.emphasis.mcc));
+  return withOpacity(style.colors.inkMuted, style.rules.leaderOpacity * emphasisOpacity(mcc, style.emphasis.mcc));
 }
 
 export function selectionPositions(geometry: TanglegramGeometry, emphasis: PairEmphasis) {
@@ -77,7 +76,7 @@ export function selectionPositions(geometry: TanglegramGeometry, emphasis: PairE
 }
 
 export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle): LayersList {
-  const { colors, emphasis } = style;
+  const { colors, rules, emphasis } = style;
   const triggers = [colors, style.colorByMcc, emphasis.mcc];
   const branch = (kind: BranchKind) => (item: BranchItem) => branchColor(item, kind, style);
   const selectedLink = geometry.links.find((item) => item.link === emphasis.leaf.link);
@@ -99,7 +98,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       getPath: (item) => item.path,
       getColor: (item) => linkColor(item, style),
       colors,
-      widthPx: LINK_WIDTH_PX,
+      widthPx: rules.linkWidthPx,
       visible: !style.ribbons,
       opacity: style.fade,
       colorTriggers: triggers,
@@ -110,6 +109,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       getPath: (item) => item.path,
       getColor: branch("plain"),
       colors,
+      widthPx: rules.branchWidthPx,
       colorTriggers: triggers,
     }),
     branchLayer({
@@ -118,7 +118,8 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       getPath: (item) => item.path,
       getColor: branch("added"),
       colors,
-      dashed: true,
+      widthPx: rules.branchWidthPx,
+      dashPx: rules.dashPx,
       colorTriggers: triggers,
     }),
     branchLayer({
@@ -127,13 +128,14 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       getPath: (item) => item.path,
       getColor: branch("reassortment"),
       colors,
-      widthPx: REASSORTMENT_WIDTH_PX,
+      widthPx: rules.reassortmentWidthPx,
       colorTriggers: triggers,
     }),
     leaderLayer({
       id: PAIR_LAYER.leaders,
       data: geometry.leaders,
       colors,
+      rules,
       visible: style.labels && style.fontReady,
       getColor: (item) => leaderColor(item.mcc, style),
       colorTriggers: triggers,
@@ -144,6 +146,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       getPosition: (item) => item.position,
       getLineColor: (item) => markColor(item, "imputed", style),
       colors,
+      rules,
       colorTriggers: triggers,
     }),
     ringLayer({
@@ -152,6 +155,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       getPosition: (item) => item.position,
       getLineColor: (item) => markColor(item, "reassortment", style),
       colors,
+      rules,
       colorTriggers: triggers,
     }),
     labelLayer({
@@ -163,7 +167,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       getText: (item) => item.text,
       getColor: (item) => labelColor(item.mcc, style),
       anchor: "start",
-      offsetPx: [LABEL_GAP_PX, 0],
+      offsetPx: [rules.labelGapPx, 0],
       pickable: true,
       colorTriggers: triggers,
     }),
@@ -176,7 +180,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       getText: (item) => item.text,
       getColor: (item) => labelColor(item.mcc, style),
       anchor: "end",
-      offsetPx: [-LABEL_GAP_PX, 0],
+      offsetPx: [-rules.labelGapPx, 0],
       pickable: true,
       colorTriggers: triggers,
     }),
