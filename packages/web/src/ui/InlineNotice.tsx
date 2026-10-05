@@ -1,6 +1,7 @@
 import { cva } from "class-variance-authority";
 import { cn } from "cn";
 import type { ComponentType, ReactNode, SVGProps } from "react";
+import { FocusScope } from "react-aria";
 import DangerIcon from "~icons/lucide/circle-alert";
 import InfoIcon from "~icons/lucide/info";
 import WarningIcon from "~icons/lucide/triangle-alert";
@@ -25,6 +26,12 @@ const noticeStyle = cva("rounded-control text-ink flex items-start gap-2 border 
   },
 });
 
+const DISMISS_LABELS: Record<NoticeTone, string> = {
+  info: "Dismiss notice",
+  warning: "Dismiss warning",
+  danger: "Dismiss error",
+};
+
 const noticeIconStyle = cva("mt-px shrink-0", {
   variants: {
     tone: {
@@ -40,12 +47,12 @@ export function InlineNotice({ tone, title, action, onDismiss, className, childr
 
   const dismiss =
     onDismiss === undefined ? null : (
-      <Button variant="quiet" size="sm" onPress={onDismiss}>
+      <Button variant="quiet" size="sm" aria-label={DISMISS_LABELS[tone]} onPress={onDismiss}>
         Dismiss
       </Button>
     );
 
-  return (
+  const notice = (
     <div role={tone === "danger" ? "alert" : undefined} className={cn(noticeStyle({ tone }), className)}>
       <Icon aria-hidden className={noticeIconStyle({ tone })} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -60,6 +67,8 @@ export function InlineNotice({ tone, title, action, onDismiss, className, childr
       )}
     </div>
   );
+
+  return dismiss === null ? notice : <FocusScope restoreFocus>{notice}</FocusScope>;
 }
 
 export interface InlineNoticeProps {
