@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { argTooltip, pairTooltip, segmentList } from "../tooltip";
+import { argTooltip, pairTooltip, segmentLabels, segmentList } from "../tooltip";
 import { exampleArgView, examplePairView } from "./fixtures";
 
 const VIEW = examplePairView();
@@ -35,6 +35,15 @@ describe("pairTooltip", () => {
       link: ["A", "MCC 1, 4 leaves"],
       ribbon: ["MCC 1, 4 leaves", "2 leaves in this block"],
     });
+  });
+});
+
+describe("segmentLabels", () => {
+  test("names the segments after the first two trees, or A and B without them", () => {
+    expect([segmentLabels([{ label: "ha" }, { label: "na" }, { label: "mp" }]), segmentLabels([])]).toStrictEqual([
+      ["ha", "na"],
+      ["A", "B"],
+    ]);
   });
 });
 

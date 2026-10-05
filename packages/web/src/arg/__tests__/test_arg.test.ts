@@ -4,14 +4,14 @@ import type { DrawingColors } from "../../canvas/drawingColors";
 import { columnPixel } from "../../canvas/projection";
 import { exampleArgView } from "../../drawing/__tests__/fixtures";
 import { argEmphasis } from "../../drawing/selection";
-import { DRAWING_MARGIN_PX, LABEL_GAP_PX } from "../../drawing/spacing";
-import { ARG_LABEL_MAX_SHARE, ARG_LAYER, argColumn, argGeometry, argTargetAt } from "../geometry";
+import { ARG_LAYER, argColumn, argGeometry, argTargetAt } from "../geometry";
 import { argEdgeColor, argSelectionPositions } from "../layers";
 import { ARG_MISSING, argFailure } from "../outcome";
+import { argTargetRows } from "../picking";
 
 const VIEW = exampleArgView();
 
-const COLUMN = argColumn(1000, 100);
+const COLUMN = argColumn(1000, 112);
 
 const GEOMETRY = argGeometry(VIEW, COLUMN, "y", 64);
 
@@ -22,16 +22,8 @@ const SEGMENT_COLORS: Pick<DrawingColors, "segmentA" | "segmentB" | "ink"> = {
 };
 
 describe("argColumn", () => {
-  test("leaves room for the labels at the right", () => {
-    expect(COLUMN).toStrictEqual({
-      start: DRAWING_MARGIN_PX,
-      end: 1000 - DRAWING_MARGIN_PX - (100 + 2 * LABEL_GAP_PX),
-      mirrored: false,
-    });
-  });
-
-  test("gives labels at most a quarter of the width", () => {
-    expect(argColumn(1000, 900).end).toBe(1000 - DRAWING_MARGIN_PX - ARG_LABEL_MAX_SHARE * 1000);
+  test("leaves the 16 px margins and a 112 px label column at the right of a 1000 px drawing", () => {
+    expect(COLUMN).toStrictEqual({ start: 16, end: 872, mirrored: false });
   });
 });
 
@@ -80,6 +72,16 @@ describe("argGeometry", () => {
       ["B", [COLUMN.end, 1]],
       ["C", [COLUMN.end, 2]],
     ]);
+  });
+});
+
+describe("argTargetRows", () => {
+  test("zooms to the leaves under the child of an edge and under a node", () => {
+    expect({
+      edge: argTargetRows(VIEW, { kind: "edge", edge: 0 }),
+      node: argTargetRows(VIEW, { kind: "node", node: 4 }),
+      missing: argTargetRows(VIEW, { kind: "edge", edge: 9 }),
+    }).toStrictEqual({ edge: { first: 0, last: 1 }, node: { first: 2, last: 2 }, missing: null });
   });
 });
 

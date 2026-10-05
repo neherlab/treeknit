@@ -1,4 +1,4 @@
-import type { ArgView, DrawTree, Elbow, Point } from "@neherlab/treeknit-wasm";
+import type { ArgView, DrawTree, Elbow, PairView, Point } from "@neherlab/treeknit-wasm";
 
 import type { RowRange } from "../canvas/viewState";
 
@@ -88,6 +88,18 @@ export function nodeIndex(tree: DrawTree, name: string): number | undefined {
 
 export function leafNames(tree: DrawTree): string[] {
   return tree.nodes.filter((node) => node.leaf).map((node) => node.name);
+}
+
+export function pairLeafNames(view: Pick<PairView, "left" | "right">): string[] {
+  return [...new Set([...leafNames(view.left), ...leafNames(view.right)])];
+}
+
+export function argLeafNames(view: ArgView): string[] {
+  return view.nodes.flatMap((node) => (node.leaf ? [node.label] : []));
+}
+
+export function argLeafRows(view: ArgView, name: string): RowRange | null {
+  return rowSpan(view.nodes.flatMap((node) => (node.leaf && node.label === name ? [node.y] : [])));
 }
 
 export function rowCount(...trees: readonly { nodes: readonly { leaf: boolean }[] }[]): number {

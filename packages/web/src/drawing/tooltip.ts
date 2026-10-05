@@ -6,6 +6,12 @@ import type { ArgTarget, PairTarget } from "./selection";
 
 export type SegmentLabels = readonly [string, string];
 
+export function segmentLabels(trees: readonly { label: string }[]): SegmentLabels {
+  const [first, second] = trees;
+
+  return [first?.label ?? "A", second?.label ?? "B"];
+}
+
 export function pairTooltip(view: PairView, target: PairTarget): string[] {
   if (target.kind === "link") {
     const link = view.links[target.link];

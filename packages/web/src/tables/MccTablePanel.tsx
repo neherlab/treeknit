@@ -3,7 +3,6 @@ import { type Header, useTable } from "@tanstack/react-table";
 import { cn } from "cn";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { Button, useFilter } from "react-aria-components";
-import { getErrorMessage } from "react-error-boundary";
 import SortDescIcon from "~icons/lucide/arrow-down";
 import SortAscIcon from "~icons/lucide/arrow-up";
 import ShowIcon from "~icons/lucide/git-compare-arrows";
@@ -15,9 +14,8 @@ import { mccInTanglegram } from "../drawing/navigation";
 import { withSelection } from "../drawing/selection";
 import { IconButton } from "../ui/IconButton";
 import { InfoButton } from "../ui/InfoButton";
-import { InlineNotice } from "../ui/InlineNotice";
 import { MccSwatch } from "../ui/MccSwatch";
-import { ProgressBar } from "../ui/ProgressBar";
+import { QueryState } from "../ui/QueryState";
 import { focusRing } from "../ui/styles";
 import { TextField } from "../ui/TextField";
 import { useVirtualRows } from "../ui/useVirtualRows";
@@ -49,25 +47,13 @@ function MccTableQuery({ result }: { result: RunResult }) {
   const query = usePairView(result.sessionId, search.pair, search.version, search.x);
   const labels = result.summary.pairs[search.pair]?.labels;
 
-  if (query.isError) {
-    return (
-      <div className="p-3">
-        <InlineNotice tone="danger" title="The MCCs could not be loaded">
-          {getErrorMessage(query.error) ?? String(query.error)}
-        </InlineNotice>
-      </div>
-    );
-  }
-
-  if (query.isPending) {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <ProgressBar label="Loading the MCCs" isIndeterminate className="w-64" />
-      </div>
-    );
-  }
-
-  return <MccTable data={query.data} title={labels === undefined ? "MCCs" : `MCCs of ${labels[0]} and ${labels[1]}`} />;
+  return (
+    <QueryState query={query} loading="Loading the MCCs" errorTitle="The MCCs could not be loaded">
+      {(data) => (
+        <MccTable data={data} title={labels === undefined ? "MCCs" : `MCCs of ${labels[0]} and ${labels[1]}`} />
+      )}
+    </QueryState>
+  );
 }
 
 function MccTable({ data, title }: { data: PairView; title: string }) {

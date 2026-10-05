@@ -1,7 +1,5 @@
 import type { Column } from "../canvas/projection";
-import { DRAWING_MARGIN_PX, LABEL_GAP_PX } from "../drawing/spacing";
-
-export const LABEL_COLUMN_MAX_SHARE = 0.25;
+import { DRAWING_MARGIN_PX, innerWidthPx } from "../drawing/spacing";
 
 export const LINK_ZONE_MIN_SHARE = 0.15;
 
@@ -15,18 +13,8 @@ export interface TanglegramColumns {
   right: Column;
 }
 
-export function labelColumnPx(crossPx: number, longestLabelPx: number): number {
-  if (longestLabelPx <= 0) {
-    return 0;
-  }
-
-  const half = Math.max(crossPx - 2 * DRAWING_MARGIN_PX, 0) / 2;
-
-  return Math.min(longestLabelPx + 2 * LABEL_GAP_PX, LABEL_COLUMN_MAX_SHARE * half);
-}
-
 export function tanglegramColumns(crossPx: number, labelPx: number): TanglegramColumns {
-  const inner = Math.max(crossPx - 2 * DRAWING_MARGIN_PX, 0);
+  const inner = innerWidthPx(crossPx);
   const links = Math.max(LINK_ZONE_MIN_SHARE * inner, LINK_ZONE_SHARE * inner - 2 * labelPx);
   const tree = Math.max((inner - links - 2 * labelPx) / 2, 0);
   const leftStart = DRAWING_MARGIN_PX;

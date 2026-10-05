@@ -1,10 +1,13 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  argLeafNames,
+  argLeafRows,
   argNodePoints,
   cladeSize,
   leafNames,
   leafRows,
+  pairLeafNames,
   pairLeafRows,
   rowCenter,
   rowCount,
@@ -97,6 +100,20 @@ describe("tree lookups", () => {
       same: pairLeafRows(VIEW.left, VIEW.right, "A"),
       none: pairLeafRows(VIEW.left, VIEW.right, "nope"),
     }).toStrictEqual({ both: { first: 2, last: 4 }, same: { first: 0, last: 0 }, none: null });
+  });
+
+  test("lists the leaf names of both trees once", () => {
+    expect(pairLeafNames(VIEW)).toStrictEqual(["A", "B", "C", "D", "X"]);
+  });
+
+  test("lists the ARG's leaves and finds the row of one", () => {
+    const arg = exampleArgView();
+
+    expect({ names: argLeafNames(arg), c: argLeafRows(arg, "C"), none: argLeafRows(arg, "Z") }).toStrictEqual({
+      names: ["A", "B", "C"],
+      c: { first: 2, last: 2 },
+      none: null,
+    });
   });
 
   test("centers a row range between its first and last row", () => {

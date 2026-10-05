@@ -1,6 +1,5 @@
-import type { LabelMode, PairView, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
+import type { PairView, TreeVersion } from "@neherlab/treeknit-wasm";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getErrorMessage } from "react-error-boundary";
 
 import { usePairView } from "../analysis/queries";
 import { CanvasBoundary, useLazyCanvas } from "../canvas/CanvasBoundary";
@@ -12,15 +11,14 @@ import { DrawingPanel } from "../drawing/DrawingPanel";
 import { focusDone, type FocusTarget, focusRows, useFocusRequest } from "../drawing/focus";
 import { counted } from "../drawing/format";
 import { LeafSearch } from "../drawing/LeafSearch";
-import { selectionOf, type Selection, withSelection } from "../drawing/selection";
-import { leafNames, pairLeafRows, rowCenter, rowCount } from "../drawing/trees";
+import { pairLeafNames, pairLeafRows, rowCenter, rowCount } from "../drawing/trees";
+import { useDrawingSearch, useFindLeaf } from "../drawing/useDrawingSearch";
 import { useDrawingView } from "../drawing/useDrawingView";
 import { Select, type SelectOption } from "../ui/Select";
 import { Switch } from "../ui/Switch";
 import { useWorkspace } from "../workspace/context";
-import { selectPair, type WorkspaceSearch } from "../workspace/search";
+import { selectPair } from "../workspace/search";
 import type { RunResult } from "../workspace/store";
-import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 
 const loadTanglegramCanvas = async () => import("./TanglegramCanvas");
 
@@ -32,51 +30,20 @@ export function TanglegramPanel() {
 
 function Tanglegram({ result }: { result: RunResult }) {
   const [TanglegramCanvas, reloadTanglegramCanvas] = useLazyCanvas(loadTanglegramCanvas);
-  const { search, update } = useWorkspaceSearch();
+  const { search, update, selection, select, clear, chooseScale, chooseLabels } = useDrawingSearch();
   const { pair, version, x, labels } = search;
   const query = usePairView(result.sessionId, pair, version, x);
   const data = query.data;
-  const rows = data === undefined ? 1 : rowCount(data.left, data.right);
+  const rows = useMemo(() => (data === undefined ? 1 : rowCount(data.left, data.right)), [data]);
   const view = useDrawingView(rows);
   const [colorByMcc, setColorByMcc] = useState(true);
-  const selection = useMemo(() => selectionOf(search), [search]);
   const pairs = result.summary.pairs;
   const labelsOf = pairs[pair]?.labels;
   const resultKey = `${String(result.sessionId)}:tanglegram`;
+  const names = useMemo(() => (data === undefined ? [] : pairLeafNames(data)), [data]);
+  const findLeaf = useFindLeaf(data, leafRowsOf, select, view.actions);
 
   useFocusedRows(data, view);
-
-  const names = useMemo(
-    () => (data === undefined ? [] : [...new Set([...leafNames(data.left), ...leafNames(data.right)])]),
-    [data],
-  );
-
-  const set = useCallback(
-    (change: (written: WorkspaceSearch) => WorkspaceSearch) => {
-      update(change);
-    },
-    [update],
-  );
-
-  const select = useCallback(
-    (next: Selection) => {
-      set((written) => withSelection(written, next));
-    },
-    [set],
-  );
-
-  const findLeaf = useCallback(
-    (name: string) => {
-      select({ leaf: name });
-
-      const rows = data === undefined ? null : pairLeafRows(data.left, data.right, name);
-
-      if (rows !== null) {
-        view.actions.panTo(rowCenter(rows));
-      }
-    },
-    [data, select, view.actions],
-  );
 
   const pairOptions = useMemo<SelectOption<string>[]>(
     () => pairs.map(({ index, labels: [a, b] }) => ({ id: String(index), label: `${a} and ${b}` })),
@@ -85,35 +52,17 @@ function Tanglegram({ result }: { result: RunResult }) {
 
   const choosePair = useCallback(
     (id: string) => {
-      set((written) => selectPair(written, Number(id)));
+      update((written) => selectPair(written, Number(id)));
     },
-    [set],
+    [update],
   );
 
   const chooseVersion = useCallback(
     (next: TreeVersion) => {
-      set((written) => ({ ...written, version: next }));
+      update((written) => ({ ...written, version: next }));
     },
-    [set],
+    [update],
   );
-
-  const chooseScale = useCallback(
-    (next: Scale) => {
-      set((written) => ({ ...written, x: next }));
-    },
-    [set],
-  );
-
-  const chooseLabels = useCallback(
-    (next: LabelMode) => {
-      set((written) => ({ ...written, labels: next }));
-    },
-    [set],
-  );
-
-  const clear = useCallback(() => {
-    select({});
-  }, [select]);
 
   const toolbar = (
     <>
@@ -140,27 +89,31 @@ function Tanglegram({ result }: { result: RunResult }) {
   return (
     <DrawingPanel
       toolbar={toolbar}
-      loading={query.isPending ? "Loading the tanglegram" : undefined}
-      error={query.isError ? (getErrorMessage(query.error) ?? String(query.error)) : undefined}
+      query={query}
+      loading="Loading the tanglegram"
       errorTitle="The tanglegram could not be loaded"
       onEscape={clear}
     >
-      {data === undefined ? null : (
+      {(shown) => (
         <CanvasBoundary onReset={reloadTanglegramCanvas} resultKey={resultKey}>
           <TanglegramCanvas
-            data={data}
+            data={shown}
             view={view}
             labels={labels}
             colorByMcc={colorByMcc}
             selection={selection}
             onSelect={select}
             resultKey={resultKey}
-            label={`Tanglegram of ${labelsOf?.[0] ?? data.left.label} and ${labelsOf?.[1] ?? data.right.label} with ${counted(data.mccs.length, "MCC", "MCCs")}`}
+            label={`Tanglegram of ${labelsOf?.[0] ?? shown.left.label} and ${labelsOf?.[1] ?? shown.right.label} with ${counted(shown.mccs.length, "MCC", "MCCs")}`}
           />
         </CanvasBoundary>
       )}
     </DrawingPanel>
   );
+}
+
+function leafRowsOf(data: PairView, name: string): RowRange | null {
+  return pairLeafRows(data.left, data.right, name);
 }
 
 function useFocusedRows(data: PairView | undefined, view: TreeView) {

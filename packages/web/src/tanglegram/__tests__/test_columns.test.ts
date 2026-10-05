@@ -1,25 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { DRAWING_MARGIN_PX, LABEL_GAP_PX } from "../../drawing/spacing";
-import { LABEL_COLUMN_MAX_SHARE, labelColumnPx, LINK_ZONE_MIN_SHARE, tanglegramColumns } from "../columns";
+import { DRAWING_MARGIN_PX } from "../../drawing/spacing";
+import { LINK_ZONE_MIN_SHARE, tanglegramColumns } from "../columns";
 
 function width({ start, end }: { start: number; end: number }) {
   return end - start;
 }
-
-describe("labelColumnPx", () => {
-  test("fits the longest label with a gap on both sides", () => {
-    expect(labelColumnPx(1232, 80)).toBe(80 + 2 * LABEL_GAP_PX);
-  });
-
-  test("takes at most a quarter of half the drawing", () => {
-    expect(labelColumnPx(1232, 900)).toBe(LABEL_COLUMN_MAX_SHARE * ((1232 - 2 * DRAWING_MARGIN_PX) / 2));
-  });
-
-  test("takes no space without labels", () => {
-    expect(labelColumnPx(1232, 0)).toBe(0);
-  });
-});
 
 describe("tanglegramColumns", () => {
   test.each([

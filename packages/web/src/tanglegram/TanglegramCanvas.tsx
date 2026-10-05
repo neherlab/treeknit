@@ -1,30 +1,24 @@
-import type { PickingInfo } from "@deck.gl/core";
 import type { LabelMode, PairView } from "@neherlab/treeknit-wasm";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 
 import { useDrawingRules } from "../analysis/queries";
 import { useDrawingColors } from "../canvas/drawingColors";
-import { labelCharacters, labelsVisible, useLabelFontReady } from "../canvas/labels";
+import { labelsVisible } from "../canvas/labels";
 import { useFadeIn } from "../canvas/motion";
 import { curveRowPx } from "../canvas/projection";
 import { TreeCanvas } from "../canvas/TreeCanvas";
 import type { TreeView } from "../canvas/useTreeView";
-import { crossExtent, type RowRange } from "../canvas/viewState";
+import { crossExtent } from "../canvas/viewState";
 import { drawingCursor } from "../drawing/cursor";
-import { canvasTextMeasure, longestLabelPx } from "../drawing/labelWidth";
-import {
-  pairClickSelection,
-  pairEmphasis,
-  pairSelectionRows,
-  type PairTarget,
-  type Selection,
-} from "../drawing/selection";
-import { pairTooltip } from "../drawing/tooltip";
-import { tooltipContent } from "../drawing/tooltipContent";
-import { leafNames, leafRows, pairLeafRows, rowSpan } from "../drawing/trees";
-import { labelColumnPx, tanglegramColumns } from "./columns";
-import { pairTargetAt, tanglegramGeometry } from "./geometry";
-import { ribbonsShown, tanglegramLayers } from "./layers";
+import { labelColumnPx, useLeafLabels } from "../drawing/labelWidth";
+import { useDrawingPicking } from "../drawing/picking";
+import { NO_SELECTION, pairEmphasis, type Selection } from "../drawing/selection";
+import { innerWidthPx } from "../drawing/spacing";
+import { pairLeafNames } from "../drawing/trees";
+import { tanglegramColumns } from "./columns";
+import { tanglegramGeometry } from "./geometry";
+import { type PairStyle, ribbonsShown, tanglegramLayers } from "./layers";
+import { PAIR_PICK_RULES } from "./picking";
 import { TanglegramLegend } from "./TanglegramLegend";
 
 export default function TanglegramCanvas({
@@ -39,30 +33,16 @@ export default function TanglegramCanvas({
 }: TanglegramCanvasProps) {
   const colors = useDrawingColors();
   const rules = useDrawingRules();
-  const labelText = useMemo(() => labelCharacters([...leafNames(data.left), ...leafNames(data.right)]), [data]);
-  const fontReady = useLabelFontReady(labelText);
   const fade = useFadeIn(resultKey);
   const { frame, rowPx } = view;
   const leafAxis = frame?.leafAxis ?? "y";
   const crossPx = frame === undefined ? 0 : crossExtent(frame);
-  const labelled = leafAxis === "y" && labels !== "off";
-
-  const longestLabel = useMemo(() => {
-    if (!labelled || !fontReady) {
-      return 0;
-    }
-
-    const measure = canvasTextMeasure();
-
-    return Math.max(
-      longestLabelPx(leafNames(data.left), measure, rules.labelMaxChars),
-      longestLabelPx(leafNames(data.right), measure, rules.labelMaxChars),
-    );
-  }, [data, labelled, fontReady, rules]);
+  const names = useMemo(() => pairLeafNames(data), [data]);
+  const leafLabels = useLeafLabels(names, leafAxis === "y" && labels !== "off", rules.labelMaxChars);
 
   const columns = useMemo(
-    () => tanglegramColumns(crossPx, labelColumnPx(crossPx, longestLabel)),
-    [crossPx, longestLabel],
+    () => tanglegramColumns(crossPx, labelColumnPx(innerWidthPx(crossPx) / 2, leafLabels.longestPx)),
+    [crossPx, leafLabels.longestPx],
   );
 
   const sampledRowPx = curveRowPx(rowPx);
@@ -72,31 +52,28 @@ export default function TanglegramCanvas({
     [data, columns, leafAxis, sampledRowPx],
   );
 
-  const emphasis = useMemo(() => pairEmphasis(data, selection), [data, selection]);
-  const ribbons = ribbonsShown(rowPx, rules);
-  const labelsShown = leafAxis === "y" && labelsVisible(labels, rowPx, rules);
-
-  const layers = useMemo(
-    () =>
-      tanglegramLayers(geometry, {
-        colors,
-        colorByMcc,
-        emphasis,
-        ribbons,
-        labels: labelsShown,
-        fontReady,
-        labelMaxChars: rules.labelMaxChars,
-        fade,
-      }),
-    [geometry, colors, colorByMcc, emphasis, ribbons, labelsShown, fontReady, rules, fade],
+  const style = useMemo<PairStyle>(
+    () => ({
+      colors,
+      colorByMcc,
+      emphasis: pairEmphasis(data, selection),
+      ribbons: ribbonsShown(rowPx, rules),
+      labels: leafAxis === "y" && labelsVisible(labels, rowPx, rules),
+      fontReady: leafLabels.fontReady,
+      labelMaxChars: rules.labelMaxChars,
+      fade,
+    }),
+    [colors, colorByMcc, data, selection, rowPx, rules, leafAxis, labels, leafLabels.fontReady, fade],
   );
+
+  const layers = useMemo(() => tanglegramLayers(geometry, style), [geometry, style]);
 
   const minimapLayers = useMemo(
     () =>
       tanglegramLayers(geometry, {
         colors,
         colorByMcc,
-        emphasis: pairEmphasis(data, {}),
+        emphasis: pairEmphasis(data, NO_SELECTION),
         ribbons: true,
         labels: false,
         fontReady: false,
@@ -106,38 +83,7 @@ export default function TanglegramCanvas({
     [geometry, colors, colorByMcc, data, rules],
   );
 
-  const targetOf = useCallback(
-    (info: PickingInfo): PairTarget | undefined =>
-      info.layer === null || info.layer === undefined ? undefined : pairTargetAt(geometry, info.layer.id, info.index),
-    [geometry],
-  );
-
-  const getTooltip = useCallback(
-    (info: PickingInfo) => {
-      const target = targetOf(info);
-
-      return target === undefined ? null : tooltipContent(pairTooltip(data, target));
-    },
-    [data, targetOf],
-  );
-
-  const onClick = useCallback(
-    (info: PickingInfo) => {
-      onSelect(pairClickSelection(data, targetOf(info)));
-    },
-    [data, onSelect, targetOf],
-  );
-
-  const onCladeZoom = useCallback(
-    (info: PickingInfo): RowRange | null => {
-      const target = targetOf(info);
-
-      return target === undefined ? null : targetRows(data, target);
-    },
-    [data, targetOf],
-  );
-
-  const onSelectionZoom = useCallback(() => pairSelectionRows(data, selection), [data, selection]);
+  const picking = useDrawingPicking(PAIR_PICK_RULES, data, geometry, selection, onSelect);
 
   return (
     <TreeCanvas
@@ -145,12 +91,9 @@ export default function TanglegramCanvas({
       label={label}
       layers={layers}
       minimapLayers={minimapLayers}
-      getTooltip={getTooltip}
-      onClick={onClick}
-      onCladeZoom={onCladeZoom}
-      onSelectionZoom={onSelectionZoom}
       getCursor={drawingCursor}
       className="h-full"
+      {...picking}
     >
       <TanglegramLegend />
     </TreeCanvas>
@@ -166,21 +109,4 @@ export interface TanglegramCanvasProps {
   onSelect: (selection: Selection) => void;
   resultKey: string;
   label: string;
-}
-
-function targetRows(data: PairView, target: PairTarget): RowRange | null {
-  if (target.kind === "ribbon") {
-    const block = data.blocks[target.block];
-
-    return block === undefined ? null : rowSpan([...block.left, ...block.right]);
-  }
-
-  if (target.kind === "link") {
-    const link = data.links[target.link];
-    const leaf = link === undefined ? undefined : data.left.nodes[link.left];
-
-    return leaf === undefined ? null : pairLeafRows(data.left, data.right, leaf.name);
-  }
-
-  return leafRows(data[target.side].nodes, target.node);
 }

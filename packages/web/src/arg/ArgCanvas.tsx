@@ -1,44 +1,39 @@
-import type { PickingInfo } from "@deck.gl/core";
 import type { ArgView, LabelMode } from "@neherlab/treeknit-wasm";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 
 import { useDrawingRules } from "../analysis/queries";
 import { useDrawingColors } from "../canvas/drawingColors";
-import { labelCharacters, labelsVisible, useLabelFontReady } from "../canvas/labels";
+import { labelsVisible } from "../canvas/labels";
 import { curveRowPx } from "../canvas/projection";
 import { TreeCanvas } from "../canvas/TreeCanvas";
 import type { TreeView } from "../canvas/useTreeView";
-import { crossExtent, type RowRange } from "../canvas/viewState";
+import { crossExtent } from "../canvas/viewState";
 import { drawingCursor } from "../drawing/cursor";
-import { canvasTextMeasure, longestLabelPx } from "../drawing/labelWidth";
-import { argClickSelection, argEmphasis, argSelectionRows, type ArgTarget, type Selection } from "../drawing/selection";
-import { argTooltip, type SegmentLabels } from "../drawing/tooltip";
-import { tooltipContent } from "../drawing/tooltipContent";
-import { leafRows } from "../drawing/trees";
+import { labelColumnPx, useLeafLabels } from "../drawing/labelWidth";
+import { useDrawingPicking } from "../drawing/picking";
+import { argEmphasis, NO_SELECTION, type Selection } from "../drawing/selection";
+import { innerWidthPx } from "../drawing/spacing";
+import type { SegmentLabels } from "../drawing/tooltip";
+import { argLeafNames } from "../drawing/trees";
 import { ArgLegend } from "./ArgLegend";
-import { argColumn, argGeometry, argTargetAt } from "./geometry";
-import { argLayers } from "./layers";
+import { argColumn, argGeometry } from "./geometry";
+import { argLayers, type ArgStyle } from "./layers";
+import { argPickRules } from "./picking";
 
 export default function ArgCanvas({ data, view, labels, selection, onSelect, segments, label }: ArgCanvasProps) {
   const colors = useDrawingColors();
   const rules = useDrawingRules();
-  const names = useMemo(() => data.nodes.flatMap((node) => (node.leaf ? [node.label] : [])), [data]);
-  const labelText = useMemo(() => labelCharacters(names), [names]);
-  const fontReady = useLabelFontReady(labelText);
   const { frame, rowPx } = view;
   const leafAxis = frame?.leafAxis ?? "y";
   const crossPx = frame === undefined ? 0 : crossExtent(frame);
-  const labelled = leafAxis === "y" && labels !== "off";
+  const names = useMemo(() => argLeafNames(data), [data]);
+  const leafLabels = useLeafLabels(names, leafAxis === "y" && labels !== "off", rules.labelMaxChars);
 
-  const longestLabel = useMemo(() => {
-    if (!labelled || !fontReady) {
-      return 0;
-    }
+  const column = useMemo(
+    () => argColumn(crossPx, labelColumnPx(innerWidthPx(crossPx), leafLabels.longestPx)),
+    [crossPx, leafLabels.longestPx],
+  );
 
-    return longestLabelPx(names, canvasTextMeasure(), rules.labelMaxChars);
-  }, [names, labelled, fontReady, rules]);
-
-  const column = useMemo(() => argColumn(crossPx, longestLabel), [crossPx, longestLabel]);
   const sampledRowPx = curveRowPx(rowPx);
 
   const geometry = useMemo(
@@ -46,19 +41,24 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
     [data, column, leafAxis, sampledRowPx],
   );
 
-  const emphasis = useMemo(() => argEmphasis(data, selection), [data, selection]);
-  const labelsShown = leafAxis === "y" && labelsVisible(labels, rowPx, rules);
-
-  const layers = useMemo(
-    () => argLayers(geometry, { colors, emphasis, labels: labelsShown, fontReady, labelMaxChars: rules.labelMaxChars }),
-    [geometry, colors, emphasis, labelsShown, fontReady, rules],
+  const style = useMemo<ArgStyle>(
+    () => ({
+      colors,
+      emphasis: argEmphasis(data, selection),
+      labels: leafAxis === "y" && labelsVisible(labels, rowPx, rules),
+      fontReady: leafLabels.fontReady,
+      labelMaxChars: rules.labelMaxChars,
+    }),
+    [colors, data, selection, leafAxis, labels, rowPx, rules, leafLabels.fontReady],
   );
+
+  const layers = useMemo(() => argLayers(geometry, style), [geometry, style]);
 
   const minimapLayers = useMemo(
     () =>
       argLayers(geometry, {
         colors,
-        emphasis: argEmphasis(data, {}),
+        emphasis: argEmphasis(data, NO_SELECTION),
         labels: false,
         fontReady: false,
         labelMaxChars: rules.labelMaxChars,
@@ -66,39 +66,8 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
     [geometry, colors, data, rules],
   );
 
-  const targetOf = useCallback(
-    (info: PickingInfo): ArgTarget | undefined =>
-      info.layer === null || info.layer === undefined ? undefined : argTargetAt(geometry, info.layer.id, info.index),
-    [geometry],
-  );
-
-  const getTooltip = useCallback(
-    (info: PickingInfo) => {
-      const target = targetOf(info);
-
-      return target === undefined ? null : tooltipContent(argTooltip(data, target, segments));
-    },
-    [data, segments, targetOf],
-  );
-
-  const onClick = useCallback(
-    (info: PickingInfo) => {
-      onSelect(argClickSelection(data, targetOf(info)));
-    },
-    [data, onSelect, targetOf],
-  );
-
-  const onCladeZoom = useCallback(
-    (info: PickingInfo): RowRange | null => {
-      const target = targetOf(info);
-      const node = target?.kind === "edge" ? data.edges[target.edge]?.child : target?.node;
-
-      return node === undefined ? null : leafRows(data.nodes, node);
-    },
-    [data, targetOf],
-  );
-
-  const onSelectionZoom = useCallback(() => argSelectionRows(data, selection), [data, selection]);
+  const pickRules = useMemo(() => argPickRules(segments), [segments]);
+  const picking = useDrawingPicking(pickRules, data, geometry, selection, onSelect);
 
   return (
     <TreeCanvas
@@ -106,12 +75,9 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
       label={label}
       layers={layers}
       minimapLayers={minimapLayers}
-      getTooltip={getTooltip}
-      onClick={onClick}
-      onCladeZoom={onCladeZoom}
-      onSelectionZoom={onSelectionZoom}
       getCursor={drawingCursor}
       className="h-full"
+      {...picking}
     >
       <ArgLegend segments={segments} />
     </TreeCanvas>

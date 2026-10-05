@@ -3,16 +3,14 @@ import { useTable } from "@tanstack/react-table";
 import { cn } from "cn";
 import { useCallback, useMemo, useRef } from "react";
 import { Button } from "react-aria-components";
-import { getErrorMessage } from "react-error-boundary";
 
 import { useConstellation } from "../analysis/queries";
 import { requestFocus } from "../drawing/focus";
 import { counted, formatCount } from "../drawing/format";
 import { leafInPair } from "../drawing/navigation";
 import { InfoButton } from "../ui/InfoButton";
-import { InlineNotice } from "../ui/InlineNotice";
 import { MccSwatch } from "../ui/MccSwatch";
-import { ProgressBar } from "../ui/ProgressBar";
+import { QueryState } from "../ui/QueryState";
 import { focusRing } from "../ui/styles";
 import { useVirtualRows } from "../ui/useVirtualRows";
 import { VirtualGap } from "../ui/VirtualGap";
@@ -44,25 +42,11 @@ export function ConstellationPanel() {
 function ConstellationQuery({ result }: { result: RunResult }) {
   const query = useConstellation(result.sessionId);
 
-  if (query.isError) {
-    return (
-      <div className="p-3">
-        <InlineNotice tone="danger" title="The constellation could not be loaded">
-          {getErrorMessage(query.error) ?? String(query.error)}
-        </InlineNotice>
-      </div>
-    );
-  }
-
-  if (query.isPending) {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <ProgressBar label="Loading the constellation" isIndeterminate className="w-64" />
-      </div>
-    );
-  }
-
-  return <Constellation data={query.data} />;
+  return (
+    <QueryState query={query} loading="Loading the constellation" errorTitle="The constellation could not be loaded">
+      {(data) => <Constellation data={data} />}
+    </QueryState>
+  );
 }
 
 function Constellation({ data }: { data: ConstellationTable }) {

@@ -9,7 +9,7 @@ import { requestFocus } from "../drawing/focus";
 import { formatBranchLength, leafCount, mccSummary, mccTitle } from "../drawing/format";
 import { leafInPair, mccInTanglegram } from "../drawing/navigation";
 import { selectionOf, type Selection, withSelection } from "../drawing/selection";
-import { segmentList, segmentName, type SegmentLabels } from "../drawing/tooltip";
+import { segmentLabels, segmentList, segmentName, type SegmentLabels } from "../drawing/tooltip";
 import { type InspectorSubject, inspectorSubject, type LeafPair } from "../inspector/subject";
 import { mccsBySize } from "../tables/mccTable";
 import { Button } from "../ui/Button";
@@ -50,8 +50,7 @@ function ResultInspector({ result }: { result: RunResult }) {
     [selection, pair, arg, constellation],
   );
 
-  const [first, second] = result.request.trees;
-  const segments = useMemo<SegmentLabels>(() => [first?.label ?? "A", second?.label ?? "B"], [first, second]);
+  const segments = useMemo(() => segmentLabels(result.request.trees), [result.request.trees]);
 
   const select = useCallback(
     (next: Selection) => {

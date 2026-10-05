@@ -2,9 +2,19 @@ import type { ReactNode } from "react";
 import { useKeyboard } from "react-aria";
 
 import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
-import { ProgressBar } from "../ui/ProgressBar";
+import { QueryState, type QueryStateProps } from "../ui/QueryState";
 
-export function DrawingPanel({ toolbar, loading, error, errorTitle, notice, onEscape, children }: DrawingPanelProps) {
+const OTHER_VIEWS_AVAILABLE = "The tables and files are still available.";
+
+export function DrawingPanel<T>({
+  toolbar,
+  notice,
+  onEscape,
+  query,
+  loading,
+  errorTitle,
+  children,
+}: DrawingPanelProps<T>) {
   const { keyboardProps } = useKeyboard({
     onKeyDown: (event) => {
       if (event.key === "Escape") {
@@ -26,48 +36,17 @@ export function DrawingPanel({ toolbar, loading, error, errorTitle, notice, onEs
         </NoticeRegion>
       )}
       <div {...keyboardProps} className="relative min-h-0 flex-1">
-        <DrawingBody loading={loading} error={error} errorTitle={errorTitle}>
-          {children}
-        </DrawingBody>
+        <QueryState query={query} loading={loading} errorTitle={errorTitle} errorNote={OTHER_VIEWS_AVAILABLE}>
+          {(data) => <div className="absolute inset-0">{children(data)}</div>}
+        </QueryState>
       </div>
     </div>
   );
 }
 
-export interface DrawingPanelProps {
+export interface DrawingPanelProps<T> extends Pick<QueryStateProps<T>, "query" | "loading" | "errorTitle"> {
   toolbar: ReactNode;
-  loading?: string | undefined;
-  error?: string | undefined;
-  errorTitle: string;
   notice?: string | undefined;
   onEscape: () => void;
-  children: ReactNode;
-}
-
-function DrawingBody({
-  loading,
-  error,
-  errorTitle,
-  children,
-}: Pick<DrawingPanelProps, "loading" | "error" | "errorTitle" | "children">) {
-  if (error !== undefined) {
-    return (
-      <div className="p-3">
-        <InlineNotice tone="danger" title={errorTitle}>
-          <p>{error}</p>
-          <p>The tables and files are still available.</p>
-        </InlineNotice>
-      </div>
-    );
-  }
-
-  if (loading !== undefined) {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <ProgressBar label={loading} isIndeterminate className="w-64" />
-      </div>
-    );
-  }
-
-  return <div className="absolute inset-0">{children}</div>;
+  children: (data: T) => ReactNode;
 }

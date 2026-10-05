@@ -11,6 +11,7 @@ import {
 } from "../canvas/projection";
 import { type LeafAxis, worldPosition } from "../canvas/viewState";
 import { itemAt } from "../drawing/lookup";
+import { type LayerPicks, pickTarget } from "../drawing/picking";
 import type { PairTarget } from "../drawing/selection";
 import { type TreeSide, treeNodePoints } from "../drawing/trees";
 import type { TanglegramColumns } from "./columns";
@@ -128,14 +129,10 @@ export function tanglegramGeometry(
 }
 
 export function pairTargetAt(geometry: TanglegramGeometry, layer: string, index: number): PairTarget | undefined {
-  return isPairLayer(layer) ? PAIR_PICKS[layer](geometry, index) : undefined;
+  return pickTarget(PAIR_PICKS, geometry, layer, index);
 }
 
-function isPairLayer(layer: string): layer is PairLayerId {
-  return Object.values<string>(PAIR_LAYER).includes(layer);
-}
-
-const PAIR_PICKS: Record<PairLayerId, (geometry: TanglegramGeometry, index: number) => PairTarget | undefined> = {
+const PAIR_PICKS: LayerPicks<PairLayerId, TanglegramGeometry, PairTarget> = {
   [PAIR_LAYER.ribbons]: (geometry, index) => {
     const item = geometry.ribbons[index];
 
