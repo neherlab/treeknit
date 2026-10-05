@@ -726,9 +726,11 @@ mod tests {
 
   #[test]
   fn skipped_pairs_leave_other_pairs_unaffected() {
-    // Tree 2 shares one leaf with tree 0 and none with tree 1. The pair (0, 1) gets the MCCs
-    // that it gets without tree 2: the same per-pair seed, and no resolution across pairs.
-    let pair = ["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));"];
+    // Tree 2 shares one leaf (Y) with tree 0 and none with tree 1, so the run skips one pair of
+    // each kind. The pair (0, 1) gets the MCCs that it gets without tree 2: the same per-pair
+    // seed, and no resolution across pairs. Y is in tree 0 only, inside the clade (B,Y) of the
+    // MCC {A,B,C,D}, so attachment adds it to that MCC.
+    let pair = ["((A,(B,Y)),(C,(D,X)));", "((A,(B,X)),(C,D));"];
     let o = |k| Options {
       resolution: Resolution::None,
       ..Options::for_trees(k)
@@ -736,14 +738,14 @@ mod tests {
     let names = |r: &PairResult, t: &Taxa| r.mccs.iter().map(|m| t.names_of(m)).collect::<Vec<_>>();
     let (mut ts2, taxa2) = trees(&pair);
     let expected = run(&mut ts2, &taxa2, &o(2), 1);
-    let (mut ts3, taxa3) = trees(&[pair[0], pair[1], "(A,(P,Q));"]);
+    let (mut ts3, taxa3) = trees(&[pair[0], pair[1], "(Y,(P,Q));"]);
     let res = run(&mut ts3, &taxa3, &o(3), 1);
     assert_eq!(
       res.iter().map(|r| (r.i, r.j)).collect::<Vec<_>>(),
       [(0, 1), (0, 2), (1, 2)]
     );
     assert_eq!(names(&res[0], &taxa3), names(&expected[0], &taxa2));
-    assert_eq!(names(&res[0], &taxa3), [vec!["X"], vec!["A", "B", "C", "D"]]);
+    assert_eq!(names(&res[0], &taxa3), [vec!["X"], vec!["A", "B", "C", "D", "Y"]]);
     assert!(res[1].mccs.is_empty());
     assert!(res[2].mccs.is_empty());
   }
