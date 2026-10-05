@@ -172,11 +172,15 @@ test-unit-rs *args:
 test-integration-rs *args:
     cargo nextest run --locked --workspace --test '*' "$@"
 
-# Cargo passes --quiet on to the test binary, which wasm-bindgen-test-runner rejects.
+# Quiet cargo passes --quiet on to the test binary, which wasm-bindgen-test-runner
+# rejects: the tests compile quietly, then run with quiet mode off.
 # Tests of the WebAssembly bindings, run in Node
 [group("test")]
+[script]
 test-wasm *args:
-    CARGO_TERM_QUIET=false cargo test --locked -p treeknit-wasm --target=wasm32-unknown-unknown --test=wasm "$@"
+    test=(cargo test --locked -p treeknit-wasm --target=wasm32-unknown-unknown --test=wasm)
+    "${test[@]}" --no-run "$@"
+    CARGO_TERM_QUIET=false "${test[@]}" "$@"
 
 # TypeScript tests (vitest) and the tests of the custom oxlint rules, keep-going
 [group("test")]
