@@ -25,14 +25,8 @@ use treeknit_core::{Options, PairResult, Tree};
 ///
 /// MCC colors come from the `resolved` version, so they stay put across versions.
 pub fn pair_view(run: &RunResult, opts: &Options, pair: usize, version: TreeVersion, scale: Scale) -> Option<PairView> {
-  let p = run.pairs.get(pair)?;
-  let layout = Layout::new(run, opts, p, version);
-  let slots = if version == TreeVersion::Resolved {
-    run.pair_slots[pair].get_or_init(|| layout.slots(p))
-  } else {
-    pair_slots(run, opts, pair)
-  };
-  let mccs = mcc_infos(run, p, slots);
+  let (layout, slots) = pair_layout(run, opts, pair, version)?;
+  let mccs = mcc_infos(run, &run.pairs[pair], slots);
   let shapes = pair_shapes(&layout.left, &layout.right, &layout.links, &layout.blocks, slots, scale);
   Some(PairView {
     left: layout.left,
@@ -42,6 +36,24 @@ pub fn pair_view(run: &RunResult, opts: &Options, pair: usize, version: TreeVers
     mccs,
     shapes,
   })
+}
+
+/// The drawn trees of pair `pair` (pipeline order) of `run` in `version`, with their links and
+/// blocks, and the color slot of every MCC of the pair; `None` when the run has no such pair.
+pub(super) fn pair_layout<'a>(
+  run: &'a RunResult,
+  opts: &Options,
+  pair: usize,
+  version: TreeVersion,
+) -> Option<(Layout, &'a [usize])> {
+  let p = run.pairs.get(pair)?;
+  let layout = Layout::new(run, opts, p, version);
+  let slots = if version == TreeVersion::Resolved {
+    run.pair_slots[pair].get_or_init(|| layout.slots(p))
+  } else {
+    pair_slots(run, opts, pair)
+  };
+  Some((layout, slots))
 }
 
 /// The color slot of every MCC of pair `pair`, computed on its `resolved` version once per run
@@ -54,11 +66,11 @@ pub(super) fn pair_slots<'a>(run: &'a RunResult, opts: &Options, pair: usize) ->
 }
 
 /// The two drawn trees of a pair in one version, with their links and blocks.
-struct Layout {
-  left: DrawTree,
-  right: DrawTree,
-  links: Vec<Link>,
-  blocks: Vec<Block>,
+pub(super) struct Layout {
+  pub(super) left: DrawTree,
+  pub(super) right: DrawTree,
+  pub(super) links: Vec<Link>,
+  pub(super) blocks: Vec<Block>,
 }
 
 impl Layout {
