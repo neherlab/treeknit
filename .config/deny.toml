@@ -1,0 +1,52 @@
+# cargo-deny policy. Advisories and yanked crates are checked by the network
+# `just audit` recipe (it fetches the advisory database); `just check-all` runs
+# the offline bans, licenses, and sources checks.
+
+# Dependency checks cover the platforms the CLI is built for. Crates used only
+# on other platforms (UEFI, Redox, WebAssembly, 32-bit Windows) are outside the
+# shipped graph.
+[graph]
+targets = [
+  "aarch64-apple-darwin",
+  "aarch64-unknown-linux-gnu",
+  "aarch64-unknown-linux-musl",
+  "x86_64-apple-darwin",
+  "x86_64-pc-windows-gnu",
+  "x86_64-pc-windows-msvc",
+  "x86_64-unknown-linux-gnu",
+  "x86_64-unknown-linux-musl",
+]
+
+[advisories]
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+ignore = []
+
+[licenses]
+confidence-threshold = 0.9
+allow = [
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BSL-1.0",
+  "ISC",
+  "MIT",
+  "MIT-0",
+  "MPL-2.0",
+  "Unicode-3.0",
+  "Zlib",
+]
+
+# Duplicate versions are denied so a newly introduced duplicate fails the check.
+# A `skip` entry names an older version that an upstream crate still requires at
+# its latest release, with the reason; cargo-deny reports an entry that no longer
+# matches once upstream catches up.
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

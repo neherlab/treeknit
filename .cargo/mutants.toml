@@ -1,0 +1,14 @@
+# cargo-mutants configuration, driven by `just mutants`.
+# https://mutants.rs/config-file.html
+#
+# Exclusions go here as `exclude_re` or `exclude_globs` entries, each preceded by
+# a comment that gives the reason.
+
+test_tool = "nextest"
+
+# Timeouts are multiples of the measured baseline test and build runtime.
+timeout_multiplier = 5.0
+build_timeout_multiplier = 5.0
+minimum_test_timeout = 120
+
+output = "tmp/mutants"
