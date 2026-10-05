@@ -2,7 +2,7 @@ import type { TreeInspection } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
 import { counted } from "../../drawing/format";
-import { isGridNavigationKey, treeFacts } from "../treeFacts";
+import { treeFacts } from "../treeFacts";
 
 const INSPECTION: TreeInspection = {
   label: "ha",
@@ -40,15 +40,5 @@ describe("tree facts", () => {
       "1 polytomy",
       "2 polytomies",
     ]);
-  });
-
-  test("keeps navigation keys inside a row field, and lets shortcuts and Escape through", () => {
-    expect([
-      isGridNavigationKey("Home", false),
-      isGridNavigationKey("ArrowDown", false),
-      isGridNavigationKey("Enter", true),
-      isGridNavigationKey("Escape", false),
-      isGridNavigationKey("a", false),
-    ]).toStrictEqual([true, true, false, false, false]);
   });
 });

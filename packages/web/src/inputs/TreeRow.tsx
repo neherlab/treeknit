@@ -1,8 +1,7 @@
 import type { NumberSetting, TreeInspection } from "@neherlab/treeknit-wasm";
 import { cn } from "cn";
 import { type ComponentType, type SVGProps, useCallback } from "react";
-import { useKeyboard } from "react-aria";
-import type { Key, KeyboardEvent } from "react-aria-components";
+import type { Key } from "react-aria-components";
 import ErrorIcon from "~icons/lucide/circle-alert";
 import ReadyIcon from "~icons/lucide/circle-check";
 import CodeIcon from "~icons/lucide/code";
@@ -21,7 +20,7 @@ import { TextField } from "../ui/TextField";
 import { useWorkspaceStore } from "../workspace/context";
 import { type FieldErrors, fieldMessage, seqLengthField, treeField } from "../workspace/fieldErrors";
 import type { WorkspaceTree } from "../workspace/store";
-import { isGridNavigationKey, treeFacts } from "./treeFacts";
+import { treeFacts } from "./treeFacts";
 import { TREE_STATUS_LABELS, type TreeStatus, type TreeStatusKind, treeStatus } from "./treeStatus";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -46,7 +45,6 @@ export function TreeRow({
 }: TreeRowProps) {
   const store = useWorkspaceStore();
   const actions = useSettingsActions();
-  const { keyboardProps } = useKeyboard({ onKeyDown: keepRowKeys });
   const status = treeStatus(inspection, errors.byField.get(treeField(index, "newick")) ?? []);
   const facts = treeFacts(inspection, missing);
 
@@ -72,7 +70,7 @@ export function TreeRow({
 
   return (
     <GridListItem id={tree.id} textValue={tree.label}>
-      <div {...keyboardProps} className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5">
         <div className="flex items-start gap-1">
           <TextField
             label="Label"
@@ -155,10 +153,4 @@ function StatusButton({ status, onPress }: StatusButtonProps) {
 interface StatusButtonProps {
   status: TreeStatus;
   onPress: () => void;
-}
-
-function keepRowKeys(event: KeyboardEvent): void {
-  if (!isGridNavigationKey(event.key, event.ctrlKey || event.metaKey || event.altKey)) {
-    event.continuePropagation();
-  }
 }
