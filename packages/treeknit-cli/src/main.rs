@@ -210,9 +210,6 @@ fn main() -> Result<()> {
     println!("{}", resolve_help());
     return Ok(());
   }
-  if cli.request.is_none() && cli.trees.len() < 2 {
-    bail!("need at least two tree files");
-  }
   fs::create_dir_all(&cli.outdir).with_context(|| format!("creating {}", cli.outdir.display()))?;
   setup_logging(&cli)?;
   if cli.threads > 0 {
@@ -222,11 +219,17 @@ fn main() -> Result<()> {
   log::info!("TreeKnit {}", env!("TREEKNIT_LONG_VERSION"));
   let input = match &cli.request {
     Some(path) => request_input(path)?,
-    None => tree_file_input(&cli)?,
+    None => tree_file_input(&cli),
   };
   log::info!("results directory: {}", cli.outdir.display());
 
-  let parsed = analysis::parse_trees(&input.texts);
+  // The checks of the trees need every tree; files that cannot be read are reported with the
+  // errors of the flags instead.
+  let parsed = if input.read_errors.is_empty() {
+    analysis::parse_trees(&input.texts)
+  } else {
+    Err(input.read_errors.clone())
+  };
   if let Ok(p) = &parsed {
     run::report_overlap(&p.trees, &p.taxa);
   }
@@ -281,10 +284,13 @@ struct Input {
   seed: u64,
   /// The session file, whose settings replace the analysis options.
   request: Option<AnalysisRequest>,
+  /// Errors of the input files that cannot be read; their trees have an empty text.
+  read_errors: Vec<ValidationError>,
 }
 
-/// The trees of the positional tree files, labeled by path, with the seed of `--seed`.
-fn tree_file_input(cli: &Cli) -> Result<Input> {
+/// The trees of the positional tree files, labeled by path, with the seed of `--seed`, and the
+/// error of each file that cannot be read.
+fn tree_file_input(cli: &Cli) -> Input {
   log::info!(
     "input trees: {}",
     cli
@@ -294,22 +300,33 @@ fn tree_file_input(cli: &Cli) -> Result<Input> {
       .collect::<Vec<_>>()
       .join(" ")
   );
+  let mut read_errors = Vec::new();
   let texts = cli
     .trees
     .iter()
-    .zip(path_labels(&cli.trees)?)
-    .map(|(path, label)| {
-      let newick = fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-      Ok(TreeText { label, newick })
+    .zip(path_labels(&cli.trees))
+    .enumerate()
+    .map(|(i, (path, label))| {
+      let newick = fs::read_to_string(path).unwrap_or_else(|e| {
+        read_errors.push(ValidationError {
+          field: Some(format!("trees[{i}]")),
+          message: format!("cannot read the file: {e}"),
+          line: None,
+          column: None,
+        });
+        String::new()
+      });
+      TreeText { label, newick }
     })
-    .collect::<Result<Vec<_>>>()?;
-  Ok(Input {
+    .collect();
+  Input {
     texts,
     paths: cli.trees.clone(),
     extensions: cli.trees.iter().map(|p| extension(p)).collect(),
     seed: cli.seed,
     request: None,
-  })
+    read_errors,
+  }
 }
 
 /// The trees and settings of the session file at `path`. Its trees keep their labels, and their
@@ -330,6 +347,7 @@ fn request_input(path: &Path) -> Result<Input> {
     extensions: vec![".nwk".to_owned(); request.trees.len()],
     seed: request.settings.seed,
     request: Some(request),
+    read_errors: Vec::new(),
   })
 }
 
@@ -553,11 +571,12 @@ fn former_options(cli: &Cli, k: usize) -> Options {
 }
 
 /// Labels of the command line for tree files: the file stem, or, when stems collide, the stem
-/// and the parent directory (`a/ha.nwk` and `b/ha.nwk` give `ha_a` and `ha_b`); a remaining
-/// collision is an error. Labels collide when their `analysis::label_key` is equal, as in the
-/// label check, so `a/HA.nwk` and `b/ha.nwk` also get the parent directory. The web app labels trees by file name only
-/// (`treeknit_io::analysis::tree_labels`), because it has no directories.
-fn path_labels(paths: &[PathBuf]) -> Result<Vec<String>> {
+/// and the parent directory (`a/ha.nwk` and `b/ha.nwk` give `ha_a` and `ha_b`). Labels collide
+/// when their `analysis::label_key` is equal, as in the label check, so `a/HA.nwk` and
+/// `b/ha.nwk` also get the parent directory; the label check reports a collision that remains.
+/// The web app labels trees by file name only (`treeknit_io::analysis::tree_labels`), because it
+/// has no directories.
+fn path_labels(paths: &[PathBuf]) -> Vec<String> {
   let stem = |p: &Path| {
     p.file_stem()
       .map(|s| s.to_string_lossy().into_owned())
@@ -578,10 +597,7 @@ fn path_labels(paths: &[PathBuf]) -> Result<Vec<String>> {
       })
       .collect();
   }
-  if !unique(&labels) {
-    bail!("input trees must be identifiable by file name");
-  }
-  Ok(labels)
+  labels
 }
 
 /// File extension of `path` with its dot, or empty without one: the output trees of an input

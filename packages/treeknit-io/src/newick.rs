@@ -302,7 +302,7 @@ fn fix_names(t: &mut Tree) -> Result<(), ParseError> {
       return Err(ParseError::new("unnamed leaf"));
     }
     if !leaves.insert(name.clone()) {
-      return Err(ParseError::new(format!("duplicate leaf name {name}")));
+      return Err(ParseError::new(format!("duplicate leaf name {name:?}")));
     }
   }
   let mut seen = leaves;
@@ -498,7 +498,7 @@ mod tests {
   fn tree_error_has_no_offset() {
     let e = parse("(A,A);", "t").unwrap_err();
     assert_eq!(None, e.offset);
-    assert_eq!("Newick parse error: duplicate leaf name A", e.to_string());
+    assert_eq!("Newick parse error: duplicate leaf name \"A\"", e.to_string());
   }
 
   #[test]

@@ -274,7 +274,7 @@ mod tests {
     let inspection = inspect_tree("t", "(A,A);\n(A,B);\n");
     let expected = (
       vec!["more than one tree in file, using the first".to_owned()],
-      Some("duplicate leaf name A".to_owned()),
+      Some("duplicate leaf name \"A\"".to_owned()),
     );
     assert_eq!(expected, (inspection.warnings, inspection.error.map(|e| e.message)));
   }
@@ -289,7 +289,7 @@ mod tests {
   #[test]
   fn inspect_tree_reports_an_error_without_position() {
     let expected = Some(TreeError {
-      message: "duplicate leaf name A".into(),
+      message: "duplicate leaf name \"A\"".into(),
       line: None,
       column: None,
     });

@@ -150,11 +150,55 @@ mod tests {
   }
 
   #[test]
+  fn too_few_tree_files_are_reported_with_the_flag_errors() {
+    let f = fail("one-file", &[HA], &["--gamma=-1"]);
+    let expected = "need at least two trees\ngamma must be a non-negative number, got -1";
+    assert_failed(&f, expected, "one file");
+  }
+
+  #[test]
+  fn unreadable_tree_files_are_reported_with_the_flag_errors() {
+    // The relative path names no file in the directory of the test.
+    let f = fail("unreadable", &[HA, NA], &["missing-tree-file.nwk", "--gamma=-1"]);
+    let expected = "missing-tree-file.nwk: cannot read the file: No such file or directory (os error 2)\n\
+      gamma must be a non-negative number, got -1";
+    assert_failed(&f, expected, "unreadable");
+  }
+
+  #[test]
+  fn labels_that_stay_equal_with_their_directory_are_reported_with_the_flag_errors() {
+    // `a/x/ha.nwk` and `b/x/ha.nwk` both get the label `ha_x`.
+    let dir = TempDir::new("labels-equal");
+    let paths: Vec<PathBuf> = [("a/x", HA), ("b/x", NA)]
+      .iter()
+      .map(|(sub, newick)| {
+        std::fs::create_dir_all(dir.path().join(sub)).unwrap();
+        write_trees(&dir.path().join(sub), &[("ha", newick)]).remove(0)
+      })
+      .collect();
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .args(&paths)
+      .args(["--gamma=-1", "-o"])
+      .arg(dir.path().join("out"))
+      .args(["--verbosity-level", "-1"])
+      .output()
+      .unwrap();
+    let expected = format!(
+      "Error: {}: tree label \"ha_x\" is used twice\ngamma must be a non-negative number, got -1\n",
+      paths[1].display()
+    );
+    assert_eq!(
+      (Some(1), expected),
+      (output.status.code(), String::from_utf8(output.stderr).unwrap())
+    );
+  }
+
+  #[test]
   fn tree_errors_name_the_input_file_and_position() {
     let f = fail("parse", &[HA, "((A,B),\n(C,D)x y);", "((A,A),(C,D));"], &[]);
     let expected = format!(
       "{}:2:8: tree \"t1\": Newick parse error: expected ',' or ')' at byte 15\n\
-       {}: tree \"t2\": Newick parse error: duplicate leaf name A",
+       {}: tree \"t2\": Newick parse error: duplicate leaf name \"A\"",
       f.dir.path().join("t1.nwk").display(),
       f.dir.path().join("t2.nwk").display(),
     );
