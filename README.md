@@ -34,6 +34,7 @@ Main options:
 | `--auspice-view` | auspice JSON for tanglegrams |
 | `--seed`, `--threads` | reproducibility and parallelism |
 | `-v`, `--verbosity-level` | logging detail |
+| `--request treeknit_request.json` | run the trees and settings of a session file saved by the web app, instead of tree files and analysis options |
 
 Output in the results directory:
 
@@ -47,6 +48,7 @@ Output in the results directory:
 | `ARG/nodes.dat` | ARG node ↔ tree node table |
 | `ARG/<tree>_liberal_resolved.nwk` | the trees the ARG was built from |
 | `parameters.json`, `log.txt` | parameters and log of the run |
+| `treeknit_request.json` | with `--request`: the trees and settings that ran |
 
 ## Resolving trees
 
