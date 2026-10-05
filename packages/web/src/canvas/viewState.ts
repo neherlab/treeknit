@@ -74,8 +74,12 @@ export function viewStateAt(frame: CanvasFrame, zoom: number, center: number): T
   const leaf = Math.min(Math.max(zoom, minZoom), maxZoom);
   const halfVisible = leafExtent(frame) / 2 / 2 ** leaf;
   const [low, high] = leafBounds(frame.rows);
+
   const leafCenter =
-    high - low <= 2 * halfVisible ? (low + high) / 2 : Math.min(Math.max(center, low + halfVisible), high - halfVisible);
+    high - low <= 2 * halfVisible
+      ? (low + high) / 2
+      : Math.min(Math.max(center, low + halfVisible), high - halfVisible);
+
   const crossCenter = crossExtent(frame) / 2;
 
   return frame.leafAxis === "y"

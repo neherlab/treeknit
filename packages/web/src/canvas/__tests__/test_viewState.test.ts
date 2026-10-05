@@ -19,12 +19,6 @@ const WIDE: CanvasFrame = { size: { width: 800, height: 600 }, rows: 300, leafAx
 
 const NARROW: CanvasFrame = { size: { width: 500, height: 700 }, rows: 300, leafAxis: "x" };
 
-function project(state: TreeViewState, frame: CanvasFrame, cross: number, leaf: number): number[] {
-  const viewport = new OrthographicViewport({ ...frame.size, ...state });
-
-  return viewport.project(worldPosition(frame.leafAxis, cross, leaf));
-}
-
 function crossSpan(state: TreeViewState, frame: CanvasFrame): [number, number] {
   const axis = frame.leafAxis === "y" ? 0 : 1;
   const extent = frame.leafAxis === "y" ? frame.size.width : frame.size.height;
@@ -32,6 +26,12 @@ function crossSpan(state: TreeViewState, frame: CanvasFrame): [number, number] {
   const end = project(state, frame, extent, 10)[axis] ?? Number.NaN;
 
   return [start, end];
+}
+
+function project(state: TreeViewState, frame: CanvasFrame, cross: number, leaf: number): number[] {
+  const viewport = new OrthographicViewport({ ...frame.size, ...state });
+
+  return viewport.project(worldPosition(frame.leafAxis, cross, leaf));
 }
 
 describe("fitViewState", () => {
@@ -59,19 +59,31 @@ describe("fitViewState", () => {
 });
 
 describe("view-state update", () => {
-  test.each([WIDE, NARROW])("keeps the projected cross span after leaf zoom and pan (%o)", (frame) => {
+  const updates = [WIDE, NARROW].flatMap((frame) => {
     const fitted = fitViewState(frame);
     const zoomed = zoomViewState(fitted, frame, 8);
-    const panned = panViewState(zoomed, frame, 220);
-    const wheel = constrainViewState(
-      { target: [12_345, -9_876], zoomX: zoomed.zoomX + 1.5, zoomY: zoomed.zoomY + 1.5 },
-      frame,
-    );
 
-    for (const state of [zoomed, panned, wheel]) {
-      expect(crossSpan(state, frame)).toStrictEqual(crossSpan(fitted, frame));
-    }
+    return [
+      { frame, change: "toolbar zoom", fitted, state: zoomed },
+      { frame, change: "pan", fitted, state: panViewState(zoomed, frame, 220) },
+      {
+        frame,
+        change: "wheel zoom on both axes with a target outside the drawing",
+        fitted,
+        state: constrainViewState(
+          { target: [12_345, -9_876], zoomX: zoomed.zoomX + 1.5, zoomY: zoomed.zoomY + 1.5 },
+          frame,
+        ),
+      },
+    ];
   });
+
+  test.each(updates)(
+    "keeps the projected cross span after $change on leaf axis $frame.leafAxis",
+    ({ frame, fitted, state }) => {
+      expect(crossSpan(state, frame)).toStrictEqual(crossSpan(fitted, frame));
+    },
+  );
 
   test("zooms the leaf axis by the toolbar factor", () => {
     const zoomed = zoomViewState(fitViewState(WIDE), WIDE, 2);
@@ -120,7 +132,9 @@ describe("fitRowsViewState", () => {
   });
 
   test("accepts the rows in either order", () => {
-    expect(fitRowsViewState(WIDE, { first: 59, last: 40 })).toStrictEqual(fitRowsViewState(WIDE, { first: 40, last: 59 }));
+    expect(fitRowsViewState(WIDE, { first: 59, last: 40 })).toStrictEqual(
+      fitRowsViewState(WIDE, { first: 40, last: 59 }),
+    );
   });
 
   test("centers a subtree too small to fill the canvas at the largest row height", () => {
