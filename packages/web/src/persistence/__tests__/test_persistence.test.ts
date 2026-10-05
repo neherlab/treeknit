@@ -320,7 +320,7 @@ describe("workspace persistence", () => {
     });
   });
 
-  test("a change made while turning the switch on is stored before the switch is on", async () => {
+  test("a change made while the session file of turning on is written is saved after the save delay", async () => {
     const storage = new MemoryStorage();
     const tab = new Tab(storage);
 
@@ -330,11 +330,14 @@ describe("workspace persistence", () => {
     tab.persistence.changed(TWO_TREES);
     tab.files.release();
     await enabling;
+    const enabled = { record: storage.record, switches: [...tab.switches] };
 
-    expect({ record: storage.record, writes: storage.writes, switches: tab.switches }).toStrictEqual({
-      record: workspaceRecord(1, TWO_TREES),
-      writes: 1,
-      switches: [true],
+    await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
+
+    expect({ enabled, saved: storage.record, writes: storage.writes }).toStrictEqual({
+      enabled: { record: workspaceRecord(1, ONE_TREE), switches: [true] },
+      saved: workspaceRecord(1, TWO_TREES),
+      writes: 2,
     });
   });
 

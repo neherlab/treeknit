@@ -86,6 +86,11 @@ interface WorkspaceBasis {
   settings: Settings;
 }
 
+interface LabelledTrees {
+  trees: WorkspaceTree[];
+  labelled: { tree: NewTree; label: string }[];
+}
+
 export interface RestoredWorkspace {
   request: AnalysisRequest;
   sources: readonly TreeSource[];
@@ -112,18 +117,27 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
         return state.trees === basis.trees && state.settings === basis.settings;
       };
 
-      const addNow = async (newTrees: readonly NewTree[], replacement: number): Promise<void> => {
-        const before = get();
+      const labelNewTrees = async (newTrees: readonly NewTree[], trees: WorkspaceTree[]): Promise<LabelledTrees> => {
         const automatic = newTrees.filter((tree) => tree.label === undefined);
         const explicitLabels = newTrees.flatMap((tree) => (tree.label === undefined ? [] : [tree.label]));
-        const existingLabels = [...before.trees.map((tree) => tree.label), ...explicitLabels];
+        const existingLabels = [...trees.map((tree) => tree.label), ...explicitLabels];
 
         const labels = await services.treeLabels(
           automatic.map((tree) => sourceFileName(tree.source)),
           existingLabels,
         );
 
-        const labelled = assignLabels(newTrees, labels);
+        return { trees, labelled: assignLabels(newTrees, labels) };
+      };
+
+      const addNow = async (
+        newTrees: readonly NewTree[],
+        replacement: number,
+        previous?: LabelledTrees,
+      ): Promise<void> => {
+        const before = get();
+        const current = previous?.trees === before.trees ? previous : await labelNewTrees(newTrees, before.trees);
+        const { labelled } = current;
         const schema = await services.settingsSchema(before.trees.length + newTrees.length, before.settings);
 
         if (revisions.replacement !== replacement) {
@@ -131,7 +145,7 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
         }
 
         if (!isCurrent(before)) {
-          await addNow(newTrees, replacement);
+          await addNow(newTrees, replacement, current);
 
           return;
         }

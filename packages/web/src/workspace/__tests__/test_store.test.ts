@@ -142,6 +142,24 @@ describe("workspace store", () => {
     expect(store.getState().trees.map(({ label }) => label)).toStrictEqual(["ha", "ha_2"]);
   });
 
+  test("an add that waits while only the settings change keeps its labels", async () => {
+    const services = fakeServices();
+    const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
+
+    await store.getState().addTrees([{ newick: HA, source: { kind: "file", name: "a.nwk" } }]);
+    const entered = services.schemaGate.hold();
+    const adding = store.getState().addTrees([{ newick: NA, source: { kind: "file", name: "b.nwk" } }]);
+
+    await entered;
+    store.getState().setSettings({ ...store.getState().settings, gamma: 3 });
+    services.schemaGate.release();
+    await adding;
+
+    expect({ labels: store.getState().trees.map(({ label }) => label), labelCalls: services.labelCalls }).toStrictEqual(
+      { labels: ["a", "b"], labelCalls: 2 },
+    );
+  });
+
   test("an add that waits while sequence lengths turn on appends a sequence length", async () => {
     const services = fakeServices();
     const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
@@ -614,6 +632,7 @@ class FakeServices implements WorkspaceServices {
   failNextLabels = false;
   dropLabel = false;
   cancelled = 0;
+  labelCalls = 0;
   readonly labelsGate = new Gate();
   readonly schemaGate = new Gate();
 
@@ -622,6 +641,7 @@ class FakeServices implements WorkspaceServices {
   }
 
   async treeLabels(fileNames: string[], existingLabels: string[]): Promise<string[]> {
+    this.labelCalls += 1;
     await this.labelsGate.pass();
 
     if (this.failNextLabels) {

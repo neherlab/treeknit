@@ -223,12 +223,6 @@ export class WorkspacePersistence {
       return;
     }
 
-    if (enabling.latest !== written) {
-      await this.#enable(enabling, epoch);
-
-      return;
-    }
-
     const generation = await this.#write(epoch, (current) => ({
       kind: "workspace",
       version: RECORD_VERSION,
