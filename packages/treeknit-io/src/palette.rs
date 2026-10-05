@@ -1,5 +1,5 @@
-//! Colors of the drawings, for the light and the dark theme. The SVG figures and the
-//! interactive views draw with these values, and the CSS tokens of the web app equal them.
+//! Colors of the drawings, for the light and the dark theme. The CSS color tokens of the web app
+//! equal them.
 //!
 //! Contrast: every MCC slot and the "no MCC" color reach 3:1 against the ground of its theme
 //! (WCAG 2.2 relative luminance, the minimum for graphic marks). A color that fell short had only
@@ -8,7 +8,8 @@
 //! 2.21:1), slot 6 (orange, `#d07a1e` at 2.96:1), and "no MCC" (`#9aa5a2` at 2.32:1) were
 //! darkened. In the dark theme, slots 0, 3, and 4 were lightened from the light hues.
 //!
-//! Color-vision check: the slots were simulated for protanopia, deuteranopia, and tritanopia
+//! Color-vision check (measured when the colors were chosen; no test repeats it): the slots were
+//! simulated for protanopia, deuteranopia, and tritanopia
 //! with the matrices of Machado, Oliveira, and Fernandes (2009, severity 1), and compared by
 //! CIEDE2000 color difference. With the contrast-fitted colors, gold and orange (slots 1 and 6)
 //! differed by only 1.7 under deuteranopia and 2.5 under protanopia, blue and purple (slots 0 and
