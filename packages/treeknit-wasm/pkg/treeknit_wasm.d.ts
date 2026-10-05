@@ -1,6 +1,22 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+ * A coloring of the Auspice view.
+ */
+export interface AuspiceColoring {
+    /**
+     * Key of the node attribute.
+     */
+    key: string;
+    title: string;
+    type: AuspiceColoringKind;
+    /**
+     * `[value, color]` per value, the color as `#rrggbb`.
+     */
+    scale: [string, string][];
+}
+
+/**
  * A cubic Bézier segment.
  */
 export interface Bezier {
@@ -97,6 +113,22 @@ export interface DrawNode {
 }
 
 /**
+ * A node of an Auspice tree.
+ */
+export interface AuspiceNode {
+    /**
+     * The node's `DrawNode.name`, unique within the tree.
+     */
+    name: string;
+    node_attrs: AuspiceNodeAttrs;
+    branch_attrs: AuspiceBranchAttrs;
+    /**
+     * The children in display order; absent for a leaf.
+     */
+    children?: AuspiceNode[];
+}
+
+/**
  * A node of an `ArgView`.
  */
 export interface ArgNodeView {
@@ -184,6 +216,11 @@ export interface NumberSetting {
      */
     help: string;
 }
+
+/**
+ * A panel of the Auspice view.
+ */
+export type AuspicePanel = "tree";
 
 /**
  * A point `[x, y]` in normalized units.
@@ -292,6 +329,15 @@ export interface DrawTree {
      * One node per tree node, indexed from 0 in preorder; node 0 is the root.
      */
     nodes: DrawNode[];
+}
+
+/**
+ * An Auspice v2 dataset of one tree, with the field names of Auspice's schema.
+ */
+export interface AuspiceDataset {
+    version: AuspiceSchema;
+    meta: AuspiceMeta;
+    tree: AuspiceNode;
 }
 
 /**
@@ -851,6 +897,46 @@ export interface AppVersion {
 }
 
 /**
+ * The `meta` section of an Auspice dataset.
+ */
+export interface AuspiceMeta {
+    title: string;
+    panels: AuspicePanel[];
+    colorings: AuspiceColoring[];
+    /**
+     * Keys of the colorings that Auspice offers as filters.
+     */
+    filters: string[];
+    display_defaults: AuspiceDisplayDefaults;
+}
+
+/**
+ * The attributes of an Auspice node.
+ */
+export interface AuspiceNodeAttrs {
+    /**
+     * Position from the root: `DrawNode.x_div` for the scale `div`, `DrawNode.x_depth` for
+     * `depth`.
+     */
+    div: number;
+    /**
+     * The number of the node's MCC, its index in `MCCs.json` plus 1; absent for a node without
+     * an MCC.
+     */
+    mcc?: AuspiceValue;
+}
+
+/**
+ * The attributes of the branch above an Auspice node.
+ */
+export interface AuspiceBranchAttrs {
+    /**
+     * Absent for a branch without labels.
+     */
+    labels?: AuspiceBranchLabels;
+}
+
+/**
  * The dotted line from a leaf tip to the label edge of its tree column, at x = 1, so that the
  * labels align when the tips do not. A leaf at the label edge has a leader of length 0.
  */
@@ -964,6 +1050,16 @@ export interface DrawingRules {
 }
 
 /**
+ * The labels of an Auspice branch.
+ */
+export interface AuspiceBranchLabels {
+    /**
+     * The number of the MCC that starts at this branch, on a reassortment branch.
+     */
+    MCC: string;
+}
+
+/**
  * The rectangular branch above a node: from (parent x, parent y) to (parent x, node y) to
  * (node x, node y).
  */
@@ -1032,6 +1128,20 @@ export interface SettingFields {
     finalRound: ToggleSetting;
     likelihood: ToggleSetting;
     naive: ToggleSetting;
+}
+
+/**
+ * The settings that Auspice starts with.
+ */
+export interface AuspiceDisplayDefaults {
+    /**
+     * Key of the coloring.
+     */
+    color_by: string;
+    /**
+     * Key of the branch label.
+     */
+    branch_label: string;
 }
 
 /**
@@ -1142,12 +1252,38 @@ export interface Link {
 }
 
 /**
+ * The two trees of a pair as Auspice v2 datasets, for Auspice's tanglegram: `left` is the main
+ * tree and `right` the second tree. Auspice joins the tips of the two trees by name.
+ */
+export interface AuspicePair {
+    left: AuspiceDataset;
+    right: AuspiceDataset;
+}
+
+/**
+ * The value of a categorical node attribute.
+ */
+export interface AuspiceValue {
+    value: string;
+}
+
+/**
  * Trees to compare, and the settings of the analysis.
  */
 export interface AnalysisRequest {
     trees: TreeText[];
     settings?: Settings;
 }
+
+/**
+ * Type of an Auspice coloring.
+ */
+export type AuspiceColoringKind = "categorical";
+
+/**
+ * Version of the Auspice dataset schema.
+ */
+export type AuspiceSchema = "v2";
 
 /**
  * Version of the trees of a pair: input, resolved, or imputed.
@@ -1179,6 +1315,11 @@ export class Session {
      * The ARG laid out with `scale`; `undefined` for more than two trees or a failed ARG.
      */
     argView(scale: Scale): ArgView | undefined;
+    /**
+     * The trees of pair `pair` (pipeline order) in `version` as Auspice datasets, with `div` from
+     * `scale`: the trees of `pairView`, colored by MCC.
+     */
+    auspiceView(pair: number, version: TreeVersion, scale: Scale): AuspicePair;
     /**
      * The command that reproduces the file set of the run from the extracted archive.
      */
@@ -1304,6 +1445,7 @@ export interface InitOutput {
     readonly requestFile: (a: any) => [number, number, number];
     readonly session_argFigure: (a: number, b: any) => [number, number, number, number];
     readonly session_argView: (a: number, b: any) => [number, number, number];
+    readonly session_auspiceView: (a: number, b: number, c: any, d: any) => [number, number, number];
     readonly session_commandLine: (a: number) => [number, number];
     readonly session_constellation: (a: number) => [number, number, number];
     readonly session_figure: (a: number, b: number, c: any, d: any) => [number, number, number, number];

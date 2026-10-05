@@ -672,6 +672,44 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
+  fn session_auspice_view_of_the_two_tree_example_has_the_leaves_of_the_pair_view() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let (version, scale) = (ts(&json!("resolved")), ts(&json!("div")));
+    let pair = plain(&session.pair_view(0, &version, &scale).unwrap().js_value());
+    let auspice = plain(&session.auspice_view(0, &version, &scale).unwrap().js_value());
+    for side in ["left", "right"] {
+      let drawn: Vec<&Value> = pair[side]["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|n| n["leaf"] == json!(true))
+        .map(|n| &n["name"])
+        .collect();
+      // The leaves of the nested Auspice tree in preorder.
+      let mut leaves = Vec::new();
+      let mut stack = vec![&auspice[side]["tree"]];
+      while let Some(n) = stack.pop() {
+        match n.get("children") {
+          Some(children) => stack.extend(children.as_array().unwrap().iter().rev()),
+          None => leaves.push(&n["name"]),
+        }
+      }
+      assert_eq!(drawn, leaves, "{side}");
+      assert_eq!(json!("v2"), auspice[side]["version"]);
+      assert_eq!(json!("mcc"), auspice[side]["meta"]["display_defaults"]["color_by"]);
+    }
+  }
+
+  #[wasm_bindgen_test]
+  fn session_auspice_view_of_an_unknown_pair_throws() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    match session.auspice_view(1, &ts(&json!("resolved")), &ts(&json!("div"))) {
+      Ok(_) => panic!("expected an error"),
+      Err(e) => assert_eq!("no pair 1: the run has 1 pair", message(e)),
+    }
+  }
+
+  #[wasm_bindgen_test]
   fn session_arg_view_of_the_two_tree_example_is_plain() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let view = plain(&session.arg_view(&ts(&json!("depth"))).unwrap().unwrap().js_value());

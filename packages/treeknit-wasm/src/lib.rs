@@ -6,7 +6,9 @@ use serde::de::DeserializeOwned;
 use std::cell::{OnceCell, RefCell};
 use treeknit_core::Options;
 use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
-use treeknit_io::display::{self, ArgView, ConstellationTable, DrawingRules, PairView, Scale, TreeVersion};
+use treeknit_io::display::{
+  self, ArgView, AuspicePair, ConstellationTable, DrawingRules, PairView, Scale, TreeVersion,
+};
 use treeknit_io::figure::FigureOptions;
 use treeknit_io::inspect::{self, Overlap, TreeInspection};
 use treeknit_io::output::{self, Archive, FigureFile, FileEntry, OutputFile, OutputOptions, WebFile};
@@ -273,6 +275,23 @@ impl Session {
     let scale = from_js("scale", scale)?;
     let view =
       display::pair_view(&self.run, &self.options, pair, version, scale).ok_or_else(|| no_pair(&self.run, pair))?;
+    to_js(&view)
+  }
+
+  /// The trees of pair `pair` (pipeline order) in `version` as Auspice datasets, with `div` from
+  /// `scale`: the trees of `pairView`, colored by MCC.
+  #[wasm_bindgen(js_name = auspiceView)]
+  pub fn auspice_view(
+    &self,
+    pair: usize,
+    version: &Ts<TreeVersion>,
+    scale: &Ts<Scale>,
+  ) -> Result<Ts<AuspicePair>, JsError> {
+    let _log = log_capture::discard();
+    let version = from_js("version", version)?;
+    let scale = from_js("scale", scale)?;
+    let view =
+      display::auspice_view(&self.run, &self.options, pair, version, scale).ok_or_else(|| no_pair(&self.run, pair))?;
     to_js(&view)
   }
 
