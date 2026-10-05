@@ -69,7 +69,7 @@ describe("delayed indicator", () => {
     expect(changes).toStrictEqual([true]);
   });
 
-  test("restarts the delay after a hidden reset", () => {
+  test("hides at once on a reset of a visible indicator and restarts the delay", () => {
     const { changes, indicator } = recording();
 
     indicator.set(true);
@@ -81,6 +81,36 @@ describe("delayed indicator", () => {
     vi.advanceTimersByTime(1);
 
     expect({ before, after: changes }).toStrictEqual({ before: [true, false], after: [true, false, true] });
+  });
+
+  test("a reset before the delay cancels the pending appearance", () => {
+    const { changes, indicator } = recording();
+
+    indicator.set(true);
+    vi.advanceTimersByTime(INDICATOR_DELAY_MS - 1);
+    indicator.reset();
+    vi.advanceTimersByTime(INDICATOR_DELAY_MS + INDICATOR_MINIMUM_MS);
+
+    expect(changes).toStrictEqual([]);
+  });
+
+  test("a reset ends the minimum time of the earlier appearance", () => {
+    const { changes, indicator } = recording();
+
+    indicator.set(true);
+    vi.advanceTimersByTime(INDICATOR_DELAY_MS);
+    indicator.reset();
+    indicator.set(true);
+    vi.advanceTimersByTime(INDICATOR_DELAY_MS);
+    indicator.set(false);
+    vi.advanceTimersByTime(INDICATOR_MINIMUM_MS - 1);
+    const before = [...changes];
+    vi.advanceTimersByTime(1);
+
+    expect({ before, after: changes }).toStrictEqual({
+      before: [true, false, true],
+      after: [true, false, true, false],
+    });
   });
 });
 
