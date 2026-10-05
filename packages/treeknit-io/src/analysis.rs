@@ -248,6 +248,12 @@ pub fn check_settings(s: &Settings, k: usize) -> Vec<ValidationError> {
   }
   if s.rounds == 0 {
     errors.push(ValidationError::at("settings.rounds", "rounds must be at least 1"));
+  } else if s.rounds.checked_add(1).is_none() {
+    // The core counts the final round without resolution on top of `rounds`.
+    errors.push(ValidationError::at(
+      "settings.rounds",
+      format!("rounds must be less than {}, got {}", usize::MAX, s.rounds),
+    ));
   }
   if s.n_mcmc_it == 0 {
     errors.push(ValidationError::at(
@@ -755,6 +761,18 @@ mod tests {
   #[trace]
   fn valid_settings_are_accepted(#[case] s: Settings) {
     assert_eq!(Vec::<ValidationError>::new(), check_settings(&s, 2));
+  }
+
+  #[test]
+  fn rounds_leave_room_for_the_final_round() {
+    // Strict resolution of three trees adds a final round on top of `rounds`.
+    let s = |rounds| Settings { rounds, resolve: ResolveMode::Strict, ..Settings::default() };
+    let expected = vec![error(
+      "settings.rounds",
+      &format!("rounds must be less than {0}, got {0}", usize::MAX),
+    )];
+    assert_eq!(expected, check_settings(&s(usize::MAX), 3));
+    assert_eq!(Vec::<ValidationError>::new(), check_settings(&s(usize::MAX - 1), 3));
   }
 
   #[test]
