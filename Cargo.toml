@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/treeknit-core", "crates/treeknit-io", "crates/treeknit-cli"]
+members = ["packages/treeknit-core", "packages/treeknit-io", "packages/treeknit-cli"]
 
 [workspace.package]
 version = "0.1.0"
@@ -8,8 +8,8 @@ edition = "2021"
 license = "MIT"
 
 [workspace.dependencies]
-treeknit-core = { path = "crates/treeknit-core" }
-treeknit-io = { path = "crates/treeknit-io" }
+treeknit-core = { path = "packages/treeknit-core" }
+treeknit-io = { path = "packages/treeknit-io" }
 fixedbitset = "0.5"
 rand = "0.8"
 rand_xoshiro = "0.6"
