@@ -8,6 +8,7 @@ import { useErrorBoundary } from "react-error-boundary";
 import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
 import { Minimap } from "./Minimap";
 import { useMeasuredSize } from "./useMeasuredSize";
+import { selectionZoomRange } from "./selectionZoomKey";
 import type { TreeView } from "./useTreeView";
 import { type MeasuredSize, minimapShown, type RowRange } from "./viewState";
 import { browserSupportsWebGl2, WEBGL2_MISSING } from "./webgl";
@@ -124,11 +125,11 @@ export function TreeCanvas({
 
   const { keyboardProps } = useKeyboard({
     onKeyDown: (event) => {
-      const range = event.key === "Enter" ? onSelectionZoom?.() : undefined;
+      const range = selectionZoomRange(event, onSelectionZoom);
 
-      if (range === undefined) {
+      if (range === null) {
         event.continuePropagation();
-      } else if (range !== null) {
+      } else {
         actions.fitRows(range);
       }
     },
