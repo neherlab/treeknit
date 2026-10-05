@@ -33,7 +33,13 @@ export interface RunResult {
 
 export type UndoEntry =
   | { kind: "tree"; tree: WorkspaceTree; index: number; seqLength: number | null }
-  | { kind: "workspace"; reason: WorkspaceReplacement; trees: WorkspaceTree[]; settings: Settings; result: RunResult | null };
+  | {
+      kind: "workspace";
+      reason: WorkspaceReplacement;
+      trees: WorkspaceTree[];
+      settings: Settings;
+      result: RunResult | null;
+    };
 
 export type WorkspaceReplacement = "clear" | "session";
 
