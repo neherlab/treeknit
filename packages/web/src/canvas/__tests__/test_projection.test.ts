@@ -5,10 +5,13 @@ import type { Bezier, Point } from "@neherlab/treeknit-wasm";
 import {
   type Column,
   columnPixel,
+  CURVE_SEGMENTS_MAX,
+  CURVE_SEGMENTS_MIN,
   cubicPoint,
   projectPath,
   sampleCubic,
   sampleCubicChain,
+  wangSegmentCount,
 } from "../projection";
 
 const LEFT: Column = { start: 10, end: 210, mirrored: false };
@@ -81,16 +84,38 @@ describe("sampleCubic", () => {
   });
 });
 
-describe("sampleCubicChain", () => {
-  test("joins segments without repeating the shared point", () => {
-    const points = sampleCubicChain([LINK, BACK], 4);
+describe("wangSegmentCount", () => {
+  test("uses one segment for a straight curve, whose second differences are zero", () => {
+    const straight: Bezier = { from: [0, 0], c1: [1 / 4, 1], c2: [2 / 4, 2], to: [3 / 4, 3] };
 
-    expect(points).toHaveLength(9);
-    expect(points[4]).toStrictEqual(LINK.to);
+    expect(wangSegmentCount(straight, LEFT)).toBe(CURVE_SEGMENTS_MIN);
+  });
+
+  test("needs ceil(sqrt(3/4 * hypot(100, 320) / 0.5)) = 23 segments for the S-link over 200 px and 5 rows of 64 px", () => {
+    expect(wangSegmentCount(LINK, LEFT, 64)).toBe(23);
+  });
+
+  test("scales with the row height: the S-link at 1 px per row needs ceil(sqrt(3/4 * hypot(100, 5) / 0.5)) = 13", () => {
+    expect(wangSegmentCount(LINK, LEFT, 1)).toBe(13);
+  });
+
+  test("stops at the largest count for a link across 1,000 rows of 64 px", () => {
+    const long: Bezier = { from: [0, 0], c1: [0.5, 0], c2: [0.5, 1_000], to: [1, 1_000] };
+
+    expect(wangSegmentCount(long, LEFT)).toBe(CURVE_SEGMENTS_MAX);
+  });
+});
+
+describe("sampleCubicChain", () => {
+  test("samples each curve by its own count and joins them without repeating the shared point", () => {
+    const points = sampleCubicChain([LINK, BACK], LEFT, 64);
+
+    expect(points).toHaveLength(23 + 23 + 1);
+    expect(points[23]).toStrictEqual(LINK.to);
     expect(points[0]).toStrictEqual(points.at(-1));
   });
 
   test("returns no point for no segment", () => {
-    expect(sampleCubicChain([])).toStrictEqual([]);
+    expect(sampleCubicChain([], LEFT)).toStrictEqual([]);
   });
 });
