@@ -124,7 +124,7 @@ export function isViewAvailable(view: WorkspaceView, availability: WorkspaceAvai
 
 export function resolveWorkspaceSearch(search: WorkspaceSearch, availability: WorkspaceAvailability): WorkspaceSearch {
   const view = isViewAvailable(search.view, availability) ? search.view : WORKSPACE_SEARCH_DEFAULTS.view;
-  const pair = search.pair < availability.pairCount ? search.pair : WORKSPACE_SEARCH_DEFAULTS.pair;
+  const pair = resolvePair(search.pair, availability.pairCount);
   const keepMcc = search.mcc !== undefined && availability.mccExists(pair, search.mcc);
   const keepLeaf = search.leaf !== undefined && availability.leafExists(pair, search.leaf);
   const keepNode = search.node !== undefined && availability.nodeExists(pair, search.node);
@@ -144,6 +144,10 @@ export function resolveWorkspaceSearch(search: WorkspaceSearch, availability: Wo
   }
 
   return resolved;
+}
+
+export function resolvePair(pair: number, pairCount: number): number {
+  return pair < pairCount ? pair : WORKSPACE_SEARCH_DEFAULTS.pair;
 }
 
 export function selectPair(search: WorkspaceSearch, pair: number): WorkspaceSearch {

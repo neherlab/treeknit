@@ -6,6 +6,7 @@ import {
   NO_WORKSPACE,
   type NodeRef,
   parseSearch,
+  resolvePair,
   resolveWorkspaceSearch,
   selectPair,
   stringifySearch,
@@ -275,5 +276,11 @@ describe("selectPair", () => {
     const resolved = resolveWorkspaceSearch(selectPair({ ...DEFAULT_SEARCH, leaf: "X" }, 2), leafOnlyInPairZero);
 
     expect(resolved).toStrictEqual({ ...DEFAULT_SEARCH, pair: 2 });
+  });
+});
+
+describe("resolvePair", () => {
+  test("keeps a pair in range and falls back to the first pair otherwise", () => {
+    expect([resolvePair(2, 3), resolvePair(3, 3), resolvePair(0, 0), resolvePair(5, 0)]).toStrictEqual([2, 0, 0, 0]);
   });
 });

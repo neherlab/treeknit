@@ -5,7 +5,7 @@ import { useCallback, useMemo, useSyncExternalStore } from "react";
 
 import { analysisKeys } from "../analysis/queries";
 import { useWorkspace } from "./context";
-import { NO_WORKSPACE, type NodeRef, type WorkspaceAvailability } from "./search";
+import { NO_WORKSPACE, type NodeRef, resolvePair, type WorkspaceAvailability } from "./search";
 import type { RunResult } from "./store";
 
 const workspaceRoute = getRouteApi("/");
@@ -20,10 +20,16 @@ export function useWorkspaceAvailability(): WorkspaceAvailability {
   const result = useWorkspace((state) => state.result);
   const sessionId = result?.sessionId;
 
-  const { pair, version, x } = workspaceRoute.useSearch({
+  const {
+    pair: searchPair,
+    version,
+    x,
+  } = workspaceRoute.useSearch({
     select: (search) => ({ pair: search.pair, version: search.version, x: search.x }),
     structuralSharing: true,
   });
+
+  const pair = resolvePair(searchPair, result?.summary.pairs.length ?? 0);
 
   const loadedPair = useCachedData((queryClient) =>
     sessionId === undefined
