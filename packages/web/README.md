@@ -15,6 +15,7 @@ The commands are the same in the main checkout and in a worktree; `run-web` prin
 
 - `src/main.tsx`: the start-up: fonts, styles, and the root element
 - `src/index.css`: the Tailwind CSS theme tokens
+- `src/download.ts`: `downloadFile`, the one way the app saves a file: a Blob of the content under an object URL, revoked a minute after the click
 - `src/analysis/example.ts`: the examples: a small pair of trees, the real H3N2 tree pairs of `data/`, and the simulated cases of `fixtures/sim/`, each tree as its file name and Newick text, one lazily loaded chunk per tree file
 - `build/content-security-policy.ts`: the Content Security Policy of the page; `'wasm-unsafe-eval'` lets the page compile WebAssembly
 
@@ -24,4 +25,4 @@ The request and result types are Rust types in `packages/treeknit-wasm/src/analy
 
 ## Tests
 
-`just test-ts` runs the vitest tests in Node over in-memory values: the examples and the Content Security Policy. The analysis itself is tested in Rust (`just test-rs`, `just test-wasm`).
+`just test-ts` runs the vitest tests in Node over in-memory values: the examples, the download helper, and the Content Security Policy. The analysis itself is tested in Rust (`just test-rs`, `just test-wasm`).
