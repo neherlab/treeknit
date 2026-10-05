@@ -20,6 +20,7 @@
 //! theme; slots 0 and 5 were changed in the dark theme. Without simulation the smallest
 //! difference is 14.9 (light) and 7.6 (dark).
 
+use crate::display::MCC_SLOTS;
 use serde::Serialize;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
@@ -39,7 +40,11 @@ pub struct Palette {
 #[serde(rename_all = "camelCase")]
 pub struct ThemeColors {
   /// The eight MCC color slots.
-  pub mcc: [String; 8],
+  #[cfg_attr(
+    feature = "tsify",
+    tsify(type = "[string, string, string, string, string, string, string, string]")
+  )]
+  pub mcc: [String; MCC_SLOTS],
   /// Branches of nodes without an MCC.
   pub no_mcc: String,
   pub ground: String,
@@ -81,7 +86,7 @@ pub fn palette() -> Palette {
 /// The colors of one theme: the MCC slots, "no MCC", and the interface colors ground, ink,
 /// ink-muted, signal, focus, segment A, and segment B.
 fn theme(
-  mcc: [&str; 8],
+  mcc: [&str; MCC_SLOTS],
   no_mcc: &str,
   [ground, ink, ink_muted, signal, focus, segment_a, segment_b]: [&str; 7],
 ) -> ThemeColors {
@@ -177,7 +182,7 @@ mod tests {
     });
     let mut expected: Vec<String> = c.mcc.iter().map(|m| m.to_lowercase()).collect();
     expected.push(c.no_mcc.to_lowercase());
-    let mut actual: Vec<String> = (0..8).map(|i| tokens[format!("mcc-{i}").as_str()].clone()).collect();
+    let mut actual: Vec<String> = (0..MCC_SLOTS).map(|i| tokens[format!("mcc-{i}").as_str()].clone()).collect();
     actual.push(tokens["mcc-none"].clone());
     assert_eq!(expected, actual);
   }
