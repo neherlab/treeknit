@@ -5,6 +5,7 @@ import { useCallback, useMemo } from "react";
 import { useDrawingColors } from "../canvas/drawingColors";
 import { labelsVisible, ribbonsShown, useLabelFontReady } from "../canvas/labels";
 import { useFadeIn } from "../canvas/motion";
+import { curveRowPx } from "../canvas/projection";
 import { TreeCanvas } from "../canvas/TreeCanvas";
 import type { TreeView } from "../canvas/useTreeView";
 import { crossExtent, type RowRange } from "../canvas/viewState";
@@ -52,7 +53,13 @@ export default function TanglegramCanvas({
     [crossPx, longestLabel],
   );
 
-  const geometry = useMemo(() => tanglegramGeometry(data, columns, leafAxis), [data, columns, leafAxis]);
+  const sampledRowPx = curveRowPx(rowPx);
+
+  const geometry = useMemo(
+    () => tanglegramGeometry(data, columns, leafAxis, sampledRowPx),
+    [data, columns, leafAxis, sampledRowPx],
+  );
+
   const emphasis = useMemo(() => pairEmphasis(data, selection), [data, selection]);
   const ribbons = ribbonsShown(rowPx);
   const labelsShown = leafAxis === "y" && labelsVisible(labels, rowPx);

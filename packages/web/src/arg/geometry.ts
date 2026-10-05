@@ -67,11 +67,11 @@ export function argColumn(crossPx: number, longestLabelPx: number): Column {
   };
 }
 
-export function argGeometry(view: ArgView, column: Column, leafAxis: LeafAxis): ArgGeometry {
+export function argGeometry(view: ArgView, column: Column, leafAxis: LeafAxis, curveRowPx: number): ArgGeometry {
   const item = ({ edge, path }: DrawnEdge): EdgeItem => ({
     edge,
     segments: view.edges[edge]?.segments ?? [],
-    path: projectPath(edgePoints(path, column), column, leafAxis),
+    path: projectPath(edgePoints(path, column, curveRowPx), column, leafAxis),
   });
 
   const reticulation = (drawn: DrawnEdge) => view.edges[drawn.edge]?.reticulation ?? false;
@@ -118,6 +118,6 @@ function nodeTarget(item: { node: number } | undefined): ArgTarget | undefined {
   return item === undefined ? undefined : { kind: "node", node: item.node };
 }
 
-function edgePoints(path: EdgePath, column: Column) {
-  return path.kind === "elbow" ? path.points : sampleCubic(path.curve, wangSegmentCount(path.curve, column));
+function edgePoints(path: EdgePath, column: Column, curveRowPx: number) {
+  return path.kind === "elbow" ? path.points : sampleCubic(path.curve, wangSegmentCount(path.curve, column, curveRowPx));
 }

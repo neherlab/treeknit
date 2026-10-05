@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 
 import { useDrawingColors } from "../canvas/drawingColors";
 import { labelsVisible, useLabelFontReady } from "../canvas/labels";
+import { curveRowPx } from "../canvas/projection";
 import { TreeCanvas } from "../canvas/TreeCanvas";
 import type { TreeView } from "../canvas/useTreeView";
 import { crossExtent, type RowRange } from "../canvas/viewState";
@@ -36,7 +37,13 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
   }, [data, labelled, fontReady]);
 
   const column = useMemo(() => argColumn(crossPx, longestLabel), [crossPx, longestLabel]);
-  const geometry = useMemo(() => argGeometry(data, column, leafAxis), [data, column, leafAxis]);
+  const sampledRowPx = curveRowPx(rowPx);
+
+  const geometry = useMemo(
+    () => argGeometry(data, column, leafAxis, sampledRowPx),
+    [data, column, leafAxis, sampledRowPx],
+  );
+
   const emphasis = useMemo(() => argEmphasis(data, selection), [data, selection]);
   const labelsShown = leafAxis === "y" && labelsVisible(labels, rowPx);
 

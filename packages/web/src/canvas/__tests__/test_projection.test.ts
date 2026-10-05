@@ -4,9 +4,9 @@ import { describe, expect, test } from "vitest";
 import {
   type Column,
   columnPixel,
-  CURVE_SEGMENTS_MAX,
   CURVE_SEGMENTS_MIN,
   cubicPoint,
+  curveRowPx,
   projectPath,
   sampleCubic,
   sampleCubicChain,
@@ -87,7 +87,7 @@ describe("wangSegmentCount", () => {
   test("uses one segment for a straight curve, whose second differences are zero", () => {
     const straight: Bezier = { from: [0, 0], c1: [1 / 4, 1], c2: [2 / 4, 2], to: [3 / 4, 3] };
 
-    expect(wangSegmentCount(straight, LEFT)).toBe(CURVE_SEGMENTS_MIN);
+    expect(wangSegmentCount(straight, LEFT, 64)).toBe(CURVE_SEGMENTS_MIN);
   });
 
   test("needs ceil(sqrt(3/4 * hypot(100, 320) / 0.5)) = 23 segments for the S-link over 200 px and 5 rows of 64 px", () => {
@@ -98,10 +98,30 @@ describe("wangSegmentCount", () => {
     expect(wangSegmentCount(LINK, LEFT, 1)).toBe(13);
   });
 
-  test("stops at the largest count for a link across 1,000 rows of 64 px", () => {
+  test("needs ceil(sqrt(3/4 * hypot(100, 64000) / 0.5)) = 310 segments for a link across 1,000 rows of 64 px", () => {
     const long: Bezier = { from: [0, 0], c1: [0.5, 0], c2: [0.5, 1_000], to: [1, 1_000] };
 
-    expect(wangSegmentCount(long, LEFT)).toBe(CURVE_SEGMENTS_MAX);
+    expect(wangSegmentCount(long, LEFT, 64)).toBe(310);
+  });
+
+  test("rejects a curve with a control point that is not finite", () => {
+    const broken: Bezier = { from: [0, 2], c1: [0.5, Number.NaN], c2: [0.5, 7], to: [1, 7] };
+
+    expect(() => wangSegmentCount(broken, LEFT, 64)).toThrow(RangeError);
+    expect(() => wangSegmentCount(LINK, LEFT, Number.POSITIVE_INFINITY)).toThrow(RangeError);
+  });
+});
+
+describe("curveRowPx", () => {
+  test.each([
+    [0, 0],
+    [0.04, 0.0625],
+    [1, 1],
+    [6, 8],
+    [40, 64],
+    [64, 64],
+  ])("samples curves for %d px per row at %d px per row, the next power of two", (rowPx, expected) => {
+    expect(curveRowPx(rowPx)).toBe(expected);
   });
 });
 
@@ -115,6 +135,6 @@ describe("sampleCubicChain", () => {
   });
 
   test("returns no point for no segment", () => {
-    expect(sampleCubicChain([], LEFT)).toStrictEqual([]);
+    expect(sampleCubicChain([], LEFT, 64)).toStrictEqual([]);
   });
 });

@@ -10,7 +10,7 @@ const VIEW = examplePairView();
 
 const COLUMNS = tanglegramColumns(1232, 100);
 
-const GEOMETRY = tanglegramGeometry(VIEW, COLUMNS, "y");
+const GEOMETRY = tanglegramGeometry(VIEW, COLUMNS, "y", 64);
 
 describe("tanglegramGeometry", () => {
   test("maps the elbows of the left tree into its column", () => {
@@ -108,7 +108,7 @@ describe("tanglegramGeometry", () => {
 
   test("swaps the axes on a narrow canvas", () => {
     const columns = tanglegramColumns(400, 0);
-    const narrow = tanglegramGeometry(VIEW, columns, "x");
+    const narrow = tanglegramGeometry(VIEW, columns, "x", 64);
 
     expect(narrow.nodes.left[8]).toStrictEqual([4, columnPixel(columns.left, 1)]);
   });

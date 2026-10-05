@@ -45,7 +45,7 @@ const COLORS: DrawingColors = {
 
 const VIEW = examplePairView();
 
-const GEOMETRY = tanglegramGeometry(VIEW, tanglegramColumns(1232, 100), "y");
+const GEOMETRY = tanglegramGeometry(VIEW, tanglegramColumns(1232, 100), "y", 64);
 
 const STYLE: PairStyle = {
   colors: COLORS,

@@ -13,7 +13,7 @@ const VIEW = exampleArgView();
 
 const COLUMN = argColumn(1000, 100);
 
-const GEOMETRY = argGeometry(VIEW, COLUMN, "y");
+const GEOMETRY = argGeometry(VIEW, COLUMN, "y", 64);
 
 const SEGMENT_COLORS: Pick<DrawingColors, "segmentA" | "segmentB" | "ink"> = {
   segmentA: [62, 106, 138, 255],

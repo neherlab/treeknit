@@ -82,7 +82,12 @@ export const PAIR_LAYER = {
 
 export type PairLayerId = (typeof PAIR_LAYER)[keyof typeof PAIR_LAYER];
 
-export function tanglegramGeometry(view: PairView, columns: TanglegramColumns, leafAxis: LeafAxis): TanglegramGeometry {
+export function tanglegramGeometry(
+  view: PairView,
+  columns: TanglegramColumns,
+  leafAxis: LeafAxis,
+  curveRowPx: number,
+): TanglegramGeometry {
   const left = treeGeometry(view, "left", columns.left, leafAxis);
   const right = treeGeometry(view, "right", columns.right, leafAxis);
 
@@ -101,13 +106,13 @@ export function tanglegramGeometry(view: PairView, columns: TanglegramColumns, l
       link,
       mcc: view.links[link]?.mcc ?? 0,
       slot,
-      path: projectPath(sampleCubic(curve, wangSegmentCount(curve, columns.links)), columns.links, leafAxis),
+      path: projectPath(sampleCubic(curve, wangSegmentCount(curve, columns.links, curveRowPx)), columns.links, leafAxis),
     })),
     ribbons: view.shapes.ribbons.map(({ block, slot, outline }) => ({
       block,
       mcc: view.blocks[block]?.mcc ?? 0,
       slot,
-      polygon: projectPath(sampleCubicChain(outline, columns.links), columns.links, leafAxis),
+      polygon: projectPath(sampleCubicChain(outline, columns.links, curveRowPx), columns.links, leafAxis),
     })),
     labels: {
       left: labelItems(view, "left", columns.leftLabels.start, leafAxis),

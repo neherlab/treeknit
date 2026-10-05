@@ -1,6 +1,6 @@
 import type { Bezier, Point } from "@neherlab/treeknit-wasm";
 
-import { type LeafAxis, MAX_ROW_PX, worldPosition } from "./viewState";
+import { type LeafAxis, worldPosition } from "./viewState";
 
 export interface Column {
   start: number;
@@ -13,8 +13,6 @@ export type WorldPosition = [number, number];
 export const CURVE_TOLERANCE_PX = 0.5;
 
 export const CURVE_SEGMENTS_MIN = 1;
-
-export const CURVE_SEGMENTS_MAX = 256;
 
 const CUBIC_WANG_FACTOR = (3 * 2) / 8;
 
@@ -40,7 +38,12 @@ export function cubicPoint({ from, c1, c2, to }: Bezier, t: number): Point {
   return [w0 * from[0] + w1 * c1[0] + w2 * c2[0] + w3 * to[0], w0 * from[1] + w1 * c1[1] + w2 * c2[1] + w3 * to[1]];
 }
 
-export function wangSegmentCount({ from, c1, c2, to }: Bezier, column: Column, rowPx = MAX_ROW_PX): number {
+export function curveRowPx(rowPx: number): number {
+  return rowPx > 0 ? 2 ** Math.ceil(Math.log2(rowPx)) : 0;
+}
+
+export function wangSegmentCount(curve: Bezier, column: Column, rowPx: number): number {
+  const { from, c1, c2, to } = curve;
   const width = Math.abs(column.end - column.start);
 
   const secondDifference = (a: Point, b: Point, c: Point) =>
@@ -49,7 +52,13 @@ export function wangSegmentCount({ from, c1, c2, to }: Bezier, column: Column, r
   const largest = Math.max(secondDifference(from, c1, c2), secondDifference(c1, c2, to));
   const count = Math.ceil(Math.sqrt((CUBIC_WANG_FACTOR * largest) / CURVE_TOLERANCE_PX));
 
-  return Math.min(Math.max(count, CURVE_SEGMENTS_MIN), CURVE_SEGMENTS_MAX);
+  if (!Number.isFinite(count)) {
+    throw new RangeError(
+      `The curve ${JSON.stringify(curve)} at ${String(rowPx)} px per row and ${String(width)} px width has no finite segment count`,
+    );
+  }
+
+  return Math.max(count, CURVE_SEGMENTS_MIN);
 }
 
 export function sampleCubic(curve: Bezier, segments: number): Point[] {
@@ -59,7 +68,7 @@ export function sampleCubic(curve: Bezier, segments: number): Point[] {
   return [curve.from, ...points, curve.to];
 }
 
-export function sampleCubicChain(curves: readonly Bezier[], column: Column, rowPx = MAX_ROW_PX): Point[] {
+export function sampleCubicChain(curves: readonly Bezier[], column: Column, rowPx: number): Point[] {
   return curves.flatMap((curve, index) => {
     const points = sampleCubic(curve, wangSegmentCount(curve, column, rowPx));
 
