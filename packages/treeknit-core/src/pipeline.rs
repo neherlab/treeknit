@@ -538,4 +538,70 @@ mod tests {
     assert!(imp[0].check());
     assert!(splits(&imp[0], &tb).contains(&vec!["D".to_owned(), "P".to_owned()]));
   }
+
+  /// Run two trees that share fewer than two leaves in every resolution mode, sequentially and in
+  /// parallel, and require no MCCs, no attachments, and unchanged trees.
+  fn assert_pair_skipped(nwks: [&str; 2]) {
+    let modes = [
+      Resolution::None,
+      Resolution::Strict,
+      Resolution::Liberal,
+      Resolution::Matched,
+    ];
+    for resolution in modes {
+      for parallel in [false, true] {
+        let (mut ts, taxa) = trees(&nwks);
+        let before: Vec<_> = ts.iter().map(|t| (t.leaf_names(), splits(t, &taxa))).collect();
+        let o = Options {
+          resolution,
+          parallel,
+          pre_resolve: true,
+          ..Options::for_trees(2)
+        };
+        let res = run(&mut ts, &taxa, &o, 1);
+        let after: Vec<_> = ts.iter().map(|t| (t.leaf_names(), splits(t, &taxa))).collect();
+        let case = format!("{resolution:?}, parallel {parallel}");
+        assert_eq!(res.len(), 1, "{case}");
+        assert!(res[0].mccs.is_empty(), "{case}: {:?}", res[0].mccs);
+        assert!(res[0].attached.is_empty(), "{case}");
+        assert_eq!(after, before, "{case}");
+      }
+    }
+  }
+
+  #[test]
+  fn pair_without_shared_leaves_is_skipped() {
+    // Ladderizing either tree changes its leaf order, so an unchanged order shows that the
+    // pair was not sorted.
+    assert_pair_skipped(["(A,((B,C),D));", "(P,((Q,R),S));"]);
+  }
+
+  #[test]
+  fn pair_with_one_shared_leaf_is_skipped() {
+    assert_pair_skipped(["(A,((B,C),D));", "(A,((Q,R),S));"]);
+  }
+
+  #[test]
+  fn skipped_pairs_leave_other_pairs_unaffected() {
+    // Tree 2 shares one leaf with tree 0 and none with tree 1. The pair (0, 1) gets the MCCs
+    // that it gets without tree 2: the same per-pair seed, and no resolution across pairs.
+    let pair = ["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));"];
+    let o = |k| Options {
+      resolution: Resolution::None,
+      ..Options::for_trees(k)
+    };
+    let names = |r: &PairResult, t: &Taxa| r.mccs.iter().map(|m| t.names_of(m)).collect::<Vec<_>>();
+    let (mut ts2, taxa2) = trees(&pair);
+    let expected = run(&mut ts2, &taxa2, &o(2), 1);
+    let (mut ts3, taxa3) = trees(&[pair[0], pair[1], "(A,(P,Q));"]);
+    let res = run(&mut ts3, &taxa3, &o(3), 1);
+    assert_eq!(
+      res.iter().map(|r| (r.i, r.j)).collect::<Vec<_>>(),
+      [(0, 1), (0, 2), (1, 2)]
+    );
+    assert_eq!(names(&res[0], &taxa3), names(&expected[0], &taxa2));
+    assert_eq!(names(&res[0], &taxa3), [vec!["X"], vec!["A", "B", "C", "D"]]);
+    assert!(res[1].mccs.is_empty());
+    assert!(res[2].mccs.is_empty());
+  }
 }
