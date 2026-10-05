@@ -38,11 +38,13 @@ export function DrawingPanel<T>({
           </InlineNotice>
         </div>
       )}
-      {notice === undefined ? null : (
-        <NoticeRegion className="px-3 pt-3">
-          <InlineNotice tone="warning">{notice}</InlineNotice>
-        </NoticeRegion>
-      )}
+      <NoticeRegion>
+        {notice === undefined ? null : (
+          <div className="px-3 pt-3">
+            <InlineNotice tone="warning">{notice}</InlineNotice>
+          </div>
+        )}
+      </NoticeRegion>
       <div {...keyboardProps} className="relative min-h-0 flex-1">
         <QueryState query={query} loading={loading} errorTitle={errorTitle} errorNote={OTHER_VIEWS_AVAILABLE}>
           {(data) => <div className="absolute inset-0">{children(data)}</div>}
