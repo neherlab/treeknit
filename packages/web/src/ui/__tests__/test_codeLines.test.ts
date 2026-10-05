@@ -106,6 +106,33 @@ describe("codeLines", () => {
   });
 });
 
+describe("codeLines with the positions of Rust newick::line_column", () => {
+  const UTF8 = new TextEncoder();
+  const UTF8_DECODER = new TextDecoder();
+
+  test.each([
+    { text: "(A,B);", offset: 0, line: 1, column: 1 },
+    { text: "(A,B);", offset: 3, line: 1, column: 4 },
+    { text: "(A,\nB);", offset: 4, line: 2, column: 1 },
+    { text: "(A,\r\nB);", offset: 7, line: 2, column: 3 },
+    { text: "(é,ü);", offset: 4, line: 1, column: 4 },
+    { text: "(é,ü);", offset: 7, line: 1, column: 6 },
+    { text: "(A,\nB)", offset: 100, line: 2, column: 3 },
+    { text: "(A,\n(B,C)D\n;", offset: 11, line: 3, column: 1 },
+  ])("marks the character at byte $offset of $text", ({ text, offset, line, column }) => {
+    const bytes = UTF8.encode(text);
+    const before = UTF8_DECODER.decode(bytes.slice(0, offset));
+    const after = UTF8_DECODER.decode(bytes.slice(offset));
+    const next = Array.from(after)[0] ?? "";
+
+    const marked = codeLines(text, characterRange({ line, column })).find((entry) => entry.marked !== undefined);
+
+    expect(marked?.number).toBe(line);
+    expect(marked?.before).toBe(before.split("\n").at(-1));
+    expect(marked?.marked).toBe(next === "\n" || next === "\r" ? "" : next);
+  });
+});
+
 describe("codeLines properties", () => {
   const position = fc.record({ line: fc.integer({ min: -1, max: 6 }), column: fc.integer({ min: -1, max: 12 }) });
   const range = fc.option(fc.record({ start: position, end: position }), { nil: undefined });
