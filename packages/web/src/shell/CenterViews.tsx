@@ -3,10 +3,11 @@ import type { Key } from "react-aria-components";
 import PanelLeftIcon from "~icons/lucide/panel-left";
 import PanelRightIcon from "~icons/lucide/panel-right";
 
-import { Overview } from "../overview/Overview";
 import { DiagnosticsTabLabel } from "../results/DiagnosticsTabLabel";
 import { DiagnosticsView } from "../results/DiagnosticsView";
 import { FilesView } from "../results/FilesView";
+import { Overview } from "../overview/Overview";
+import { TanglegramPanel } from "../tanglegram/TanglegramPanel";
 import { Button } from "../ui/Button";
 import { Tab, TabList, TabPanel, Tabs } from "../ui/Tabs";
 import { useWorkspaceAvailability } from "../workspace/availability";
@@ -18,7 +19,7 @@ import { viewTabs } from "./viewTabs";
 
 const VIEW_PANELS: Record<WorkspaceView, ComponentType> = {
   overview: Overview,
-  tanglegram: ViewPlaceholder,
+  tanglegram: TanglegramPanel,
   arg: ViewPlaceholder,
   mccs: ViewPlaceholder,
   constellation: ViewPlaceholder,
