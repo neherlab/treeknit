@@ -67,6 +67,8 @@ pub struct NumberSetting {
   pub max: Option<f64>,
   /// Step of the input control.
   pub step: f64,
+  /// Only whole numbers are accepted, such as a count or a seed.
+  pub integer: bool,
   /// The setting changes the result of a run with the current settings.
   pub applies: bool,
   /// Why the setting does not apply; `None` when it applies.
@@ -144,7 +146,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
   let d = Settings::default();
   let unless = |skip: Option<&str>| (skip.is_none(), skip.map(str::to_owned));
   let naive = s.naive.then_some(NAIVE_REASON);
-  let number = |default, min, min_exclusive, max, step, skip: Option<&str>, help: &str| {
+  let number = |default, min, min_exclusive, max, step, integer, skip: Option<&str>, help: &str| {
     let (applies, reason) = unless(skip);
     NumberSetting {
       default,
@@ -152,6 +154,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
       min_exclusive,
       max,
       step,
+      integer,
       applies,
       reason,
       help: help.to_owned(),
@@ -184,6 +187,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         false,
         None,
         0.1,
+        false,
         naive,
         "Cost γ of a reassortment, that is of removing an MCC.",
       ),
@@ -193,6 +197,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         true,
         None,
         1.0,
+        false,
         seq_lengths_skip,
         "Sequence length of each segment, in the order of the trees, used by the likelihood tie-break.",
       ),
@@ -202,6 +207,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         false,
         None,
         1.0,
+        true,
         naive,
         "MCMC steps per leaf of the simulated annealing.",
       ),
@@ -211,6 +217,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         false,
         None,
         1.0,
+        true,
         None,
         "Rounds of pair inference.",
       ),
@@ -220,6 +227,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         false,
         Some(exact_u64(MAX_SEED)),
         1.0,
+        true,
         seed_skip,
         "Seed of the random number generator, so that a run can be repeated.",
       ),
@@ -323,6 +331,28 @@ mod tests {
       bound(&f.n_mcmc_it),
       bound(&f.rounds),
       bound(&f.seed),
+    ];
+    assert_eq!(expected, actual);
+  }
+
+  #[test]
+  fn schema_integer_settings_are_the_integer_fields_of_settings() {
+    // Oracle: the types of the `Settings` fields: `gamma` and `seq_lengths` are `f64`,
+    // `n_mcmc_it` and `rounds` are `usize`, and `seed` is `u64`.
+    let f = settings_schema(2, &Settings::default()).settings;
+    let expected = [
+      ("gamma", false),
+      ("seqLengths", false),
+      ("nMcmcIt", true),
+      ("rounds", true),
+      ("seed", true),
+    ];
+    let actual = [
+      ("gamma", f.gamma.integer),
+      ("seqLengths", f.seq_lengths.integer),
+      ("nMcmcIt", f.n_mcmc_it.integer),
+      ("rounds", f.rounds.integer),
+      ("seed", f.seed.integer),
     ];
     assert_eq!(expected, actual);
   }
@@ -463,7 +493,7 @@ mod tests {
   fn schema_serializes_camel_case_fields() {
     let json = serde_json::to_value(settings_schema(2, &Settings::default())).unwrap();
     let expected = serde_json::json!({
-      "default": 1.0, "min": 0.0, "minExclusive": true, "max": null, "step": 1.0, "applies": true,
+      "default": 1.0, "min": 0.0, "minExclusive": true, "max": null, "step": 1.0, "integer": false, "applies": true,
       "reason": null,
       "help": "Sequence length of each segment, in the order of the trees, used by the likelihood tie-break.",
     });

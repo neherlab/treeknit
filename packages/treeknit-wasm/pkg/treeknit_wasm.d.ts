@@ -144,6 +144,10 @@ export interface NumberSetting {
      */
     step: number;
     /**
+     * Only whole numbers are accepted, such as a count or a seed.
+     */
+    integer: boolean;
+    /**
      * The setting changes the result of a run with the current settings.
      */
     applies: boolean;
