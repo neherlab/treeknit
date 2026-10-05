@@ -1,8 +1,7 @@
 # TreeKnit task runner: `just` lists every recipe by group.
 #
 # Recipes run the tools pinned in .config/mise.toml, on the host after `mise install` or
-# in the build container through `dev/docker/run just <recipe>`. Before a change
-# is merged, `just check-all` must pass.
+# in the build container through `dev/docker/run just <recipe>`.
 #
 # Naming: a leaf recipe runs one tool in one mode. The suffix `-rs`, `-wasm`, or
 # `-ts` names the toolchain of a leaf: Rust, Rust for WebAssembly, or TypeScript
@@ -95,7 +94,7 @@ alias fc := fmt-check
 check: _js
     TREEKNIT_JS_READY=1 dev/run-checks {{ check_fast }}
 
-# Every check, in parallel; must pass before a change is merged
+# Every check, in parallel, as CI runs them on pull requests; slow
 [group("check")]
 check-all: _js
     TREEKNIT_JS_READY=1 dev/run-checks {{ check_full }}

@@ -65,7 +65,6 @@ The vendored tree is excluded from Oxlint and Oxfmt style enforcement (see the `
 
 - Rule tests: `./dev/docker/run just test-ts`
 - Type check: `./dev/docker/run just typecheck`
-- Full read-only gate: `./dev/docker/run just check-all`
 
 ## Updating
 

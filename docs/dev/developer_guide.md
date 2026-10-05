@@ -50,7 +50,6 @@ Optional settings go into the gitignored `.env` in the checkout; `.env.example` 
 | -------------------------------------------- | ------------------------------------------------ |
 | List the recipes                             | `just`                                           |
 | Fast checks (format, clippy, oxlint, types)  | `just check`                                     |
-| Every check; must pass before merging        | `just check-all`                                 |
 | Lint fixes and format (stage first)          | `just fix`                                       |
 | Build the CLI                                | `just build <mode>` (`just b`)                   |
 | Run the CLI                                  | `just run <mode> ha.nwk na.nwk -o tmp/results`   |
@@ -66,7 +65,7 @@ Optional settings go into the gitignored `.env` in the checkout; `.env.example` 
 
 In the container, prefix each command with `./dev/docker/run`.
 
-`check` and `check-all` run their checks in parallel through `dev/run-checks`, keep going past failures, and list the failed checks at the end. Each check writes its output to `tmp/checks/<check>.log`. Warnings fail the checks, and a missing tool is a failure, not a skipped check. The full gate consists of groups, one CI job each; `just check-group <group>` runs one group serially, as its CI job does.
+`check` runs its checks in parallel through `dev/run-checks`, keeps going past failures, and lists the failed checks at the end. Each check writes its output to `tmp/checks/<check>.log`. Warnings fail the checks, and a missing tool is a failure, not a skipped check.
 
 ## Web app
 
@@ -179,7 +178,7 @@ The dependency recipes run in the main checkout only.
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on pull requests and on pushes to `main`: the check groups of `just check-all` (`format`, `clippy`, `tests`, `typescript`) in parallel jobs, each in the build container.
+`.github/workflows/ci.yml` runs on pull requests and on pushes to `main`: the check groups `format`, `clippy`, `tests`, and `typescript` in parallel jobs, each in the build container.
 
 `.github/workflows/cli-build.yml` runs on the same events and builds the shipped CLI for every release target, one job per target in its cross image: it builds, checks the libraries the binary needs, runs it on a simulated case (except on macOS), and uploads it as the artifact `treeknit-<target>`. On pushes to `main` and manual runs, two more jobs download the Linux x86_64 binaries and run `dev/cross/test-distros` on them, logged in to Docker Hub when the secrets are available; pull requests skip them to stay within the Docker Hub pull limits.
 
