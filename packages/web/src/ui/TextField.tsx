@@ -11,6 +11,8 @@ import { fieldStyle, inputStyle } from "./styles";
 
 const DEFAULT_ROWS = 4;
 
+const NO_TEXT_CORRECTION = { spellCheck: false, autoCorrect: "off", autoCapitalize: "off" } as const;
+
 export function TextField({
   label,
   labelHidden,
@@ -24,6 +26,8 @@ export function TextField({
   className,
   ...props
 }: TextFieldProps) {
+  const correction = mono ? NO_TEXT_CORRECTION : undefined;
+
   return (
     <AriaTextField
       {...props}
@@ -32,9 +36,14 @@ export function TextField({
     >
       <FieldLabel label={label} labelHidden={labelHidden} info={info} />
       {multiline ? (
-        <TextArea rows={rows} placeholder={placeholder ?? ""} className={inputStyle({ multiline: true, mono })} />
+        <TextArea
+          {...correction}
+          rows={rows}
+          placeholder={placeholder ?? ""}
+          className={inputStyle({ multiline: true, mono })}
+        />
       ) : (
-        <Input placeholder={placeholder ?? ""} className={inputStyle({ mono })} />
+        <Input {...correction} placeholder={placeholder ?? ""} className={inputStyle({ mono })} />
       )}
       <FieldDescription>{description}</FieldDescription>
       <FieldErrorMessage>{errorMessage}</FieldErrorMessage>
