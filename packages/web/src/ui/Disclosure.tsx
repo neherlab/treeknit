@@ -19,7 +19,7 @@ export function Disclosure({ title, info, className, children, ...props }: Discl
         <AriaButton
           slot="trigger"
           className={cn(
-            "rounded-control text-ink -mx-1 flex h-8 cursor-default items-center gap-1 px-1 text-sm font-semibold select-none",
+            "rounded-control text-ink -mx-1 flex h-8 cursor-pointer items-center gap-1 px-1 text-sm font-semibold select-none",
             "data-hovered:bg-ink/8 data-pressed:bg-ink/14 transition-colors duration-150 motion-reduce:transition-none",
             focusRing,
           )}

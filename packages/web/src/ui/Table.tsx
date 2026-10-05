@@ -65,7 +65,7 @@ export function Column({ align = "start", className, children, ...props }: Colum
     <AriaColumn
       {...props}
       className={composeRenderProps(className, (custom) =>
-        cn(columnStyle(align), "data-hovered:text-ink data-allows-sorting:cursor-default", cellFocus, custom),
+        cn(columnStyle(align), "data-hovered:text-ink data-allows-sorting:cursor-pointer", cellFocus, custom),
       )}
     >
       {composeRenderProps(children, (content, { allowsSorting, sortDirection }) => (

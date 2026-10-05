@@ -55,7 +55,7 @@ export function Select<K extends string>({
       <AriaButton
         className={cn(
           inputStyle(),
-          "group-data-invalid/select:border-danger flex cursor-default items-center justify-between gap-2 text-left",
+          "group-data-invalid/select:border-danger flex cursor-pointer items-center justify-between gap-2 text-left",
         )}
       >
         <SelectValue className="data-placeholder:text-ink-muted truncate" />

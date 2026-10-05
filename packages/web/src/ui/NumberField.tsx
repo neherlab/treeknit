@@ -61,7 +61,7 @@ function StepButton({ slot, icon: Icon }: StepButtonProps) {
     <AriaButton
       slot={slot}
       className={cn(
-        "text-ink-muted flex flex-1 cursor-default items-center justify-center text-xs outline-hidden",
+        "text-ink-muted flex flex-1 cursor-pointer items-center justify-center text-xs outline-hidden",
         "data-hovered:bg-ink/8 data-hovered:text-ink data-pressed:bg-ink/14",
         "data-disabled:text-ink-muted/50 data-disabled:cursor-not-allowed",
       )}

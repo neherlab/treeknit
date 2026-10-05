@@ -40,7 +40,7 @@ export function ExternalIconLink({
         target="_blank"
         rel="noreferrer"
         aria-label={label}
-        className={cn(buttonStyle({ variant: "quiet", size: "md", iconOnly: true }), "cursor-pointer", className)}
+        className={cn(buttonStyle({ variant: "quiet", size: "md", iconOnly: true }), className)}
       >
         <Icon aria-hidden />
       </AriaLink>

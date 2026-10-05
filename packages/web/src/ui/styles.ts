@@ -11,7 +11,7 @@ export const groupFocusRing =
 
 export const buttonStyle = cva(
   [
-    "rounded-control inline-flex shrink-0 cursor-default items-center justify-center gap-1.5 border whitespace-nowrap select-none",
+    "rounded-control inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 border whitespace-nowrap select-none",
     "transition-colors duration-150 data-disabled:cursor-not-allowed motion-reduce:transition-none [&_svg]:shrink-0",
     "data-pending:cursor-progress data-pending:opacity-60 data-pending:[&_svg]:animate-pulse motion-reduce:data-pending:[&_svg]:animate-none",
     focusRing,
@@ -91,6 +91,6 @@ export const popoverStyle =
 export const listBoxStyle = "max-h-80 overflow-auto p-1 outline-hidden";
 
 export const optionStyle = [
-  "flex cursor-default items-center gap-2 rounded-control px-2 py-1.5 text-sm text-ink outline-hidden select-none",
-  "data-focused:bg-pane data-pressed:bg-pane data-selected:font-semibold data-disabled:text-ink-muted",
+  "flex cursor-pointer items-center gap-2 rounded-control px-2 py-1.5 text-sm text-ink outline-hidden select-none",
+  "data-focused:bg-pane data-pressed:bg-pane data-selected:font-semibold data-disabled:text-ink-muted data-disabled:cursor-not-allowed",
 ].join(" ");

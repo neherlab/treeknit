@@ -41,7 +41,7 @@ export function ToggleButton({ label, icon: Icon, iconOnly = false, ...props }: 
       {...props}
       aria-label={label}
       className={cn(
-        "text-ink-muted rounded-inner inline-flex h-7 shrink-0 cursor-default items-center justify-center gap-1.5 text-sm whitespace-nowrap select-none",
+        "text-ink-muted rounded-inner inline-flex h-7 shrink-0 cursor-pointer items-center justify-center gap-1.5 text-sm whitespace-nowrap select-none",
         "transition-colors duration-150 motion-reduce:transition-none [&_svg]:shrink-0",
         "data-hovered:not-data-selected:bg-pane data-hovered:not-data-selected:text-ink data-pressed:not-data-selected:bg-pane",
         "data-selected:bg-ink data-selected:text-ground data-selected:font-semibold",

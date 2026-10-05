@@ -49,7 +49,7 @@ export type RadioGroupProps = Omit<AriaRadioGroupProps, "className" | "children"
 export function Radio({ description, children, ...props }: RadioProps) {
   return (
     <RadioField {...props} className="flex flex-col gap-0.5">
-      <RadioButton className="group text-ink data-disabled:text-ink-muted flex w-fit cursor-default items-center gap-2 text-sm outline-hidden data-disabled:cursor-not-allowed">
+      <RadioButton className="group text-ink data-disabled:text-ink-muted flex w-fit cursor-pointer items-center gap-2 text-sm outline-hidden data-disabled:cursor-not-allowed">
         <span
           className={cn(
             "border-ink-muted bg-ground size-4 shrink-0 rounded-full border",

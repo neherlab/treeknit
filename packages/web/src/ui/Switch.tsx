@@ -10,7 +10,7 @@ export function Switch({ label, info, description, className, ...props }: Switch
   return (
     <SwitchField {...props} className={cn("flex min-w-0 flex-col gap-1", className)}>
       <div className="flex items-center gap-1">
-        <SwitchButton className="group text-ink data-disabled:text-ink-muted flex cursor-default items-center gap-2 text-sm outline-hidden data-disabled:cursor-not-allowed">
+        <SwitchButton className="group text-ink data-disabled:text-ink-muted flex cursor-pointer items-center gap-2 text-sm outline-hidden data-disabled:cursor-not-allowed">
           <span
             className={cn(
               "rounded-control border-ink-muted bg-ground inline-flex h-4.5 w-8 shrink-0 items-center border p-0.5",

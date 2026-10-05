@@ -50,7 +50,7 @@ export function Tab({ className, ...props }: TabProps) {
       {...props}
       className={composeRenderProps(className, (custom) =>
         cn(
-          "text-ink-muted relative flex h-10 cursor-default items-center gap-1.5 px-2.5 text-sm whitespace-nowrap select-none",
+          "text-ink-muted relative flex h-10 cursor-pointer items-center gap-1.5 px-2.5 text-sm whitespace-nowrap select-none",
           "transition-colors duration-150 motion-reduce:transition-none [&_svg]:shrink-0",
           "after:absolute after:inset-x-2.5 after:bottom-0 after:h-0.5 after:bg-transparent",
           "data-hovered:text-ink data-selected:text-ink data-selected:after:bg-ink",

@@ -43,9 +43,9 @@ export function MenuItem({ icon: Icon, tone = "default", className, children, ..
       {...props}
       className={composeRenderProps(className, (custom) =>
         cn(
-          "rounded-control flex cursor-default items-center gap-2 px-2 py-1.5 text-sm outline-hidden select-none [&_svg]:shrink-0",
+          "rounded-control flex cursor-pointer items-center gap-2 px-2 py-1.5 text-sm outline-hidden select-none [&_svg]:shrink-0",
           tone === "danger" ? "text-danger" : "text-ink",
-          "data-focused:bg-pane data-pressed:bg-pane data-open:bg-pane data-disabled:text-ink-muted",
+          "data-focused:bg-pane data-pressed:bg-pane data-open:bg-pane data-disabled:text-ink-muted data-disabled:cursor-not-allowed",
           custom,
         ),
       )}
