@@ -1,7 +1,5 @@
-import type { DrawingRules } from "@neherlab/treeknit-wasm";
+import type { DrawingRules, LabelMode } from "@neherlab/treeknit-wasm";
 import { useCallback, useSyncExternalStore } from "react";
-
-export type LabelMode = "auto" | "on" | "off";
 
 export const LABEL_FONT_FAMILY = '"IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif';
 
