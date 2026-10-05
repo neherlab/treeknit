@@ -47,7 +47,7 @@ impl std::error::Error for ParseError {}
 pub fn line_column(text: &str, offset: usize) -> (usize, usize) {
   let before = &text.as_bytes()[..offset.min(text.len())];
   let line_start = before.iter().rposition(|&b| b == b'\n').map_or(0, |i| i + 1);
-  let line = before.iter().filter(|&&b| b == b'\n').count() + 1;
+  let line = before.split(|&b| b == b'\n').count();
   // Count the bytes that start a character, so an offset inside a character counts it.
   let column = before[line_start..].iter().filter(|&&b| b & 0xC0 != 0x80).count() + 1;
   (line, column)
