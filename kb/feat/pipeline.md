@@ -54,7 +54,7 @@ Counterpart: [`v0/pipeline.md`](v0/pipeline.md). `treeknit_core::run` runs the p
 
 ### Progress (new)
 
-- [x] **Observer**: `run_observed` calls an observer with a `Progress` value: at the start of each pair, after each temperature step of its annealing, when the matching of `Matched` resolution starts, and once at the end [[src](../../packages/treeknit-core/src/progress.rs#L15-L91)]. The fraction never decreases. Pair inference and resolution fill the fraction up to `PAIRS_SHARE` (0.95); matching, sorting, and attachment after the last round report no intermediate progress, so only the final event reports 1. Pre-resolution reports nothing
+- [x] **Observer**: `run_observed` calls an observer with a `Progress` value: at the start of each pair, after each temperature step of its annealing, when the matching of `Matched` resolution starts, and once at the end [[src](../../packages/treeknit-core/src/progress.rs#L15-L91)]. The fraction never decreases. Pair inference and resolution fill the fraction up to `PAIRS_SHARE` (0.95); matching, sorting, and attachment after the last round report no intermediate progress, so only the final event reports 1. Pre-resolution reports nothing. Tests check these bounds for every resolution mode, sequential and parallel, with and without pre-resolution [[src](../../packages/treeknit-core/src/pipeline.rs#L1457-L1511)]
 - [x] **Parallel rounds**: the observer runs on the calling thread only, before and after each parallel round
 - [x] **Same result**: `run` is `run_observed` with an observer that does nothing, and the observer consumes no random numbers, so observing a run does not change its result
 

@@ -1454,6 +1454,62 @@ mod tests {
     assert_eq!(expected.as_slice(), events);
   }
 
+  /// Require that a run of three trees in `resolution`, `parallel`, and `pre_resolve` reports
+  /// fractions that never decrease and stay at most `PAIRS_SHARE` before the last event, which is
+  /// `Done` with fraction 1.
+  fn assert_progress_bounds(resolution: Resolution, parallel: bool, pre_resolve: bool) {
+    let o = Options {
+      itmax: 2,
+      n_t: 5,
+      resolution,
+      parallel,
+      pre_resolve,
+      ..Options::for_trees(3)
+    };
+    let events = observed(&["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", "((A,X),(B,(C,D)));"], &o);
+    assert!(never_decreasing(&events), "{events:?}");
+    let (last, before_end) = events.split_last().unwrap();
+    assert!(
+      before_end
+        .iter()
+        .all(|p| p.phase != Phase::Done && p.fraction <= PAIRS_SHARE),
+      "{events:?}"
+    );
+    assert_eq!((Phase::Done, 1.0_f64.to_bits()), (last.phase, last.fraction.to_bits()));
+  }
+
+  /// One test per case of `assert_progress_bounds`.
+  macro_rules! progress_bounds {
+    ($($name:ident: ($resolution:ident, $parallel:literal, $pre_resolve:literal),)*) => {
+      $(
+        #[test]
+        fn $name() {
+          assert_progress_bounds(Resolution::$resolution, $parallel, $pre_resolve);
+        }
+      )*
+    };
+  }
+
+  #[rustfmt::skip]
+  progress_bounds! {
+    progress_bounds_none_sequential:                 (None,     false, false),
+    progress_bounds_none_sequential_pre_resolved:    (None,     false, true),
+    progress_bounds_none_parallel:                   (None,     true,  false),
+    progress_bounds_none_parallel_pre_resolved:      (None,     true,  true),
+    progress_bounds_strict_sequential:               (Strict,   false, false),
+    progress_bounds_strict_sequential_pre_resolved:  (Strict,   false, true),
+    progress_bounds_strict_parallel:                 (Strict,   true,  false),
+    progress_bounds_strict_parallel_pre_resolved:    (Strict,   true,  true),
+    progress_bounds_liberal_sequential:              (Liberal,  false, false),
+    progress_bounds_liberal_sequential_pre_resolved: (Liberal,  false, true),
+    progress_bounds_liberal_parallel:                (Liberal,  true,  false),
+    progress_bounds_liberal_parallel_pre_resolved:   (Liberal,  true,  true),
+    progress_bounds_matched_sequential:              (Matched,  false, false),
+    progress_bounds_matched_sequential_pre_resolved: (Matched,  false, true),
+    progress_bounds_matched_parallel:                (Matched,  true,  false),
+    progress_bounds_matched_parallel_pre_resolved:   (Matched,  true,  true),
+  }
+
   /// Events of a run with `Matched` resolution (whose rounds resolve, so they run sequentially):
   /// the pair events, the start of matching, and the end.
   fn matched_events() -> (Vec<Progress>, Progress, Progress) {
