@@ -170,17 +170,37 @@ pub struct PairShared {
   pub shared: usize,
 }
 
-/// Check the trees and the settings of `request`: every error of `check_trees`, of
-/// `output::check_output_paths` for the file set of the web app, and of `check_settings`. An
-/// empty list means the request runs.
+/// Check the trees and the settings of `request` for a run of the web app: every error of
+/// `prepare`. An empty list means the request runs.
 pub fn validate(request: &AnalysisRequest) -> Vec<ValidationError> {
   let k = request.trees.len();
-  let mut errors = match parse_trees(&request.trees) {
-    Ok(_) => output::check_output_paths(&labels(&request.trees), &OutputOptions::web(k)),
-    Err(errors) => errors,
-  };
-  errors.extend(check_settings(&request.settings, k));
-  errors
+  let opts = options(&request.settings, k, false);
+  prepare(&request.trees, &OutputOptions::web(k), opts)
+    .err()
+    .unwrap_or_default()
+}
+
+/// The parsed trees and the options of a run that writes the files of `output`, or every error:
+/// those of `parse_trees`, then those of `output::check_output_paths` when the trees parse, then
+/// those of the options `opts` (see `options`). The command line, `validate`, and the session of
+/// the web app check a run with this function, so they report the same errors in one order.
+pub fn prepare(
+  trees: &[TreeText],
+  output: &OutputOptions,
+  opts: Result<Options, Vec<ValidationError>>,
+) -> Result<(ParsedTrees, Options), Vec<ValidationError>> {
+  let parsed = parse_trees(trees).and_then(|p| {
+    let errors = output::check_output_paths(&labels(trees), output);
+    if errors.is_empty() { Ok(p) } else { Err(errors) }
+  });
+  match (parsed, opts) {
+    (Ok(p), Ok(o)) => Ok((p, o)),
+    (parsed, opts) => {
+      let mut errors = parsed.err().unwrap_or_default();
+      errors.extend(opts.err().unwrap_or_default());
+      Err(errors)
+    },
+  }
 }
 
 /// The labels of `trees`, in their order.
@@ -445,7 +465,7 @@ fn count_u64(n: usize) -> u64 {
 
 /// A count of the settings for the core, after `check_settings` has bounded it by [`MAX_ROUNDS`]
 /// or [`MAX_MCMC_IT`], which every `usize` holds.
-pub fn count_usize(n: u64) -> usize {
+fn count_usize(n: u64) -> usize {
   #[expect(
     clippy::expect_used,
     reason = "check_settings bounds the counts by 2^32 - 1, the largest usize of 32-bit targets"
@@ -539,10 +559,15 @@ fn check_pair_stems(trees: &[TreeText], valid: &[bool]) -> Vec<ValidationError> 
   errors
 }
 
+/// The field of the Newick text of tree `i` in a `ValidationError`, `trees[<i>].newick`.
+pub fn newick_field(i: usize) -> String {
+  format!("trees[{i}].newick")
+}
+
 fn parse_error(i: usize, t: &TreeText, e: &newick::ParseError) -> ValidationError {
   let position = e.offset.map(|o| newick::line_column(&t.newick, o));
   ValidationError {
-    field: Some(format!("trees[{i}].newick")),
+    field: Some(newick_field(i)),
     message: format!("tree {:?}: {e}", t.label),
     line: position.map(|(l, _)| l),
     column: position.map(|(_, c)| c),
@@ -865,6 +890,15 @@ mod tests {
     let errors = check_trees(&trees(&[("ha", T), ("na", newick)]));
     let expected = vec![ValidationError { field: Some("trees[1].newick".to_owned()), message: message.to_owned(), line: None, column: None }];
     assert_eq!(expected, errors);
+  }
+
+  #[test]
+  fn empty_newick_text_is_a_parse_error_of_its_field() {
+    // The command line gives a file that it cannot read an empty text and reports the read error
+    // instead of the error of this field.
+    let errors = check_trees(&trees(&[("ha", T), ("na", "")]));
+    let fields: Vec<Option<&str>> = errors.iter().map(|e| e.field.as_deref()).collect();
+    assert_eq!(vec![Some(newick_field(1).as_str())], fields);
   }
 
   #[rustfmt::skip]

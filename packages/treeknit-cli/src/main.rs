@@ -238,43 +238,18 @@ fn main() -> Result<()> {
     figures: cli.plot,
   };
 
-  // A file that cannot be read has an empty text, which fails to parse; its read error replaces
-  // that parse error, and the checks of the other trees still run.
-  let parsed = analysis::parse_trees(&input.texts)
-    .and_then(|p| {
-      let errors = output::check_output_paths(&analysis::labels(&input.texts), &output_options);
-      if errors.is_empty() { Ok(p) } else { Err(errors) }
-    })
-    .map_err(|errors| {
-      let unread: Vec<String> = input
-        .read_errors
-        .iter()
-        .filter_map(|e| e.field.as_ref().map(|f| format!("{f}.newick")))
-        .collect();
-      let mut all = input.read_errors.clone();
-      all.extend(
-        errors
-          .into_iter()
-          .filter(|e| !e.field.as_ref().is_some_and(|f| unread.contains(f))),
-      );
-      all
-    });
-  if let Ok(p) = &parsed {
-    run::report_overlap(&p.trees, &p.taxa);
-  }
   let k = input.texts.len();
   let opts = match &input.request {
     Some(r) => analysis::options(&r.settings, k, true),
     None => options(&cli, k),
   };
-  let (parsed, opts) = match (parsed, opts) {
-    (Ok(p), Ok(o)) => (p, o),
-    (parsed, opts) => {
-      let mut errors = parsed.err().unwrap_or_default();
-      errors.extend(opts.err().unwrap_or_default());
-      fail(&errors, &input.source)?
-    },
+  // A file that cannot be read stops the run with its read error, and the checks of the other
+  // trees still run.
+  let (parsed, opts) = match analysis::prepare(&input.texts, &output_options, opts) {
+    Ok(prepared) if input.read_errors.is_empty() => prepared,
+    result => fail(&input.with_read_errors(result.err().unwrap_or_default()), &input.source)?,
   };
+  run::report_overlap(&parsed.trees, &parsed.taxa);
   fs::create_dir_all(&cli.outdir).with_context(|| format!("creating {}", cli.outdir.display()))?;
   let log_path = cli.outdir.join(output::LOG_FILE);
   log_file
@@ -313,8 +288,27 @@ struct Input {
   seed: u64,
   /// The session file, whose settings replace the analysis options.
   request: Option<AnalysisRequest>,
-  /// Errors of the input files that cannot be read; their trees have an empty text.
-  read_errors: Vec<ValidationError>,
+  /// The index and the error of each input file that cannot be read; its tree has an empty text.
+  read_errors: Vec<(usize, ValidationError)>,
+}
+
+impl Input {
+  /// The read errors, then `errors` without the errors of the Newick text of the files that
+  /// cannot be read, which are about their empty text.
+  fn with_read_errors(&self, errors: Vec<ValidationError>) -> Vec<ValidationError> {
+    let unread: Vec<String> = self
+      .read_errors
+      .iter()
+      .map(|(i, _)| analysis::newick_field(*i))
+      .collect();
+    let mut all: Vec<ValidationError> = self.read_errors.iter().map(|(_, e)| e.clone()).collect();
+    all.extend(
+      errors
+        .into_iter()
+        .filter(|e| !e.field.as_ref().is_some_and(|f| unread.contains(f))),
+    );
+    all
+  }
 }
 
 /// The trees of the positional tree files, labeled by path, with the seed of `--seed`, and the
@@ -337,12 +331,13 @@ fn tree_file_input(cli: &Cli) -> Input {
     .enumerate()
     .map(|(i, (path, label))| {
       let newick = fs::read_to_string(path).unwrap_or_else(|e| {
-        read_errors.push(ValidationError {
+        let error = ValidationError {
           field: Some(format!("trees[{i}]")),
           message: format!("cannot read the file: {e}"),
           line: None,
           column: None,
-        });
+        };
+        read_errors.push((i, error));
         String::new()
       });
       TreeText { label, newick }
@@ -359,21 +354,19 @@ fn tree_file_input(cli: &Cli) -> Input {
 }
 
 /// The trees and settings of the session file at `path`. Its trees keep their labels, and their
-/// output files get the extension `.nwk`, as in the web app.
+/// output files get the extensions of the web app.
 fn request_input(path: &Path) -> Result<Input> {
   log::info!("session file: {}", path.display());
   let text = fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+  let source = Source::Request(path.to_path_buf());
   let request = match analysis::read_request(&text) {
     Ok(r) => r,
-    Err(errors) => {
-      let lines: Vec<String> = errors.iter().map(|e| format!("{}: {e}", path.display())).collect();
-      bail!("{}", lines.join("\n"))
-    },
+    Err(errors) => fail(&errors, &source)?,
   };
   Ok(Input {
     texts: request.trees.clone(),
-    source: Source::Request(path.to_path_buf()),
-    extensions: vec![".nwk".to_owned(); request.trees.len()],
+    source,
+    extensions: OutputOptions::web(request.trees.len()).extensions,
     seed: request.settings.seed,
     request: Some(request),
     read_errors: Vec::new(),
@@ -484,18 +477,20 @@ fn options(cli: &Cli, k: usize) -> Result<Options, Vec<ValidationError>> {
     seed: cli.seed,
     ..Settings::default()
   };
-  errors.extend(analysis::check_settings(&shared, k));
-  if !errors.is_empty() {
-    return Err(errors);
-  }
-  let mut o = former_options(cli, k);
-  o.gamma = cli.gamma;
-  o.n_mcmc = analysis::count_usize(cli.n_mcmc_it);
+  // The options of the shared values, which the settings checks bound, so they convert exactly.
+  let checked = match analysis::options(&shared, k, true) {
+    Ok(o) if errors.is_empty() => o,
+    result => {
+      errors.extend(result.err().unwrap_or_default());
+      return Err(errors);
+    },
+  };
+  let mut o = former_options(cli, k, cli.rounds.map(|_| checked.rounds));
+  o.gamma = checked.gamma;
+  o.n_mcmc = checked.n_mcmc;
   o.likelihood_sort = !cli.no_likelihood;
   o.naive = cli.naive;
-  if let Some(v) = shared.seq_lengths {
-    o.seq_lengths = v;
-  }
+  o.seq_lengths = checked.seq_lengths;
   Ok(o)
 }
 
@@ -536,8 +531,9 @@ fn uses_former_options(cli: &Cli) -> bool {
 
 /// Options for the former command line (TreeKnit.jl semantics), which reproduce its results:
 /// method presets depending on the number of trees, `--rounds` counting all rounds, and
-/// `--resolve-all-rounds` resolving in the final round too.
-fn former_options(cli: &Cli, k: usize) -> Options {
+/// `--resolve-all-rounds` resolving in the final round too. `rounds_flag` is the checked value of
+/// `--rounds` when it is given.
+fn former_options(cli: &Cli, k: usize, rounds_flag: Option<usize>) -> Options {
   for (used, flag) in [
     (cli.better_trees, "--better-trees"),
     (cli.better_mccs, "--better-MCCs"),
@@ -579,8 +575,8 @@ fn former_options(cli: &Cli, k: usize) -> Options {
   if cli.resolve_all_rounds {
     final_no_resolve = false;
   }
-  if let Some(r) = cli.rounds {
-    rounds = analysis::count_usize(r);
+  if let Some(r) = rounds_flag {
+    rounds = r;
   }
   if cli.match_topologies {
     matched = true;

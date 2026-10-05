@@ -157,19 +157,9 @@ impl Session {
     let unavailable = log_capture::unavailable();
     log::info!("TreeKnit {}", env!("TREEKNIT_LONG_VERSION"));
     let k = request.trees.len();
-    // The checks of `analysis::validate`, in its order, keeping the parsed trees and the options.
-    let parsed = analysis::parse_trees(&request.trees).and_then(|p| {
-      let errors = output::check_output_paths(&analysis::labels(&request.trees), &OutputOptions::web(k));
-      if errors.is_empty() { Ok(p) } else { Err(errors) }
-    });
-    let (parsed, opts) = match (parsed, analysis::options(&request.settings, k, false)) {
-      (Ok(p), Ok(o)) => (p, o),
-      (parsed, opts) => {
-        let mut errors = parsed.err().unwrap_or_default();
-        errors.extend(opts.err().unwrap_or_default());
-        return Err(validation_error(&errors));
-      },
-    };
+    let opts = analysis::options(&request.settings, k, false);
+    let (parsed, opts) =
+      analysis::prepare(&request.trees, &OutputOptions::web(k), opts).map_err(|e| validation_error(&e))?;
     run::report_overlap(&parsed.trees, &parsed.taxa);
     let seed = request.settings.seed;
     let failure: RefCell<Option<JsValue>> = RefCell::new(None);

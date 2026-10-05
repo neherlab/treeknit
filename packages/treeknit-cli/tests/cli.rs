@@ -682,6 +682,18 @@ mod tests {
   }
 
   #[test]
+  fn request_with_a_seed_above_the_largest_exact_integer_names_the_field() {
+    let seed = treeknit_io::analysis::MAX_SEED + 1;
+    let (code, stderr) = run_request("request-seed", &serde_json::json!({ "seed": seed }), &[]);
+    let expected = format!(
+      "Error: {}: settings.seed: the seed {seed} of the session file is above 9007199254740991, the \
+       largest integer a JavaScript number holds exactly\n",
+      request_path("request-seed").display()
+    );
+    assert_eq!((Some(1), expected), (code, stderr));
+  }
+
+  #[test]
   fn request_with_an_invalid_tree_names_the_file_the_field_and_the_position() {
     let name = "request-tree-error";
     let dir = TempDir::new(name);
