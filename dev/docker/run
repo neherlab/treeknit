@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+#
+# Usage: dev/docker/run [command [args...]]
+#
+# Run a command inside the TreeKnit build container. With no command, start an
+# interactive shell. The image is built on first use and rebuilt whenever one of
+# its build inputs changes.
+#
+# The checkout is mounted read-write at its host path, so paths in build output
+# and git worktree links match the host. The git metadata is mounted read-only:
+# nothing inside the container can plant a hook or a config entry that later
+# runs on the host.
+#
+# Environment:
+#   TREEKNIT_DOCKER_PUSH=1  Push the built image and its layer cache to the
+#                           registry (CI on the base branch only)
+#   KACHE_STORE             Host directory of the optional kache compiler cache;
+#                           mounted at the same path when set (see .env.example)
+#   CARGO_PROFILE_*, NEXTEST_*, RUST_LOG, ...
+#                           Build, test, and runtime settings forwarded to the
+#                           container (full list in passthrough_env)
+#   MISE_GITHUB_TOKEN       GitHub token for mise, forwarded when set, to lift the
+#                           anonymous API rate limit of `just tools-lock`
+#
+# Examples:
+#   dev/docker/run just check
+#   dev/docker/run just test-rs
+#
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+# shellcheck source=../lib/env.sh
+source "${root}/dev/lib/env.sh"
+load_env_file "${root}/.env"
+
+registry="neherlab/treeknit_builder"
+platform="linux/amd64"
+kind="native"
+dockerfile="dev/docker/native.dockerfile"
+
+# The image tag is a hash of the build inputs, their paths included, so any
+# change to them builds a new image and an unchanged set reuses the tag.
+build_inputs=(
+  "${dockerfile}"
+  "${dockerfile}.dockerignore"
+  dev/docker/files
+  rust-toolchain.toml
+  .config/mise.toml
+  .config/mise.lock
+)
+image_hash="$(cd "${root}" && hash_files "${build_inputs[@]}" "${platform}")"
+image="${registry}:${kind}-${image_hash}"
+
+build_image() {
+  local flags=()
+  if [[ "${TREEKNIT_DOCKER_PUSH:-}" == 1 ]]; then
+    local builder="treeknit-${kind}"
+    docker buildx inspect "${builder}" >/dev/null 2>&1 || docker buildx create --name="${builder}" --driver=docker-container >/dev/null
+    flags=(
+      --builder="${builder}"
+      --push
+      --cache-from="type=registry,ref=${registry}:cache-${kind}"
+      --cache-to="type=registry,mode=max,ref=${registry}:cache-${kind}"
+    )
+  else
+    flags=(--load)
+  fi
+  docker buildx build \
+    --platform="${platform}" \
+    --file="${root}/${dockerfile}" \
+    --tag="${image}" \
+    "${flags[@]}" \
+    --progress=plain \
+    "${root}" >&2
+}
+
+if ! docker image inspect "${image}" >/dev/null 2>&1; then
+  if ! docker pull --quiet --platform="${platform}" "${image}" >/dev/null 2>&1; then
+    printf 'Building image %s\n' "${image}" >&2
+    build_image
+    if [[ "${TREEKNIT_DOCKER_PUSH:-}" == 1 ]]; then
+      docker pull --quiet --platform="${platform}" "${image}" >/dev/null
+    fi
+  fi
+fi
+
+run_flags=(
+  --rm
+  --interactive
+  --init
+  --platform="${platform}"
+  --network=host
+  --cap-drop=ALL
+  --security-opt=no-new-privileges
+  --user="$(id -u):$(id -g)"
+  --volume="${root}:${root}"
+  # The init process delivers signals to the whole process group, as a terminal
+  # does: just ignores SIGHUP and SIGINT because it expects its children to
+  # receive them directly.
+  --env="TINI_KILL_PROCESS_GROUP=1"
+  --env="TREEKNIT_CONTAINER=1"
+  --env="TERM=${TERM:-xterm-256color}"
+  --env="TZ=Etc/UTC"
+  --env="LANG=C.UTF-8"
+  --env="DO_NOT_TRACK=1"
+  --env="MISE_DISABLE_UPDATE_WARNING=1"
+)
+if [[ -t 0 && -t 1 ]]; then
+  run_flags+=(--tty)
+fi
+
+# The working directory follows the caller when it is inside the checkout.
+cwd="$(pwd -P)"
+case "${cwd}/" in
+"${root}/"*) run_flags+=(--workdir="${cwd}") ;;
+*) run_flags+=(--workdir="${root}") ;;
+esac
+
+# A linked worktree keeps its git directory under the main checkout, outside the
+# mounted root; mount the common directory read-only so git works inside.
+if git_common_dir="$(git -C "${root}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; then
+  run_flags+=(--volume="${git_common_dir}:${git_common_dir}:ro")
+fi
+
+# Paths and RUSTFLAGS stay out: the container sets its own directories and link flags.
+passthrough_env() {
+  local name
+  for name in $(compgen -e); do
+    case "${name}" in
+    CI | GITHUB_ACTIONS | COLORTERM | NO_COLOR | FORCE_COLOR | \
+      CARGO_PROFILE_* | CARGO_TERM_* | CARGO_BUILD_JOBS | CARGO_INCREMENTAL | NEXTEST_* | \
+      RUST_LOG | RUST_LOG_STYLE | RUST_BACKTRACE | RUST_LIB_BACKTRACE | RAYON_NUM_THREADS | \
+      KACHE_DISABLED | KACHE_LOG | KACHE_MAX_SIZE | MISE_GITHUB_TOKEN)
+      run_flags+=(--env="${name}")
+      ;;
+    esac
+  done
+}
+passthrough_env
+
+# The cargo home lives under .cache of the checkout; build output goes to
+# .build/container, apart from host builds in .build/host. The cargo home is
+# mounted at one fixed path in every checkout, so the registry source paths that
+# compiled crates record, and that kache shares between worktrees, exist in each
+# of them.
+mkdir -p "${root}/.cache/cargo" "${root}/.build/container"
+run_flags+=(
+  --env="HOME=/tmp/home"
+  --env="MISE_TRUSTED_CONFIG_PATHS=${root}"
+  --volume="${root}/.cache/cargo:/cargo-home"
+  --env="CARGO_HOME=/cargo-home"
+  --env="TREEKNIT_BUILD_DIR=${root}/.build/container"
+)
+if [[ -n "${KACHE_STORE:-}" ]]; then
+  mkdir -p "${KACHE_STORE}"
+  run_flags+=(--env="KACHE_STORE=${KACHE_STORE}" --volume="${KACHE_STORE}:${KACHE_STORE}")
+fi
+
+exec docker run "${run_flags[@]}" "${image}" "${@:-bash}"

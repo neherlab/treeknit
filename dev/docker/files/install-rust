@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#
+# Usage: $0 <directory-with-rust-toolchain.toml> [target...]
+#
+# Install rustup and the toolchain that rust-toolchain.toml in the given
+# directory pins, plus the given compilation targets. RUSTUP_HOME and CARGO_HOME
+# select the installation directories; both end up writable by every user, so a
+# container running as the host user can add to them.
+#
+set -euxo pipefail
+
+toolchain_dir="${1:?directory with rust-toolchain.toml}"
+shift
+
+/fetch "https://static.rust-lang.org/rustup/archive/1.29.1/x86_64-unknown-linux-gnu/rustup-init" "/tmp/rustup-init"
+chmod +x "/tmp/rustup-init"
+/tmp/rustup-init -y --no-modify-path --profile minimal --default-toolchain none
+rm "/tmp/rustup-init"
+
+cd "${toolchain_dir}"
+rustup toolchain install
+rustup default "$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
+if (($# > 0)); then
+  rustup target add "$@"
+fi
+chmod -R a+w "${RUSTUP_HOME:?}" "${CARGO_HOME:?}"
+rustc --version
