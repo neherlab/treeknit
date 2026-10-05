@@ -90,6 +90,138 @@ describe("workspace store", () => {
     expect(store.getState().trees.map(({ label }) => label)).toStrictEqual(["na"]);
   });
 
+  test("an add still waiting for its labels or its schema adds nothing to a cleared or loaded workspace", async () => {
+    const request: AnalysisRequest = { trees: [{ label: "x", newick: HA }], settings: DEFAULTS };
+
+    const outcomes = await Promise.all(
+      (["labelsGate", "schemaGate"] as const).flatMap((gate) =>
+        [
+          (store: WorkspaceStore) => {
+            store.getState().clear();
+          },
+          (store: WorkspaceStore) => {
+            store.getState().loadRequest(request);
+          },
+        ].map(async (replace) => {
+          const services = fakeServices();
+          const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
+          const entered = services[gate].hold();
+          const adding = store.getState().addTrees([{ newick: NA, source: { kind: "file", name: "na.nwk" } }]);
+
+          await entered;
+          replace(store);
+          services[gate].release();
+          await adding;
+
+          return store.getState().trees.map(({ label }) => label);
+        }),
+      ),
+    );
+
+    expect(outcomes).toStrictEqual([[], ["x"], [], ["x"]]);
+  });
+
+  test("an add that waits while a tree is renamed computes its labels again", async () => {
+    const services = fakeServices();
+    const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
+
+    await store.getState().addTrees([{ newick: HA, source: { kind: "file", name: "a.nwk" } }]);
+    const entered = services.schemaGate.hold();
+    const adding = store.getState().addTrees([{ newick: NA, source: { kind: "file", name: "ha.nwk" } }]);
+
+    await entered;
+    store.getState().renameTree("tree-1", "ha");
+    services.schemaGate.release();
+    await adding;
+
+    expect(store.getState().trees.map(({ label }) => label)).toStrictEqual(["ha", "ha_2"]);
+  });
+
+  test("an add that waits while sequence lengths turn on appends a sequence length", async () => {
+    const services = fakeServices();
+    const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
+
+    await store.getState().addTrees([{ newick: HA, source: { kind: "file", name: "a.nwk" } }]);
+    const entered = services.labelsGate.hold();
+    const adding = store.getState().addTrees([{ newick: NA, source: { kind: "file", name: "b.nwk" } }]);
+
+    await entered;
+    await store.getState().setSeqLengthsEnabled(true);
+    services.labelsGate.release();
+    await adding;
+
+    expect(store.getState().settings.seqLengths).toStrictEqual([SEQ_LENGTH_DEFAULT, SEQ_LENGTH_DEFAULT]);
+  });
+
+  test("rejects an add when the label service returns fewer labels than trees", async () => {
+    const services = fakeServices();
+    const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
+
+    services.dropLabel = true;
+
+    await expect(store.getState().addTrees([{ newick: HA, source: { kind: "file", name: "ha.nwk" } }])).rejects.toThrow(
+      "The label service returned 0 labels for 1 trees.",
+    );
+    expect(store.getState().trees).toStrictEqual([]);
+  });
+
+  test("turning sequence lengths off while turning them on waits for the schema leaves them off", async () => {
+    const services = fakeServices();
+    const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
+
+    await store.getState().addTrees([{ newick: HA, source: { kind: "file", name: "a.nwk" } }]);
+    const entered = services.schemaGate.hold();
+    const enabling = store.getState().setSeqLengthsEnabled(true);
+
+    await entered;
+    await store.getState().setSeqLengthsEnabled(false);
+    services.schemaGate.release();
+    await enabling;
+
+    expect(store.getState().settings.seqLengths).toBeNull();
+  });
+
+  test("turning sequence lengths on while a tree is removed gives one length per remaining tree", async () => {
+    const services = fakeServices();
+    const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
+
+    await store.getState().addTrees([
+      { newick: HA, source: { kind: "file", name: "a.nwk" } },
+      { newick: NA, source: { kind: "file", name: "b.nwk" } },
+    ]);
+    const entered = services.schemaGate.hold();
+    const enabling = store.getState().setSeqLengthsEnabled(true);
+
+    await entered;
+    store.getState().removeTree("tree-1");
+    services.schemaGate.release();
+    await enabling;
+
+    expect({ undo: store.getState().undo?.kind, seqLengths: store.getState().settings.seqLengths }).toStrictEqual({
+      undo: undefined,
+      seqLengths: [SEQ_LENGTH_DEFAULT],
+    });
+  });
+
+  test("turning sequence lengths on changes nothing in a workspace cleared during the wait", async () => {
+    const services = fakeServices();
+    const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
+
+    await store.getState().addTrees([{ newick: HA, source: { kind: "file", name: "a.nwk" } }]);
+    const entered = services.schemaGate.hold();
+    const enabling = store.getState().setSeqLengthsEnabled(true);
+
+    await entered;
+    store.getState().clear();
+    services.schemaGate.release();
+    await enabling;
+
+    expect({ settings: store.getState().settings, undo: store.getState().undo?.kind }).toStrictEqual({
+      settings: DEFAULTS,
+      undo: "workspace",
+    });
+  });
+
   test("renames a tree and replaces its text and source", async () => {
     const store = await storeWith(["ha.nwk", "na.nwk"]);
 
@@ -451,14 +583,17 @@ describe("workspace store", () => {
 
 class FakeServices implements WorkspaceServices {
   failNextLabels = false;
+  dropLabel = false;
   cancelled = 0;
+  readonly labelsGate = new Gate();
+  readonly schemaGate = new Gate();
 
   cancel(): void {
     this.cancelled += 1;
   }
 
   async treeLabels(fileNames: string[], existingLabels: string[]): Promise<string[]> {
-    await Promise.resolve();
+    await this.labelsGate.pass();
 
     if (this.failNextLabels) {
       this.failNextLabels = false;
@@ -468,7 +603,7 @@ class FakeServices implements WorkspaceServices {
 
     const taken = new Set(existingLabels);
 
-    return fileNames.map((name) => {
+    const labels = fileNames.map((name) => {
       const stem = name.replace(/\.[^.]*$/u, "");
       let label = stem;
 
@@ -480,12 +615,40 @@ class FakeServices implements WorkspaceServices {
 
       return label;
     });
+
+    return this.dropLabel ? labels.slice(1) : labels;
   }
 
   async settingsSchema(): Promise<SettingsSchema> {
-    await Promise.resolve();
+    await this.schemaGate.pass();
 
     return schemaWith(SEQ_LENGTH_DEFAULT);
+  }
+}
+
+class Gate {
+  #held: PromiseWithResolvers<undefined> | undefined;
+  #entered: PromiseWithResolvers<undefined> | undefined;
+
+  hold(): Promise<undefined> {
+    this.#held = Promise.withResolvers<undefined>();
+    this.#entered = Promise.withResolvers<undefined>();
+
+    return this.#entered.promise;
+  }
+
+  release(): void {
+    this.#held?.resolve(undefined);
+    this.#held = undefined;
+  }
+
+  async pass(): Promise<void> {
+    const held = this.#held;
+
+    this.#entered?.resolve(undefined);
+    this.#entered = undefined;
+    await Promise.resolve();
+    await held?.promise;
   }
 }
 

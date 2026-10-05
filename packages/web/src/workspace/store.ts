@@ -83,6 +83,11 @@ export interface WorkspaceServices {
   cancel(): void;
 }
 
+interface WorkspaceBasis {
+  trees: WorkspaceTree[];
+  settings: Settings;
+}
+
 export interface RestoredWorkspace {
   request: AnalysisRequest;
   sources: readonly TreeSource[];
@@ -99,10 +104,17 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
   const { defaults } = start;
   const restoredTrees = start.restored === null ? [] : sessionTrees(start.restored.request, start.restored.sources, 1);
   const pendingAdds = { queue: Promise.resolve() };
+  const revisions = { replacement: 0, seqLengthToggle: 0 };
 
   return createStore<WorkspaceState>()(
     immer((set, get) => {
-      const addNow = async (newTrees: readonly NewTree[]): Promise<void> => {
+      const isCurrent = (basis: WorkspaceBasis): boolean => {
+        const state = get();
+
+        return state.trees === basis.trees && state.settings === basis.settings;
+      };
+
+      const addNow = async (newTrees: readonly NewTree[], replacement: number): Promise<void> => {
         const before = get();
         const automatic = newTrees.filter((tree) => tree.label === undefined);
         const explicitLabels = newTrees.flatMap((tree) => (tree.label === undefined ? [] : [tree.label]));
@@ -113,14 +125,24 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
           existingLabels,
         );
 
+        const labelled = assignLabels(newTrees, labels);
         const schema = await services.settingsSchema(before.trees.length + newTrees.length, before.settings);
-        const automaticLabels = labels.values();
+
+        if (revisions.replacement !== replacement) {
+          return;
+        }
+
+        if (!isCurrent(before)) {
+          await addNow(newTrees, replacement);
+
+          return;
+        }
 
         set((state) => {
-          for (const tree of newTrees) {
+          for (const { tree, label } of labelled) {
             state.trees.push({
               id: `tree-${String(state.nextTreeNumber)}`,
-              label: tree.label ?? automaticLabels.next().value ?? sourceFileName(tree.source),
+              label,
               newick: tree.newick,
               source: tree.source,
             });
@@ -132,8 +154,33 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
         });
       };
 
-      const cancelReplacedRun = (running: boolean): void => {
-        if (running && !selectRunning(get())) {
+      const enableSeqLengths = async (toggle: number, replacement: number): Promise<void> => {
+        const before = get();
+        const schema = await services.settingsSchema(before.trees.length, before.settings);
+
+        if (revisions.seqLengthToggle !== toggle || revisions.replacement !== replacement) {
+          return;
+        }
+
+        if (!isCurrent(before)) {
+          await enableSeqLengths(toggle, replacement);
+
+          return;
+        }
+
+        set((state) => {
+          state.settings.seqLengths = state.trees.map(() => schema.settings.seqLengths.default);
+          markEdited(state);
+        });
+      };
+
+      const replaceWorkspaceWith = (replace: (state: WorkspaceData) => void): void => {
+        const running = selectRunning(get());
+
+        revisions.replacement += 1;
+        set(replace);
+
+        if (running) {
           services.cancel();
         }
       };
@@ -150,7 +197,8 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
         resetRevision: 0,
 
         async addTrees(newTrees) {
-          const task = pendingAdds.queue.then(async () => addNow(newTrees));
+          const replacement = revisions.replacement;
+          const task = pendingAdds.queue.then(async () => addNow(newTrees, replacement));
 
           pendingAdds.queue = task.catch(ignore);
 
@@ -226,34 +274,36 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
         },
 
         restoreUndo() {
-          const running = selectRunning(get());
+          const entry = get().undo;
 
-          set((state) => {
-            const entry = state.undo;
+          if (entry === null) {
+            return;
+          }
 
-            if (entry === null) {
-              return;
-            }
-
-            match(entry)
-              .with({ kind: "tree" }, ({ tree, index, seqLength }) => {
+          match(entry)
+            .with({ kind: "tree" }, ({ tree, index, seqLength }) => {
+              set((state) => {
                 state.trees.splice(index, 0, tree);
 
                 if (seqLength !== null) {
                   state.settings.seqLengths?.splice(index, 0, seqLength);
                 }
-              })
-              .with({ kind: "workspace" }, ({ trees, settings, result }) => {
+
+                state.undo = null;
+                state.resetRevision += 1;
+              });
+            })
+            .with({ kind: "workspace" }, ({ trees, settings, result }) => {
+              replaceWorkspaceWith((state) => {
                 state.trees = trees;
                 state.settings = settings;
                 state.result = result;
                 state.run = { status: "idle" };
-              })
-              .exhaustive();
-            state.undo = null;
-            state.resetRevision += 1;
-          });
-          cancelReplacedRun(running);
+                state.undo = null;
+                state.resetRevision += 1;
+              });
+            })
+            .exhaustive();
         },
 
         setSettings(settings) {
@@ -264,43 +314,33 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
         },
 
         async setSeqLengthsEnabled(enabled) {
-          if (!enabled) {
-            set((state) => {
-              state.settings.seqLengths = null;
-              markEdited(state);
-            });
+          revisions.seqLengthToggle += 1;
+
+          if (enabled) {
+            await enableSeqLengths(revisions.seqLengthToggle, revisions.replacement);
 
             return;
           }
 
-          const before = get();
-          const schema = await services.settingsSchema(before.trees.length, before.settings);
-
           set((state) => {
-            state.settings.seqLengths = state.trees.map(() => schema.settings.seqLengths.default);
+            state.settings.seqLengths = null;
             markEdited(state);
           });
         },
 
         clear() {
-          const running = selectRunning(get());
-
-          set((state) => {
+          replaceWorkspaceWith((state) => {
             replaceWorkspace(state, "clear", [], defaults);
           });
-          cancelReplacedRun(running);
         },
 
         loadRequest(request) {
-          const running = selectRunning(get());
-
-          set((state) => {
+          replaceWorkspaceWith((state) => {
             const trees = sessionTrees(request, [], state.nextTreeNumber);
 
             state.nextTreeNumber += trees.length;
             replaceWorkspace(state, "session", trees, mergeSettings(defaults, request.settings));
           });
-          cancelReplacedRun(running);
         },
 
         runStarted(runId, request, startedAt) {
@@ -395,6 +435,33 @@ export function selectStale(state: WorkspaceData): boolean {
 
 export function selectRunning(state: WorkspaceData): boolean {
   return state.run.status === "running";
+}
+
+function assignLabels(
+  trees: readonly NewTree[],
+  automaticLabels: readonly string[],
+): { tree: NewTree; label: string }[] {
+  const requested = trees.filter((tree) => tree.label === undefined).length;
+
+  if (automaticLabels.length !== requested) {
+    throw new Error(
+      `The label service returned ${String(automaticLabels.length)} labels for ${String(requested)} trees.`,
+    );
+  }
+
+  const remaining = automaticLabels.values();
+
+  return trees.map((tree) => ({ tree, label: tree.label ?? takeLabel(remaining) }));
+}
+
+function takeLabel(labels: Iterator<string>): string {
+  const next = labels.next();
+
+  if (next.done === true) {
+    throw new Error("The label service returned too few labels.");
+  }
+
+  return next.value;
 }
 
 function sessionTrees(request: AnalysisRequest, sources: readonly TreeSource[], firstNumber: number): WorkspaceTree[] {
