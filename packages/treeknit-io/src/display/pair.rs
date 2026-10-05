@@ -221,6 +221,8 @@ mod tests {
   use crate::output::{self, OutputOptions};
   use crate::run;
   use pretty_assertions::assert_eq;
+  use rand::{Rng, SeedableRng};
+  use rand_xoshiro::Xoshiro256PlusPlus;
   use std::collections::BTreeSet;
 
   /// The two-tree example: X moved between the trees.
@@ -498,6 +500,67 @@ mod tests {
         .filter(|m| m.index != p_mcc.index)
         .all(|m| m.ambiguous_leaves.is_empty())
     );
+  }
+
+  #[test]
+  fn pair_view_node_names_are_unique_and_non_empty_in_every_version() {
+    let mut rng = Xoshiro256PlusPlus::seed_from_u64(11);
+    let mut checked = 0;
+    for _ in 0..150 {
+      let k = rng.gen_range(2..4);
+      let texts: Vec<String> = std::iter::repeat_with(|| random_tree(&mut rng)).take(k).collect();
+      let trees: Vec<(String, &str)> = texts
+        .iter()
+        .enumerate()
+        .map(|(i, t)| (format!("t{i}"), t.as_str()))
+        .collect();
+      let trees: Vec<(&str, &str)> = trees.iter().map(|(l, t)| (l.as_str(), *t)).collect();
+      let Some((r, opts)) = try_run(&trees) else { continue };
+      for pair in 0..r.pairs.len() {
+        for version in [TreeVersion::Input, TreeVersion::Resolved, TreeVersion::Imputed] {
+          let v = view(&r, &opts, pair, version);
+          for tree in [&v.left, &v.right] {
+            let names: BTreeSet<&str> = tree.nodes.iter().map(|n| n.name.as_str()).collect();
+            assert_eq!(tree.nodes.len(), names.len(), "{texts:?}");
+            assert!(!names.contains(""), "{texts:?}");
+          }
+          checked += 1;
+        }
+      }
+    }
+    assert!(checked > 100);
+  }
+
+  /// A random tree on a random subset of the leaves `A` to `H`, with unnamed internal nodes of
+  /// two or three children.
+  fn random_tree(rng: &mut Xoshiro256PlusPlus) -> String {
+    let mut parts: Vec<String> = (0..8_u8)
+      .filter(|_| rng.gen_bool(0.85))
+      .map(|i| char::from(b'A' + i).to_string())
+      .collect();
+    while parts.len() > 1 {
+      let take = if parts.len() > 2 && rng.gen_bool(0.3) { 3 } else { 2 };
+      let group: Vec<String> = std::iter::repeat_with(|| parts.remove(rng.gen_range(0..parts.len())))
+        .take(take)
+        .collect();
+      parts.push(format!("({})", group.join(",")));
+    }
+    format!("{};", parts.first().cloned().unwrap_or_default())
+  }
+
+  /// The run of `trees`, or `None` when the trees do not validate.
+  fn try_run(trees: &[(&str, &str)]) -> Option<(RunResult, Options)> {
+    let texts: Vec<TreeText> = trees
+      .iter()
+      .map(|(label, newick)| TreeText {
+        label: (*label).to_owned(),
+        newick: (*newick).to_owned(),
+      })
+      .collect();
+    let settings = Settings::default();
+    let parsed = analysis::parse_trees(&texts).ok()?;
+    let opts = analysis::options(&settings, texts.len(), false).ok()?;
+    Some((run::run(parsed, &opts, settings.seed, &|_| {}), opts))
   }
 
   #[test]

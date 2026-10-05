@@ -4,7 +4,7 @@ use super::shapes::arg_shapes;
 use super::tree::{add_length, row};
 use super::{ArgEdge, ArgNodeView, ArgView, RootCase, Scale};
 use crate::run::RunResult;
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use treeknit_core::arg::{Anc, Arg};
 
 /// Label of the synthetic top root, as in `ARG/arg.nwk`.
@@ -28,16 +28,32 @@ fn layout(arg: &Arg, scale: Scale) -> ArgView {
   for c in &mut children {
     c.sort_by(|&a, &b| y[a].total_cmp(&y[b]));
   }
-  let nodes: Vec<ArgNodeView> = (0..g.len())
-    .map(|n| {
+  let leaf: Vec<bool> = (0..g.len())
+    .map(|n| arg.nodes.get(n).is_some_and(|a| a.is_leaf))
+    .collect();
+  let labels = unique_labels(
+    (0..g.len())
+      .map(|n| {
+        arg
+          .nodes
+          .get(n)
+          .map_or_else(|| GLOBAL_ROOT.to_owned(), |a| a.label.clone())
+      })
+      .collect(),
+    &leaf,
+  );
+  let nodes: Vec<ArgNodeView> = labels
+    .into_iter()
+    .enumerate()
+    .map(|(n, label)| {
       let node = arg.nodes.get(n);
       ArgNodeView {
-        label: node.map_or_else(|| GLOBAL_ROOT.to_owned(), |a| a.label.clone()),
+        label,
         parents: g.parents[n],
         children: children[n].clone(),
         tau: node.map_or([None, None], |a| a.tau.map(|t| t.filter(|x| x.is_finite()))),
         hybrid: node.is_some_and(|a| a.hybrid),
-        leaf: node.is_some_and(|a| a.is_leaf),
+        leaf: leaf[n],
         segments: (0..2).filter(|&c| node.is_none_or(|a| a.has(c))).collect(),
         x_div: x_div[n],
         x_depth: x_depth[n],
@@ -54,6 +70,37 @@ fn layout(arg: &Arg, scale: Scale) -> ArgView {
     root_case,
     shapes,
   }
+}
+
+/// `labels` made unique and non-empty, because views select nodes by label. Leaves keep their
+/// labels, which are distinct taxon names. An internal node whose label is empty or taken by an
+/// earlier node gets the first `<label>_<k>`, k ≥ 2 (`NODE_<k>` for an empty label), that no
+/// node has: a leaf can be named like an internal ARG node (`ARGNode_3`) or the synthetic root.
+fn unique_labels(labels: Vec<String>, leaf: &[bool]) -> Vec<String> {
+  let all: BTreeSet<String> = labels.iter().cloned().collect();
+  let mut taken: BTreeSet<String> = labels
+    .iter()
+    .zip(leaf)
+    .filter(|(_, l)| **l)
+    .map(|(s, _)| s.clone())
+    .collect();
+  labels
+    .into_iter()
+    .zip(leaf)
+    .map(|(label, &is_leaf)| {
+      if is_leaf || (!label.is_empty() && taken.insert(label.clone())) {
+        return label;
+      }
+      let base = if label.is_empty() { "NODE" } else { label.as_str() };
+      // At most `all.len() + taken.len()` candidates are in use, so one of these is free.
+      let free = (2..=all.len() + taken.len() + 2)
+        .map(|k| format!("{base}_{k}"))
+        .find(|c| !all.contains(c) && !taken.contains(c))
+        .unwrap_or_default();
+      taken.insert(free.clone());
+      free
+    })
+    .collect()
 }
 
 /// The root case and the top root, following the extended Newick writer of `crate::arg`: a
@@ -249,7 +296,6 @@ mod tests {
   use pretty_assertions::assert_eq;
   use rand::{Rng, SeedableRng};
   use rand_xoshiro::Xoshiro256PlusPlus;
-  use std::collections::BTreeSet;
 
   fn run_trees(trees: &[(&str, &str)]) -> RunResult {
     let texts: Vec<TreeText> = trees
@@ -404,6 +450,33 @@ mod tests {
       parts.push(format!("({a},{b})"));
     }
     format!("{};", parts[0])
+  }
+
+  #[test]
+  fn arg_view_labels_are_unique_when_leaves_take_arg_node_labels() {
+    // The synthetic root case, with leaves named like the synthetic root and an ARG node.
+    let r = run_trees(&[
+      ("ha", "(GlobalRoot,((C,ARGNode_1),D));"),
+      ("na", "((D,(GlobalRoot,C)),ARGNode_1);"),
+    ]);
+    let v = arg_view(&r, Scale::Div).unwrap();
+    let labels: BTreeSet<&str> = v.nodes.iter().map(|n| n.label.as_str()).collect();
+    assert_eq!(v.nodes.len(), labels.len());
+    assert!(labels.iter().all(|l| !l.is_empty()));
+    for leaf in ["GlobalRoot", "ARGNode_1", "C", "D"] {
+      assert!(
+        v.nodes.iter().any(|n| n.leaf && n.label == leaf),
+        "leaf {leaf} keeps its label"
+      );
+    }
+  }
+
+  #[test]
+  fn unique_labels_rename_taken_and_empty_internal_labels() {
+    let labels = ["x", "a", "x", "", "a_2", "a"].map(String::from).to_vec();
+    let leaf = [false, true, false, false, false, false];
+    let expected = ["x", "a", "x_2", "NODE_2", "a_2", "a_3"].map(String::from).to_vec();
+    assert_eq!(expected, unique_labels(labels, &leaf));
   }
 
   #[test]
