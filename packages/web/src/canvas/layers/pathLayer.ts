@@ -2,6 +2,7 @@ import type { Accessor, Color } from "@deck.gl/core";
 import { PathStyleExtension, type PathStyleExtensionProps } from "@deck.gl/extensions";
 import { PathLayer, type PathLayerProps } from "@deck.gl/layers";
 
+import type { Rgba } from "../color";
 import type { WorldPosition } from "../projection";
 
 export const DASH_PX: [number, number] = [4, 3];
@@ -19,6 +20,8 @@ export interface PathLayerOptions<D> {
   dashed?: boolean;
   pickable?: boolean;
   opacity?: number;
+  visible?: boolean;
+  highlightColor?: Rgba;
   colorTriggers?: readonly unknown[];
 }
 
@@ -31,6 +34,8 @@ export function pathLayer<D>({
   dashed = false,
   pickable = true,
   opacity = 1,
+  visible = true,
+  highlightColor,
   colorTriggers = [],
 }: PathLayerOptions<D>): StyledPathLayer<D> {
   const solid: PathLayerProps<D> & PathStyleExtensionProps<D> = {
@@ -44,6 +49,9 @@ export function pathLayer<D>({
     capRounded: false,
     pickable,
     opacity,
+    visible,
+    autoHighlight: highlightColor !== undefined,
+    ...(highlightColor === undefined ? undefined : { highlightColor }),
     updateTriggers: { getColor: colorTriggers },
   };
 
