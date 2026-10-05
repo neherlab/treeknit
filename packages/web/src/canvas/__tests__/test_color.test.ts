@@ -2,14 +2,7 @@ import type { ThemeColors } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
 import { cssColor, parseColor, withOpacity } from "../color";
-import {
-  type CustomProperties,
-  MCC_SLOT_COUNT,
-  mccColor,
-  nextColorReading,
-  paletteDrawingColors,
-  readDrawingColors,
-} from "../drawingColors";
+import { MCC_SLOT_COUNT, mccColor, paletteDrawingColors, paletteTheme } from "../drawingColors";
 
 describe("parseColor", () => {
   test.each([
@@ -53,59 +46,43 @@ describe("withOpacity", () => {
   });
 });
 
-function tokens(values: Record<string, string>): CustomProperties {
-  return {
-    getPropertyValue: (name) => values[name] ?? "",
-  };
-}
-
-const LIGHT = {
-  "--color-ground": "#f3f5f4",
-  "--color-ink": "#1f2b30",
-  "--color-ink-muted": "#55656b",
-  "--color-signal": "#b0265e",
-  "--color-focus": "#2457c5",
-  "--color-segment-a": "#3e6a8a",
-  "--color-segment-b": "#8a6a3e",
-  "--color-mcc-0": "#2f4b9a",
-  "--color-mcc-1": "#c9a227",
-  "--color-mcc-2": "#2c8c83",
-  "--color-mcc-3": "#5e3c82",
-  "--color-mcc-4": "#7a5537",
-  "--color-mcc-5": "#7d8f3a",
-  "--color-mcc-6": "#d07a1e",
-  "--color-mcc-7": "#5b7c99",
-  "--color-mcc-none": "#9aa5a2",
+const DARK: ThemeColors = {
+  mcc: ["#000001", "#000002", "#000003", "#000004", "#000005", "#000006", "#000007", "#000008"],
+  noMcc: "#000009",
+  ground: "#162024",
+  ink: "#dce4e1",
+  inkMuted: "#9aaaa6",
+  signal: "#e0619a",
+  focus: "#7da2f0",
+  segmentA: "#406e8f",
+  segmentB: "#8a6a3e",
 };
 
-describe("readDrawingColors", () => {
-  test("reads every drawing token as RGBA", () => {
-    const colors = readDrawingColors(tokens(LIGHT));
+const LIGHT: ThemeColors = {
+  mcc: ["#2f4b9a", "#c9a227", "#2c8c83", "#5e3c82", "#7a5537", "#7d8f3a", "#d07a1e", "#5b7c99"],
+  noMcc: "#9aa5a2",
+  ground: "#f3f5f4",
+  ink: "#1f2b30",
+  inkMuted: "#55656b",
+  signal: "#b0265e",
+  focus: "#2457c5",
+  segmentA: "#3e6a8a",
+  segmentB: "#8a6a3e",
+};
 
-    expect(colors.ground).toStrictEqual([243, 245, 244, 255]);
-    expect(colors.segmentB).toStrictEqual([138, 106, 62, 255]);
-    expect(colors.mcc).toHaveLength(8);
-    expect(colors.mcc[7]).toStrictEqual([91, 124, 153, 255]);
-    expect(colors.mccNone).toStrictEqual([154, 165, 162, 255]);
-  });
-
-  test("names the token that holds no color", () => {
-    expect(() => readDrawingColors(tokens({ ...LIGHT, "--color-mcc-3": "" }))).toThrow("--color-mcc-3");
+describe("paletteTheme", () => {
+  test.each([
+    ["dark", DARK],
+    ["light", LIGHT],
+    ["system", LIGHT],
+    [undefined, LIGHT],
+  ])("takes the palette theme for the resolved theme %o", (resolved, expected) => {
+    expect(paletteTheme({ light: LIGHT, dark: DARK }, resolved)).toBe(expected);
   });
 });
 
 describe("paletteDrawingColors", () => {
-  const theme: ThemeColors = {
-    mcc: ["#000001", "#000002", "#000003", "#000004", "#000005", "#000006", "#000007", "#000008"],
-    noMcc: "#000009",
-    ground: "#162024",
-    ink: "#dce4e1",
-    inkMuted: "#9aaaa6",
-    signal: "#e0619a",
-    focus: "#7da2f0",
-    segmentA: "#406e8f",
-    segmentB: "#8a6a3e",
-  };
+  const theme = DARK;
 
   test("takes every drawing color from the palette theme", () => {
     expect(paletteDrawingColors(theme)).toStrictEqual({
@@ -127,7 +104,7 @@ describe("paletteDrawingColors", () => {
 });
 
 describe("mccColor", () => {
-  const colors = readDrawingColors(tokens(LIGHT));
+  const colors = paletteDrawingColors(LIGHT);
 
   test("returns the slot color, and the no-MCC color without a slot", () => {
     expect(mccColor(colors, 2)).toStrictEqual([44, 140, 131, 255]);
@@ -141,20 +118,5 @@ describe("mccColor", () => {
 
   test.each([MCC_SLOT_COUNT, -1, 1.5])("rejects slot %d, which breaks the palette contract", (slot) => {
     expect(() => mccColor(colors, slot)).toThrow(RangeError);
-  });
-});
-
-describe("nextColorReading", () => {
-  const first = nextColorReading(undefined, tokens(LIGHT));
-
-  test("keeps the same reading while the tokens are unchanged, so consumers do not render again", () => {
-    expect(nextColorReading(first, tokens({ ...LIGHT }))).toBe(first);
-  });
-
-  test("reads the colors again when a token changes", () => {
-    const next = nextColorReading(first, tokens({ ...LIGHT, "--color-mcc-0": "#000000" }));
-
-    expect(next.colors.mcc[0]).toStrictEqual([0, 0, 0, 255]);
-    expect(next.colors.ground).toStrictEqual(first.colors.ground);
   });
 });

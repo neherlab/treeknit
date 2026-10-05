@@ -1,4 +1,11 @@
-import type { AnalysisRequest, ArgView, DrawingRules, Settings, TreeInspection } from "@neherlab/treeknit-wasm";
+import type {
+  AnalysisRequest,
+  ArgView,
+  DrawingRules,
+  Palette,
+  Settings,
+  TreeInspection,
+} from "@neherlab/treeknit-wasm";
 import {
   keepPreviousData,
   type QueryKey,
@@ -69,6 +76,12 @@ export function usePalette(): Answer<StatelessResult<"palette">> {
   const client = useAnalysisClient();
 
   return useQuery({ queryKey: analysisKeys.palette(), queryFn: async () => client.palette() });
+}
+
+export function useSuspensePalette(): Palette {
+  const client = useAnalysisClient();
+
+  return useSuspenseQuery({ queryKey: analysisKeys.palette(), queryFn: async () => client.palette() }).data;
 }
 
 export function useDrawingRules(): DrawingRules {
