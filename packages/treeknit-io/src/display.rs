@@ -566,8 +566,23 @@ pub struct AuspicePair {
   /// The scale of the `div` of the nodes, as `PairView.scale`: `depth` for `div` when a tree of
   /// the pair has no branch lengths.
   pub scale: Scale,
+  /// The name of the `div` values on the axis and in the hover panel: "Divergence" for the shown
+  /// scale `div`, "Depth" for `depth`.
+  pub axis_title: String,
+  /// For each MCC, in the order of `MCCs.json`, the node where it starts in each tree.
+  pub mcc_roots: Vec<AuspiceMccRoot>,
   pub left: AuspiceDataset,
   pub right: AuspiceDataset,
+}
+
+/// The node where an MCC starts in each tree of a pair: the node whose branch above is the
+/// MCC's reassortment branch, or the root when the MCC holds the root; `None` for a tree without
+/// a node of the MCC.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceMccRoot {
+  pub left: Option<String>,
+  pub right: Option<String>,
 }
 
 /// The trees of a pair that the Auspice view shows: both as a tanglegram, or one alone.
@@ -644,6 +659,9 @@ pub struct AuspiceColoring {
   #[serde(rename = "type")]
   pub kind: AuspiceColoringKind,
   /// `[value, color]` per value, the color as `#rrggbb`.
+  /// Absent for a continuous coloring, which Auspice colors with its own scale.
+  #[serde(skip_serializing_if = "Vec::is_empty")]
+  #[cfg_attr(feature = "tsify", tsify(optional))]
   pub scale: Vec<(String, String)>,
 }
 
@@ -653,6 +671,7 @@ pub struct AuspiceColoring {
 #[serde(rename_all = "lowercase")]
 pub enum AuspiceColoringKind {
   Categorical,
+  Continuous,
 }
 
 /// What the download panel of Auspice offers besides the trees.
@@ -700,6 +719,37 @@ pub struct AuspiceNodeAttrs {
   #[serde(skip_serializing_if = "Option::is_none")]
   #[cfg_attr(feature = "tsify", tsify(optional))]
   pub mcc: Option<AuspiceValue>,
+  /// The MCC's value of `mcc` when the MCC is one of the 8 largest of the pair, "Other" for
+  /// another MCC; absent for a node without an MCC.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(feature = "tsify", tsify(optional))]
+  pub largest_mcc: Option<AuspiceValue>,
+  /// The number of leaves of the node's MCC; absent for a node without an MCC.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(feature = "tsify", tsify(optional))]
+  pub mcc_size: Option<AuspiceNumber>,
+  /// "Yes" when the branch above the node is a reassortment branch, "No" otherwise; absent for
+  /// the root.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(feature = "tsify", tsify(optional))]
+  pub reassortment: Option<AuspiceValue>,
+  /// For a leaf: "Yes" when imputation placed it into the tree.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(feature = "tsify", tsify(optional))]
+  pub imputed: Option<AuspiceValue>,
+  /// For an internal node: "Yes" when resolution or imputation added it.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(feature = "tsify", tsify(optional))]
+  pub added: Option<AuspiceValue>,
+  /// For a leaf: "Yes" when the other tree of the pair lacks it.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(feature = "tsify", tsify(optional))]
+  pub one_tree: Option<AuspiceValue>,
+  /// For a leaf with an MCC: "Ambiguous" when its attachment to the MCC is ambiguous, otherwise
+  /// "Unambiguous".
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(feature = "tsify", tsify(optional))]
+  pub attachment: Option<AuspiceValue>,
 }
 
 /// The value of a categorical node attribute.
@@ -707,6 +757,13 @@ pub struct AuspiceNodeAttrs {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct AuspiceValue {
   pub value: String,
+}
+
+/// The value of a continuous node attribute.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceNumber {
+  pub value: usize,
 }
 
 /// The attributes of the branch above an Auspice node.

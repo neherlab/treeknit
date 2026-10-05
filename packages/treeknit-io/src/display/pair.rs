@@ -204,7 +204,7 @@ fn leaf_ranks(tree: &DrawTree) -> Vec<usize> {
 }
 
 /// The MCCs of pair `p`, with their attached members and color slots.
-fn mcc_infos(run: &RunResult, p: &PairResult, slots: &[usize]) -> Vec<MccInfo> {
+pub(super) fn mcc_infos(run: &RunResult, p: &PairResult, slots: &[usize]) -> Vec<MccInfo> {
   let mut by_mcc: Vec<Vec<&Attachment>> = vec![Vec::new(); p.mccs.len()];
   for a in &p.attached {
     by_mcc[a.mcc].push(a);

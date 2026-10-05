@@ -12,8 +12,9 @@ export interface AuspiceColoring {
     type: AuspiceColoringKind;
     /**
      * `[value, color]` per value, the color as `#rrggbb`.
+     * Absent for a continuous coloring, which Auspice colors with its own scale.
      */
-    scale: [string, string][];
+    scale?: [string, string][];
 }
 
 /**
@@ -962,6 +963,37 @@ export interface AuspiceNodeAttrs {
      * an MCC.
      */
     mcc?: AuspiceValue;
+    /**
+     * The MCC's value of `mcc` when the MCC is one of the 8 largest of the pair, "Other" for
+     * another MCC; absent for a node without an MCC.
+     */
+    largest_mcc?: AuspiceValue;
+    /**
+     * The number of leaves of the node's MCC; absent for a node without an MCC.
+     */
+    mcc_size?: AuspiceNumber;
+    /**
+     * "Yes" when the branch above the node is a reassortment branch, "No" otherwise; absent for
+     * the root.
+     */
+    reassortment?: AuspiceValue;
+    /**
+     * For a leaf: "Yes" when imputation placed it into the tree.
+     */
+    imputed?: AuspiceValue;
+    /**
+     * For an internal node: "Yes" when resolution or imputation added it.
+     */
+    added?: AuspiceValue;
+    /**
+     * For a leaf: "Yes" when the other tree of the pair lacks it.
+     */
+    one_tree?: AuspiceValue;
+    /**
+     * For a leaf with an MCC: "Ambiguous" when its attachment to the MCC is ambiguous, otherwise
+     * "Unambiguous".
+     */
+    attachment?: AuspiceValue;
 }
 
 /**
@@ -1114,6 +1146,16 @@ export interface AuspiceBranchLabels {
      * The number of the MCC that starts at this branch, on a reassortment branch.
      */
     MCC: string;
+}
+
+/**
+ * The node where an MCC starts in each tree of a pair: the node whose branch above is the
+ * MCC's reassortment branch, or the root when the MCC holds the root; `None` for a tree without
+ * a node of the MCC.
+ */
+export interface AuspiceMccRoot {
+    left: string | null;
+    right: string | null;
 }
 
 /**
@@ -1328,6 +1370,15 @@ export interface AuspicePair {
      * the pair has no branch lengths.
      */
     scale: Scale;
+    /**
+     * The name of the `div` values on the axis and in the hover panel: "Divergence" for the shown
+     * scale `div`, "Depth" for `depth`.
+     */
+    axis_title: string;
+    /**
+     * For each MCC, in the order of `MCCs.json`, the node where it starts in each tree.
+     */
+    mcc_roots: AuspiceMccRoot[];
     left: AuspiceDataset;
     right: AuspiceDataset;
 }
@@ -1337,6 +1388,13 @@ export interface AuspicePair {
  */
 export interface AuspiceValue {
     value: string;
+}
+
+/**
+ * The value of a continuous node attribute.
+ */
+export interface AuspiceNumber {
+    value: number;
 }
 
 /**
@@ -1350,7 +1408,7 @@ export interface AnalysisRequest {
 /**
  * Type of an Auspice coloring.
  */
-export type AuspiceColoringKind = "categorical";
+export type AuspiceColoringKind = "categorical" | "continuous";
 
 /**
  * Version of the Auspice dataset schema.

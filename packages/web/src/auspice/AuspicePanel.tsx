@@ -70,7 +70,7 @@ function Auspice({ result }: { result: RunResult }) {
                   onSelect={select}
                   files={files}
                   treeLabels={labels}
-                  axisTitle={undefined}
+                  axisTitle={datasets.axis_title}
                 />
               )}
             </KeyedAuspiceView>
