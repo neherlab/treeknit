@@ -1003,7 +1003,8 @@ export class Session {
     pairView(pair: number, version: TreeVersion, scale: Scale): PairView;
     /**
      * Validate and run `request`, calling `onProgress` with each `Progress`. Throws an `Error`
-     * named `ValidationError` when the request does not validate, and an `Error` otherwise.
+     * named `ValidationError` when the request does not validate, the error that `onProgress`
+     * throws (after the run completes without further progress calls), and an `Error` otherwise.
      */
     static run(request: AnalysisRequest, onProgress: (progress: Progress) => void): Session;
     /**
@@ -1083,7 +1084,7 @@ export interface InitOutput {
     readonly requestFile: (a: any) => [number, number, number];
     readonly session_argFigure: (a: number, b: any) => [number, number, number, number];
     readonly session_argView: (a: number, b: any) => [number, number, number];
-    readonly session_commandLine: (a: number) => [number, number, number, number];
+    readonly session_commandLine: (a: number) => [number, number];
     readonly session_constellation: (a: number) => [number, number, number];
     readonly session_figure: (a: number, b: number, c: any, d: any) => [number, number, number, number];
     readonly session_fileText: (a: number, b: number, c: number) => [number, number, number, number];
@@ -1099,10 +1100,10 @@ export interface InitOutput {
     readonly version: () => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
-    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __externref_drop_slice: (a: number, b: number) => void;
     readonly __wbindgen_start: () => void;
