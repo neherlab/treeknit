@@ -7,6 +7,11 @@ export const THEME_PROVIDER_PROPS = {
   disableTransitionOnChange: true,
 } satisfies ThemeProviderProps;
 
+export const CLIENT_THEME_PROVIDER_PROPS = {
+  ...THEME_PROVIDER_PROPS,
+  scriptProps: { type: "text/plain" },
+} satisfies ThemeProviderProps;
+
 export type ThemeName = "light" | "dark";
 
 export interface ThemeToggle {

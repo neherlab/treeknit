@@ -1,5 +1,9 @@
+import { ThemeProvider } from "next-themes";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
+import { CLIENT_THEME_PROVIDER_PROPS } from "../../src/shell/theme.ts";
 import { contentSecurityPolicy, themeScript } from "../content-security-policy";
 
 describe("contentSecurityPolicy", () => {
@@ -26,5 +30,13 @@ describe("contentSecurityPolicy", () => {
 describe("themeScript", () => {
   test("is the next-themes script for the class attribute, the system default, and the color scheme", () => {
     expect(themeScript()).toMatch(/^\(.+\)\("class","theme","system",null,\["light","dark"\],null,true,true\)$/su);
+  });
+});
+
+describe("the client theme provider", () => {
+  test("renders the theme script as an inert data block, because the page head already runs it", () => {
+    expect(renderToStaticMarkup(createElement(ThemeProvider, CLIENT_THEME_PROVIDER_PROPS))).toBe(
+      `<script type="text/plain">${themeScript()}</script>`,
+    );
   });
 });

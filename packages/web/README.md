@@ -13,7 +13,7 @@ The commands are the same in the main checkout and in a worktree; `run-web` prin
 
 ## Structure
 
-- `src/main.tsx`: the start-up: fonts, styles, the theme provider (`next-themes`, following the system theme until the user switches, with the settings `THEME_PROVIDER_PROPS` of `src/shell/theme.ts`), and the router
+- `src/main.tsx`: the start-up: fonts, styles, the theme provider (`next-themes`, following the system theme until the user switches, with the settings `CLIENT_THEME_PROVIDER_PROPS` of `src/shell/theme.ts`, which mark its own script as an inert `text/plain` block because the head of `index.html` already runs the theme script and React would warn about a script element), and the router
 - `src/router.tsx`: the routes `/` (workspace) and `/help`, on hash history so that the app works on any static host without rewrites; search params are plain `key=value` text, and default values stay out of the URL
 - `src/workspace/search.ts`: the workspace search params (`view`, `pair`, `version`, `x`, `labels`, `mcc`, `leaf`, `node`) as a zod schema whose invalid or missing values fall back to the defaults; `resolveWorkspaceSearch` replaces values that do not fit the workspace (an unavailable view shows the overview, a pair out of range becomes 0, an `mcc`, `leaf`, or `node` absent from the pair is dropped) from a `WorkspaceAvailability`; `selectPair` clears `mcc` and `node`, because they mean nothing in another pair. A node is written as its side and name, `left:NODE_3`
 - `src/workspace/useWorkspaceSearch.ts`: the resolved search params of the workspace and their update; the URL keeps the values as written, so a shared link still applies once the result exists
