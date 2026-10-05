@@ -14,6 +14,10 @@ import {
 
 export const SAVE_DELAY_MS = 500;
 
+export const RESTORE_ATTEMPTS = 3;
+
+export const RESTORE_KEPT_CHANGING = "Another tab kept saving the workspace while this tab read it.";
+
 export interface WorkspaceSnapshot {
   request: AnalysisRequest;
   sources: TreeSource[];
@@ -87,29 +91,8 @@ export class WorkspacePersistence {
   }
 
   async restore<T>(read: (stored: StoredWorkspace) => Promise<T>): Promise<T | null> {
-    const epoch = this.#epoch;
-
     try {
-      const record = await this.#readStored();
-
-      if (record?.kind !== "workspace") {
-        return null;
-      }
-
-      const restored = await read({ sessionFile: record.sessionFile, sources: record.sources });
-      const current = await this.#readStored();
-
-      if (epoch !== this.#epoch) {
-        return null;
-      }
-
-      if (!isDeepEqual(current, record)) {
-        return await this.restore(read);
-      }
-
-      this.#switchOn(record.generation);
-
-      return restored;
+      return await this.#restore(read, this.#epoch, RESTORE_ATTEMPTS);
     } catch (error) {
       this.#report(error instanceof UnavailableStorageError ? "unavailable" : "restore", error);
 
@@ -325,6 +308,32 @@ export class WorkspacePersistence {
     return this.#disablingEpoch === this.#epoch;
   }
 
+  async #restore<T>(read: (stored: StoredWorkspace) => Promise<T>, epoch: number, attempts: number): Promise<T | null> {
+    if (attempts === 0) {
+      throw new Error(RESTORE_KEPT_CHANGING);
+    }
+
+    const record = await this.#readStored();
+
+    if (record?.kind !== "workspace") {
+      return null;
+    }
+
+    const restored = await read({ sessionFile: record.sessionFile, sources: record.sources });
+    const current = await this.#readStored();
+
+    if (epoch !== this.#epoch) {
+      return null;
+    }
+
+    if (!isDeepEqual(current, record)) {
+      return this.#restore(read, epoch, attempts - 1);
+    }
+
+    this.#switchOn(record.generation);
+
+    return restored;
+  }
   #resumeSaving(): void {
     const snapshot = this.#unsaved;
 

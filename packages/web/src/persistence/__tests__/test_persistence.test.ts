@@ -1,7 +1,14 @@
 import type { AnalysisRequest, OutputFile } from "@neherlab/treeknit-wasm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { SAVE_DELAY_MS, type StoredWorkspace, type WorkspaceSnapshot, WorkspacePersistence } from "../persistence";
+import {
+  RESTORE_ATTEMPTS,
+  RESTORE_KEPT_CHANGING,
+  SAVE_DELAY_MS,
+  type StoredWorkspace,
+  type WorkspaceSnapshot,
+  WorkspacePersistence,
+} from "../persistence";
 import type { PersistenceChannel, StoredRecord } from "../record";
 import { MemoryChannelHub, MemoryStorage } from "./memoryStorage";
 
@@ -157,6 +164,25 @@ describe("workspace persistence", () => {
       restored: { sessionFile: sessionFileText(TWO_TREES.request), sources: TWO_TREES.sources },
       parsed: 2,
       switches: [true],
+    });
+  });
+
+  test("a restore whose stored workspace changes during every parse gives up after a few attempts and reports it", async () => {
+    const storage = new MemoryStorage(workspaceRecord(3, ONE_TREE));
+    const tab = new Tab(storage);
+    let parsed = 0;
+
+    const restored = await tab.persistence.restore((stored) => {
+      parsed += 1;
+      storage.record = workspaceRecord(3 + parsed, parsed % 2 === 0 ? ONE_TREE : TWO_TREES);
+
+      return Promise.resolve(stored);
+    });
+
+    expect({ restored, parsed, state: tab.persistence.state }).toStrictEqual({
+      restored: null,
+      parsed: RESTORE_ATTEMPTS,
+      state: { enabled: false, problem: { kind: "restore", message: RESTORE_KEPT_CHANGING } },
     });
   });
 
