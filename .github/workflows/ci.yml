@@ -18,13 +18,6 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
 
-env:
-  # Every run starts without incremental state, so incremental compiles only add
-  # overhead, and kache caches only compiles without it.
-  CARGO_INCREMENTAL: "0"
-  KACHE_STORE: ${{ github.workspace }}/.cache/kache
-  FORCE_COLOR: "1"
-
 jobs:
   # The check groups of `just check-all`, one parallel job each. The justfile
   # owns the recipes of each group; `just check-group` runs them in the build
@@ -55,7 +48,7 @@ jobs:
         with:
           cache: ${{ matrix.group }}
           dockerhub-username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
-          dockerhub-token: ${{ github.event_name == 'push' && secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN || '' }}
+          dockerhub-token: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN }}
 
       - name: "Run the ${{ matrix.group }} checks"
         run: dev/docker/run just check-group ${{ matrix.group }}
