@@ -206,11 +206,11 @@ impl Parser<'_> {
     Ok(t)
   }
 
-  /// Whether the rest of the text holds a `;` outside quoted labels and comments, that is, the
-  /// end of a further tree. The rest is split into the tokens of the parser without building a
-  /// tree, so a syntax error there is no error of the first tree: an unterminated quoted label
-  /// or comment ends the search.
-  fn another_tree_follows(&mut self) -> bool {
+  /// Move to the next `;` outside quoted labels and comments, the end of a tree, and return
+  /// whether there is one. The text is split into the tokens of the parser without building a
+  /// tree, so a syntax error does not stop the search; an unterminated quoted label or comment
+  /// ends it.
+  fn next_tree_end(&mut self) -> bool {
     loop {
       if self.skip().is_err() {
         return false;
@@ -264,7 +264,7 @@ pub fn parse(s: &str, label: &str) -> Result<Tree, ParseError> {
 /// callers that read input files log them with `Parsed::log_warnings`.
 ///
 /// The first tree ends at the first `;` outside quoted labels and comments. The text after it
-/// is not parsed; a further `;` there gives the warning `SeveralTrees`.
+/// is not parsed; a further `;` there gives the warning `SeveralTrees` (see [`holds_several_trees`]).
 pub fn parse_first(content: &str, label: &str) -> Result<Parsed, ParseError> {
   let mut p = Parser {
     s: content.as_bytes(),
@@ -272,13 +272,26 @@ pub fn parse_first(content: &str, label: &str) -> Result<Parsed, ParseError> {
     warnings: Vec::new(),
   };
   let tree = p.tree(label)?;
-  p.i += 1;
-  let several = p.another_tree_follows();
   let mut warnings = p.warnings;
-  if several {
+  if holds_several_trees(content) {
     warnings.insert(0, ParseWarning::SeveralTrees);
   }
   Ok(Parsed { tree, warnings })
+}
+
+/// Whether `content` holds more than one tree: two `;` outside quoted labels and comments. This
+/// holds whether or not the first tree parses, so callers can report it next to a parse error.
+pub fn holds_several_trees(content: &str) -> bool {
+  let mut p = Parser {
+    s: content.as_bytes(),
+    i: 0,
+    warnings: Vec::new(),
+  };
+  if !p.next_tree_end() {
+    return false;
+  }
+  p.i += 1;
+  p.next_tree_end()
 }
 
 fn fix_names(t: &mut Tree) -> Result<(), ParseError> {
@@ -436,6 +449,18 @@ mod tests {
     let parsed = parse_first(text, "t").unwrap();
     assert_eq!(leaves, parsed.tree.leaf_names());
     assert_eq!(warnings, parsed.warnings);
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::one_tree(              "(A,B);\n",         false)]
+  #[case::two_trees(             "(A,B);(C,D);",      true)]
+  #[case::broken_first_tree(     "(A,,;(C,D);",       true)]
+  #[case::semicolons_in_quotes(  "('a;b',C);[;]",     false)]
+  #[case::no_semicolon(          "(A,B)",             false)]
+  #[trace]
+  fn holds_several_trees_counts_semicolons_outside_quotes_and_comments(#[case] text: &str, #[case] expected: bool) {
+    assert_eq!(expected, holds_several_trees(text));
   }
 
   #[test]

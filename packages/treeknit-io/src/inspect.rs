@@ -96,7 +96,8 @@ pub struct PairOverlap {
 }
 
 /// Inspect the first tree of the Newick `text` of the tree labeled `label`: its counts, branch
-/// lengths, and parser warnings, or its parse error with the line and column.
+/// lengths, and parser warnings, or its parse error with the line and column. A text with
+/// several trees has the warning about them also when its first tree does not parse.
 pub fn inspect_tree(label: &str, text: &str) -> TreeInspection {
   match newick::parse_first(text, label) {
     Ok(parsed) => {
@@ -120,7 +121,11 @@ pub fn inspect_tree(label: &str, text: &str) -> TreeInspection {
         internal_nodes: 0,
         polytomies: 0,
         branch_lengths: BranchLengths::None,
-        warnings: Vec::new(),
+        warnings: if newick::holds_several_trees(text) {
+          vec![newick::ParseWarning::SeveralTrees.to_string()]
+        } else {
+          Vec::new()
+        },
         error: Some(TreeError {
           message: e.message,
           line: position.map(|(l, _)| l),
@@ -273,6 +278,16 @@ mod tests {
       }),
     };
     assert_eq!(expected, inspect_tree("t", "(A,\n(B,C)D\n;"));
+  }
+
+  #[test]
+  fn inspect_tree_keeps_the_several_trees_warning_with_a_parse_error() {
+    let inspection = inspect_tree("t", "(A,A);\n(A,B);\n");
+    let expected = (
+      vec!["more than one tree in file, using the first".to_owned()],
+      Some("duplicate leaf name A".to_owned()),
+    );
+    assert_eq!(expected, (inspection.warnings, inspection.error.map(|e| e.message)));
   }
 
   #[test]
