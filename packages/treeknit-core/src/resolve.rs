@@ -269,12 +269,6 @@ pub(crate) fn resolve_with_mccs_quiet(
   ([s1, s2], [k1, k2])
 }
 
-/// Insert `splits` into `t` (on all its leaves); returns those actually inserted.
-pub fn insert_all(t: &mut Tree, mut splits: Vec<Bits>, n_taxa: usize) -> Vec<Bits> {
-  insert_all_on(t, &mut splits, &t.leaf_set(n_taxa), n_taxa);
-  splits
-}
-
 /// Insert `splits` into `t` considering only leaves in `mask`; keeps the inserted ones. Logs a
 /// warning for each split skipped as incompatible.
 pub fn insert_all_on(t: &mut Tree, splits: &mut Vec<Bits>, mask: &Bits, n_taxa: usize) {
