@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { type ComponentType, type SVGProps, useCallback, useEffect, useId, useMemo, useState } from "react";
+import { type ComponentType, type SVGProps, useCallback, useEffect, useMemo, useState } from "react";
 import CopiedIcon from "~icons/lucide/check";
 import FailedIcon from "~icons/lucide/circle-alert";
 import CopyIcon from "~icons/lucide/copy";
@@ -23,16 +23,13 @@ export function CodeBlock({ code, label, errorRange, lineNumbers, className }: C
   const showLineNumbers = lineNumbers ?? lines.length > 1;
   const button = COPY_BUTTON[copyState];
   const copy = useCallback(() => void feedback.copy(code), [feedback, code]);
-  const captionId = useId();
 
   useEffect(() => feedback.attach(), [feedback]);
 
   return (
     <figure className={cn("rounded-control border-rule bg-pane flex min-w-0 flex-col border", className)}>
       <div className="border-rule flex h-9 items-center justify-between gap-3 border-b pr-1 pl-3">
-        <figcaption id={captionId} className="text-ink-muted truncate text-xs">
-          {label}
-        </figcaption>
+        <figcaption className="text-ink-muted truncate text-xs">{label}</figcaption>
         <Button
           variant="quiet"
           size="sm"
@@ -44,7 +41,8 @@ export function CodeBlock({ code, label, errorRange, lineNumbers, className }: C
         </Button>
         <output className="sr-only">{copyState === "idle" ? "" : button.label}</output>
       </div>
-      <section aria-labelledby={captionId} className={cn("rounded-b-control max-h-96 overflow-auto", nativeFocusRing)}>
+      {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the scroller must take focus so keyboard users can scroll long code, and WebKit does not make scroll containers focusable by itself; a landmark role would name the code a second time after the caption */}
+      <div tabIndex={0} className={cn("rounded-b-control max-h-96 overflow-auto", nativeFocusRing)}>
         <pre className="text-ink px-3 py-2.5 font-mono text-sm">
           <code
             className={cn("grid", showLineNumbers ? "grid-cols-[auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")}
@@ -63,7 +61,7 @@ export function CodeBlock({ code, label, errorRange, lineNumbers, className }: C
             ))}
           </code>
         </pre>
-      </section>
+      </div>
     </figure>
   );
 }
@@ -112,7 +110,7 @@ function CodeLineRow({ line, lineNumber, revealKey }: CodeLineRowProps) {
               line.marked === "" && "inline-block h-lh w-2 align-top",
             )}
           >
-            {line.marked}
+            {line.marked === "" ? <span className="sr-only">Error position</span> : line.marked}
           </mark>
         )}
         {line.after}
@@ -128,7 +126,7 @@ interface CodeLineRowProps {
 }
 
 function revealMark(mark: HTMLElement | null) {
-  const container = mark?.closest("section");
+  const container = mark?.closest("div[tabindex]");
 
   if (mark === null || container === null || container === undefined) {
     return;

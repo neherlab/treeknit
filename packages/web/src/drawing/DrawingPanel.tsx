@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useKeyboard } from "react-aria";
 
-import { InlineNotice } from "../ui/InlineNotice";
+import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
 import { ProgressBar } from "../ui/ProgressBar";
 
 export function DrawingPanel({ toolbar, loading, error, errorTitle, notice, onEscape, children }: DrawingPanelProps) {
@@ -21,9 +21,9 @@ export function DrawingPanel({ toolbar, loading, error, errorTitle, notice, onEs
         {toolbar}
       </div>
       {notice === undefined ? null : (
-        <div className="px-3 pt-3">
+        <NoticeRegion className="px-3 pt-3">
           <InlineNotice tone="warning">{notice}</InlineNotice>
-        </div>
+        </NoticeRegion>
       )}
       <div {...keyboardProps} className="relative min-h-0 flex-1">
         <DrawingBody loading={loading} error={error} errorTitle={errorTitle}>

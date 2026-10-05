@@ -5,7 +5,7 @@ import { type MouseEvent, type ReactNode, useCallback, useId, useRef } from "rea
 import { useKeyboard } from "react-aria";
 import { useErrorBoundary } from "react-error-boundary";
 
-import { InlineNotice } from "../ui/InlineNotice";
+import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
 import { Minimap } from "./Minimap";
 import type { TreeView } from "./useTreeView";
 import { type CanvasSize, minimapShown, type RowRange } from "./viewState";
@@ -122,7 +122,9 @@ export function TreeCanvas({
   if (!webGl2) {
     return (
       <div className={className}>
-        <InlineNotice tone="warning">{WEBGL2_MISSING}</InlineNotice>
+        <NoticeRegion>
+          <InlineNotice tone="warning">{WEBGL2_MISSING}</InlineNotice>
+        </NoticeRegion>
       </div>
     );
   }
