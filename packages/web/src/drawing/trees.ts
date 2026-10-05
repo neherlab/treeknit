@@ -1,6 +1,7 @@
 import type { ArgView, DrawTree, Elbow, PairView, Point } from "@neherlab/treeknit-wasm";
 
 import type { RowRange } from "../canvas/viewState";
+import { itemAt } from "./lookup";
 
 export type TreeSide = "left" | "right";
 
@@ -10,11 +11,11 @@ export function treeNodePoints(tree: DrawTree, elbows: readonly Elbow[]): (Point
   const points: (Point | undefined)[] = tree.nodes.map(() => undefined);
 
   for (const { node, points: path } of elbows) {
-    const parent = tree.nodes[node]?.parent;
+    const { parent } = itemAt(tree.nodes, node, "node");
 
     points[node] = path[2];
 
-    if (parent !== null && parent !== undefined) {
+    if (parent !== null) {
       points[parent] ??= path[0];
     }
   }
@@ -26,12 +27,7 @@ export function argNodePoints(view: ArgView): (Point | undefined)[] {
   const points: (Point | undefined)[] = view.nodes.map(() => undefined);
 
   for (const { edge, path } of view.shapes.edges) {
-    const ends = view.edges[edge];
-
-    if (ends === undefined) {
-      continue;
-    }
-
+    const ends = itemAt(view.edges, edge, "edge");
     const [from, to] = path.kind === "elbow" ? [path.points[0], path.points[2]] : [path.curve.from, path.curve.to];
 
     points[ends.child] = to;
@@ -45,7 +41,7 @@ export function leafRows(
   nodes: readonly { children: readonly number[]; leaf: boolean; y: number }[],
   node: number,
 ): RowRange | null {
-  return rowSpan(descendantLeaves(nodes, node).map((leaf) => leaf.y));
+  return nodes[node] === undefined ? null : rowSpan(descendantLeaves(nodes, node).map((leaf) => leaf.y));
 }
 
 export function rowSpan(rows: Iterable<number>): RowRange | null {
@@ -111,11 +107,11 @@ function descendantLeaves<N extends { children: readonly number[]; leaf: boolean
   const stack = [root];
 
   for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
-    const node = nodes[next];
-
-    if (node === undefined || seen.has(next)) {
+    if (seen.has(next)) {
       continue;
     }
+
+    const node = itemAt(nodes, next, "node");
 
     seen.add(next);
 

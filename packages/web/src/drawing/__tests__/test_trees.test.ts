@@ -82,6 +82,10 @@ describe("leafRows", () => {
   test("gives no range for a node outside the tree", () => {
     expect(leafRows(VIEW.left.nodes, 99)).toBeNull();
   });
+
+  test("rejects a child reference outside the tree instead of skipping it", () => {
+    expect(() => leafRows([{ children: [5], leaf: false, y: 0 }], 0)).toThrow(RangeError);
+  });
 });
 
 describe("tree lookups", () => {
