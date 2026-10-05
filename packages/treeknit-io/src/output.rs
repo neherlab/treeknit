@@ -457,6 +457,97 @@ mod tests {
   }
 
   #[test]
+  fn figure_files_are_a_tanglegram_per_pair_and_the_arg_of_two_trees() {
+    let file = |path: &str, figure| FigureFile {
+      path: path.to_owned(),
+      figure,
+    };
+    let two = figure_files(&run_trees(&[("ha", HA), ("na", NA)]));
+    let expected = vec![
+      file("tanglegram_ha_na.svg", Figure::Pair { pair: 0 }),
+      file("ARG/arg.svg", Figure::Arg),
+    ];
+    assert_eq!(expected, two);
+    let t = "((A,B),(C,D));";
+    let three = figure_files(&run_trees(&[("ha", t), ("na", t), ("pb2", t)]));
+    let expected = vec![
+      file("tanglegram_ha_na.svg", Figure::Pair { pair: 0 }),
+      file("tanglegram_ha_pb2.svg", Figure::Pair { pair: 1 }),
+      file("tanglegram_na_pb2.svg", Figure::Pair { pair: 2 }),
+    ];
+    assert_eq!(expected, three);
+  }
+
+  #[test]
+  fn output_files_with_figures_end_with_the_figure_files() {
+    let trees = [("ha", HA), ("na", NA)];
+    let options = OutputOptions {
+      figures: true,
+      ..all_files(2)
+    };
+    let (r, opts) = (run_trees(&trees), run_options(2));
+    let files = output_files(&r, &opts, &options);
+    let without = files_of(&trees, &all_files(2));
+    // The files without figures keep their bytes, and the figures follow them.
+    assert_eq!(without, files[..without.len()]);
+    let figures: Vec<OutputFile> = files[without.len()..].to_vec();
+    let expected = vec![
+      OutputFile {
+        path: "tanglegram_ha_na.svg".to_owned(),
+        media_type: "image/svg+xml".to_owned(),
+        text: figure_text(&r, &opts, Figure::Pair { pair: 0 }).unwrap(),
+      },
+      OutputFile {
+        path: "ARG/arg.svg".to_owned(),
+        media_type: "image/svg+xml".to_owned(),
+        text: figure_text(&r, &opts, Figure::Arg).unwrap(),
+      },
+    ];
+    assert_eq!(expected, figures);
+  }
+
+  #[test]
+  fn figure_text_draws_trees_without_branch_lengths_as_cladograms() {
+    let (r, opts) = (run_trees(&[("ha", HA), ("na", NA)]), run_options(2));
+    let depth = FigureOptions {
+      scale: Scale::Depth,
+      ..FigureOptions::default()
+    };
+    let view = display::pair_view(&r, &opts, 0, TreeVersion::Resolved, Scale::Depth).unwrap();
+    let expected = figure::tanglegram_svg(&view, &depth).unwrap();
+    assert_eq!(Some(expected), figure_text(&r, &opts, Figure::Pair { pair: 0 }));
+    let arg = display::arg_view(&r, Scale::Depth).unwrap();
+    let expected = figure::arg_svg(&arg, ["ha", "na"], &depth).unwrap();
+    assert_eq!(Some(expected), figure_text(&r, &opts, Figure::Arg));
+  }
+
+  #[test]
+  fn figure_text_draws_trees_with_branch_lengths_by_divergence() {
+    let (ha, na) = (
+      "((A:1,B:1):1,(C:1,(D:1,X:1):1):1);",
+      "((A:1,(B:1,X:1):1):1,(C:1,D:1):1);",
+    );
+    let (r, opts) = (run_trees(&[("ha", ha), ("na", na)]), run_options(2));
+    let view = display::pair_view(&r, &opts, 0, TreeVersion::Resolved, Scale::Div).unwrap();
+    let expected = figure::tanglegram_svg(&view, &FigureOptions::default()).unwrap();
+    assert_eq!(Some(expected), figure_text(&r, &opts, Figure::Pair { pair: 0 }));
+  }
+
+  #[test]
+  fn figure_text_of_a_missing_pair_or_arg_is_none() {
+    let t = "((A,B),(C,D));";
+    let r = run_trees(&[("ha", t), ("na", t), ("pb2", t)]);
+    let opts = run_options(3);
+    assert_eq!(
+      (None, None),
+      (
+        figure_text(&r, &opts, Figure::Pair { pair: 3 }),
+        figure_text(&r, &opts, Figure::Arg)
+      )
+    );
+  }
+
+  #[test]
   fn output_files_hold_the_mccs_of_the_reference() {
     let files = files_of(&[("ha", HA), ("na", NA)], &all_files(2));
     // Oracle: fixtures/doc_mccs_1.json (TreeKnit.jl).
