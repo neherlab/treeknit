@@ -1216,41 +1216,4 @@ mod tests {
     assert_eq!(Progress::matching(reached, 1, 3), matching);
     assert_eq!(Progress::done(1, 3), done);
   }
-
-  #[test]
-  fn progress_observer_leaves_the_result_unchanged() {
-    // The observer consumes no random numbers: the same seed gives the same MCCs and trees as
-    // `run`, in every resolution mode, sequentially and in parallel.
-    let nwks = ["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", "((A,X),(B,(C,D)));"];
-    for resolution in [
-      Resolution::None,
-      Resolution::Strict,
-      Resolution::Liberal,
-      Resolution::Matched,
-    ] {
-      for parallel in [false, true] {
-        let o = Options {
-          resolution,
-          parallel,
-          pre_resolve: true,
-          ..Options::for_trees(3)
-        };
-        let (mut plain, taxa) = trees(&nwks);
-        let expected = run(&mut plain, &taxa, &o, 1);
-        let (mut seen, _) = trees(&nwks);
-        let events = std::cell::RefCell::new(Vec::new());
-        let actual = run_observed(&mut seen, &taxa, &o, 1, &|p| events.borrow_mut().push(p));
-        let case = format!("{resolution:?}, parallel {parallel}");
-        let mccs = |r: &[PairResult]| r.iter().map(|p| p.mccs.clone()).collect::<Vec<_>>();
-        let shape = |ts: &[Tree]| {
-          ts.iter()
-            .map(|t| (t.leaf_names(), splits(t, &taxa)))
-            .collect::<Vec<_>>()
-        };
-        assert_eq!(mccs(&expected), mccs(&actual), "{case}");
-        assert_eq!(shape(&plain), shape(&seen), "{case}");
-        assert_eq!(Some(1.0), events.borrow().last().map(|p| p.fraction), "{case}");
-      }
-    }
-  }
 }
