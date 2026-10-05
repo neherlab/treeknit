@@ -1,11 +1,13 @@
 import type { ModeInfo, ToggleSetting } from "@neherlab/treeknit-wasm";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { getErrorMessage } from "react-error-boundary";
 import { useFormContext } from "react-hook-form";
 import DicesIcon from "~icons/lucide/dices";
 
 import { useSettingsSchema } from "../analysis/queries";
 import { Disclosure } from "../ui/Disclosure";
 import { IconButton } from "../ui/IconButton";
+import { InlineNotice } from "../ui/InlineNotice";
 import { Radio, RadioGroup } from "../ui/RadioGroup";
 import { Switch } from "../ui/Switch";
 import { useWorkspace } from "../workspace/context";
@@ -16,6 +18,8 @@ import { DraftNumberField } from "./DraftNumberField";
 import { drawSeed } from "./seed";
 import { SettingInfo } from "./SettingInfo";
 import { type ToggleSettingKey, useSettingsActions } from "./useSettingsActions";
+
+export const SEQ_LENGTHS_FAILED = "The sequence lengths could not be turned on. Try again.";
 
 export function SettingsForm() {
   const settings = useWorkspace((state) => state.settings);
@@ -49,7 +53,21 @@ export function SettingsForm() {
     [actions, schema],
   );
 
-  const switchSeqLengths = useCallback((enabled: boolean) => actions.setSeqLengthsEnabled(enabled), [actions]);
+  const [seqLengthsFailure, setSeqLengthsFailure] = useState<string | null>(null);
+
+  const switchSeqLengths = useCallback(
+    (enabled: boolean) => {
+      setSeqLengthsFailure(null);
+      actions.setSeqLengthsEnabled(enabled).catch((cause: unknown) => {
+        setSeqLengthsFailure(getErrorMessage(cause) ?? String(cause));
+      });
+    },
+    [actions],
+  );
+
+  const dismissSeqLengthsFailure = useCallback(() => {
+    setSeqLengthsFailure(null);
+  }, []);
 
   const modesInfo = useMemo(() => (schema === undefined ? null : <ModesInfo modes={schema.modes} />), [schema]);
 
@@ -119,6 +137,11 @@ export function SettingsForm() {
           isDisabled={!fields.seqLengths.applies}
           onChange={switchSeqLengths}
         />
+        {seqLengthsFailure === null ? null : (
+          <InlineNotice tone="danger" title={SEQ_LENGTHS_FAILED} onDismiss={dismissSeqLengthsFailure}>
+            {seqLengthsFailure}
+          </InlineNotice>
+        )}
         <DraftNumberField
           name="nMcmcIt"
           label="MCMC steps per leaf"

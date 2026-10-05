@@ -11,7 +11,7 @@ export interface SettingsActions {
   setSeqLength(treeId: string, value: number): void;
   setToggle(key: ToggleSettingKey, value: boolean): void;
   setResolve(mode: ResolveMode): void;
-  setSeqLengthsEnabled(enabled: boolean): void;
+  setSeqLengthsEnabled(enabled: boolean): Promise<void>;
 }
 
 export function useSettingsActions(): SettingsActions {
@@ -42,13 +42,8 @@ export function useSettingsActions(): SettingsActions {
       setResolve(mode) {
         update((settings) => ({ ...settings, resolve: mode }));
       },
-      setSeqLengthsEnabled(enabled) {
-        store
-          .getState()
-          .setSeqLengthsEnabled(enabled)
-          .catch((error: Error) => {
-            console.error("The sequence lengths could not be switched:", error);
-          });
+      async setSeqLengthsEnabled(enabled) {
+        await store.getState().setSeqLengthsEnabled(enabled);
       },
     };
   }, [store]);
