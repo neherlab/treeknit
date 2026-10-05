@@ -13,6 +13,7 @@ export const buttonStyle = cva(
   [
     "rounded-control inline-flex shrink-0 cursor-default items-center justify-center gap-1.5 border whitespace-nowrap select-none",
     "transition-colors duration-150 data-disabled:cursor-not-allowed motion-reduce:transition-none [&_svg]:shrink-0",
+    "data-pending:cursor-progress data-pending:opacity-60 data-pending:[&_svg]:animate-pulse motion-reduce:data-pending:[&_svg]:animate-none",
     focusRing,
   ],
   {
