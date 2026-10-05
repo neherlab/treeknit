@@ -17,18 +17,21 @@ describe("downloadFile", () => {
     },
   };
 
+  class RecordingURL extends URL {
+    static override createObjectURL(blob: Blob): string {
+      blobs.push(blob);
+
+      return OBJECT_URL;
+    }
+
+    static override revokeObjectURL(url: string): void {
+      revoked.push(url);
+    }
+  }
+
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.stubGlobal("URL", {
-      createObjectURL: (blob: Blob) => {
-        blobs.push(blob);
-
-        return OBJECT_URL;
-      },
-      revokeObjectURL: (url: string) => {
-        revoked.push(url);
-      },
-    });
+    vi.stubGlobal("URL", RecordingURL);
     vi.stubGlobal("document", { createElement: () => anchor });
   });
 
