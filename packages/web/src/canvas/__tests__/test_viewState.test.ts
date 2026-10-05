@@ -81,6 +81,7 @@ describe("view-state update", () => {
         state: constrainViewState(
           { target: [12_345, -9_876], zoomX: zoomed.zoomX + 1.5, zoomY: zoomed.zoomY + 1.5 },
           frame,
+          zoomed,
         ),
       },
     ];

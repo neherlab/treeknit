@@ -67,6 +67,13 @@ describe("treeViewReducer", () => {
     expect(updated?.viewState.zoomY).toBe(3);
   });
 
+  test("keeps the current center and zoom for a controller update without target and zoom", () => {
+    const panned = treeViewReducer(sized(), { ...DRAWING, type: "fitRows", range: { first: 200, last: 219 } });
+    const updated = treeViewReducer(panned, { ...DRAWING, type: "update", request: {} });
+
+    expect(updated?.viewState).toStrictEqual(panned?.viewState);
+  });
+
   test("refits when the drawing gets other rows or another leaf axis", () => {
     const zoomed = treeViewReducer(sized(), { ...DRAWING, type: "zoom", factor: 4 });
     const other: Drawing = { rows: 50, leafAxis: "x" };

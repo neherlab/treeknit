@@ -151,7 +151,7 @@ function resized(current: StoredView | undefined, { rows, leafAxis }: Drawing, s
 
 function changed({ frame, viewState }: StoredView, change: ViewChange): TreeViewState {
   return match(change)
-    .with({ type: "update" }, ({ request }) => constrainViewState(request, frame))
+    .with({ type: "update" }, ({ request }) => constrainViewState(request, frame, viewState))
     .with({ type: "zoom" }, ({ factor }) => zoomViewState(viewState, frame, factor))
     .with({ type: "fit" }, () => fitViewState(frame))
     .with({ type: "fitRows" }, ({ range }) => fitRowsViewState(frame, range))

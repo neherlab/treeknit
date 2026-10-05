@@ -130,11 +130,15 @@ export function fitViewState(frame: CanvasFrame): TreeViewState {
   return viewStateAt(frame, fittedZoom(frame), 0);
 }
 
-export function constrainViewState(request: ViewStateRequest, frame: CanvasFrame): TreeViewState {
+export function constrainViewState(
+  request: ViewStateRequest,
+  frame: CanvasFrame,
+  current: TreeViewState,
+): TreeViewState {
   const zoom = frame.leafAxis === "y" ? request.zoomY : request.zoomX;
   const center = request.target?.[frame.leafAxis === "y" ? 1 : 0];
 
-  return viewStateAt(frame, zoom ?? fittedZoom(frame), center ?? 0);
+  return viewStateAt(frame, zoom ?? leafZoom(current), center ?? leafTarget(current));
 }
 
 export function zoomViewState(state: TreeViewState, frame: CanvasFrame, factor: number): TreeViewState {
