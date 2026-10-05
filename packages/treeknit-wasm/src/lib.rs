@@ -3,13 +3,13 @@ mod log_capture;
 use js_sys::{Error, Function, JSON};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use treeknit_core::Options;
 use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
 use treeknit_io::display::{self, ArgView, ConstellationTable, DrawingRules, PairView, Scale, TreeVersion};
-use treeknit_io::figure::FigureOptions;
+use treeknit_io::figure::{self, FigureOptions};
 use treeknit_io::inspect::{self, Overlap, TreeInspection};
-use treeknit_io::output::{self, FileEntry, OutputFile, OutputOptions};
+use treeknit_io::output::{self, FigureFile, FileEntry, OutputFile, OutputOptions};
 use treeknit_io::palette::{self, Palette};
 use treeknit_io::progress::Progress;
 use treeknit_io::run::{self, RunResult};
@@ -135,9 +135,9 @@ pub struct Session {
   options: Options,
   /// The Warn and Error records of the run, in the order they occurred.
   diagnostics: Vec<Diagnostic>,
-  /// The output files with their text, in the order of `files()`: the session file, the files of
-  /// the command line, `parameters.json`, and `log.txt`.
-  files: Vec<OutputFile>,
+  /// The output files, in the order of `files()`: the session file, the files of the command
+  /// line, the figures, `parameters.json`, and `log.txt`.
+  files: Vec<SessionFile>,
 }
 
 #[wasm_bindgen]
@@ -185,16 +185,30 @@ impl Session {
       return Err(e);
     }
     let records = log_capture::take();
+    // Figures are listed here and rendered on first use, because a run of many large trees has
+    // figures of many megabytes that most sessions never read.
     let output_options = OutputOptions {
       extensions: vec![".nwk".to_owned(); k],
       imputed: true,
       auspice: true,
       figures: false,
     };
-    let mut files = vec![output::request_file(&request)];
-    files.extend(output::output_files(&result, &opts, &output_options));
-    files.push(output::parameters_file(&opts, seed));
-    files.push(output::log_file(&records));
+    let mut files = vec![SessionFile::Text(output::request_file(&request))];
+    files.extend(
+      output::output_files(&result, &opts, &output_options)
+        .into_iter()
+        .map(SessionFile::Text),
+    );
+    files.extend(
+      output::figure_files(&result)
+        .into_iter()
+        .map(|file| SessionFile::Figure {
+          file,
+          svg: OnceCell::new(),
+        }),
+    );
+    files.push(SessionFile::Text(output::parameters_file(&opts, seed)));
+    files.push(SessionFile::Text(output::log_file(&records)));
     Ok(Session {
       run: result,
       options: opts,
@@ -213,41 +227,42 @@ impl Session {
     to_js(&Summary::new(&self.run, self.diagnostics.clone()))
   }
 
-  /// Every output file of the run, without its text.
+  /// Every output file of the run, without its text. A figure has the size `null` until its
+  /// text is first read, and names the figure it holds.
   #[wasm_bindgen]
   pub fn files(&self) -> Result<Vec<Ts<FileEntry>>, JsError> {
     let _log = log_capture::discard();
-    self
-      .files
-      .iter()
-      .map(|f| {
-        to_js(&FileEntry {
-          path: f.path.clone(),
-          media_type: f.media_type.clone(),
-          size: Some(f.text.len()),
-          figure: None,
-        })
-      })
-      .collect()
+    self.files.iter().map(|f| to_js(&f.entry())).collect()
   }
 
-  /// The text of the listed file at `path`.
+  /// The text of the listed file at `path`. A figure is rendered with the default options on
+  /// first use and kept.
   #[wasm_bindgen(js_name = fileText)]
   pub fn file_text(&self, path: &str) -> Result<String, JsError> {
     let _log = log_capture::discard();
-    self
+    let file = self
       .files
       .iter()
-      .find(|f| f.path == path)
-      .map(|f| f.text.clone())
-      .ok_or_else(|| JsError::new(&format!("no file {path}")))
+      .find(|f| f.path() == path)
+      .ok_or_else(|| JsError::new(&format!("no file {path}")))?;
+    Ok(file.text(&self.run, &self.options)?.to_owned())
   }
 
-  /// A ZIP archive of every listed file, under `treeknit_results/`.
+  /// A ZIP archive of every listed file, under `treeknit_results/`, figures included.
   #[wasm_bindgen]
   pub fn zip(&self) -> Result<Vec<u8>, JsError> {
     let _log = log_capture::discard();
-    output::zip_archive(&self.files).map_err(|e| JsError::new(&e.to_string()))
+    let files = self
+      .files
+      .iter()
+      .map(|f| {
+        Ok(OutputFile::new(
+          f.path().to_owned(),
+          f.text(&self.run, &self.options)?.to_owned(),
+        ))
+      })
+      .collect::<Result<Vec<_>, JsError>>()?;
+    output::zip_archive(&files).map_err(|e| JsError::new(&e.to_string()))
   }
 
   /// The command that reproduces the file set of the run from the extracted archive.
@@ -283,20 +298,91 @@ impl Session {
     to_js(&display::constellation(&self.run, &self.options))
   }
 
-  /// The SVG tanglegram of pair `pair` in `version`.
+  /// The SVG tanglegram of pair `pair` (pipeline order) in `version` with `options`. Throws an
+  /// `Error` named `ValidationError` when `options` are invalid. The figure files of `files()`
+  /// keep their default options.
   #[wasm_bindgen]
-  #[expect(unused_variables, reason = "figures are not built yet")]
-  pub fn figure(&self, pair: usize, version: &Ts<TreeVersion>, options: &Ts<FigureOptions>) -> Result<String, JsError> {
+  pub fn figure(&self, pair: usize, version: &Ts<TreeVersion>, options: &Ts<FigureOptions>) -> Result<String, JsValue> {
     let _log = log_capture::discard();
-    Err(not_implemented("Session.figure"))
+    let version = from_js("version", version)?;
+    let options = figure_options(options)?;
+    let view = display::pair_view(&self.run, &self.options, pair, version, options.scale)
+      .ok_or_else(|| JsError::new(&format!("no pair {pair}: the run has {} pairs", self.run.pairs.len())))?;
+    figure::tanglegram_svg(&view, &options).map_err(|e| validation_error(&e))
   }
 
-  /// The SVG figure of the ARG.
+  /// The SVG figure of the ARG with `options`. Throws an `Error` named `ValidationError` when
+  /// `options` are invalid, and an `Error` for more than two trees or a failed ARG.
   #[wasm_bindgen(js_name = argFigure)]
-  #[expect(unused_variables, reason = "figures are not built yet")]
-  pub fn arg_figure(&self, options: &Ts<FigureOptions>) -> Result<String, JsError> {
+  pub fn arg_figure(&self, options: &Ts<FigureOptions>) -> Result<String, JsValue> {
     let _log = log_capture::discard();
-    Err(not_implemented("Session.argFigure"))
+    let options = figure_options(options)?;
+    let no_arg = || JsError::new("the run has no ARG: it needs two trees and a built ARG");
+    let view = display::arg_view(&self.run, options.scale).ok_or_else(no_arg)?;
+    let segments = output::segment_labels(&self.run).ok_or_else(no_arg)?;
+    figure::arg_svg(&view, segments, &options).map_err(|e| validation_error(&e))
+  }
+}
+
+/// An output file of a session: its text, or a figure rendered on first use.
+enum SessionFile {
+  Text(OutputFile),
+  Figure { file: FigureFile, svg: OnceCell<String> },
+}
+
+impl SessionFile {
+  fn path(&self) -> &str {
+    match self {
+      SessionFile::Text(f) => &f.path,
+      SessionFile::Figure { file, .. } => &file.path,
+    }
+  }
+
+  /// The text of the file: a figure of `run` with `options` is rendered on first use and kept.
+  fn text(&self, run: &RunResult, options: &Options) -> Result<&str, JsError> {
+    match self {
+      SessionFile::Text(f) => Ok(&f.text),
+      SessionFile::Figure { file, svg } => {
+        if let Some(text) = svg.get() {
+          return Ok(text);
+        }
+        let text = output::figure_text(run, options, file.figure)
+          .ok_or_else(|| JsError::new(&format!("no figure {}", file.path)))?;
+        Ok(svg.get_or_init(|| text))
+      },
+    }
+  }
+
+  fn entry(&self) -> FileEntry {
+    match self {
+      SessionFile::Text(f) => FileEntry {
+        path: f.path.clone(),
+        media_type: f.media_type.clone(),
+        size: Some(f.text.len()),
+        figure: None,
+      },
+      SessionFile::Figure { file, svg } => FileEntry {
+        path: file.path.clone(),
+        media_type: FIGURE_MEDIA_TYPE.to_owned(),
+        size: svg.get().map(String::len),
+        figure: Some(file.figure),
+      },
+    }
+  }
+}
+
+/// Media type of the figure files.
+const FIGURE_MEDIA_TYPE: &str = "image/svg+xml";
+
+/// The figure options of the argument `options`; throws an `Error` named `ValidationError` with
+/// the problems of `figure::check_figure_options`.
+fn figure_options(options: &Ts<FigureOptions>) -> Result<FigureOptions, JsValue> {
+  let options = from_js("options", options)?;
+  let errors = figure::check_figure_options(&options);
+  if errors.is_empty() {
+    Ok(options)
+  } else {
+    Err(validation_error(&errors))
   }
 }
 
@@ -311,10 +397,6 @@ fn validation_error(errors: &[ValidationError]) -> JsValue {
 /// The messages of `errors`, one per line.
 fn messages(errors: &[ValidationError]) -> String {
   errors.iter().map(|e| e.message.as_str()).collect::<Vec<_>>().join("\n")
-}
-
-fn not_implemented(name: &str) -> JsError {
-  JsError::new(&format!("not implemented: {name}"))
 }
 
 /// The Rust value of the argument `name`; errors start with `invalid <name>:`.
