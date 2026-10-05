@@ -8,6 +8,7 @@ import { Button } from "./Button";
 import { type CodeLine, codeLines, type TextRange } from "./codeLines";
 import { copyFeedback, type CopyState } from "./copyFeedback";
 import type { IconComponent } from "./icon";
+import { revealScroll } from "./revealScroll";
 
 const COPY_BUTTON: Record<CopyState, { label: string; icon: IconComponent }> = {
   idle: { label: "Copy", icon: CopyIcon },
@@ -57,7 +58,9 @@ export function CodeBlock({ code, label, highlight, lineNumbers, className }: Co
               key={line.number}
               line={line}
               lineNumber={showLineNumbers}
-              reveal={line.number === highlight?.start.line}
+              revealKey={
+                line.number === highlight?.start.line ? `${highlight.start.line}:${highlight.start.column}` : undefined
+              }
             />
           ))}
         </code>
@@ -83,7 +86,7 @@ async function writeClipboard(text: string): Promise<void> {
   }
 }
 
-function CodeLineRow({ line, lineNumber, reveal }: CodeLineRowProps) {
+function CodeLineRow({ line, lineNumber, revealKey }: CodeLineRowProps) {
   const isHighlighted = line.marked !== undefined;
 
   return (
@@ -103,7 +106,8 @@ function CodeLineRow({ line, lineNumber, reveal }: CodeLineRowProps) {
         {line.before}
         {line.marked === undefined ? null : (
           <mark
-            ref={reveal ? revealMark : undefined}
+            key={revealKey}
+            ref={revealKey === undefined ? undefined : revealMark}
             className="bg-danger/25 text-ink decoration-danger rounded-[2px] underline decoration-2 underline-offset-2"
           >
             {line.marked === "" ? " " : line.marked}
@@ -118,9 +122,23 @@ function CodeLineRow({ line, lineNumber, reveal }: CodeLineRowProps) {
 interface CodeLineRowProps {
   line: CodeLine;
   lineNumber: boolean;
-  reveal: boolean;
+  revealKey: string | undefined;
 }
 
-function revealMark(element: HTMLElement | null) {
-  element?.scrollIntoView({ block: "nearest", inline: "nearest" });
+function revealMark(mark: HTMLElement | null) {
+  const container = mark?.closest("pre");
+
+  if (mark === null || container === null || container === undefined) {
+    return;
+  }
+
+  const view = container.getBoundingClientRect();
+  const item = mark.getBoundingClientRect();
+  const top = view.top + container.clientTop;
+  const left = view.left + container.clientLeft;
+
+  container.scrollBy({
+    top: revealScroll({ start: item.top, end: item.bottom }, { start: top, end: top + container.clientHeight }),
+    left: revealScroll({ start: item.left, end: item.right }, { start: left, end: left + container.clientWidth }),
+  });
 }
