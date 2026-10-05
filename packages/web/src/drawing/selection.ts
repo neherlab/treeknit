@@ -1,8 +1,10 @@
 import type { ArgView, PairView } from "@neherlab/treeknit-wasm";
 import { omit } from "remeda";
 
+import type { RowRange } from "../canvas/viewState";
 import type { NodeRef, WorkspaceSearch } from "../workspace/search";
-import { leafIndex, nodeIndex, type TreeSide } from "./trees";
+import { mccRows } from "./focus";
+import { leafIndex, leafRow, leafRows, nodeIndex, type TreeSide } from "./trees";
 
 export const UNSELECTED_OPACITY = 0.25;
 
@@ -119,6 +121,29 @@ export function argEmphasis(view: ArgView, selection: Selection): ArgEmphasis {
   const argNode = node?.side === "arg" ? view.nodes.findIndex((candidate) => candidate.label === node.name) : -1;
 
   return { leaf: leafNode === -1 ? undefined : leafNode, node: argNode === -1 ? undefined : argNode };
+}
+
+export function pairSelectionRows(view: PairView, selection: Selection): RowRange | null {
+  const { node } = pairEmphasis(view, selection);
+
+  if (node !== undefined) {
+    return leafRows(view[node.side].nodes, node.node);
+  }
+
+  const row = selection.leaf === undefined ? undefined : leafRow(view.left, view.right, selection.leaf);
+
+  if (row !== undefined) {
+    return { first: row, last: row };
+  }
+
+  return selection.mcc === undefined ? null : mccRows(view, selection.mcc);
+}
+
+export function argSelectionRows(view: ArgView, selection: Selection): RowRange | null {
+  const { node, leaf } = argEmphasis(view, selection);
+  const selected = node ?? leaf;
+
+  return selected === undefined ? null : leafRows(view.nodes, selected);
 }
 
 export function emphasisOpacity(mcc: number | null, selected: number | undefined): number {

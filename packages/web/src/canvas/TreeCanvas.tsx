@@ -2,6 +2,7 @@ import { type LayersList, OrthographicView, type OrthographicViewState, type Pic
 import { DeckGL, type DeckGLProps, type DeckGLRef } from "@deck.gl/react";
 import { cn } from "cn";
 import { type MouseEvent, type ReactNode, useCallback, useId, useRef } from "react";
+import { useKeyboard } from "react-aria";
 import { useErrorBoundary } from "react-error-boundary";
 
 import { InlineNotice } from "../ui/InlineNotice";
@@ -10,7 +11,8 @@ import type { TreeView } from "./useTreeView";
 import { type CanvasSize, minimapShown, type RowRange } from "./viewState";
 import { browserSupportsWebGl2, WEBGL2_MISSING } from "./webgl";
 
-export const CANVAS_DESCRIPTION = "Use the MCC table, the leaf search, and the inspector to read every value.";
+export const CANVAS_DESCRIPTION =
+  "Arrow keys pan, plus and minus zoom, Enter zooms to the selected clade. Use the MCC table, the leaf search, and the inspector to read every value.";
 
 const VIEW = new OrthographicView({ id: "tree", flipY: true });
 
@@ -37,6 +39,7 @@ export interface TreeCanvasProps extends DeckEvents {
   minimapLayers?: LayersList;
   description?: string;
   onCladeZoom?: (info: PickingInfo) => RowRange | null;
+  onSelectionZoom?: () => RowRange | null;
   className?: string;
   children?: ReactNode;
 }
@@ -48,6 +51,7 @@ export function TreeCanvas({
   minimapLayers,
   description = CANVAS_DESCRIPTION,
   onCladeZoom,
+  onSelectionZoom,
   className,
   children,
   ...events
@@ -103,6 +107,18 @@ export function TreeCanvas({
     [zoomToCladeAt],
   );
 
+  const { keyboardProps } = useKeyboard({
+    onKeyDown: (event) => {
+      const range = event.key === "Enter" ? onSelectionZoom?.() : undefined;
+
+      if (range === undefined) {
+        event.continuePropagation();
+      } else if (range !== null) {
+        actions.fitRows(range);
+      }
+    },
+  });
+
   if (!webGl2) {
     return (
       <div className={className}>
@@ -122,6 +138,7 @@ export function TreeCanvas({
         aria-label={label}
         aria-describedby={descriptionId}
         onDoubleClick={zoomToClade}
+        {...keyboardProps}
         // oxlint-disable-next-line better-tailwindcss/no-unknown-classes -- deck.gl takes the element with this class as the target of its pointer and keyboard events
         className="deck-events-root focus-visible:outline-focus absolute inset-0 outline-hidden focus-visible:outline-2 focus-visible:-outline-offset-2"
       >

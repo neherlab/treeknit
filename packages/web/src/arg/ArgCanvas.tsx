@@ -10,7 +10,7 @@ import type { TreeView } from "../canvas/useTreeView";
 import { crossExtent, type RowRange } from "../canvas/viewState";
 import { drawingCursor } from "../drawing/cursor";
 import { canvasTextMeasure, longestLabelPx } from "../drawing/labelWidth";
-import { argClickSelection, argEmphasis, type ArgTarget, type Selection } from "../drawing/selection";
+import { argClickSelection, argEmphasis, argSelectionRows, type ArgTarget, type Selection } from "../drawing/selection";
 import { argTooltip, type SegmentLabels } from "../drawing/tooltip";
 import { tooltipContent } from "../drawing/tooltipContent";
 import { leafRows } from "../drawing/trees";
@@ -89,6 +89,8 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
     [data, targetOf],
   );
 
+  const onSelectionZoom = useCallback(() => argSelectionRows(data, selection), [data, selection]);
+
   return (
     <TreeCanvas
       view={view}
@@ -98,6 +100,7 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
       getTooltip={getTooltip}
       onClick={onClick}
       onCladeZoom={onCladeZoom}
+      onSelectionZoom={onSelectionZoom}
       getCursor={drawingCursor}
       className="h-full"
     >

@@ -4,10 +4,13 @@ import { WORKSPACE_SEARCH_DEFAULTS, type WorkspaceSearch } from "../../workspace
 import {
   argClickSelection,
   argEmphasis,
+  argSelectionRows,
   emphasisOpacity,
   NO_SELECTION,
   pairClickSelection,
   pairEmphasis,
+  pairSelectionRows,
+  type Selection,
   selectionOf,
   UNSELECTED_OPACITY,
   withSelection,
@@ -115,5 +118,32 @@ describe("emphasisOpacity", () => {
     ["a node without an MCC", null, 1, UNSELECTED_OPACITY],
   ] as const)("%s draws at its opacity", (_, mcc, selected, opacity) => {
     expect(emphasisOpacity(mcc, selected)).toBe(opacity);
+  });
+});
+
+describe("pairSelectionRows", () => {
+  test.each([
+    [
+      "the rows of the leaves under a selected node",
+      { mcc: 0, node: { side: "left", name: "NODE_2" } },
+      { first: 0, last: 1 },
+    ],
+    ["the row of a selected leaf", { mcc: 0, leaf: "X" }, { first: 4, last: 4 }],
+    ["the rows of the left leaves of a selected MCC", { mcc: 0 }, { first: 0, last: 3 }],
+    ["the MCC rows when the selected leaf is not drawn", { mcc: 1, leaf: "Z" }, { first: 4, last: 4 }],
+    ["nothing without a selection", {}, null],
+  ] satisfies [string, Selection, unknown][])("zooms to %s", (_case, selection, expected) => {
+    expect(pairSelectionRows(VIEW, selection)).toStrictEqual(expected);
+  });
+});
+
+describe("argSelectionRows", () => {
+  test.each([
+    ["the leaves under a selected node", { node: { side: "arg", name: "N1" } }, { first: 0, last: 1 }],
+    ["every leaf under the root", { node: { side: "arg", name: "ROOT" } }, { first: 0, last: 2 }],
+    ["the row of a selected leaf", { leaf: "C" }, { first: 2, last: 2 }],
+    ["nothing without a selection", {}, null],
+  ] satisfies [string, Selection, unknown][])("zooms to %s", (_case, selection, expected) => {
+    expect(argSelectionRows(ARG, selection)).toStrictEqual(expected);
   });
 });

@@ -11,7 +11,13 @@ import type { TreeView } from "../canvas/useTreeView";
 import { crossExtent, type RowRange } from "../canvas/viewState";
 import { drawingCursor } from "../drawing/cursor";
 import { canvasTextMeasure, longestLabelPx } from "../drawing/labelWidth";
-import { pairClickSelection, pairEmphasis, type PairTarget, type Selection } from "../drawing/selection";
+import {
+  pairClickSelection,
+  pairEmphasis,
+  pairSelectionRows,
+  type PairTarget,
+  type Selection,
+} from "../drawing/selection";
 import { pairTooltip } from "../drawing/tooltip";
 import { tooltipContent } from "../drawing/tooltipContent";
 import { leafNames, leafRows } from "../drawing/trees";
@@ -124,6 +130,8 @@ export default function TanglegramCanvas({
     [data, targetOf],
   );
 
+  const onSelectionZoom = useCallback(() => pairSelectionRows(data, selection), [data, selection]);
+
   return (
     <TreeCanvas
       view={view}
@@ -133,6 +141,7 @@ export default function TanglegramCanvas({
       getTooltip={getTooltip}
       onClick={onClick}
       onCladeZoom={onCladeZoom}
+      onSelectionZoom={onSelectionZoom}
       getCursor={drawingCursor}
       className="h-full"
     >
