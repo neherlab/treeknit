@@ -8,6 +8,8 @@ import { TREEKNIT_PUBLICATION } from "./citation";
 
 const PAPER_DOI = TREEKNIT_PUBLICATION.href;
 
+const AUSPICE_URL = "https://docs.nextstrain.org/projects/auspice";
+
 const GLOSSARY: readonly { term: string; definition: string }[] = [
   {
     term: "MCC",
@@ -70,7 +72,10 @@ export function HelpPage() {
             <li>Check the trees: their labels, leaf counts, parse errors, and the leaves that the trees share.</li>
             <li>Set the settings. Each setting has an info button that explains it.</li>
             <li>Run TreeKnit with the button or with Ctrl+Enter (Cmd+Enter on a Mac).</li>
-            <li>Read the overview, then open the tanglegram of a pair or the ARG.</li>
+            <li>
+              Read the result in the Auspice view, which opens when the run finishes, or in the overview, the tanglegram
+              of a pair, or the ARG.
+            </li>
             <li>Download the files, the figures, and a session file that restores the trees and settings.</li>
           </ol>
         </HelpSection>
@@ -103,6 +108,28 @@ export function HelpPage() {
           <p>
             Your trees stay in this browser. TreeKnit sends nothing to a server. They are saved between visits only when
             you turn on {KEEP_WORKSPACE}.
+          </p>
+        </HelpSection>
+        <HelpSection id="help-auspice" title="Auspice view">
+          <p>
+            The Auspice view draws the two trees of a pair facing each other with{" "}
+            <ExternalLink href={AUSPICE_URL}>Auspice</ExternalLink>, the tree viewer of Nextstrain, with a line between
+            the two copies of each leaf. Its sidebar colors and filters the trees by MCC, labels the branches where an
+            MCC starts, and downloads the drawing as SVG. Choosing a leaf or, with Shift, a branch shows its details in
+            the inspector.
+          </p>
+          <p>
+            Auspice is made by the Nextstrain team and is licensed under the GNU Affero General Public License v3.0
+            (AGPL-3.0). The TreeKnit source code is MIT-licensed; this web app contains Auspice, so the app as served is
+            distributed under the AGPL-3.0. Its complete source, including the patch it applies to Auspice, is in the
+            TreeKnit repository
+            {version === undefined ? (
+              "."
+            ) : (
+              <>
+                : <ExternalLink href={version.repository}>{version.repository}</ExternalLink>
+              </>
+            )}
           </p>
         </HelpSection>
         <HelpSection id="help-other-tools" title="Open the results in other tools">
