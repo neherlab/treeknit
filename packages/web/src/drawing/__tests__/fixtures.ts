@@ -103,6 +103,7 @@ export function examplePairView(): PairView {
         slot: SLOT_X,
       },
     ],
+    scale: "div",
     // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated PairView type
     shapes: {
       left: treeDrawing(left, slotOf),
@@ -181,6 +182,7 @@ export function exampleArgView(): ArgView {
     edges,
     root: 0,
     rootCase: "shared",
+    scale: "div",
     // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated ArgView type
     shapes: {
       edges: edges.map(({ parent, child, segments, reticulation }, edge) => ({

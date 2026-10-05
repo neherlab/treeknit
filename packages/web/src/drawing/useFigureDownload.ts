@@ -1,4 +1,4 @@
-import type { Figure, FileEntry } from "@neherlab/treeknit-wasm";
+import type { Figure, FileEntry, FigureDownload as NamedFigure } from "@neherlab/treeknit-wasm";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
 
@@ -19,20 +19,23 @@ export interface FigureDownload {
 
 interface RenderedFigure {
   entry: FileEntry;
-  text: string;
+  figure: NamedFigure;
 }
 
 export function useFigureDownload(
   sessionId: number,
   figure: Figure,
-  render: (client: AnalysisClient, sessionId: number) => Promise<string>,
+  render: (client: AnalysisClient, sessionId: number) => Promise<NamedFigure>,
 ): FigureDownload {
   const client = useAnalysisClient();
   const files = useSessionFiles(sessionId);
   const file = figureFile(files, figure);
 
   const mutation = useMutation({
-    mutationFn: async (entry: FileEntry): Promise<RenderedFigure> => ({ entry, text: await render(client, sessionId) }),
+    mutationFn: async (entry: FileEntry): Promise<RenderedFigure> => ({
+      entry,
+      figure: await render(client, sessionId),
+    }),
   });
 
   const { mutate, reset } = mutation;
@@ -54,6 +57,6 @@ export function useFigureDownload(
   return { button, failure };
 }
 
-function saveFigure({ entry, text }: RenderedFigure): void {
-  downloadFile({ name: entry.fileName, mediaType: entry.mediaType, content: text });
+function saveFigure({ entry, figure }: RenderedFigure): void {
+  downloadFile({ name: figure.fileName, mediaType: entry.mediaType, content: figure.text });
 }
