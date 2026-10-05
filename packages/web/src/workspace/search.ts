@@ -3,6 +3,8 @@ import { stringifySearchWith } from "@tanstack/react-router";
 import { isDeepEqual, omit } from "remeda";
 import * as z from "zod";
 
+import { everyVariantOf } from "../variants";
+
 export const WORKSPACE_VIEWS = [
   "overview",
   "tanglegram",
@@ -163,12 +165,6 @@ export function withSelectionPair(
 
 export function selectPair(search: WorkspaceSearch, pair: number): WorkspaceSearch {
   return { ...omit(search, ["mcc", "node"]), pair };
-}
-
-export function everyVariantOf<T extends string>() {
-  return <const V extends readonly [T, ...T[]]>(
-    values: V & ([Exclude<T, V[number]>] extends [never] ? unknown : never),
-  ) => values;
 }
 
 function choice<const V extends string>(values: readonly [V, ...V[]], fallback: NoInfer<V>) {

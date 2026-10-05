@@ -1,6 +1,6 @@
 import type { NumberSetting, SettingFields, Settings, ToggleSetting } from "@neherlab/treeknit-wasm";
 
-import { everyVariantOf } from "../workspace/search";
+import { everyVariantOf } from "../variants";
 
 type SettingKeysOf<Kind> = {
   [Key in keyof SettingFields]: SettingFields[Key] extends Kind ? Key : never;
