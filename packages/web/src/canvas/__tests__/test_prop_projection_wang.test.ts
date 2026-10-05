@@ -45,6 +45,10 @@ function genPoint(): fc.Arbitrary<Point> {
 
 function genColumn(): fc.Arbitrary<Column> {
   return fc
-    .record({ start: fc.integer({ min: 0, max: 800 }), width: fc.integer({ min: 20, max: 600 }), mirrored: fc.boolean() })
+    .record({
+      start: fc.integer({ min: 0, max: 800 }),
+      width: fc.integer({ min: 20, max: 600 }),
+      mirrored: fc.boolean(),
+    })
     .map(({ start, width, mirrored }) => ({ start, end: start + width, mirrored }));
 }

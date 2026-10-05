@@ -119,5 +119,7 @@ function nodeTarget(item: { node: number } | undefined): ArgTarget | undefined {
 }
 
 function edgePoints(path: EdgePath, column: Column, curveRowPx: number) {
-  return path.kind === "elbow" ? path.points : sampleCubic(path.curve, wangSegmentCount(path.curve, column, curveRowPx));
+  return path.kind === "elbow"
+    ? path.points
+    : sampleCubic(path.curve, wangSegmentCount(path.curve, column, curveRowPx));
 }

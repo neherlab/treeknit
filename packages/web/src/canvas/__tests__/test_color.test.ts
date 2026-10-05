@@ -1,8 +1,7 @@
+import type { ThemeColors } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
 import { parseColor, withOpacity } from "../color";
-import type { ThemeColors } from "@neherlab/treeknit-wasm";
-
 import {
   type CustomProperties,
   MCC_SLOT_COUNT,

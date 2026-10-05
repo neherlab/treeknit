@@ -106,7 +106,11 @@ export function tanglegramGeometry(
       link,
       mcc: view.links[link]?.mcc ?? 0,
       slot,
-      path: projectPath(sampleCubic(curve, wangSegmentCount(curve, columns.links, curveRowPx)), columns.links, leafAxis),
+      path: projectPath(
+        sampleCubic(curve, wangSegmentCount(curve, columns.links, curveRowPx)),
+        columns.links,
+        leafAxis,
+      ),
     })),
     ribbons: view.shapes.ribbons.map(({ block, slot, outline }) => ({
       block,

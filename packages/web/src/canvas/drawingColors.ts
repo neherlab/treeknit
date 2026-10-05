@@ -3,7 +3,6 @@ import { useTheme } from "next-themes";
 import { useMemo, useSyncExternalStore } from "react";
 
 import { usePalette } from "../analysis/queries";
-
 import { parseColor, type Rgba } from "./color";
 
 export const MCC_SLOT_COUNT: ThemeColors["mcc"]["length"] = 8;
