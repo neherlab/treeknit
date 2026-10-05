@@ -39,10 +39,10 @@ export function Inspector() {
 function ResultInspector({ result }: { result: RunResult }) {
   const { search, update } = useWorkspaceSearch();
   const { sessionId } = result;
-  const pair = usePairView(sessionId, search.pair, search.version, search.x).data;
-  const arg = useArgView(sessionId, search.x).data;
-  const constellation = useConstellation(sessionId).data;
   const selection = useMemo(() => selectionOf(search), [search]);
+  const pair = usePairView(sessionId, search.pair, search.version, search.x).data;
+  const arg = useArgView(selection.node?.side === "arg" ? sessionId : null, search.x).data;
+  const constellation = useConstellation(selection.leaf === undefined ? null : sessionId).data;
 
   const subject = useMemo(
     () => inspectorSubject(selection, { pair, arg, constellation }),
