@@ -1,5 +1,4 @@
 import type { ConstellationCell, ConstellationTable } from "@neherlab/treeknit-wasm";
-import { useTable } from "@tanstack/react-table";
 import { cn } from "cn";
 import { useCallback, useMemo, useRef } from "react";
 import { Button } from "react-aria-components";
@@ -7,6 +6,7 @@ import { Button } from "react-aria-components";
 import { useConstellation } from "../analysis/queries";
 import { requestFocus } from "../drawing/focus";
 import { counted, formatCount } from "../drawing/format";
+import { itemAt } from "../drawing/lookup";
 import { leafInPair } from "../drawing/navigation";
 import { InfoButton } from "../ui/InfoButton";
 import { MccSwatch } from "../ui/MccSwatch";
@@ -22,13 +22,11 @@ import {
   cellLabel,
   CONSTELLATION_INFO,
   type ConstellationRow,
-  constellationColumns,
-  constellationFeatures,
-  constellationHeaders,
   constellationRows,
-  LEAF_COLUMN,
+  LEAF_HEADER,
   NOT_IN_PAIR,
-  pairTitle,
+  type PairColumn,
+  pairColumns,
 } from "./constellation";
 
 const STICKY_COLUMN = "bg-ground sticky left-0 z-[1]";
@@ -52,13 +50,9 @@ function ConstellationQuery({ result }: { result: RunResult }) {
 function Constellation({ data }: { data: ConstellationTable }) {
   const { update } = useWorkspaceSearch();
   const rows = useMemo(() => constellationRows(data), [data]);
-  const columns = useMemo(() => constellationColumns(data), [data]);
-  const table = useTable({ features: constellationFeatures, columns, data: rows });
+  const columns = useMemo(() => pairColumns(data), [data]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { items, before, after, measureRow, headerRef } = useVirtualRows(rows.length, scrollRef);
-  const shown = table.getRowModel().rows;
-  const headers = useMemo(() => constellationHeaders(data), [data]);
-  const titles = useMemo(() => data.pairs.map(([a, b]) => pairTitle(a, b)), [data]);
 
   const open = useCallback(
     (pair: number, leaf: string) => {
@@ -83,8 +77,11 @@ function Constellation({ data }: { data: ConstellationTable }) {
         <table aria-label="Constellation" aria-rowcount={rows.length + 1} className={cn(tableStyle, "w-auto")}>
           <thead ref={headerRef} className={cn(tableHeaderStyle, "z-[2]")}>
             <tr aria-rowindex={1}>
-              {headers.map(({ id, title }) => (
-                <th key={id} scope="col" className={cn(columnStyle("start"), id === LEAF_COLUMN && STICKY_COLUMN)}>
+              <th scope="col" className={cn(columnStyle("start"), STICKY_COLUMN)}>
+                {LEAF_HEADER}
+              </th>
+              {columns.map(({ id, title }) => (
+                <th key={id} scope="col" className={columnStyle("start")}>
                   {title}
                 </th>
               ))}
@@ -93,10 +90,10 @@ function Constellation({ data }: { data: ConstellationTable }) {
           <tbody>
             <VirtualGap heightPx={before} />
             {items.map(({ index }) => {
-              const row = shown[index]?.original;
+              const row = rows[index];
 
               return row === undefined ? null : (
-                <LeafRow key={row.leaf} row={row} index={index} titles={titles} measure={measureRow} onOpen={open} />
+                <LeafRow key={row.leaf} row={row} index={index} columns={columns} measure={measureRow} onOpen={open} />
               );
             })}
             <VirtualGap heightPx={after} />
@@ -107,15 +104,21 @@ function Constellation({ data }: { data: ConstellationTable }) {
   );
 }
 
-function LeafRow({ row, index, titles, measure, onOpen }: LeafRowProps) {
+function LeafRow({ row, index, columns, measure, onOpen }: LeafRowProps) {
   return (
     <tr ref={measure} data-index={index} aria-rowindex={index + 2} className={nativeRowStyle}>
       <th scope="row" className={cn(cellStyle("start"), STICKY_COLUMN, "max-w-[32ch] truncate font-normal")}>
         {row.leaf}
       </th>
-      {titles.map((title, pair) => (
-        <td key={title} className={cellStyle("start")}>
-          <PairCell cell={row.cells[pair] ?? null} leaf={row.leaf} pair={pair} title={title} onOpen={onOpen} />
+      {columns.map(({ id, title, pair }) => (
+        <td key={id} className={cellStyle("start")}>
+          <PairCell
+            cell={itemAt(row.cells, pair, "constellation cell")}
+            leaf={row.leaf}
+            pair={pair}
+            title={title}
+            onOpen={onOpen}
+          />
         </td>
       ))}
     </tr>
@@ -125,7 +128,7 @@ function LeafRow({ row, index, titles, measure, onOpen }: LeafRowProps) {
 interface LeafRowProps {
   row: ConstellationRow;
   index: number;
-  titles: readonly string[];
+  columns: readonly PairColumn[];
   measure: (row: HTMLTableRowElement | null) => void;
   onOpen: (pair: number, leaf: string) => void;
 }

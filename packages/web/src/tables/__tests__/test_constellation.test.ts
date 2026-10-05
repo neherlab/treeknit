@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { exampleConstellation } from "../../drawing/__tests__/fixtures";
-import { cellLabel, constellationColumns, constellationRows, LEAF_COLUMN, pairColumnId } from "../constellation";
+import { cellLabel, constellationRows, pairColumns } from "../constellation";
 
 const TABLE = exampleConstellation();
 
@@ -14,14 +14,19 @@ describe("constellationRows", () => {
   });
 });
 
-describe("constellationColumns", () => {
-  test("starts with the leaf and has one column per pair", () => {
-    expect(constellationColumns(TABLE).map((definition) => [definition.id, definition.header])).toStrictEqual([
-      [LEAF_COLUMN, "Leaf"],
-      [pairColumnId(0), "ha and na"],
-      [pairColumnId(1), "ha and mp"],
-      [pairColumnId(2), "na and mp"],
+describe("pairColumns", () => {
+  test("has one column per pair, keyed by the pair index", () => {
+    expect(pairColumns(TABLE)).toStrictEqual([
+      { id: "pair-0", title: "ha and na", pair: 0 },
+      { id: "pair-1", title: "ha and mp", pair: 1 },
+      { id: "pair-2", title: "na and mp", pair: 2 },
     ]);
+  });
+});
+
+describe("constellationRows of a table without a row of cells for a leaf", () => {
+  test("rejects the table instead of showing the leaf in no pair", () => {
+    expect(() => constellationRows({ ...TABLE, cells: TABLE.cells.slice(0, 1) })).toThrow(RangeError);
   });
 });
 

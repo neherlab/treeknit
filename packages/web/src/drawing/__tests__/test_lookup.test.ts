@@ -9,7 +9,7 @@ describe("itemAt", () => {
 
   test("names the kind, the index, and the count when the index is missing", () => {
     expect(() => itemAt(["a", "b"], 2, "leaf")).toThrow(
-      new RangeError("The drawing data refers to leaf 2, but it has 2 of them"),
+      new RangeError("The display data refers to leaf 2, but it has 2 of them"),
     );
   });
 });
