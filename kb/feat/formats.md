@@ -60,6 +60,7 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 ## `log.txt`
 
 - [/] **Format**: `<RFC 3339 time> [LEVEL] <message>` (see [`cli.md`](cli.md#logging))
+- [x] **Web app (new)**: `fn log_file` writes the records of a run in the same layout, without a thread ID, with the time of the JavaScript clock in UTC with milliseconds [[src](../../packages/treeknit-io/src/output.rs#L150-L159)]
 
 ## `ARG/arg.nwk`
 
@@ -94,7 +95,7 @@ The analysis request of the web app: the trees with their labels and Newick text
 
 ## ZIP archive (new)
 
-`fn zip_archive` packs the output files of a web app run [[src](../../packages/treeknit-io/src/output.rs#L149-L162)].
+`fn zip_archive` packs the output files of a web app run [[src](../../packages/treeknit-io/src/output.rs#L161-L174)].
 
 - [x] **Entries**: every file under `treeknit_results/`, the default results directory of the command line, at its path in that directory (`treeknit_results/ARG/arg.nwk`)
 - [x] **Reproducible bytes**: every entry is deflated and dated 1980-01-01 00:00, the earliest ZIP time, so equal files give a byte-identical archive. `log.txt` carries clock times, so the archives of two runs differ in that entry

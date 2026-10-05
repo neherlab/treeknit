@@ -27,12 +27,15 @@ Stateless functions:
 
 `Session`, one run and its results:
 
-- `Session.run(request, onProgress): Session`: validates and runs the request, calling `onProgress` with each `Progress` (`phase` `pairs`, `matching`, or `done`)
-- `summary(): Summary`: per pair the labels and MCCs, the ARG outcome (`status` `built` or `failed`; `null` for more than two trees), and the diagnostics
-- `files(): FileEntry[]`: every output file with its command-line path, media type, and size
-- `fileText(path): string`: the text of a listed file
+- `Session.run(request, onProgress): Session`: validates and runs the request on one thread, calling `onProgress` with each `Progress` (`phase` `pairs`, `matching`, or `done`; `fraction` from 0 to 1, never decreasing, and 1 only at `done`). An error that `onProgress` throws stops further progress calls and is thrown after the run
+- `summary(): Summary`: per pair the labels, the MCCs as leaf names, and the counts of imputed and ambiguously attached leaves; the ARG outcome (`status` `built` with the reassortment count, or `failed` with the message; `null` for more than two trees); the diagnostics
+- `files(): FileEntry[]`: every output file with its command-line path, media type, and size in bytes: `treeknit_request.json` (the request that ran), the files of `treeknit --impute --auspice-view` with the tree extension `.nwk`, `parameters.json`, and `log.txt`
+- `fileText(path): string`: the text of a listed file; throws `no file <path>` for any other path
 - `zip(): Uint8Array`: every listed file under `treeknit_results/`
-- `commandLine(): string`: the command that reproduces the file set from the extracted archive
+- `commandLine(): string`: the command that writes the same files from the extracted archive
+
+Not built yet; these throw `not implemented`:
+
 - `pairView(pair, version, scale): PairView`: the tanglegram of a pair in version `input`, `resolved`, or `imputed`, laid out with scale `div` or `depth`
 - `argView(scale): ArgView | undefined`: the ARG of two trees; `undefined` for more than two trees or a failed ARG
 - `constellation(): ConstellationTable`: the MCC of every leaf in every pair
@@ -44,6 +47,8 @@ Stateless functions:
 Display data uses normalized units: x from 0 to 1 across the column of a shape (a tree column, or the link zone of a tanglegram), y in leaf rows. `PairView` and `ArgView` carry the drawn shapes (`shapes`): branch elbows, marks, link curves, and ribbon outlines, with curves as cubic Bézier segments `{ from, c1, c2, to }`. The SVG figures draw the same shapes.
 
 Analyses run on one thread: browsers give WebAssembly no threads without cross-origin isolation.
+
+The `log` records of a run, of level Debug and above, become `log.txt` with lines `<time> [LEVEL] <message>`, the layout of the command-line log without its thread ID, and its warnings and errors become the diagnostics of `summary()`. The records of every other export are discarded.
 
 ## Tests
 
