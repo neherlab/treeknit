@@ -2,7 +2,7 @@
   "name": "@neherlab/treeknit-wasm",
   "version": "0.0.0",
   "private": true,
-  "description": "WebAssembly build of TreeKnit, written by `just build-wasm`",
+  "description": "WebAssembly build of TreeKnit, written by `just build-wasm <mode>`",
   "type": "module",
   "exports": {
     ".": {

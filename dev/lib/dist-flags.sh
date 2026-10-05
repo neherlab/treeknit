@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# The CPU flags of the shipped builds, shared by the dist, profiling, and bench
-# builds of the justfile, so a local `just build-dist` compiles the code that
+# The CPU flags of the shipped builds, shared by the prod, profiling, and bench
+# builds of the justfile, so a local `just build prod` compiles the code that
 # ships.
 
 # Export RUSTFLAGS of the shipped build for a target, by default the host.

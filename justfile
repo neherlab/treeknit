@@ -17,6 +17,8 @@ set dotenv-load
 set positional-arguments
 set shell := ["mise", "exec", "--", "bash", "-euo", "pipefail", "-c"]
 set script-interpreter := ["mise", "exec", "--", "bash", "-euo", "pipefail"]
+# User-defined functions, for the build modes
+set unstable
 
 export CARGO_TERM_QUIET := "true"
 export NEXTEST_NO_TESTS := "fail"
@@ -58,6 +60,12 @@ uncached_env := "RUSTC_WRAPPER= CARGO_INCREMENTAL=0"
 # Cargo features on a stable toolchain.
 cargo_min_age := "RUSTC_BOOTSTRAP=1 cargo -Zmin-publish-age --config 'registry.global-min-publish-age=\"7 days\"'"
 
+# Build modes of the build and run recipes: dev, dev-opt, release, and
+# profiling are the cargo profiles of the same name; prod, the shipped build, is
+# the cargo profile dist. Cargo writes the dev profile to the debug directory.
+cargo_profile(mode) := if mode == "prod" { "dist" } else { mode }
+cargo_profile_dir(mode) := if mode == "dev" { "debug" } else { cargo_profile(mode) }
+
 # The TypeScript package that wasm-bindgen writes for the WebAssembly module.
 # Only its type declarations are committed, so the TypeScript checks read them
 # without a Rust build; `just generated-check` keeps them current.
@@ -73,11 +81,7 @@ check_fast := "fmt-check-rs fmt-check-ts fmt-check-other lint-rs lint-wasm lint-
 check_full := checks_format + " " + checks_clippy + " " + checks_tests + " " + checks_typescript
 
 alias b := build
-alias br := build-release
-alias bd := build-dist
-alias bp := build-profiling
 alias r := run
-alias rr := run-release
 alias t := test-rs
 alias tu := test-unit-rs
 alias ti := test-integration-rs
@@ -110,55 +114,32 @@ fix: lint-fix fmt
 setup:
     if [[ -z "${TREEKNIT_CONTAINER:-}" ]]; then mise install; fi
 
-# Build the workspace (dev profile)
+# Build the CLI: just build <dev|dev-opt|release|prod|profiling> [cargo args]; prod is the shipped build (dist profile); release and prod copy the binary to .out/
+[arg("mode", pattern="dev|dev-opt|release|prod|profiling")]
 [group("build")]
-build *args:
-    cargo build --locked "$@"
+build mode *args:
+    if [[ {{ quote(mode) }} == prod || {{ quote(mode) }} == profiling ]]; then source dev/lib/dist-flags.sh && export_dist_flags; fi; cargo build --locked --profile={{ quote(cargo_profile(mode)) }} --bin treeknit "${@:2}"
+    if [[ {{ quote(mode) }} == release || {{ quote(mode) }} == prod ]]; then mkdir -p .out && cp {{ quote(CARGO_TARGET_DIR / cargo_profile_dir(mode) / "treeknit") }} .out/; fi
 
-# Build the CLI (release profile: optimized, fast to rebuild) and copy it to .out/
+# Build the WebAssembly package into packages/treeknit-wasm/pkg/: just build-wasm <dev|release|prod>; prod, as shipped, uses the dist profile and adds wasm-opt
+[arg("mode", pattern="dev|release|prod")]
 [group("build")]
-build-release *args:
-    cargo build --locked --release --bin treeknit "$@"
-    mkdir -p .out && cp {{ quote(CARGO_TARGET_DIR / "release" / "treeknit") }} .out/
+build-wasm mode:
+    cargo build --locked --profile={{ quote(cargo_profile(mode)) }} --target=wasm32-unknown-unknown -p treeknit-wasm
+    wasm-bindgen --target=web --out-dir={{ wasm_pkg }} {{ quote(CARGO_TARGET_DIR / "wasm32-unknown-unknown" / cargo_profile_dir(mode) / "treeknit_wasm.wasm") }}
+    if [[ {{ quote(mode) }} == prod ]]; then wasm-opt -O {{ wasm_pkg }}/treeknit_wasm_bg.wasm -o {{ wasm_pkg }}/treeknit_wasm_bg.wasm; fi
 
-# Build the CLI as shipped (dist profile: fat LTO) and copy it to .out/
-[group("build")]
-build-dist *args:
-    source dev/lib/dist-flags.sh && export_dist_flags && cargo build --locked --profile=dist --bin treeknit "$@"
-    mkdir -p .out && cp {{ quote(CARGO_TARGET_DIR / "dist" / "treeknit") }} .out/
-
-# Build the CLI (profiling profile: dist with full debug info)
-[group("build")]
-build-profiling *args:
-    source dev/lib/dist-flags.sh && export_dist_flags && cargo build --locked --profile=profiling --bin treeknit "$@"
-
-# Build the WebAssembly package into packages/treeknit-wasm/pkg/: just build-wasm [dev|release|dist]; dist, as shipped, adds wasm-opt
-[group("build")]
-build-wasm profile="dist":
-    cargo build --locked --profile={{ quote(profile) }} --target=wasm32-unknown-unknown -p treeknit-wasm
-    wasm-bindgen --target=web --out-dir={{ wasm_pkg }} {{ quote(CARGO_TARGET_DIR / "wasm32-unknown-unknown" / (if profile == "dev" { "debug" } else { profile }) / "treeknit_wasm.wasm") }}
-    if [[ {{ quote(profile) }} == dist ]]; then wasm-opt -O {{ wasm_pkg }}/treeknit_wasm_bg.wasm -o {{ wasm_pkg }}/treeknit_wasm_bg.wasm; fi
-
-# Build the web app into packages/web/dist/: just build-web <dev|prod>; dev: WebAssembly of the release profile, unminified with source maps; prod: as shipped, WebAssembly of the dist profile
+# Build the web app into packages/web/dist/: just build-web <dev|prod>; dev: WebAssembly of the release profile, unminified with source maps; prod: as shipped
 [arg("mode", pattern="dev|prod")]
 [group("app")]
-build-web mode: _js (build-wasm (if mode == "dev" { "release" } else { "dist" }))
+build-web mode: _js (build-wasm (if mode == "dev" { "release" } else { "prod" }))
     bun run --silent build:web --mode {{ if mode == "dev" { "development" } else { "production" } }}
 
-# Run the CLI (dev profile): just run ha.nwk na.nwk -o tmp/results
+# Run the CLI: just run <dev|dev-opt|release|prod> ha.nwk na.nwk -o tmp/results; prod is the shipped build (dist profile)
+[arg("mode", pattern="dev|dev-opt|release|prod")]
 [group("run")]
-run *args:
-    args=("$@"); [[ "${args[0]:-}" != "--" ]] || args=("${args[@]:1}"); cargo run --locked --bin treeknit -- ${args[@]+"${args[@]}"}
-
-# Run the CLI (release profile): just run-release ha.nwk na.nwk -o tmp/results
-[group("run")]
-run-release *args:
-    args=("$@"); [[ "${args[0]:-}" != "--" ]] || args=("${args[@]:1}"); cargo run --locked --release --bin treeknit -- ${args[@]+"${args[@]}"}
-
-# Run the CLI (dev-opt profile: dev with optimized workspace crates)
-[group("run")]
-run-dev-opt *args:
-    args=("$@"); [[ "${args[0]:-}" != "--" ]] || args=("${args[@]:1}"); cargo run --locked --profile=dev-opt --bin treeknit -- ${args[@]+"${args[@]}"}
+run mode *args:
+    if [[ {{ quote(mode) }} == prod ]]; then source dev/lib/dist-flags.sh && export_dist_flags; fi; args=("${@:2}"); [[ "${args[0]:-}" != "--" ]] || args=("${args[@]:1}"); cargo run --locked --profile={{ quote(cargo_profile(mode)) }} --bin treeknit -- ${args[@]+"${args[@]}"}
 
 # Run an example (release profile): just example accuracy
 [group("run")]
@@ -372,7 +353,7 @@ generated-check:
 # Run the web app in the foreground until Ctrl-C, on the port of this checkout: just run-web <dev|prod>; dev: Vite dev server with hot reload (`just build-wasm release` after a Rust change); prod: the shipped build, served
 [arg("mode", pattern="dev|prod")]
 [group("app")]
-run-web mode: _js (build-wasm (if mode == "dev" { "release" } else { "dist" }))
+run-web mode: _js (build-wasm (if mode == "dev" { "release" } else { "prod" }))
     if [[ {{ quote(mode) }} == prod ]]; then bun run --silent build:web --mode production; fi
     TREEKNIT_WEB_PORT="$(dev/web-port)" bun run --silent {{ if mode == "dev" { "dev:web" } else { "preview:web" } }}
 
