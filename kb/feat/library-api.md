@@ -42,7 +42,7 @@ Counterpart: [`v0/julia-api.md`](v0/julia-api.md). The Rust crates `treeknit-cor
 
 ## New in the library
 
-- [x] **Trees and taxa**: arena trees with traversals, restriction to a leaf set, pruning, and ladderizing; clades as bit sets (`fixedbitset`) over one taxon table [[src](../../packages/treeknit-core/src/tree.rs#L1-L462)]
+- [x] **Trees and taxa**: arena trees with traversals, restriction to a leaf set, pruning, and ladderizing; clades as bit sets (`fixedbitset`) over one taxon table [[src](../../packages/treeknit-core/src/tree.rs#L1-L463)]
 - [x] **`match_topologies`, `unmatched_mccs`**: the `matched` resolution and its check
 - [x] **`imputed_trees`, `arg_inputs`**: trees with missing leaves placed, and the inputs of the ARG (see [`partial-overlap.md`](partial-overlap.md))
 - [x] **`sort_for_pair`, `sort_strictness`, `last_sorting_pair`, `keeps_run_order`**: the order of a pair of trees for display, from the run's sort of a pair (see [`pipeline.md`](pipeline.md#display-sort-new))

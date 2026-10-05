@@ -4,7 +4,7 @@ TreeKnit.jl requires all trees to have the same leaves and stops with "Trees mus
 
 ## Inference on shared leaves
 
-- [x] **Taxon table**: the union of the leaves of all trees. `fn report_overlap` logs, for each tree, how many leaves it lacks, on the command line and in the web app [[src](../../packages/treeknit-io/src/run.rs#L81-L94)]
+- [x] **Taxon table**: the union of the leaves of all trees. `fn report_overlap` logs, for each tree, how many leaves it lacks, on the command line and in the web app [[src](../../packages/treeknit-io/src/run.rs#L113-L126)]
 - [x] **Restriction**: each pair is restricted to its shared leaves. Unary nodes are removed and their branch lengths added [[src](../../packages/treeknit-core/src/pipeline.rs#L412-L423)]. A unit test checks that a pair with one extra leaf gives the same MCCs as the pair without it
 - [x] **Pre-resolution**: splits are compared on the leaves each two trees share (see [`resolution.md`](resolution.md#resolution-with-topology-only))
 - [x] **Resolution with MCCs**: on the restricted pair, then inserted into the full trees with the shared leaves as mask, so subtrees of other leaves do not move
@@ -37,4 +37,4 @@ TreeKnit.jl requires all trees to have the same leaves and stops with "Trees mus
 ## Evaluation and tests
 
 - [x] **Accuracy experiment**: `examples/accuracy.rs <fraction>` drops that fraction of leaves (default 0.2) from each tree of the simulated cases. It counts a placed leaf as correct when its true MCC is the true MCC of most of the leaves it was placed next to, and compares the rate with placement in the largest MCC [[src](../../packages/treeknit-io/examples/accuracy.rs#L137-L230)]
-- [x] **Tests**: unit tests in `impute.rs` and `pipeline.rs`, the command-line test `three_trees_partial_overlap_imputed` [[src](../../packages/treeknit-cli/tests/cli.rs#L773)], and the run-result tests `run_imputes_a_leaf_missing_from_one_tree` and `output_files_place_a_leaf_missing_from_one_tree` in `treeknit-io`
+- [x] **Tests**: unit tests in `impute.rs` and `pipeline.rs`, the command-line test `three_trees_partial_overlap_imputed` [[src](../../packages/treeknit-cli/tests/cli.rs#L789)], and the run-result tests `run_imputes_a_leaf_missing_from_one_tree` and `output_files_place_a_leaf_missing_from_one_tree` in `treeknit-io`

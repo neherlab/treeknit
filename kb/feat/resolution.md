@@ -4,7 +4,7 @@ Counterpart: [`v0/resolution.md`](v0/resolution.md). `packages/treeknit-core/src
 
 ## Common properties
 
-- [x] **New nodes**: each added split becomes a node `RESOLVED_<i>` with branch length 0. The number continues after the largest `RESOLVED_<n>` in the tree [[src](../../packages/treeknit-core/src/tree.rs#L369-L381)]. TreeKnit.jl continues after the largest number in any label that contains `RESOLVED`
+- [x] **New nodes**: each added split becomes a node `RESOLVED_<i>` with branch length 0. The number continues after the largest `RESOLVED_<n>` in the tree [[src](../../packages/treeknit-core/src/tree.rs#L370-L382)]. TreeKnit.jl continues after the largest number in any label that contains `RESOLVED`
 - [/] **Branch length of new nodes**: always 0. TreeKnit.jl has the parameter `tau`
 - [x] **Placement**: the new node takes the children of the LCA that hold the leaves of the split and becomes a child of that LCA [[src](../../packages/treeknit-core/src/resolve.rs#L44-L65)]
 - [x] **Split already present**: skipped
