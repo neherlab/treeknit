@@ -4,7 +4,7 @@ import { useSettingsSchema, useVersion } from "../analysis/queries";
 import { KEEP_WORKSPACE } from "../persistence/PersistenceSwitch";
 import { ExternalLink } from "../ui/ExternalLink";
 import { useWorkspace } from "../workspace/context";
-import { Citation } from "./Citation";
+import { CITE_REQUEST, Citation } from "./Citation";
 
 const AUSPICE_URL = "https://docs.nextstrain.org/projects/auspice";
 
@@ -145,7 +145,7 @@ export function HelpPage() {
           </p>
         </HelpSection>
         <HelpSection id="help-cite" title="How to cite">
-          <p>If you use TreeKnit in your work, please cite:</p>
+          <p>{CITE_REQUEST}</p>
           <Citation />
         </HelpSection>
         <HelpSection id="help-version" title="Version">

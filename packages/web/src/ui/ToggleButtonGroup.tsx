@@ -35,7 +35,7 @@ export function ToggleButtonGroup({
   );
 }
 
-export function ToggleButton({ label, icon: Icon, iconOnly = false, ...props }: ToggleButtonProps) {
+export function ToggleButton({ label, tooltip, icon: Icon, iconOnly = false, ...props }: ToggleButtonProps) {
   const button = (
     <AriaToggleButton
       {...props}
@@ -55,6 +55,10 @@ export function ToggleButton({ label, icon: Icon, iconOnly = false, ...props }: 
     </AriaToggleButton>
   );
 
+  if (tooltip !== undefined) {
+    return <TooltipTrigger tooltip={tooltip}>{button}</TooltipTrigger>;
+  }
+
   if (!iconOnly) {
     return button;
   }
@@ -69,6 +73,7 @@ export function ToggleButton({ label, icon: Icon, iconOnly = false, ...props }: 
 export interface ToggleButtonProps extends Pick<AriaToggleButtonProps, "isDisabled"> {
   id: Key;
   label: string;
+  tooltip?: string;
   icon?: ComponentType<SVGProps<SVGSVGElement>>;
   iconOnly?: boolean;
 }

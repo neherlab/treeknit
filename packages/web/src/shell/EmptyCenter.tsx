@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import TreesIcon from "~icons/lucide/list-tree";
+import QuoteIcon from "~icons/lucide/quote";
 
-import { shortAttribution, TREEKNIT_PUBLICATION } from "../help/citation";
-import { CiteButton } from "../help/CiteButton";
+import { CITE_REQUEST, Citation } from "../help/Citation";
 import { TreeActions } from "../inputs/TreeActions";
 import { TreeDropZone } from "../inputs/TreeDropZone";
 import { useTreeInput } from "../inputs/useTreeInput";
@@ -14,10 +14,12 @@ export const EMPTY_CENTER_TITLE = "Drop Newick files here, paste a tree, or star
 export function EmptyCenter() {
   const { input, error, dismissError } = useTreeInput();
 
+  const citeHeadingId = useId();
+
   const actions = useMemo(() => <TreeActions input={input} size="md" />, [input]);
 
   return (
-    <div className="flex h-full flex-col p-6">
+    <div className="flex h-full flex-col gap-8 overflow-y-auto p-6">
       <TreeDropZone
         input={input}
         label="Drop Newick files"
@@ -29,11 +31,15 @@ export function EmptyCenter() {
             {error}
           </InlineNotice>
         )}
-        <div className="text-ink-muted mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-          <span>TreeKnit by {shortAttribution(TREEKNIT_PUBLICATION)}</span>
-          <CiteButton variant="quiet" size="xs" placement="bottom start" />
-        </div>
       </TreeDropZone>
+      <section aria-labelledby={citeHeadingId} className="flex w-full max-w-3xl shrink-0 flex-col gap-3">
+        <h2 id={citeHeadingId} className="text-ink flex items-center gap-2 text-base font-semibold">
+          <QuoteIcon aria-hidden className="text-ink-muted" />
+          Cite TreeKnit
+        </h2>
+        <p className="text-sm">{CITE_REQUEST}</p>
+        <Citation />
+      </section>
     </div>
   );
 }

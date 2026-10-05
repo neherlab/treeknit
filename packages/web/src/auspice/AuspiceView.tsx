@@ -22,7 +22,7 @@ import DownloadIcon from "~icons/lucide/download";
 
 import { useMeasuredSize } from "../canvas/useMeasuredSize";
 import type { MeasuredSize } from "../canvas/viewState";
-import { TREEKNIT_PUBLICATION } from "../help/citation";
+import { doiUrl, inlineAuthors, TREEKNIT_PUBLICATION } from "../help/citation";
 import { Button } from "../ui/Button";
 import { AUSPICE_I18N } from "./i18n";
 import { type AuspiceInput, useAuspiceStore } from "./useAuspiceStore";
@@ -37,7 +37,15 @@ const SIDEBAR_THEME = {
   alternateBackground: "var(--color-ground)",
 };
 
-const RELEVANT_PUBLICATIONS = [TREEKNIT_PUBLICATION, publications.nextstrain];
+const TREEKNIT_AUSPICE_PUBLICATION = {
+  author: inlineAuthors(TREEKNIT_PUBLICATION),
+  title: TREEKNIT_PUBLICATION.title,
+  journal: TREEKNIT_PUBLICATION.journal,
+  year: TREEKNIT_PUBLICATION.year,
+  href: doiUrl(TREEKNIT_PUBLICATION),
+};
+
+const RELEVANT_PUBLICATIONS = [TREEKNIT_AUSPICE_PUBLICATION, publications.nextstrain];
 
 const MIN_TREE_WIDTH = 320;
 

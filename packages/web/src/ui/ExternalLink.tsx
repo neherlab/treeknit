@@ -25,6 +25,29 @@ export function ExternalLink({ className, ...props }: ExternalLinkProps) {
 
 export type ExternalLinkProps = Omit<AriaLinkProps, "target" | "rel"> & { href: string };
 
+export function ExternalButtonLink({ href, tooltip, icon: Icon, children }: ExternalButtonLinkProps) {
+  return (
+    <TooltipTrigger tooltip={tooltip}>
+      <AriaLink
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className={buttonStyle({ variant: "secondary", size: "sm" })}
+      >
+        <Icon aria-hidden />
+        {children}
+      </AriaLink>
+    </TooltipTrigger>
+  );
+}
+
+export interface ExternalButtonLinkProps {
+  href: string;
+  tooltip: ReactNode;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  children: ReactNode;
+}
+
 export function ExternalIconLink({
   href,
   label,

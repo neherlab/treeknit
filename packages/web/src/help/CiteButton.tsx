@@ -4,16 +4,19 @@ import QuoteIcon from "~icons/lucide/quote";
 
 import { Button, type ButtonProps } from "../ui/Button";
 import { popoverStyle } from "../ui/styles";
-import { Citation } from "./Citation";
+import { TooltipTrigger } from "../ui/TooltipTrigger";
+import { CITE_REQUEST, Citation } from "./Citation";
 
 const POPOVER_OFFSET_PX = 6;
 
 export function CiteButton({ variant, size, placement }: CiteButtonProps) {
   return (
     <DialogTrigger>
-      <Button variant={variant} size={size} icon={QuoteIcon}>
-        Cite
-      </Button>
+      <TooltipTrigger tooltip="Cite the TreeKnit paper">
+        <Button variant={variant} size={size} icon={QuoteIcon}>
+          Cite
+        </Button>
+      </TooltipTrigger>
       <Popover
         placement={placement}
         offset={POPOVER_OFFSET_PX}
@@ -23,7 +26,7 @@ export function CiteButton({ variant, size, placement }: CiteButtonProps) {
           <Heading slot="title" className="text-base font-semibold">
             Cite TreeKnit
           </Heading>
-          <p className="text-sm">If you use TreeKnit in your work, please cite:</p>
+          <p className="text-sm">{CITE_REQUEST}</p>
           <Citation />
         </Dialog>
       </Popover>
