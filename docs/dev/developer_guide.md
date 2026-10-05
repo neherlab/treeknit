@@ -199,4 +199,4 @@ Every release stays on the releases page.
 
 `treeknit --version` reports `TREEKNIT_VERSION` from build time (`packages/treeknit-cli/build.rs`), which must be the workspace version or start with it followed by `-`: `1.0.0-dev` when unset, `1.0.0-nightly.20261005T034000Z+abc1234` for a nightly, `1.0.0` for a release.
 
-The workflow jobs pull the container images from Docker Hub by the hash of their build inputs, and build them when the inputs changed. With the Docker Hub secrets set in the repository, they push the images they build.
+The workflow jobs pull the container images from Docker Hub by the hash of their build inputs, and build them when the inputs changed. When the repository has access to the `neherlab` organization secrets `NEHERLAB_BOT_DOCKERHUB_USERNAME` and `NEHERLAB_BOT_DOCKERHUB_TOKEN`, the jobs push the images they build to `neherlab/treeknit_builder`, so later runs pull them instead of building them.
