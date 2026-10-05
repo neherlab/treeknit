@@ -632,7 +632,7 @@ mod tests {
   #[rustfmt::skip]
   #[rstest]
   #[case::no_semicolon(   "((A,B),(C,D))", "tree na: Newick parse error: no ';' found")]
-  #[case::duplicate_leaf( "((A,A),(C,D));", "tree na: Newick parse error: tree na: duplicate leaf name A")]
+  #[case::duplicate_leaf( "((A,A),(C,D));", "tree na: Newick parse error: duplicate leaf name A")]
   #[trace]
   fn parse_error_without_position(#[case] newick: &str, #[case] message: &str) {
     let errors = check_trees(&trees(&[("ha", T), ("na", newick)]));
