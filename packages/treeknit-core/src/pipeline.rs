@@ -501,10 +501,9 @@ fn sort_two(
     left.ladderize();
   }
   let (ti, tj) = restrict_pair(left, right, &shared, n);
-  let full = matches!((&ti, &tj), (Cow::Borrowed(_), Cow::Borrowed(_)));
-  let (mut ti, mut tj) = (ti.into_owned(), tj.into_owned());
   if strict {
     // Order leaves using liberally resolved copies, then apply that order.
+    let (mut ti, mut tj) = (ti.into_owned(), tj.into_owned());
     let (_, skipped) = resolve_with_mccs_quiet(&mut ti, &mut tj, mccs, n, false);
     ti.ladderize();
     sort_polytomies_by_mccs(&ti, &mut tj, mccs, n);
@@ -513,9 +512,10 @@ fn sort_two(
     sort_by_leaf_order(right, &oj);
     skipped
   } else {
-    if full {
+    if matches!((&ti, &tj), (Cow::Borrowed(_), Cow::Borrowed(_))) {
       sort_polytomies_by_mccs(left, right, mccs, n);
     } else {
+      let mut tj = tj.into_owned();
       sort_polytomies_by_mccs(&ti, &mut tj, mccs, n);
       sort_by_leaf_order(right, &leaf_order(&tj));
     }
