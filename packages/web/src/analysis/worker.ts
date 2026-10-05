@@ -64,7 +64,7 @@ class AnalysisWorker implements WorkerApi {
   run(request: AnalysisRequest, onProgress: (progress: Progress) => Promise<void>) {
     const throttle = new ProgressThrottle(
       (progress) => {
-        onProgress(progress).catch(ignore);
+        onProgress(progress).catch(reportDeliveryError);
       },
       () => performance.now(),
     );
@@ -133,6 +133,6 @@ class AnalysisWorker implements WorkerApi {
 
 expose(new AnalysisWorker());
 
-function ignore(): undefined {
-  return undefined;
+function reportDeliveryError(cause: unknown): void {
+  console.error("Sending run progress to the page failed.", cause);
 }

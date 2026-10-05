@@ -25,6 +25,44 @@ describe("progress throttle", () => {
     expect(forwarded.map(({ phase }) => phase)).toStrictEqual(["pairs", "done"]);
   });
 
+  test("forwards a change of phase, round, or pair at once", () => {
+    const { clock, forwarded, throttle } = recording();
+    const first = progressAt(0.1);
+
+    throttle.push(first);
+    clock.now = 1;
+    throttle.push({ ...first, pair: 2 });
+    clock.now = 2;
+    throttle.push({ ...first, pair: 2, round: 2 });
+    clock.now = 3;
+    throttle.push({ ...first, pair: 2, round: 2, phase: "matching" });
+    clock.now = 4;
+    throttle.push({ ...first, pair: 2, round: 2, phase: "matching", fraction: 0.2 });
+
+    expect(forwarded.map(({ phase, round, pair }) => [phase, round, pair])).toStrictEqual([
+      ["pairs", 1, 1],
+      ["pairs", 1, 2],
+      ["pairs", 2, 2],
+      ["matching", 2, 2],
+    ]);
+  });
+
+  test("the done event drops a held event, so flush sends nothing after it", () => {
+    const { clock, forwarded, throttle } = recording();
+
+    throttle.push(progressAt(0.1));
+    clock.now = 5;
+    throttle.push(progressAt(0.2));
+    clock.now = 6;
+    throttle.push({ ...progressAt(1), phase: "done" });
+    throttle.flush();
+
+    expect(forwarded.map(({ phase, fraction }) => [phase, fraction])).toStrictEqual([
+      ["pairs", 0.1],
+      ["done", 1],
+    ]);
+  });
+
   test("flush forwards the last held event once", () => {
     const { clock, forwarded, throttle } = recording();
 
