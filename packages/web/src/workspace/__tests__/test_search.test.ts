@@ -5,7 +5,6 @@ import {
   isViewAvailable,
   NO_WORKSPACE,
   type NodeRef,
-  parseNodeRef,
   parseSearch,
   resolveWorkspaceSearch,
   selectPair,
@@ -51,7 +50,7 @@ describe("workspaceSearchSchema", () => {
       labels: "off",
       mcc: 4,
       leaf: "A/New York/392/2004",
-      node: "left:NODE_3",
+      node: { side: "left", name: "NODE_3" },
     };
 
     expect(
@@ -109,7 +108,7 @@ describe("stringifySearch", () => {
       view: "arg",
       pair: 1,
       leaf: "007",
-      node: "arg:hybrid,1",
+      node: { side: "arg", name: "hybrid,1" },
     };
 
     expect(parseUrl(stringifySearch(search))).toStrictEqual(search);
@@ -130,23 +129,31 @@ describe("a change to the written search", () => {
   });
 });
 
-describe("parseNodeRef", () => {
+describe("the node parameter", () => {
   test.each([
     { text: "left:NODE_3", expected: { side: "left", name: "NODE_3" } },
     { text: "right:a:b", expected: { side: "right", name: "a:b" } },
     { text: "arg:hybrid 1", expected: { side: "arg", name: "hybrid 1" } },
   ] as const)("reads $text", ({ text, expected }) => {
-    expect(parseNodeRef(text)).toStrictEqual(expected);
-  });
-
-  test.each(["NODE_3", "up:NODE_3", "left:"])("rejects %s", (text) => {
-    expect(parseNodeRef(text)).toBeUndefined();
+    expect(parseUrl(`?node=${encodeURIComponent(text)}`).node).toStrictEqual(expected);
   });
 
   test("reads back what formatNodeRef writes", () => {
     const node: NodeRef = { side: "right", name: "NODE_12:x" };
 
-    expect(parseNodeRef(formatNodeRef(node))).toStrictEqual(node);
+    expect(parseUrl(`?node=${encodeURIComponent(formatNodeRef(node))}`).node).toStrictEqual(node);
+  });
+
+  test("keeps a node set in memory by a navigation", () => {
+    const node: NodeRef = { side: "left", name: "NODE_3" };
+
+    expect(workspaceSearchSchema.parse({ node }).node).toStrictEqual(node);
+  });
+
+  test("writes the node as side and name", () => {
+    expect(parseSearch(stringifySearch({ node: { side: "left", name: "NODE 3" } }))).toStrictEqual({
+      node: "left:NODE 3",
+    });
   });
 });
 
@@ -205,13 +212,19 @@ describe("resolveWorkspaceSearch", () => {
   });
 
   test("clears an mcc, a leaf, and a node absent from the pair", () => {
-    const search: WorkspaceSearch = { ...DEFAULT_SEARCH, mcc: 7, leaf: "X", node: "left:NODE_1" };
+    const search: WorkspaceSearch = { ...DEFAULT_SEARCH, mcc: 7, leaf: "X", node: { side: "left", name: "NODE_1" } };
 
     expect(resolveWorkspaceSearch(search, TWO_TREE_RESULT)).toStrictEqual(DEFAULT_SEARCH);
   });
 
   test("keeps an mcc, a leaf, and a node present in the pair", () => {
-    const search: WorkspaceSearch = { ...DEFAULT_SEARCH, view: "tanglegram", mcc: 1, leaf: "X", node: "left:NODE_1" };
+    const search: WorkspaceSearch = {
+      ...DEFAULT_SEARCH,
+      view: "tanglegram",
+      mcc: 1,
+      leaf: "X",
+      node: { side: "left", name: "NODE_1" },
+    };
 
     const present = availability({
       ...TWO_TREE_RESULT,
@@ -233,7 +246,10 @@ describe("resolveWorkspaceSearch", () => {
       nodeExists: (pair) => checkedPairs.push(pair) > 0,
     });
 
-    resolveWorkspaceSearch({ ...DEFAULT_SEARCH, pair: 5, mcc: 1, leaf: "X", node: "arg:H" }, recording);
+    resolveWorkspaceSearch(
+      { ...DEFAULT_SEARCH, pair: 5, mcc: 1, leaf: "X", node: { side: "arg", name: "H" } },
+      recording,
+    );
 
     expect(checkedPairs).toStrictEqual([0, 0, 0]);
   });
@@ -241,7 +257,13 @@ describe("resolveWorkspaceSearch", () => {
 
 describe("selectPair", () => {
   test("sets the pair and clears the mcc and the node, keeping the leaf", () => {
-    const search: WorkspaceSearch = { ...DEFAULT_SEARCH, view: "tanglegram", mcc: 2, leaf: "X", node: "right:NODE_4" };
+    const search: WorkspaceSearch = {
+      ...DEFAULT_SEARCH,
+      view: "tanglegram",
+      mcc: 2,
+      leaf: "X",
+      node: { side: "right", name: "NODE_4" },
+    };
 
     expect(selectPair(search, 1)).toStrictEqual({ ...DEFAULT_SEARCH, view: "tanglegram", pair: 1, leaf: "X" });
   });

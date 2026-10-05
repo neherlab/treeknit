@@ -41,7 +41,7 @@ const SEARCH: WorkspaceSearch = {
   labels: "auto",
   mcc: 1,
   leaf: "X",
-  node: "left:NODE_1",
+  node: { side: "left", name: "NODE_1" },
 };
 
 describe("workspace availability", () => {

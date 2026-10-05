@@ -25,10 +25,18 @@ export const NODE_SIDES = ["left", "right", "arg"] as const;
 
 export type NodeSide = (typeof NODE_SIDES)[number];
 
-export interface NodeRef {
-  side: NodeSide;
-  name: string;
-}
+const nodeRefSchema = z.object({ side: z.enum(NODE_SIDES), name: z.string().min(1) });
+
+export type NodeRef = z.output<typeof nodeRefSchema>;
+
+const nodeRefTextSchema = z
+  .string()
+  .transform((text) => {
+    const [side, ...name] = text.split(":");
+
+    return { side, name: name.join(":") };
+  })
+  .pipe(nodeRefSchema);
 
 export const WORKSPACE_SEARCH_DEFAULTS = {
   view: "overview",
@@ -37,8 +45,6 @@ export const WORKSPACE_SEARCH_DEFAULTS = {
   x: "div",
   labels: "auto",
 } as const;
-
-const NODE_REF_PATTERN = /^(left|right|arg):(.+)$/su;
 
 const integerSchema = z.union([
   z.int(),
@@ -56,7 +62,7 @@ export const workspaceSearchSchema = z.object({
   labels: choice(LABEL_MODES, WORKSPACE_SEARCH_DEFAULTS.labels),
   mcc: optional(integerSchema),
   leaf: optional(z.string().min(1)),
-  node: optional(z.string().regex(NODE_REF_PATTERN)),
+  node: optional(z.union([nodeRefSchema, nodeRefTextSchema])),
 });
 
 export type WorkspaceSearch = z.output<typeof workspaceSearchSchema>;
@@ -65,15 +71,7 @@ export function parseSearch(query: string): Record<string, string> {
   return Object.fromEntries(new URLSearchParams(query));
 }
 
-export const stringifySearch = stringifySearchWith(String);
-
-export function parseNodeRef(text: string): NodeRef | undefined {
-  const match = NODE_REF_PATTERN.exec(text);
-  const side = NODE_SIDES.find((candidate) => candidate === match?.[1]);
-  const name = match?.[2];
-
-  return side === undefined || name === undefined ? undefined : { side, name };
-}
+export const stringifySearch = stringifySearchWith(formatNodeRef);
 
 export function formatNodeRef(node: NodeRef): string {
   return `${node.side}:${node.name}`;
@@ -125,10 +123,9 @@ export function isViewAvailable(view: WorkspaceView, availability: WorkspaceAvai
 export function resolveWorkspaceSearch(search: WorkspaceSearch, availability: WorkspaceAvailability): WorkspaceSearch {
   const view = isViewAvailable(search.view, availability) ? search.view : WORKSPACE_SEARCH_DEFAULTS.view;
   const pair = search.pair < availability.pairCount ? search.pair : WORKSPACE_SEARCH_DEFAULTS.pair;
-  const node = search.node === undefined ? undefined : parseNodeRef(search.node);
   const keepMcc = search.mcc !== undefined && availability.mccExists(pair, search.mcc);
   const keepLeaf = search.leaf !== undefined && availability.leafExists(pair, search.leaf);
-  const keepNode = node !== undefined && availability.nodeExists(pair, node);
+  const keepNode = search.node !== undefined && availability.nodeExists(pair, search.node);
 
   const resolved: WorkspaceSearch = { ...omit(search, ["mcc", "leaf", "node"]), view, pair };
 
