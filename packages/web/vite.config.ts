@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => ({
     tailwindcss(),
     react(),
   ],
+  base: "./",
   clearScreen: false,
   build: { target: "es2024", minify: mode === "production", sourcemap: mode !== "production" },
   worker: { format: "es" },
