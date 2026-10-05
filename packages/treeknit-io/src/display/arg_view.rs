@@ -191,9 +191,14 @@ fn depth(children: &[Vec<usize>], order: &[usize], root: usize) -> Vec<f64> {
       height[n] = h + 1;
     }
   }
-  // Every node is below the top root, so no height exceeds the root's.
+  // Every node is below the top root, so no height exceeds the root's. The check holds in the
+  // shipped build too, which does not check for overflow and would wrap a broken invariant.
   let top = height[root];
-  height.into_iter().map(|h| row(top - h)).collect()
+  #[expect(clippy::expect_used, reason = "every node is below the top root")]
+  height
+    .into_iter()
+    .map(|h| row(top.checked_sub(h).expect("no node is higher than the top root")))
+    .collect()
 }
 
 /// Leaf rank in the leaf order of the ARG's segment 0 tree, then of its segment 1 tree for the

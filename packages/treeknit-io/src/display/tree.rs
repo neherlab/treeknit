@@ -68,7 +68,7 @@ fn place(nodes: &mut [DrawNode]) {
     }
   }
   // Height: the largest number of branches down to a leaf.
-  let mut height = vec![0; nodes.len()];
+  let mut height = vec![0_usize; nodes.len()];
   for i in (0..nodes.len()).rev() {
     let children = &nodes[i].children;
     if let (Some(&first), Some(&last)) = (children.first(), children.last()) {
@@ -79,7 +79,11 @@ fn place(nodes: &mut [DrawNode]) {
   }
   let top = height.first().copied().unwrap_or(0);
   for (node, h) in nodes.iter_mut().zip(height) {
-    node.x_depth = row(top - h);
+    // The root is the highest node; the check holds in the shipped build, which does not check
+    // for overflow.
+    #[expect(clippy::expect_used, reason = "every node is below the root")]
+    let below = top.checked_sub(h).expect("no node is higher than the root");
+    node.x_depth = row(below);
   }
 }
 
