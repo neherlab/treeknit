@@ -190,6 +190,7 @@ function drawTree(label: string, specs: readonly NodeSpec[]): DrawTree {
     label,
     nodes: specs.map((spec, index): DrawNode => ({
       name: spec.name,
+      shortName: spec.name,
       parent: spec.parent,
       children: specs.flatMap((child, childIndex) => (child.parent === index ? [childIndex] : [])),
       branchLength: spec.branchLength ?? null,
@@ -197,12 +198,19 @@ function drawTree(label: string, specs: readonly NodeSpec[]): DrawTree {
       xDepth: spec.x,
       y: spec.y,
       leaf: specs.every((child) => child.parent !== index),
+      cladeSize: leavesBelow(specs, index),
       added: spec.added ?? false,
       imputed: spec.imputed ?? false,
       mcc: spec.mcc ?? null,
       mccBreak: spec.mccBreak ?? false,
     })),
   };
+}
+
+function leavesBelow(specs: readonly NodeSpec[], index: number): number {
+  const children = specs.flatMap((child, childIndex) => (child.parent === index ? [childIndex] : []));
+
+  return children.length === 0 ? 1 : children.reduce((sum, child) => sum + leavesBelow(specs, child), 0);
 }
 
 function treeDrawing(tree: DrawTree, slotOf: (mcc: number) => number) {
@@ -272,5 +280,17 @@ function argNode(
   segments: number[],
   { x, y, leaf = false, hybrid = false }: { x: number; y: number; leaf?: boolean; hybrid?: boolean },
 ): ArgView["nodes"][number] {
-  return { label, parents, children, tau: [0.1, 0.2], hybrid, leaf, segments, xDiv: x, xDepth: x, y };
+  return {
+    label,
+    shortLabel: label,
+    parents,
+    children,
+    tau: [0.1, 0.2],
+    hybrid,
+    leaf,
+    segments,
+    xDiv: x,
+    xDepth: x,
+    y,
+  };
 }

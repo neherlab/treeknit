@@ -1,7 +1,7 @@
 //! An SVG document writer over `quick-xml`, which escapes attribute values and text, with the
 //! pixel frame, path data, text width estimate, and legend shared by the figures.
 
-use crate::display::{Bezier, DRAWING_RULES, Point, shorten};
+use crate::display::{Bezier, Point, label_max_chars, shorten};
 use quick_xml::Writer;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 
@@ -309,11 +309,6 @@ pub(super) fn num(v: f64) -> String {
 )]
 pub(super) fn count(n: usize) -> f64 {
   n as f64
-}
-
-/// The longest label of the drawing rules, in characters.
-fn label_max_chars() -> usize {
-  usize::try_from(DRAWING_RULES.label_max_chars).unwrap_or(usize::MAX)
 }
 
 /// SVG path data.

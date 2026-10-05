@@ -523,6 +523,7 @@ mod tests {
       .find(|n| n["name"] == json!("X"))
       .unwrap();
     assert_eq!(json!(true), x["mccBreak"]);
+    assert_eq!((json!("X"), json!(1)), (x["shortName"].clone(), x["cladeSize"].clone()));
     // JSON writes whole numbers without a fraction, so they read back as integers.
     assert_eq!(json!(4), x["y"]);
     assert!(x["xDiv"].is_number() && x["xDepth"].is_number());
@@ -583,7 +584,17 @@ mod tests {
     assert_eq!(json!("hybrid"), view["shapes"]["marks"][0]["kind"]);
     assert_eq!(
       json!([
-        "label", "parents", "children", "tau", "hybrid", "leaf", "segments", "xDiv", "xDepth", "y"
+        "label",
+        "shortLabel",
+        "parents",
+        "children",
+        "tau",
+        "hybrid",
+        "leaf",
+        "segments",
+        "xDiv",
+        "xDepth",
+        "y"
       ]),
       json!(keys(root))
     );

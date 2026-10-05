@@ -1,7 +1,7 @@
 //! Layout of one tree: node coordinates, MCCs, and the flags of resolution and imputation.
 
-use super::names::unique_labels;
-use super::{DrawNode, DrawTree};
+use super::names::{shorten, unique_labels};
+use super::{DrawNode, DrawTree, label_max_chars};
 use std::collections::BTreeSet;
 use treeknit_core::Tree;
 use treeknit_core::mcc_map::map_mccs;
@@ -30,6 +30,7 @@ pub(super) fn draw_tree(tree: &Tree, input: &Tree, leaf_mcc: &[Option<usize>]) -
       let node = tree.node(n);
       let leaf = tree.is_leaf(n);
       DrawNode {
+        short_name: shorten(&name, label_max_chars()),
         name,
         parent: node.parent.map(|p| index[p]),
         children: node.children.iter().map(|&c| index[c]).collect(),
@@ -38,6 +39,7 @@ pub(super) fn draw_tree(tree: &Tree, input: &Tree, leaf_mcc: &[Option<usize>]) -
         x_depth: 0.0,
         y: 0.0,
         leaf,
+        clade_size: 1,
         added: !leaf && !input_names.contains(node.name.as_str()),
         imputed: leaf && node.taxon.is_some_and(|x| !input_taxa.contains(&x)),
         mcc: mcc[n],
@@ -52,7 +54,7 @@ pub(super) fn draw_tree(tree: &Tree, input: &Tree, leaf_mcc: &[Option<usize>]) -
   }
 }
 
-/// Fill `x_div`, `x_depth`, `y`, and `mcc_break` of `nodes`, which are in preorder.
+/// Fill `x_div`, `x_depth`, `y`, `clade_size`, and `mcc_break` of `nodes`, which are in preorder.
 fn place(nodes: &mut [DrawNode]) {
   let mut rank = 0;
   for i in 0..nodes.len() {
@@ -72,6 +74,7 @@ fn place(nodes: &mut [DrawNode]) {
     if let (Some(&first), Some(&last)) = (children.first(), children.last()) {
       nodes[i].y = f64::midpoint(nodes[first].y, nodes[last].y);
       height[i] = 1 + children.iter().map(|&c| height[c]).max().unwrap_or(0);
+      nodes[i].clade_size = children.iter().map(|&c| nodes[c].clade_size).sum();
     }
   }
   let top = height.first().copied().unwrap_or(0);
@@ -131,6 +134,23 @@ mod tests {
     assert_eq!(vec![0.0, 0.5, 1.5, 2.5, 3.0], column(&d, |n| n.x_div));
     // Height 2 at the root: leaves at 2, ab one step left of its children, C at 2 too.
     assert_eq!(vec![0.0, 1.0, 2.0, 2.0, 2.0], column(&d, |n| n.x_depth));
+    // Oracle: three leaves below the root, two below ab.
+    assert_eq!(vec![3, 2, 1, 1, 1], column(&d, |n| n.clade_size));
+  }
+
+  #[test]
+  fn draw_tree_shortens_long_names_to_the_label_length_of_the_drawing_rules() {
+    let long = "A/New York/392/2004/H3N2/segment-4/hemagglutinin";
+    let (t, taxa) = tree(&format!("('{long}',B)r;"));
+    let d = draw_tree(&t, &t, &vec![None; taxa.len()]);
+    // Oracle: 40 characters: the first 20, the ellipsis, the last 19.
+    let expected = "A/New York/392/2004/\u{2026}ent-4/hemagglutinin";
+    assert_eq!(
+      (long, expected),
+      (d.nodes[1].name.as_str(), d.nodes[1].short_name.as_str())
+    );
+    assert_eq!(40, d.nodes[1].short_name.chars().count());
+    assert_eq!("B", d.nodes[2].short_name);
   }
 
   #[test]

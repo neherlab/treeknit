@@ -187,6 +187,7 @@ function pairViewWith(left: string[], right: string[]): PairView {
 function drawNode(name: string): PairView["left"]["nodes"][number] {
   return {
     name,
+    shortName: name,
     parent: null,
     children: [],
     branchLength: null,
@@ -194,6 +195,7 @@ function drawNode(name: string): PairView["left"]["nodes"][number] {
     xDepth: 0,
     y: 0,
     leaf: false,
+    cladeSize: 1,
     added: false,
     imputed: false,
     mcc: null,
@@ -205,6 +207,7 @@ function argViewWith(labels: string[]): ArgView {
   return {
     nodes: labels.map((label) => ({
       label,
+      shortLabel: label,
       parents: [null, null],
       children: [],
       tau: [null, null],

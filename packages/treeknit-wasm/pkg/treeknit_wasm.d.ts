@@ -41,6 +41,11 @@ export interface Diagnostic {
 export interface DrawNode {
     name: string;
     /**
+     * `name` as a label shows it: shortened in the middle to `DRAWING_RULES.label_max_chars`
+     * characters (Unicode scalar values) with an ellipsis.
+     */
+    shortName: string;
+    /**
      * Index of the parent; `None` for the root.
      */
     parent: number | null;
@@ -68,6 +73,10 @@ export interface DrawNode {
     y: number;
     leaf: boolean;
     /**
+     * Number of leaves at or below the node: 1 for a leaf.
+     */
+    cladeSize: number;
+    /**
      * An internal node that the parsed input tree lacks, added by resolution or imputation.
      */
     added: boolean;
@@ -91,6 +100,10 @@ export interface DrawNode {
  */
 export interface ArgNodeView {
     label: string;
+    /**
+     * `label` as a label shows it, shortened as `DrawNode.short_name`.
+     */
+    shortLabel: string;
     /**
      * Parent index per segment; `None` for the top root, where the node lacks the segment, and
      * where it is the root of the segment without the synthetic `GlobalRoot` above it.
@@ -1004,7 +1017,8 @@ export interface DrawingRules {
      */
     linkMinRowPx: number;
     /**
-     * A longer leaf label is shortened in the middle to this many characters.
+     * A longer leaf label is shortened in the middle to this many characters (Unicode scalar
+     * values); `DrawNode.short_name` and `ArgNodeView.short_label` hold the shortened labels.
      */
     labelMaxChars: number;
 }

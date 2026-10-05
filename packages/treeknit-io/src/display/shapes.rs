@@ -203,6 +203,7 @@ mod tests {
   fn node(parent: Option<usize>, x_div: f64, y: f64) -> DrawNode {
     DrawNode {
       name: String::new(),
+      short_name: String::new(),
       parent,
       children: vec![],
       branch_length: None,
@@ -210,6 +211,7 @@ mod tests {
       x_depth: x_div,
       y,
       leaf: false,
+      clade_size: 1,
       added: false,
       imputed: false,
       mcc: Some(0),

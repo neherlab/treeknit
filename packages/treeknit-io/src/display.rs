@@ -35,6 +35,12 @@ pub const DRAWING_RULES: DrawingRules = DrawingRules {
   label_max_chars: 40,
 };
 
+/// The longest label of the drawing rules, in characters.
+pub(crate) fn label_max_chars() -> usize {
+  #[expect(clippy::expect_used, reason = "the rule is 40 characters, which every usize holds")]
+  usize::try_from(DRAWING_RULES.label_max_chars).expect("the label length fits in usize")
+}
+
 /// Thresholds of the drawing rules that the consumer applies, because they depend on the
 /// height of a drawn leaf row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -45,7 +51,8 @@ pub struct DrawingRules {
   pub label_auto_min_row_px: u32,
   /// From this many px per row, each link is an S-curve; below it, each block is a ribbon.
   pub link_min_row_px: u32,
-  /// A longer leaf label is shortened in the middle to this many characters.
+  /// A longer leaf label is shortened in the middle to this many characters (Unicode scalar
+  /// values); `DrawNode.short_name` and `ArgNodeView.short_label` hold the shortened labels.
   pub label_max_chars: u32,
 }
 
@@ -95,6 +102,9 @@ pub struct DrawTree {
 #[serde(rename_all = "camelCase")]
 pub struct DrawNode {
   pub name: String,
+  /// `name` as a label shows it: shortened in the middle to `DRAWING_RULES.label_max_chars`
+  /// characters (Unicode scalar values) with an ellipsis.
+  pub short_name: String,
   /// Index of the parent; `None` for the root.
   pub parent: Option<usize>,
   /// Indices of the children, in display order.
@@ -110,6 +120,8 @@ pub struct DrawNode {
   /// last child.
   pub y: f64,
   pub leaf: bool,
+  /// Number of leaves at or below the node: 1 for a leaf.
+  pub clade_size: usize,
   /// An internal node that the parsed input tree lacks, added by resolution or imputation.
   pub added: bool,
   /// A leaf that the input tree lacks, placed by imputation.
@@ -331,6 +343,8 @@ pub struct ArgView {
 #[serde(rename_all = "camelCase")]
 pub struct ArgNodeView {
   pub label: String,
+  /// `label` as a label shows it, shortened as `DrawNode.short_name`.
+  pub short_label: String,
   /// Parent index per segment; `None` for the top root, where the node lacks the segment, and
   /// where it is the root of the segment without the synthetic `GlobalRoot` above it.
   pub parents: [Option<usize>; 2],
@@ -461,6 +475,7 @@ mod tests {
   fn draw_node_serializes_camel_case() {
     let node = DrawNode {
       name: "X".into(),
+      short_name: "X".into(),
       parent: Some(3),
       children: vec![],
       branch_length: None,
@@ -468,14 +483,16 @@ mod tests {
       x_depth: 1.0,
       y: 4.0,
       leaf: true,
+      clade_size: 1,
       added: false,
       imputed: false,
       mcc: Some(0),
       mcc_break: true,
     };
     let expected = json!({
-      "name": "X", "parent": 3, "children": [], "branchLength": null, "xDiv": 0.5, "xDepth": 1.0,
-      "y": 4.0, "leaf": true, "added": false, "imputed": false, "mcc": 0, "mccBreak": true,
+      "name": "X", "shortName": "X", "parent": 3, "children": [], "branchLength": null, "xDiv": 0.5,
+      "xDepth": 1.0, "y": 4.0, "leaf": true, "cladeSize": 1, "added": false, "imputed": false, "mcc": 0,
+      "mccBreak": true,
     });
     assert_eq!(expected, serde_json::to_value(&node).unwrap());
   }

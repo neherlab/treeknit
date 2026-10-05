@@ -1,6 +1,7 @@
 //! The ARG of two trees laid out in one tree column.
 
-use super::names::unique_labels;
+use super::label_max_chars;
+use super::names::{shorten, unique_labels};
 use super::shapes::arg_shapes;
 use super::tree::{add_length, row};
 use super::{ArgEdge, ArgNodeView, ArgView, RootCase, Scale};
@@ -49,6 +50,7 @@ fn layout(arg: &Arg, scale: Scale) -> ArgView {
     .map(|(n, label)| {
       let node = arg.nodes.get(n);
       ArgNodeView {
+        short_label: shorten(&label, label_max_chars()),
         label,
         parents: g.parents[n],
         children: children[n].clone(),
@@ -342,6 +344,8 @@ mod tests {
     // Leaf order of the ARG's segment 0 tree.
     let expected = r.built_arg().unwrap().trees[0].leaf_names();
     assert_eq!(expected, leaves);
+    // Labels of at most 40 characters are shown whole.
+    assert!(v.nodes.iter().all(|n| n.short_label == n.label));
   }
 
   #[rstest::rstest]
