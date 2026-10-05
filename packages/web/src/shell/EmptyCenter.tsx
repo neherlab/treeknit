@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import TreesIcon from "~icons/lucide/list-tree";
 
+import { shortAttribution, TREEKNIT_PUBLICATION } from "../help/citation";
+import { CiteButton } from "../help/CiteButton";
 import { TreeActions } from "../inputs/TreeActions";
 import { TreeDropZone } from "../inputs/TreeDropZone";
 import { useTreeInput } from "../inputs/useTreeInput";
@@ -27,6 +29,10 @@ export function EmptyCenter() {
             {error}
           </InlineNotice>
         )}
+        <div className="text-ink-muted mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+          <span>TreeKnit by {shortAttribution(TREEKNIT_PUBLICATION)}</span>
+          <CiteButton variant="quiet" size="xs" placement="bottom start" />
+        </div>
       </TreeDropZone>
     </div>
   );

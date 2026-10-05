@@ -4,9 +4,7 @@ import { useSettingsSchema, useVersion } from "../analysis/queries";
 import { KEEP_WORKSPACE } from "../persistence/PersistenceSwitch";
 import { ExternalLink } from "../ui/ExternalLink";
 import { useWorkspace } from "../workspace/context";
-import { TREEKNIT_PUBLICATION } from "./citation";
-
-const PAPER_DOI = TREEKNIT_PUBLICATION.href;
+import { Citation } from "./Citation";
 
 const AUSPICE_URL = "https://docs.nextstrain.org/projects/auspice";
 
@@ -147,16 +145,15 @@ export function HelpPage() {
           </p>
         </HelpSection>
         <HelpSection id="help-cite" title="How to cite">
-          <p>
-            Barrat-Charlaix, Vaughan &amp; Neher, PLoS Comput Biol 18(8): e1010394 (2022),{" "}
-            <ExternalLink href={PAPER_DOI}>{PAPER_DOI}</ExternalLink>
-          </p>
+          <p>If you use TreeKnit in your work, please cite:</p>
+          <Citation />
         </HelpSection>
         <HelpSection id="help-version" title="Version">
           {version === undefined ? null : (
             <p>
               TreeKnit {version.version}. Source code:{" "}
-              <ExternalLink href={version.repository}>{version.repository}</ExternalLink>
+              <ExternalLink href={version.repository}>{version.repository}</ExternalLink>. Command-line releases:{" "}
+              <ExternalLink href={version.releases}>{version.releases}</ExternalLink>
             </p>
           )}
         </HelpSection>
