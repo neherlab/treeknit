@@ -227,6 +227,12 @@ export class WorkerAnalysisClient implements AnalysisClient {
     try {
       const summary = await run.connection.call((remote) => remote.run(request, forward));
 
+      if (this.#run !== run) {
+        run.connection.close();
+
+        return;
+      }
+
       this.#run = undefined;
       this.#promote(run);
       run.settle({ status: "succeeded", sessionId: run.runId, summary });
