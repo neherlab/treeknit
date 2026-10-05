@@ -44,11 +44,6 @@ export class MemoryChannelHub {
         own.add(listener);
         this.#listeners.add(listener);
       },
-      close: () => {
-        for (const listener of own) {
-          this.#listeners.delete(listener);
-        }
-      },
     };
   }
 }

@@ -31,7 +31,6 @@ export interface RecordStorage {
 export interface PersistenceChannel {
   post(message: PersistenceMessage): void;
   listen(listener: (message: PersistenceMessage) => void): void;
-  close(): void;
 }
 
 export function nextGeneration(current: StoredRecord | undefined): number {

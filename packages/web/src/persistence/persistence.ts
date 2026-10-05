@@ -105,11 +105,6 @@ export class WorkspacePersistence {
     }, SAVE_DELAY_MS);
   }
 
-  dispose(): void {
-    this.#invalidate();
-    this.#services.channel?.close();
-  }
-
   async #save(snapshot: WorkspaceSnapshot, epoch: number): Promise<void> {
     const file = await this.#services.requestFile(snapshot.request).catch(() => undefined);
     const generation = this.#generation;

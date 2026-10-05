@@ -49,8 +49,5 @@ export function broadcastChannel(): PersistenceChannel | null {
         }
       });
     },
-    close() {
-      channel.close();
-    },
   };
 }
