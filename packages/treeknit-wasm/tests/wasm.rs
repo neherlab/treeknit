@@ -1,4 +1,4 @@
-//! Run with `just test-web`.
+//! Run with `just test-wasm`.
 #![cfg(target_arch = "wasm32")]
 
 #[cfg(test)]
@@ -20,7 +20,7 @@ mod tests {
         ],
         "settings": {"seed": 1},
     });
-    let result = plain(&treeknit_web::analyze(&js(&request)).unwrap());
+    let result = plain(&treeknit_wasm::analyze(&js(&request)).unwrap());
     // Oracle: fixtures/doc_mccs_1.json (TreeKnit.jl)
     let expected_mccs = json!({"MCC_dict": {"1": {"trees": ["ha", "na"], "mccs": [["X"], ["A", "B", "C", "D"]]}}});
     assert_eq!(expected_mccs, result["mccs"]);
@@ -32,7 +32,7 @@ mod tests {
   fn analyze_reports_analysis_errors() {
     let one_tree = json!({"trees": [{"label": "ha", "newick": "(A,B);"}]});
     let expected = "need at least two trees";
-    match treeknit_web::analyze(&js(&one_tree)) {
+    match treeknit_wasm::analyze(&js(&one_tree)) {
       Ok(_) => panic!("expected error {expected:?}"),
       Err(e) => assert_eq!(expected, message(e)),
     }
@@ -41,7 +41,7 @@ mod tests {
   #[wasm_bindgen_test]
   fn analyze_reports_where_a_request_is_malformed() {
     let expected = "invalid request: invalid type: integer `3`, expected a sequence at line 1 column 10";
-    match treeknit_web::analyze(&js(&json!({"trees": 3}))) {
+    match treeknit_wasm::analyze(&js(&json!({"trees": 3}))) {
       Ok(_) => panic!("expected error {expected:?}"),
       Err(e) => assert_eq!(expected, message(e)),
     }

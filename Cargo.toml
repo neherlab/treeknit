@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["packages/treeknit-core", "packages/treeknit-io", "packages/treeknit-cli", "packages/web"]
+members = ["packages/treeknit-core", "packages/treeknit-io", "packages/treeknit-cli", "packages/treeknit-wasm"]
 
 [workspace.package]
 description = "Inference of reassortment from segment trees"

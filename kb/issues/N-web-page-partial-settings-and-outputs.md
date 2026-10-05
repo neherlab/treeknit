@@ -10,4 +10,4 @@ The page form sets γ, the resolution mode, and the seed. `analyze` accepts the 
 
 ## Validation
 
-- `packages/web/src/analysis.rs` tests cover each new setting and output
+- `packages/treeknit-wasm/src/analysis.rs` tests cover each new setting and output

@@ -1,6 +1,6 @@
 [package]
-name = "treeknit-web"
-description = "WebAssembly bindings and web page for TreeKnit"
+name = "treeknit-wasm"
+description = "WebAssembly bindings of TreeKnit for the web app"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

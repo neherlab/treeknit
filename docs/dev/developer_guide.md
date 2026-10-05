@@ -58,8 +58,8 @@ Optional settings go into the gitignored `.env` in the checkout; `.env.example` 
 | Clippy                                 | `just lint-rs` (`just l`)                  |
 | Format                                 | `just fmt`                                 |
 | Accuracy against the simulated cases   | `just example accuracy [drop]`             |
-| Build the web page                     | `just build-web`                           |
-| Web tests in WebAssembly, Clippy       | `just test-web`, `just lint-web`           |
+| Build the web page                     | `just build-wasm`                           |
+| Web tests in WebAssembly, Clippy       | `just test-wasm`, `just lint-wasm`           |
 
 In the container, prefix each command with `./dev/docker/run`.
 

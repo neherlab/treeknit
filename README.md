@@ -104,7 +104,7 @@ equivalents:
 | `treeknit-core` | Algorithms, no IO. Arena trees and bitset clades (`tree`, `bits`), naive MCCs, split graph energy and likelihood, simulated annealing, pair inference, resolution, the K-tree pipeline, imputation of missing leaves, ARG construction. |
 | `treeknit-io` | Newick, MCC JSON, extended Newick, node table, auspice JSON. |
 | `treeknit-cli` | The `treeknit` binary. |
-| `web` | WebAssembly bindings and a static web page (`packages/web/README.md`). |
+| `treeknit-wasm` | WebAssembly bindings and a static web page (`packages/treeknit-wasm/README.md`). |
 
 ## Development
 

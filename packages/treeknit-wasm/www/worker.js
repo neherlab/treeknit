@@ -1,4 +1,4 @@
-import init, { analyze } from './pkg/treeknit_web.js';
+import init, { analyze } from './pkg/treeknit_wasm.js';
 
 const ready = init();
 
