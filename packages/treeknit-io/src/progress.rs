@@ -26,11 +26,13 @@ pub struct Progress {
   pub phase: Phase,
   /// Completed fraction of the run, from 0 to 1, never decreasing during a run.
   pub fraction: f64,
-  /// Round in progress, 1-based.
+  /// Round in progress, 1-based, in the phase `pairs`; the number of rounds in `matching` and
+  /// `done`.
   pub round: usize,
   /// Number of rounds, including the final round without resolution.
   pub rounds: usize,
-  /// Pair in progress, 1-based, in pipeline order.
+  /// Pair in progress, 1-based, in pipeline order, in the phase `pairs`; the number of pairs in
+  /// `matching` and `done`.
   pub pair: usize,
   /// Number of pairs.
   pub pairs: usize,

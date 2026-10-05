@@ -78,9 +78,9 @@ export interface DrawNode {
      */
     xDiv: number;
     /**
-     * Cladogram position in branch steps from the root: the height of the root minus the height
-     * of the node, where a height is the largest number of branches from a node down to a leaf.
-     * Every leaf is at the height of the root.
+     * Cladogram position in branch steps: the height of the root minus the height of the node,
+     * where a height is the largest number of branches from a node down to a leaf. Every leaf is
+     * at the height of the root.
      */
     xDepth: number;
     /**
@@ -165,9 +165,9 @@ export interface ArgNodeView {
      */
     xDiv: number;
     /**
-     * Cladogram position in branch steps from the top root, as `DrawNode.x_depth`: the height of
-     * the top root minus the height of the node, where a height is the largest number of edges
-     * from a node down to a leaf over the children of both segments.
+     * Cladogram position in branch steps, as `DrawNode.x_depth`: the height of the top root minus
+     * the height of the node, where a height is the largest number of edges from a node down to a
+     * leaf over the children of both segments.
      */
     xDepth: number;
     /**
@@ -366,7 +366,7 @@ export interface MccInfo {
      */
     ambiguousLeaves: string[];
     /**
-     * Color slot, 0 to 7, the same in every version of the pair.
+     * Color slot, from 0 to `MCC_SLOTS` - 1, the same in every version of the pair.
      */
     slot: number;
 }
@@ -418,13 +418,16 @@ export interface FileEntry {
      * `ARG/arg.nwk`.
      */
     fileName: string;
+    /**
+     * Media type of the file, as in `OutputFile`.
+     */
     mediaType: string;
     /**
-     * Size in bytes; `None` for a figure not rendered yet.
+     * Size in bytes; `null` in TypeScript (`None`) for a figure not rendered yet.
      */
     size: number | null;
     /**
-     * The figure the file holds; `None` for the other files.
+     * The figure the file holds; `null` in TypeScript (`None`) for the other files.
      */
     figure: Figure | null;
 }
@@ -481,7 +484,7 @@ export interface Palette {
  */
 export interface ThemeColors {
     /**
-     * The eight MCC color slots.
+     * The MCC color slots, `MCC_SLOTS` of them; `MccInfo.slot` indexes them.
      */
     mcc: [string, string, string, string, string, string, string, string];
     /**
@@ -648,7 +651,8 @@ export interface Progress {
      */
     fraction: number;
     /**
-     * Round in progress, 1-based.
+     * Round in progress, 1-based, in the phase `pairs`; the number of rounds in `matching` and
+     * `done`.
      */
     round: number;
     /**
@@ -656,7 +660,8 @@ export interface Progress {
      */
     rounds: number;
     /**
-     * Pair in progress, 1-based, in pipeline order.
+     * Pair in progress, 1-based, in pipeline order, in the phase `pairs`; the number of pairs in
+     * `matching` and `done`.
      */
     pair: number;
     /**
@@ -864,7 +869,8 @@ export interface ConstellationTable {
      */
     pairs: [string, string][];
     /**
-     * `cells[leaf][pair]`; `None` when the leaf is in neither tree of the pair.
+     * `cells[leaf][pair]`; `None` when the leaf is in neither tree of the pair, or the pair has no
+     * MCCs (its trees share fewer than two leaves).
      */
     cells: (ConstellationCell | null)[][];
 }

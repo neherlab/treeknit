@@ -62,10 +62,11 @@ pub struct FileEntry {
   /// The last segment of `path`, the name of the file as a download: `arg.nwk` for
   /// `ARG/arg.nwk`.
   pub file_name: String,
+  /// Media type of the file, as in `OutputFile`.
   pub media_type: String,
-  /// Size in bytes; `None` for a figure not rendered yet.
+  /// Size in bytes; `null` in TypeScript (`None`) for a figure not rendered yet.
   pub size: Option<usize>,
-  /// The figure the file holds; `None` for the other files.
+  /// The figure the file holds; `null` in TypeScript (`None`) for the other files.
   pub figure: Option<Figure>,
 }
 

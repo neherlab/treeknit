@@ -20,8 +20,8 @@ pub fn constellation(run: &RunResult) -> ConstellationTable {
       }
     }
   }
-  // An MCC holds only leaves of the two trees of its pair, so a leaf has an MCC in every pair
-  // that has it.
+  // An MCC holds only leaves of the two trees of its pair, so a leaf with an MCC is in the pair.
+  // A leaf of the pair has none only when the pair has no MCCs.
   let leaf_mccs: Vec<Vec<Option<usize>>> = run.pairs.iter().map(|p| leaf_mcc_map(&p.mccs, n)).collect();
   let slots: Vec<&[usize]> = (0..run.pairs.len()).map(|i| pair_slots(run, i)).collect();
   let cells = rows

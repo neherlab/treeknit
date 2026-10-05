@@ -39,11 +39,13 @@ pub struct Progress {
   /// Completed fraction of the run, from 0 to 1, never decreasing during a run. It is at most
   /// [`PAIRS_SHARE`] before [`Phase::Done`], and 1 at `Done`.
   pub fraction: f64,
-  /// Round in progress, 1-based.
+  /// Round in progress, 1-based, during `Phase::Pairs`; the number of rounds during `Matching`
+  /// and `Done`.
   pub round: usize,
   /// Number of rounds, including the final round without resolution.
   pub rounds: usize,
-  /// Pair in progress, 1-based, in pipeline order (0,1), (0,2), ...
+  /// Pair in progress, 1-based, in pipeline order (0,1), (0,2), ..., during `Phase::Pairs`; the
+  /// number of pairs during `Matching` and `Done`.
   pub pair: usize,
   /// Number of pairs.
   pub pairs: usize,

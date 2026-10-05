@@ -110,7 +110,7 @@ fn labels_shown(options: &FigureOptions) -> bool {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum LabelMode {
-  /// From 10 px per row.
+  /// From `DrawingRules.label_auto_min_row_px` px per row.
   #[default]
   Auto,
   On,

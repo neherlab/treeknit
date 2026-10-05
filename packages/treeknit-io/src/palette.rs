@@ -34,12 +34,15 @@ pub struct Palette {
   pub dark: ThemeColors,
 }
 
+// The TypeScript type of `ThemeColors.mcc` spells out a tuple of `MCC_SLOTS` strings.
+const _: () = assert!(MCC_SLOTS == 8, "update the tsify type of `ThemeColors.mcc`");
+
 /// Drawing colors of one theme, each as `#rrggbb`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ThemeColors {
-  /// The eight MCC color slots.
+  /// The MCC color slots, `MCC_SLOTS` of them; `MccInfo.slot` indexes them.
   #[cfg_attr(
     feature = "tsify",
     tsify(type = "[string, string, string, string, string, string, string, string]")

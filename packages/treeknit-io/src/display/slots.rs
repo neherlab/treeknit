@@ -1,10 +1,17 @@
 //! Color slots of the MCCs of a pair: a deterministic greedy coloring of the graph whose edges
-//! join MCCs with neighboring blocks.
+//! join MCCs with neighboring blocks, with `MCC_SLOTS` colors.
 //!
-//! Among the slots that no colored neighbor uses, an MCC takes the slot used least so far in the
-//! pair, not the lowest one. Taking the lowest free slot would give most MCCs the first two or
-//! three colors, because few MCCs have many neighbors; spreading the slots uses all eight colors
-//! and keeps the guarantee that neighbors differ.
+//! The algorithm has two parts:
+//! - **Visiting order**: sequential greedy coloring that visits the MCCs by size, largest first,
+//!   so the largest MCCs, which take the most room in a drawing, get their colors first. The
+//!   Welsh-Powell order would visit them by degree (number of neighbors) instead.
+//! - **Choice among the free slots**: a balanced-coloring heuristic. Among the slots that no
+//!   colored neighbor uses, an MCC takes the slot used least so far in the pair, not the lowest
+//!   one. Taking the lowest free slot would give most MCCs the first two or three colors, because
+//!   few MCCs have many neighbors; spreading the slots uses all the colors.
+//!
+//! Neighbors get different slots as long as an MCC has fewer than `MCC_SLOTS` colored neighbors
+//! when it is visited; with more, it shares the slot used least among them.
 
 use super::{Block, MCC_SLOTS};
 use std::collections::BTreeSet;

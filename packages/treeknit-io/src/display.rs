@@ -2,7 +2,8 @@
 //! leaf-by-pair MCC table.
 //!
 //! Node coordinates are in tree units: `x_div` in branch-length units from the root, `x_depth` in
-//! branch steps from the root, and `y` in leaf rows, from 0 for the first leaf in display order.
+//! branch steps (the height of the root minus the height of the node, so every leaf is at the
+//! height of the root), and `y` in leaf rows, from 0 for the first leaf in display order.
 //! The shapes (`PairShapes`, `ArgShapes`) are in normalized units: x runs from 0 to 1 across the
 //! column of a shape (a tree column, or the link zone between the two label columns of a
 //! tanglegram), and y counts leaf rows as the nodes do. The right tree of a tanglegram is not
@@ -188,9 +189,9 @@ pub struct DrawNode {
   pub branch_length: Option<f64>,
   /// Divergence from the root; a missing or negative length counts as 0.
   pub x_div: f64,
-  /// Cladogram position in branch steps from the root: the height of the root minus the height
-  /// of the node, where a height is the largest number of branches from a node down to a leaf.
-  /// Every leaf is at the height of the root.
+  /// Cladogram position in branch steps: the height of the root minus the height of the node,
+  /// where a height is the largest number of branches from a node down to a leaf. Every leaf is
+  /// at the height of the root.
   pub x_depth: f64,
   /// Leaf rank 0 to n-1 in display order; an internal node sits at the midpoint of its first and
   /// last child.
@@ -273,7 +274,7 @@ pub struct MccInfo {
   /// Names of the attached members whose attachment is ambiguous: their attachment point is in
   /// no MCC, so they joined the MCC whose root is closest to it.
   pub ambiguous_leaves: Vec<String>,
-  /// Color slot, 0 to 7, the same in every version of the pair.
+  /// Color slot, from 0 to `MCC_SLOTS` - 1, the same in every version of the pair.
   pub slot: usize,
 }
 
@@ -453,9 +454,9 @@ pub struct ArgNodeView {
   /// Distance from the top root along the parent chain that leads to it; a missing or negative
   /// length counts as 0.
   pub x_div: f64,
-  /// Cladogram position in branch steps from the top root, as `DrawNode.x_depth`: the height of
-  /// the top root minus the height of the node, where a height is the largest number of edges
-  /// from a node down to a leaf over the children of both segments.
+  /// Cladogram position in branch steps, as `DrawNode.x_depth`: the height of the top root minus
+  /// the height of the node, where a height is the largest number of edges from a node down to a
+  /// leaf over the children of both segments.
   pub x_depth: f64,
   /// Leaf rank in display order; an internal node sits at the midpoint of its children.
   pub y: f64,
@@ -538,7 +539,8 @@ pub struct ConstellationTable {
   pub leaves: Vec<String>,
   /// Labels of the two trees of each pair, in pipeline order.
   pub pairs: Vec<[String; 2]>,
-  /// `cells[leaf][pair]`; `None` when the leaf is in neither tree of the pair.
+  /// `cells[leaf][pair]`; `None` when the leaf is in neither tree of the pair, or the pair has no
+  /// MCCs (its trees share fewer than two leaves).
   pub cells: Vec<Vec<Option<ConstellationCell>>>,
 }
 
