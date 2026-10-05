@@ -474,7 +474,10 @@ mod tests {
     // Oracle: P is the one leaf that na lacks, so it is the one imputed leaf.
     assert!(imputed == 1 && added > 0, "imputed {imputed}, added {added}");
     let p = view.right.nodes.iter().find(|n| n.name == "P").unwrap();
-    let p_color = colors.mcc[view.mccs[p.mcc.unwrap()].slot].clone();
+    // Oracle: the trees share A, B, C, and D, which form the one MCC of the pair, so P joins it
+    // and has its slot 0.
+    assert_eq!(Some(0), p.mcc.map(|m| view.mccs[m].slot));
+    let p_color = colors.mcc[0].clone();
     let mut rings: Vec<String> = elements(&svg)
       .iter()
       .filter(|e| e.name == "circle")
@@ -496,7 +499,8 @@ mod tests {
     assert_eq!(added + 1, dashed);
     let legend: Vec<String> = texts(&svg).into_iter().filter(|t| t.len() > 1).collect();
     assert!(
-      legend.contains(&"Imputed leaf".to_owned()) && legend.contains(&"Node added by resolution".to_owned()),
+      legend.contains(&"Imputed leaf".to_owned())
+        && legend.contains(&"Node added by resolution or imputation".to_owned()),
       "{legend:?}"
     );
   }
@@ -654,6 +658,13 @@ mod tests {
       .count();
     // The legend adds one dashed curve and one ring.
     assert_eq!((reticulations + 1, hybrids + 1), (dashed, rings));
+    // The legend curve has the color of the reticulation it explains.
+    let strokes: std::collections::BTreeSet<&str> = parsed
+      .iter()
+      .filter(|e| e.name == "path" && e.attribute("stroke-dasharray") == Some("4 3"))
+      .filter_map(|e| e.attribute("stroke"))
+      .collect();
+    assert_eq!(1, strokes.len(), "{strokes:?}");
     let expected: Vec<String> = [
       "ARG of ha and na",
       "A",

@@ -1,7 +1,7 @@
 //! An SVG document writer over `quick-xml`, which escapes attribute values and text, with the
 //! pixel frame, path data, text width estimate, and legend shared by the figures.
 
-use crate::display::{Bezier, DRAWING_RULES, Leader, Point, label_max_chars, shorten};
+use crate::display::{Bezier, DRAWING_RULES, Leader, Point, label_max_chars, s_curve, shorten};
 use quick_xml::Writer;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::borrow::Cow;
@@ -94,7 +94,7 @@ pub(super) struct Svg {
 impl Svg {
   /// A document of `width` by `height` px on the color `ground`, with `title` as its accessible
   /// name and as the heading above the drawing.
-  pub(super) fn new(width: f64, height: f64, title: &str, ground: &str) -> Svg {
+  fn new(width: f64, height: f64, title: &str, ground: &str) -> Svg {
     let mut svg = Svg {
       writer: Writer::new_with_indent(Vec::new(), b' ', 2),
     };
@@ -122,7 +122,7 @@ impl Svg {
   }
 
   /// The SVG text, closing the root element.
-  pub(super) fn finish(mut self) -> String {
+  fn finish(mut self) -> String {
     self.close("svg");
     #[expect(
       clippy::expect_used,
@@ -130,6 +130,20 @@ impl Svg {
     )]
     let text = String::from_utf8(self.writer.into_inner()).expect("the SVG text is UTF-8");
     format!("{text}\n")
+  }
+
+  /// The SVG text of a figure begun by `figure`, with the legend `entries` under its `rows` rows of
+  /// `row_height` px, wrapped at `width` px.
+  pub(super) fn finish_figure(
+    mut self,
+    rows: usize,
+    row_height: f64,
+    width: f64,
+    entries: &[LegendEntry],
+    ink: &str,
+  ) -> String {
+    self.legend(entries, legend_top(rows, row_height), width, ink);
+    self.finish()
   }
 
   /// Open element `name` with `attributes`.
@@ -161,7 +175,7 @@ impl Svg {
   }
 
   /// The title heading, left-aligned at the margin.
-  pub(super) fn title(&mut self, title: &str, ink: &str) {
+  fn title(&mut self, title: &str, ink: &str) {
     self.text(
       "text",
       &[
@@ -176,7 +190,7 @@ impl Svg {
   }
 
   /// The legend `entries` from `top`, in lines that wrap at `width` px.
-  pub(super) fn legend(&mut self, entries: &[LegendEntry], top: f64, width: f64, ink: &str) {
+  fn legend(&mut self, entries: &[LegendEntry], top: f64, width: f64, ink: &str) {
     if entries.is_empty() {
       return;
     }
@@ -309,9 +323,31 @@ impl Svg {
   }
 }
 
+/// The width between the margins of a figure `width` px wide.
+pub(super) fn inner_width(width: f64) -> f64 {
+  (width - 2.0 * MARGIN).max(0.0)
+}
+
+/// A figure document of `width` px on the color `ground`, high enough for `rows` rows of
+/// `row_height` px and the legend `entries`, with `title` above the drawing in `ink`. The figure
+/// ends with `Svg::finish_figure`.
+pub(super) fn figure(
+  title: &str,
+  rows: usize,
+  row_height: f64,
+  width: f64,
+  entries: &[LegendEntry],
+  [ground, ink]: [&str; 2],
+) -> Svg {
+  let height = figure_height(rows, row_height, entries, width);
+  let mut svg = Svg::new(width, height, title, ground);
+  svg.title(title, ink);
+  svg
+}
+
 /// The height of a figure whose drawing is `rows` rows of `row_height` px, with the legend
 /// `entries` wrapped at `width` px.
-pub(super) fn figure_height(rows: usize, row_height: f64, entries: &[LegendEntry], width: f64) -> f64 {
+fn figure_height(rows: usize, row_height: f64, entries: &[LegendEntry], width: f64) -> f64 {
   let legend = count(legend_lines(entries, width)) * LEGEND_LINE;
   drawing_top() + count(rows) * row_height + LEGEND_GAP + legend + MARGIN
 }
@@ -322,7 +358,7 @@ pub(super) fn drawing_top() -> f64 {
 }
 
 /// The top of the legend under a drawing of `rows` rows of `row_height` px.
-pub(super) fn legend_top(rows: usize, row_height: f64) -> f64 {
+fn legend_top(rows: usize, row_height: f64) -> f64 {
   drawing_top() + count(rows) * row_height + LEGEND_GAP
 }
 
@@ -610,18 +646,6 @@ fn legend_lines(entries: &[LegendEntry], width: f64) -> usize {
 
 fn entry_width(entry: &LegendEntry) -> f64 {
   SYMBOL_WIDTH + SYMBOL_GAP + text_width(&entry.label)
-}
-
-/// The S-curve from `from` to `to` with both control points at the middle x, the link form of
-/// the drawing rules.
-fn s_curve(from: Point, to: Point) -> Bezier {
-  let mid = f64::midpoint(from[0], to[0]);
-  Bezier {
-    from,
-    c1: [mid, from[1]],
-    c2: [mid, to[1]],
-    to,
-  }
 }
 
 fn start<'a>(name: &'a str, attributes: &'a [(&'a str, String)]) -> BytesStart<'a> {

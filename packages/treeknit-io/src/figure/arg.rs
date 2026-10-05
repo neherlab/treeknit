@@ -1,8 +1,8 @@
 //! The SVG figure of the ARG of two trees: one tree column with the labels at its right.
 
 use super::svg::{
-  BRANCH_WIDTH, Column, DASH, LABEL_GAP, LegendEntry, MARGIN, Path, RING_AT_CURVE_END, Rows, Svg, Symbol, dash_array,
-  drawing_top, figure_height, label_column, legend_top, num,
+  BRANCH_WIDTH, Column, DASH, LABEL_GAP, LegendEntry, MARGIN, Path, RING_AT_CURVE_END, Rows, Symbol, dash_array,
+  drawing_top, figure, inner_width, label_column, num,
 };
 use super::{FigureOptions, labels_shown};
 use crate::display::{ArgView, DRAWING_RULES, EdgePath};
@@ -14,7 +14,7 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
   let colors = palette().light;
   let leaves = || view.nodes.iter().filter(|n| n.leaf);
   let rows_count = leaves().count().max(1);
-  let inner = (options.width - 2.0 * MARGIN).max(0.0);
+  let inner = inner_width(options.width);
   let labels = label_column(
     leaves().map(|n| n.label.as_str()),
     labels_shown(options),
@@ -32,9 +32,14 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
   let [a, b] = segments;
   let title = format!("ARG of {a} and {b}");
   let legend = legend(view, segments, &colors);
-  let height = figure_height(rows_count, options.row_height, &legend, options.width);
-  let mut svg = Svg::new(options.width, height, &title, &colors.ground);
-  svg.title(&title, &colors.ink);
+  let mut svg = figure(
+    &title,
+    rows_count,
+    options.row_height,
+    options.width,
+    &legend,
+    [&colors.ground, &colors.ink],
+  );
 
   if labels.shown() {
     let labeled = |n: usize| !labels.text(&view.nodes[n].label).is_empty();
@@ -69,16 +74,11 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
     svg.labels(names, rows, &labels, column.end + LABEL_GAP, None, &colors.ink);
   }
 
-  svg.legend(
-    &legend,
-    legend_top(rows_count, options.row_height),
-    options.width,
-    &colors.ink,
-  );
-  svg.finish()
+  svg.finish_figure(rows_count, options.row_height, options.width, &legend, &colors.ink)
 }
 
-/// The legend: the two segments, both, and reassortment when the ARG has a hybrid node.
+/// The legend: the two segments, both, and reassortment when the ARG has a hybrid node, its curve
+/// in the color of the first reticulation the figure draws.
 fn legend(view: &ArgView, [a, b]: [&str; 2], colors: &ThemeColors) -> Vec<LegendEntry> {
   let line = |color: &str| Symbol::Line {
     color: color.to_owned(),
@@ -99,11 +99,12 @@ fn legend(view: &ArgView, [a, b]: [&str; 2], colors: &ThemeColors) -> Vec<Legend
       label: "Both segments".to_owned(),
     },
   ];
-  if !view.shapes.marks.is_empty() {
+  // Each hybrid node has one reticulation edge.
+  if let Some(reticulation) = view.shapes.edges.iter().find(|s| s.reticulation) {
     entries.push(LegendEntry {
       symbol: vec![
         Symbol::Curve {
-          color: colors.ink_muted.clone(),
+          color: segment_color(&view.edges[reticulation.edge].segments, colors),
           dash: Some(DASH),
         },
         Symbol::Ring {

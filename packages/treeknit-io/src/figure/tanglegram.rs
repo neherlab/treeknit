@@ -3,8 +3,8 @@
 
 use super::svg::{
   BRANCH_WIDTH, Column, DASH, LABEL_GAP, LINK_WIDTH, LabelColumn, LegendEntry, MARGIN, Path, REASSORTMENT_WIDTH,
-  RIBBON_OPACITY, RING_AT_BRANCH_MIDDLE, RING_AT_LEAF_TIP, Rows, Svg, Symbol, dash_array, drawing_top, figure_height,
-  label_column, legend_top, num,
+  RIBBON_OPACITY, RING_AT_BRANCH_MIDDLE, RING_AT_LEAF_TIP, Rows, Svg, Symbol, dash_array, drawing_top, figure,
+  inner_width, label_column, num,
 };
 use super::{FigureOptions, labels_shown};
 use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes};
@@ -16,9 +16,14 @@ pub(super) fn draw(view: &PairView, options: &FigureOptions) -> String {
   let layout = Layout::new(view, options);
   let title = format!("{} and {}", view.left.label, view.right.label);
   let legend = legend(view, &layout, &colors);
-  let height = figure_height(layout.rows_count, options.row_height, &legend, options.width);
-  let mut svg = Svg::new(options.width, height, &title, &colors.ground);
-  svg.title(&title, &colors.ink);
+  let mut svg = figure(
+    &title,
+    layout.rows_count,
+    options.row_height,
+    options.width,
+    &legend,
+    [&colors.ground, &colors.ink],
+  );
   if layout.ribbons {
     ribbons(&mut svg, view, &layout, &colors);
   } else {
@@ -46,13 +51,13 @@ pub(super) fn draw(view: &PairView, options: &FigureOptions) -> String {
       draw.labels(&mut svg, side, &layout.labels);
     }
   }
-  svg.legend(
-    &legend,
-    legend_top(layout.rows_count, options.row_height),
+  svg.finish_figure(
+    layout.rows_count,
+    options.row_height,
     options.width,
+    &legend,
     &colors.ink,
-  );
-  svg.finish()
+  )
 }
 
 /// The columns and rows of a tanglegram in px.
@@ -72,7 +77,7 @@ impl Layout {
   /// The columns of `DrawingRules`; labels that do not fit their column are shortened.
   fn new(view: &PairView, options: &FigureOptions) -> Layout {
     let rules = DRAWING_RULES;
-    let inner = (options.width - 2.0 * MARGIN).max(0.0);
+    let inner = inner_width(options.width);
     let labels = label_column(
       leaf_names(&view.left).chain(leaf_names(&view.right)),
       labels_shown(options),
@@ -254,7 +259,7 @@ fn legend(view: &PairView, layout: &Layout, colors: &ThemeColors) -> Vec<LegendE
   if elbows().any(|e| e.added && !e.mcc_break) {
     entries.push(LegendEntry {
       symbol: vec![line(&colors.ink_muted, BRANCH_WIDTH, Some(DASH))],
-      label: "Node added by resolution".to_owned(),
+      label: "Node added by resolution or imputation".to_owned(),
     });
   }
   if marks().any(|m| m.kind == MarkKind::Imputed) {
@@ -286,7 +291,8 @@ fn legend(view: &PairView, layout: &Layout, colors: &ThemeColors) -> Vec<LegendE
   entries
 }
 
-/// The color of MCC slot `slot`, or the "no MCC" color.
+/// The color of MCC slot `slot`, or the "no MCC" color for `None`. A slot is below `MCC_SLOTS`,
+/// so a slot out of range is a broken invariant and panics instead of taking the "no MCC" color.
 fn slot_color(colors: &ThemeColors, slot: Option<usize>) -> String {
-  slot.and_then(|s| colors.mcc.get(s)).unwrap_or(&colors.no_mcc).clone()
+  slot.map_or(&colors.no_mcc, |s| &colors.mcc[s]).clone()
 }

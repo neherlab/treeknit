@@ -171,7 +171,7 @@ fn elbow(parent: Point, node: Point) -> [Point; 3] {
 }
 
 /// The S-curve from `from` to `to`, with both control points at the middle x.
-fn s_curve(from: Point, to: Point) -> Bezier {
+pub(crate) fn s_curve(from: Point, to: Point) -> Bezier {
   let mid = f64::midpoint(from[0], to[0]);
   Bezier {
     from,

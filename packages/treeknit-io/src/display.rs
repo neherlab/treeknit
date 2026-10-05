@@ -24,6 +24,7 @@ pub use auspice::auspice_view;
 pub use constellation::constellation;
 pub use names::shorten;
 pub use pair::pair_view;
+pub(crate) use shapes::s_curve;
 
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "tsify")]
