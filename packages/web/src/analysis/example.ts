@@ -1,7 +1,4 @@
-import type { TreeText } from "@neherlab/treeknit-wasm";
 import { entries, groupBy, map, pipe, sortBy } from "remeda";
-
-import { treeLabel } from "./request";
 
 const REAL_TREE_FILES = import.meta.glob<string>("../../../../data/*/*.nwk", {
   query: "?raw",
@@ -54,22 +51,27 @@ export interface ExampleGroup {
 export interface Example {
   id: string;
   name: string;
-  load: () => Promise<TreeText[]>;
+  load: () => Promise<ExampleTree[]>;
+}
+
+export interface ExampleTree {
+  fileName: string;
+  newick: string;
 }
 
 export type TreeFileReaders = Record<string, () => Promise<string>>;
 
-function smallTrees(): TreeText[] {
+function smallTrees(): ExampleTree[] {
   return [
-    { label: "ha", newick: "((A,B),(C,(D,X)));" },
-    { label: "na", newick: "((A,(B,X)),(C,D));" },
+    { fileName: "ha.nwk", newick: "((A,B),(C,(D,X)));" },
+    { fileName: "na.nwk", newick: "((A,(B,X)),(C,D));" },
   ];
 }
 
-async function readTreeFiles(treeFiles: readonly (readonly [string, () => Promise<string>])[]): Promise<TreeText[]> {
+async function readTreeFiles(treeFiles: readonly (readonly [string, () => Promise<string>])[]): Promise<ExampleTree[]> {
   return Promise.all(
     sortBy(treeFiles, ([path]) => path).map(async ([path, read]) => ({
-      label: treeLabel(pathParts(path).file),
+      fileName: pathParts(path).file,
       newick: await read(),
     })),
   );

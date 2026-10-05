@@ -28,7 +28,7 @@ describe("directoryExamples", () => {
     ]);
   });
 
-  test("loads the trees of its directory in file name order, labeled by file name", async () => {
+  test("loads the trees of its directory in file name order, with their file names", async () => {
     const files: TreeFileReaders = {
       "../fixtures/sim/case_b/tree1.nwk": readsAs("(E,F);"),
       "../fixtures/sim/case_a/tree3.nwk": readsAs("(C,D);"),
@@ -39,9 +39,9 @@ describe("directoryExamples", () => {
     const [caseA] = directoryExamples("simulated", files);
 
     await expect(caseA?.load()).resolves.toStrictEqual([
-      { label: "tree1", newick: "((A,B),C);" },
-      { label: "tree2", newick: "(A,(B,C));" },
-      { label: "tree3", newick: "(C,D);" },
+      { fileName: "tree1.nwk", newick: "((A,B),C);" },
+      { fileName: "tree2.nwk", newick: "(A,(B,C));" },
+      { fileName: "tree3.nwk", newick: "(C,D);" },
     ]);
   });
 
@@ -81,6 +81,15 @@ describe("example groups", () => {
       "real/h3n2-2017",
       "real/h3n2-2017-2018",
       "real/h3n2-new-york-1999-2004",
+    ]);
+  });
+
+  test("loads the small example as the files ha.nwk and na.nwk", async () => {
+    const small = EXAMPLE_GROUPS.find(({ id }) => id === "small")?.examples[0];
+
+    await expect(small?.load()).resolves.toStrictEqual([
+      { fileName: "ha.nwk", newick: "((A,B),(C,(D,X)));" },
+      { fileName: "na.nwk", newick: "((A,(B,X)),(C,D));" },
     ]);
   });
 
