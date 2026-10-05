@@ -1,8 +1,12 @@
-name: "Nightly"
+name: "Release"
 
-# Every night, when main has changed since the latest nightly: build the CLI for
-# every release target, publish the binaries that build as a release on the
-# releases page, and deploy the web app to GitHub Pages.
+# Nightly: every night, when main has changed since the latest nightly, build
+# the CLI for every release target, publish the binaries that build as a
+# prerelease on the releases page, and deploy the web app to GitHub Pages.
+# dev/trigger-nightly and the "Run workflow" button start one by hand.
+#
+# Release: a pushed version tag (dev/release) publishes the binaries of the tag
+# as a release, with the section of the version in CHANGELOG.md as its notes.
 on:
   schedule:
     - cron: "40 3 * * *"
@@ -12,12 +16,23 @@ on:
         description: "Publish even when main has not changed since the latest nightly"
         type: boolean
         default: false
+      only:
+        description: "What to publish: the CLI release (cli), the web app (web), or both (all)"
+        type: choice
+        options:
+          - "all"
+          - "cli"
+          - "web"
+        default: "all"
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: read
 
 concurrency:
-  group: nightly
+  group: release
   cancel-in-progress: false
 
 defaults:
@@ -32,11 +47,14 @@ env:
 jobs:
   version:
     name: "Version"
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     outputs:
+      version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
-      suffix: ${{ steps.version.outputs.suffix }}
+      nightly: ${{ steps.version.outputs.nightly }}
+      cli: ${{ steps.version.outputs.cli }}
+      web: ${{ steps.version.outputs.web }}
     steps:
       - name: "Check out"
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -44,30 +62,55 @@ jobs:
           sparse-checkout: "Cargo.toml"
           sparse-checkout-cone-mode: false
 
-      # The tag ends with the short source commit, so a latest release with the
-      # same commit means main is unchanged; the outputs stay empty then, and
-      # the other jobs are skipped.
+      # A nightly tag ends with the short source commit, so a latest nightly
+      # with the same commit means main is unchanged; nothing is published then.
+      # A release does not deploy the web app: the next nightly deploys main,
+      # which holds the release commit.
       - name: "Resolve the version"
         id: version
         env:
           GH_TOKEN: ${{ github.token }}
           FORCE: ${{ inputs.force == true }}
+          ONLY: ${{ inputs.only || 'all' }}
         run: |
-          short_sha="${GITHUB_SHA:0:7}"
-          latest="$(gh release list --repo="${GITHUB_REPOSITORY}" --limit=1 --json=tagName --jq='.[0].tagName // ""')"
-          if [[ "${latest}" == *"+${short_sha}" && "${FORCE}" != "true" ]]; then
-            printf 'main is unchanged since the latest nightly %s\n' "${latest}"
-            exit 0
+          crate_version="$(yq -p toml -o yaml '.workspace.package.version' Cargo.toml)"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            if [[ "${version}" != "${crate_version}" ]]; then
+              printf 'Tag %s does not match the workspace version %s in Cargo.toml\n' "${GITHUB_REF_NAME}" "${crate_version}" >&2
+              exit 1
+            fi
+            tag="${GITHUB_REF_NAME}"
+            nightly=false
+            cli=true
+            web=false
+          else
+            short_sha="${GITHUB_SHA:0:7}"
+            latest="$(gh release list --repo="${GITHUB_REPOSITORY}" --limit=100 --json=tagName \
+              --jq='[.[] | select(.tagName | contains("-nightly."))][0].tagName // ""')"
+            new="${FORCE}"
+            if [[ "${latest}" != *"+${short_sha}" ]]; then
+              new=true
+            fi
+            cli=false
+            if [[ "${ONLY}" != "web" && "${new}" == "true" ]]; then
+              cli=true
+            fi
+            web=false
+            if [[ "${ONLY}" == "web" || ("${ONLY}" == "all" && "${new}" == "true") ]]; then
+              web=true
+            fi
+            version="${crate_version}-nightly.$(date -u '+%Y%m%dT%H%M%SZ')+${short_sha}"
+            tag="${version}"
+            nightly=true
           fi
-          suffix="nightly.$(date -u '+%Y%m%dT%H%M%SZ')+${short_sha}"
-          tag="$(yq -p toml -o yaml '.workspace.package.version' Cargo.toml)-${suffix}"
-          printf 'Version: %s\n' "${tag}"
-          printf 'tag=%s\nsuffix=%s\n' "${tag}" "${suffix}" >>"${GITHUB_OUTPUT}"
+          printf 'Version: %s\nCLI release: %s\nWeb app: %s\n' "${version}" "${cli}" "${web}"
+          printf 'version=%s\ntag=%s\nnightly=%s\ncli=%s\nweb=%s\n' "${version}" "${tag}" "${nightly}" "${cli}" "${web}" >>"${GITHUB_OUTPUT}"
 
   build:
     name: "Build (${{ matrix.target }})"
     needs: version
-    if: needs.version.outputs.tag != ''
+    if: needs.version.outputs.cli == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     # A failed target leaves only its binary out of the release.
@@ -85,7 +128,7 @@ jobs:
           - x86_64-unknown-linux-musl
     env:
       CROSS_COMPILE: ${{ matrix.target }}
-      TREEKNIT_VERSION_SUFFIX: ${{ needs.version.outputs.suffix }}
+      TREEKNIT_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - name: "Check out"
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -112,11 +155,17 @@ jobs:
   publish:
     name: "Publish the release"
     needs: [version, build]
-    if: ${{ !cancelled() && needs.version.outputs.tag != '' }}
+    if: ${{ !cancelled() && needs.version.outputs.cli == 'true' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
+      - name: "Check out"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: "CHANGELOG.md"
+          sparse-checkout-cone-mode: false
+
       - name: "Download the binaries"
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -124,26 +173,39 @@ jobs:
           merge-multiple: true
           path: ".out"
 
-      # GitHub appends the pull requests merged since the previous release.
+      # A nightly is a prerelease, so "Latest" on the releases page stays on the
+      # newest release; GitHub appends the pull requests merged since the
+      # previous release to its notes.
       - name: "Publish"
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
           TAG: ${{ needs.version.outputs.tag }}
-          NOTES: |
-            Nightly build of `main` for early testing. It may contain bugs and breaking changes.
-
+          NIGHTLY: ${{ needs.version.outputs.nightly }}
+          HINTS: |
             - **Linux and macOS**: make the downloaded file executable with `chmod +x <file>`
             - **Linux**: the musl builds are static and run on any distribution; the glibc builds need glibc 2.17 or newer
             - **macOS**: the executables are not signed by a registered developer. If macOS refuses to run one, run `xattr -d com.apple.quarantine <file>`
             - **CPU**: the x86_64 builds need a Haswell (2013) or newer CPU, the Linux ARM64 builds an ARMv8.2-A CPU
         run: |
+          if [[ "${NIGHTLY}" == "true" ]]; then
+            notes="Nightly build of \`main\` for early testing. It may contain bugs and breaking changes."
+            flags=(--prerelease --generate-notes)
+          else
+            notes="$(awk -v heading="## ${VERSION}" '$0 == heading { found = 1; next } found && /^## / { exit } found' CHANGELOG.md)"
+            if [[ -z "${notes//[[:space:]]/}" ]]; then
+              printf 'CHANGELOG.md has no section "## %s"\n' "${VERSION}" >&2
+              exit 1
+            fi
+            flags=(--latest)
+          fi
           gh release create "${TAG}" --repo="${GITHUB_REPOSITORY}" --target="${GITHUB_SHA}" --title="${TAG}" \
-            --notes="${NOTES}" --generate-notes .out/treeknit-*
+            --notes="${notes}"$'\n\n'"${HINTS}" "${flags[@]}" .out/treeknit-*
 
   deploy-web:
     name: "Deploy the web app"
     needs: version
-    if: needs.version.outputs.tag != ''
+    if: needs.version.outputs.web == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
