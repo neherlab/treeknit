@@ -830,7 +830,6 @@ dependencies = [
  "console_error_panic_hook",
  "js-sys",
  "pretty_assertions",
- "rstest",
  "serde",
  "serde_json",
  "treeknit-core",

@@ -13,26 +13,6 @@ mod tests {
   use wasm_bindgen_test::wasm_bindgen_test;
 
   #[wasm_bindgen_test]
-  fn analyze_returns_plain_objects() {
-    let request = json!({
-        "trees": [
-            {"label": "ha", "newick": "((A,B),(C,(D,X)));"},
-            {"label": "na", "newick": "((A,(B,X)),(C,D));"},
-        ],
-        "settings": {"seed": 1},
-    });
-    let result = plain(&treeknit_wasm::analyze(&ts(&request)).unwrap().js_value());
-    // Oracle: fixtures/doc_mccs_1.json (TreeKnit.jl)
-    let expected_pairs = json!([{"trees": ["ha", "na"], "mccs": [["X"], ["A", "B", "C", "D"]]}]);
-    assert_eq!(expected_pairs, result["pairs"]);
-    assert_eq!(json!({"status": "built", "reassortments": 1}), result["arg"]);
-    assert_eq!(
-      json!({"name": "MCCs.dat", "mediaType": "text/plain", "text": "X\nA,B,C,D\n"}),
-      result["files"][1]
-    );
-  }
-
-  #[wasm_bindgen_test]
   fn default_settings_are_the_command_line_defaults() {
     let expected = json!({
         "gamma": 2, "seqLengths": null, "nMcmcIt": 50, "resolve": "matched", "preResolve": false,
@@ -42,19 +22,46 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
-  fn analyze_reports_analysis_errors() {
-    let one_tree = json!({"trees": [{"label": "ha", "newick": "(A,B);"}]});
-    let expected = "need at least two trees";
-    match treeknit_wasm::analyze(&ts(&one_tree)) {
-      Ok(_) => panic!("expected error {expected:?}"),
-      Err(e) => assert_eq!(expected, message(e)),
-    }
+  fn validate_returns_plain_errors() {
+    let request = json!({
+        "trees": [
+            {"label": "ha", "newick": "((A,B),(C,D));"},
+            {"label": "na", "newick": "((A,B),\n(C,D)x y);"},
+        ],
+        "settings": {"gamma": -1},
+    });
+    let expected = json!([
+        {
+            "field": "trees[1].newick",
+            "message": "tree na: Newick parse error: expected ',' or ')' at byte 15",
+            "line": 2,
+            "column": 8,
+        },
+        {
+            "field": "settings.gamma",
+            "message": "gamma must be a non-negative number, got -1",
+            "line": null,
+            "column": null,
+        },
+    ]);
+    assert_eq!(expected, plain_list(&treeknit_wasm::validate(&ts(&request)).unwrap()));
   }
 
   #[wasm_bindgen_test]
-  fn analyze_reports_where_a_request_is_malformed() {
+  fn validate_accepts_a_valid_request() {
+    let request = json!({
+        "trees": [
+            {"label": "ha", "newick": "((A,B),(C,(D,X)));"},
+            {"label": "na", "newick": "((A,(B,X)),(C,D));"},
+        ],
+    });
+    assert_eq!(json!([]), plain_list(&treeknit_wasm::validate(&ts(&request)).unwrap()));
+  }
+
+  #[wasm_bindgen_test]
+  fn validate_reports_where_a_request_is_malformed() {
     let expected = "invalid request: invalid type: integer `3`, expected a sequence at line 1 column 10";
-    match treeknit_wasm::analyze(&ts(&json!({"trees": 3}))) {
+    match treeknit_wasm::validate(&ts(&json!({"trees": 3}))) {
       Ok(_) => panic!("expected error {expected:?}"),
       Err(e) => assert_eq!(expected, message(e)),
     }
@@ -86,6 +93,10 @@ mod tests {
 
   fn plain(v: &JsValue) -> Value {
     serde_json::from_str(&String::from(JSON::stringify(v).unwrap())).unwrap()
+  }
+
+  fn plain_list<T: Tsify>(values: &[Ts<T>]) -> Value {
+    Value::Array(values.iter().map(|v| plain(&v.js_value())).collect())
   }
 
   fn message(e: JsError) -> String {

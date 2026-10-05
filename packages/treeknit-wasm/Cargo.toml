@@ -25,7 +25,6 @@ wasm-bindgen.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true
-rstest.workspace = true
 wasm-bindgen-test.workspace = true
 
 [lints]

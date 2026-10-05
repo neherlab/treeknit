@@ -9,32 +9,23 @@ export interface TreeText {
 }
 
 /**
- * A result file, named as the command line names it.
+ * A problem with a request, at the field it concerns.
  */
-export interface OutputFile {
-    name: string;
-    mediaType: string;
-    text: string;
-}
-
-/**
- * MCCs of every tree pair, the ARG of two trees, and the output files of the command line.
- */
-export interface Analysis {
-    pairs: PairMccs[];
+export interface ValidationError {
     /**
-     * `None` for more than two trees, or when the two trees share no MCC.
+     * Path of the field in the request, such as `settings.gamma`, `settings.seqLengths[1]`, or
+     * `trees[0].newick`; `None` for the request as a whole.
      */
-    arg: ArgOutcome | null;
-    files: OutputFile[];
-}
-
-/**
- * MCCs of one tree pair, as leaf names.
- */
-export interface PairMccs {
-    trees: [string, string];
-    mccs: string[][];
+    field: string | null;
+    message: string;
+    /**
+     * 1-based line of a parse error in the Newick text.
+     */
+    line: number | null;
+    /**
+     * 1-based column of a parse error, in Unicode characters.
+     */
+    column: number | null;
 }
 
 /**
@@ -82,7 +73,7 @@ export interface Settings {
      */
     naive?: boolean;
     /**
-     * Seed of the random number generator (`--seed`).
+     * Seed of the random number generator (`--seed`), at most 2^53 - 1.
      */
     seed?: number;
 }
@@ -95,15 +86,8 @@ export interface AnalysisRequest {
     settings?: Settings;
 }
 
-export type ArgOutcome = { status: "built"; reassortments: number } | { status: "failed"; message: string };
-
 export type ResolveMode = "none" | "strict" | "liberal" | "matched";
 
-
-/**
- * Run TreeKnit on the trees of the request.
- */
-export function analyze(request: AnalysisRequest): Analysis;
 
 /**
  * The settings that a request without settings uses: the defaults of the command line.
@@ -112,13 +96,18 @@ export function defaultSettings(): Settings;
 
 export function start(): void;
 
+/**
+ * Every problem with the trees and the settings of the request; none when it runs.
+ */
+export function validate(request: AnalysisRequest): ValidationError[];
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly analyze: (a: any) => [number, number, number];
     readonly defaultSettings: () => [number, number, number];
     readonly start: () => void;
+    readonly validate: (a: any) => [number, number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
@@ -126,6 +115,7 @@ export interface InitOutput {
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __externref_table_dealloc: (a: number) => void;
+    readonly __externref_drop_slice: (a: number, b: number) => void;
     readonly __wbindgen_start: () => void;
 }
 

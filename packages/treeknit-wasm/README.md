@@ -10,22 +10,22 @@ wasm-bindgen writes the JavaScript module, the WebAssembly binary, and the TypeS
 
 ## Interface
 
-The request and result types derive their TypeScript declarations with tsify.
+The request and its types come from `treeknit_io::analysis`, which the command line uses too, and derive their TypeScript declarations with tsify.
 
 ```js
 await init();
-analyze({
-  trees: [{ label: 'ha', newick: '((A,B),(C,(D,X)));' }, { label: 'na', newick: '((A,(B,X)),(C,D));' }],
-  settings: { gamma: 2, resolve: 'matched', seed: 1 }, // optional; missing fields take the CLI defaults
+defaultSettings();
+// { gamma: 2, seqLengths: null, nMcmcIt: 50, resolve: 'matched', preResolve: false, rounds: 1,
+//   finalRound: true, likelihood: true, naive: false, seed: 1 }
+validate({
+  trees: [{ label: 'ha', newick: '((A,B),(C,(D,X)));' }, { label: 'na', newick: '((A,(B,X)),(C,D);' }],
+  settings: { gamma: -1 }, // optional; missing fields take the CLI defaults
 });
-// { pairs: [{ trees: ['ha', 'na'], mccs: [['X'], ['A', 'B', 'C', 'D']] }],
-//   arg: { status: 'built', reassortments: 1 } | { status: 'failed', message } | null,
-//   files: [{ name: 'MCCs.json', mediaType: 'application/json', text }, ...] }
+// [{ field: 'trees[1].newick', message: "tree na: Newick parse error: expected ',' or ')' at byte 16", line: 1, column: 17 },
+//  { field: 'settings.gamma', message: 'gamma must be a non-negative number, got -1', line: null, column: null }]
 ```
 
-`files` holds the output files of the command line under its file names: `MCCs.json`, the legacy `MCCs.dat` (`MCCs_<a>_<b>.dat` per pair for more than two trees), `<label>_resolved.nwk`, `<label>_imputed.nwk`, and for two trees the ARG files `arg.nwk`, `nodes.dat`, and `<label>_liberal_resolved.nwk`. `defaultSettings()` returns the settings of a request without settings.
-
-Settings: `gamma`, `seqLengths`, `nMcmcIt`, `resolve` (`matched`, `strict`, `liberal`, `none`), `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed`. Invalid input throws an `Error` with a message. A Rust panic traps the module and leaves the instance unusable.
+`validate` applies the checks of the command line and returns every problem, with the path of the field it concerns and, for Newick errors with a position, the 1-based line and column. An empty list means the request runs. Settings: `gamma`, `seqLengths`, `nMcmcIt`, `resolve` (`matched`, `strict`, `liberal`, `none`), `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed`. A request that is not of the declared type throws an `Error` that says where it is wrong. A Rust panic traps the module and leaves the instance unusable.
 
 Analyses run on one thread: browsers give WebAssembly no threads without cross-origin isolation.
 
