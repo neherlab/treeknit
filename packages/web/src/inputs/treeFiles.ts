@@ -6,8 +6,30 @@ export function isSessionFileName(name: string): boolean {
   return SESSION_FILE_TYPES.some((extension) => name.toLowerCase().endsWith(extension));
 }
 
-export function readFailure(name: string, cause: unknown): string {
-  return `${name} could not be read: ${causeMessage(cause)}. Check the file and add it again.`;
+export interface ReadFailure {
+  name: string;
+  cause: unknown;
+}
+
+export function readFailures(failures: readonly ReadFailure[], added: number): string | null {
+  const [only] = failures;
+
+  if (only === undefined) {
+    return null;
+  }
+
+  const unread =
+    failures.length === 1
+      ? `${only.name} could not be read: ${causeMessage(only.cause)}. Check the file and add it again.`
+      : `${String(failures.length)} files could not be read: ${failures
+          .map(({ name, cause }) => `${name} (${causeMessage(cause)})`)
+          .join("; ")}. Check the files and add them again.`;
+
+  return added === 0 ? unread : `${unread} ${addedFiles(added)}`;
+}
+
+function addedFiles(added: number): string {
+  return added === 1 ? "The other file was added." : `The other ${String(added)} files were added.`;
 }
 
 export function sessionFailure(name: string, cause: unknown): string {

@@ -5,7 +5,14 @@ import { useAnalysisClient } from "../analysis/context";
 import type { Example } from "../analysis/example";
 import { useWorkspaceStore } from "../workspace/context";
 import type { NewTree } from "../workspace/store";
-import { addFailure, batchRejection, isSessionFileName, readFailure, sessionFailure } from "./treeFiles";
+import {
+  addFailure,
+  batchRejection,
+  isSessionFileName,
+  type ReadFailure,
+  readFailures,
+  sessionFailure,
+} from "./treeFiles";
 
 const PLAIN_TEXT = "text/plain";
 
@@ -34,32 +41,49 @@ export function useTreeInput(): TreeInputState {
   }, []);
 
   const input = useMemo((): TreeInput => {
-    const addTrees = async (trees: readonly NewTree[]): Promise<void> => {
+    const report = (message: string | null): void => {
+      if (message !== null) {
+        setError(message);
+      }
+    };
+
+    const addTrees = async (trees: readonly NewTree[]): Promise<string | null> => {
       if (trees.length === 0) {
-        return;
+        return null;
       }
 
       try {
         await store.getState().addTrees(trees);
+
+        return null;
       } catch (cause) {
-        setError(addFailure(cause));
+        return addFailure(cause);
       }
     };
 
-    const readTrees = async (files: readonly File[]): Promise<NewTree[]> => {
+    const readTrees = async (files: readonly File[]): Promise<ReadTrees> => {
       const read = await Promise.all(
-        files.map(async (file) => {
+        files.map(async (file): Promise<NewTree | ReadFailure> => {
           try {
-            return { newick: await file.text(), source: { kind: "file", name: file.name } } satisfies NewTree;
+            return { newick: await file.text(), source: { kind: "file", name: file.name } };
           } catch (cause) {
-            setError(readFailure(file.name, cause));
-
-            return null;
+            return { name: file.name, cause };
           }
         }),
       );
 
-      return read.filter((tree) => tree !== null);
+      return {
+        trees: read.filter((outcome) => "newick" in outcome),
+        failures: read.filter((outcome) => "cause" in outcome),
+      };
+    };
+
+    const addRead = async (files: readonly File[], pasted: readonly NewTree[]): Promise<void> => {
+      const { trees, failures } = await readTrees(files);
+      const addProblem = await addTrees([...trees, ...pasted]);
+      const readProblem = readFailures(failures, addProblem === null ? trees.length : 0);
+
+      report([readProblem, addProblem].filter((message) => message !== null).join(" ") || null);
     };
 
     const openSessionFile = async (file: File): Promise<void> => {
@@ -100,7 +124,7 @@ export function useTreeInput(): TreeInputState {
 
       const pasted = texts.map((newick): NewTree => ({ newick, source: { kind: "paste" } }));
 
-      await addTrees([...(await readTrees(treeFiles)), ...pasted]);
+      await addRead(treeFiles, pasted);
     };
 
     const addFiles = async (files: readonly File[]): Promise<void> => addBatch(files, []);
@@ -111,7 +135,9 @@ export function useTreeInput(): TreeInputState {
       async addPasted(newick, label) {
         const trimmed = label.trim();
 
-        await addTrees([{ newick, source: { kind: "paste" }, ...(trimmed === "" ? undefined : { label: trimmed }) }]);
+        report(
+          await addTrees([{ newick, source: { kind: "paste" }, ...(trimmed === "" ? undefined : { label: trimmed }) }]),
+        );
       },
       async addExample(example) {
         setError(null);
@@ -119,8 +145,10 @@ export function useTreeInput(): TreeInputState {
         try {
           const trees = await example.load();
 
-          await addTrees(
-            trees.map(({ fileName, newick }) => ({ newick, source: { kind: "example", name: fileName } })),
+          report(
+            await addTrees(
+              trees.map(({ fileName, newick }) => ({ newick, source: { kind: "example", name: fileName } })),
+            ),
           );
         } catch (cause) {
           setError(addFailure(cause));
@@ -146,7 +174,10 @@ export function useTreeInput(): TreeInputState {
         }
       },
       async replaceFile(treeId, file) {
-        const [tree] = await readTrees([file]);
+        const { trees, failures } = await readTrees([file]);
+        const [tree] = trees;
+
+        report(readFailures(failures, 0));
 
         if (tree !== undefined) {
           store.getState().replaceTree(treeId, tree.newick, tree.source);
@@ -156,4 +187,9 @@ export function useTreeInput(): TreeInputState {
   }, [client, store]);
 
   return { input, error, dismissError };
+}
+
+interface ReadTrees {
+  trees: NewTree[];
+  failures: ReadFailure[];
 }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { addFailure, batchRejection, isSessionFileName, readFailure, sessionFailure } from "../treeFiles";
+import { addFailure, batchRejection, isSessionFileName, readFailures, sessionFailure } from "../treeFiles";
 
 describe("tree files", () => {
   test("routes JSON files to the session file reader and everything else to the trees", () => {
@@ -11,7 +11,7 @@ describe("tree files", () => {
 
   test("says what failed and what to do", () => {
     expect({
-      read: readFailure("ha.nwk", new Error("permission denied")),
+      read: readFailures([{ name: "ha.nwk", cause: new Error("permission denied") }], 0),
       session: sessionFailure("notes.json", new Error("missing field `trees`")),
       add: addFailure("worker stopped"),
     }).toStrictEqual({
@@ -38,5 +38,33 @@ describe("tree files", () => {
     expect(batchRejection(["a.json", "b.json"], 0)).toBe(
       "a.json, b.json were not opened: open one session file at a time. Nothing was added.",
     );
+  });
+
+  test("reports nothing when every file was read", () => {
+    expect(readFailures([], 3)).toBeNull();
+  });
+
+  test("names every file that could not be read, with its reason", () => {
+    expect(
+      readFailures(
+        [
+          { name: "ha.nwk", cause: new Error("permission denied") },
+          { name: "na.nwk", cause: "file was removed" },
+        ],
+        0,
+      ),
+    ).toBe(
+      "2 files could not be read: ha.nwk (permission denied); na.nwk (file was removed). Check the files and add them again.",
+    );
+  });
+
+  test("states how many of the other files were added", () => {
+    const failure = [{ name: "ha.nwk", cause: new Error("permission denied") }];
+
+    expect({ one: readFailures(failure, 1), three: readFailures(failure, 3) }).toStrictEqual({
+      one: "ha.nwk could not be read: permission denied. Check the file and add it again. The other file was added.",
+      three:
+        "ha.nwk could not be read: permission denied. Check the file and add it again. The other 3 files were added.",
+    });
   });
 });
