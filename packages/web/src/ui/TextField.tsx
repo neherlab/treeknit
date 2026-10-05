@@ -12,7 +12,12 @@ import { fieldStyle, inputStyle } from "./styles";
 
 const DEFAULT_ROWS = 4;
 
-const NO_TEXT_CORRECTION = { spellCheck: false, autoCorrect: "off", autoCapitalize: "off" } as const;
+const NO_TEXT_CORRECTION = {
+  spellCheck: false,
+  autoCorrect: "off",
+  autoCapitalize: "off",
+  autoComplete: "off",
+} as const;
 
 export function TextField({
   label,

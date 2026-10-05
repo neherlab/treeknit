@@ -56,18 +56,24 @@ export type NumberFieldProps = Omit<AriaNumberFieldProps, "className" | "childre
 function StepButton({ slot, icon: Icon }: StepButtonProps) {
   const label = useSlottedContext(ButtonContext, slot)?.["aria-label"];
 
-  return (
+  const button = (
+    <AriaButton
+      slot={slot}
+      className={cn(
+        "text-ink-muted flex flex-1 cursor-default items-center justify-center text-xs outline-hidden",
+        "data-hovered:bg-ink/8 data-hovered:text-ink data-pressed:bg-ink/14",
+        "data-disabled:text-ink-muted/50 data-disabled:cursor-not-allowed",
+      )}
+    >
+      <Icon aria-hidden />
+    </AriaButton>
+  );
+
+  return label === undefined ? (
+    button
+  ) : (
     <TooltipTrigger tooltip={label} repeatsName placement="right">
-      <AriaButton
-        slot={slot}
-        className={cn(
-          "text-ink-muted flex flex-1 cursor-default items-center justify-center text-xs outline-hidden",
-          "data-hovered:bg-ink/8 data-hovered:text-ink data-pressed:bg-ink/14",
-          "data-disabled:text-ink-muted/50 data-disabled:cursor-not-allowed",
-        )}
-      >
-        <Icon aria-hidden />
-      </AriaButton>
+      {button}
     </TooltipTrigger>
   );
 }
