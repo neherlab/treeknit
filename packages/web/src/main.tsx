@@ -15,6 +15,7 @@ import { AnalysisClientContext } from "./analysis/context";
 import { createQueryClient } from "./analysis/queryClient";
 import { PaletteStyles } from "./palette/PaletteStyles";
 import { router } from "./router";
+import { THEME_PROVIDER_PROPS } from "./shell/theme";
 import { startWorkspace } from "./workspace/runtime";
 import { WorkspaceProvider } from "./workspace/WorkspaceProvider";
 
@@ -27,7 +28,7 @@ if (root !== null) {
 
   createRoot(root).render(
     <StrictMode>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <ThemeProvider {...THEME_PROVIDER_PROPS}>
         <QueryClientProvider client={queryClient}>
           <AnalysisClientContext value={client}>
             <PaletteStyles />
