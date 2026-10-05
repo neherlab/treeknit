@@ -464,10 +464,11 @@ describe("workspace store", () => {
     const running = store.getState().run;
 
     store.getState().runFinished(2, { status: "failed", kind: "cancelled", message: "Run cancelled." });
+    const request = selectRequest(store.getState());
 
     expect({ running, finished: store.getState().run, result: store.getState().result }).toStrictEqual({
-      running: { status: "running", runId: 2, request: selectRequest(store.getState()), progress, startedAt: 1000 },
-      finished: { status: "failed", kind: "cancelled", message: "Run cancelled." },
+      running: { status: "running", runId: 2, request, progress, startedAt: 1000 },
+      finished: { status: "failed", kind: "cancelled", message: "Run cancelled.", request },
       result: null,
     });
   });
@@ -532,10 +533,25 @@ describe("workspace store", () => {
     expect(store.getState().result?.sessionId).toBe(1);
   });
 
-  test("a lost session clears its result with the lost-results message", async () => {
+  test("a failed run keeps the request it ran, not the edits made while it ran", async () => {
+    const store = await storeWith(["ha.nwk", "na.nwk"]);
+    const request = selectRequest(store.getState());
+
+    store.getState().runStarted(1, request, 0);
+    store.getState().setSettings({ ...store.getState().settings, gamma: 9 });
+    store.getState().runFinished(1, { status: "failed", kind: "internal", message: "boom" });
+    const { run } = store.getState();
+
+    expect(run.status === "failed" ? run.request : null).toStrictEqual(request);
+  });
+
+  test("a lost session clears its result with the lost-results message and the request of that run", async () => {
     const store = await storeWith(["ha.nwk", "na.nwk"]);
 
     finishRun(store, 1);
+    const request = selectRequest(store.getState());
+
+    store.getState().renameTree(store.getState().trees[0]?.id ?? "", "edited");
     store.getState().resultLost(7);
     const kept = store.getState().result?.sessionId;
 
@@ -548,6 +564,7 @@ describe("workspace store", () => {
         status: "failed",
         kind: "internal",
         message: "The results were lost because of an internal error. Run again.",
+        request,
       },
     });
   });

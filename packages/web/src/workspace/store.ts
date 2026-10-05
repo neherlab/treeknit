@@ -23,7 +23,7 @@ export interface NewTree {
 export type RunState =
   | { status: "idle" }
   | { status: "running"; runId: number; request: AnalysisRequest; progress: Progress | null; startedAt: number }
-  | { status: "failed"; kind: FailureKind; message: string };
+  | { status: "failed"; kind: FailureKind; message: string; request: AnalysisRequest };
 
 export interface RunResult {
   sessionId: number;
@@ -373,7 +373,7 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
                 }
               })
               .with({ status: "failed" }, ({ kind, message }) => {
-                state.run = { status: "failed", kind, message };
+                state.run = { status: "failed", kind, message, request: run.request };
               })
               .exhaustive();
           });
@@ -385,14 +385,16 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
               state.undo.result = null;
             }
 
-            if (state.result?.sessionId !== sessionId) {
+            const lost = state.result;
+
+            if (lost?.sessionId !== sessionId) {
               return;
             }
 
             state.result = null;
 
             if (state.run.status !== "running") {
-              state.run = { status: "failed", kind: "internal", message: RESULTS_LOST_MESSAGE };
+              state.run = { status: "failed", kind: "internal", message: RESULTS_LOST_MESSAGE, request: lost.request };
             }
           });
         },

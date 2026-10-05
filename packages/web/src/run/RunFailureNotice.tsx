@@ -1,18 +1,19 @@
 import { useMemo } from "react";
 import RunIcon from "~icons/lucide/rotate-ccw";
 
+import type { AnalysisRequest } from "@neherlab/treeknit-wasm";
+
 import type { FailureKind } from "../analysis/client";
 import { useVersion } from "../analysis/queries";
 import { Button } from "../ui/Button";
 import { ExternalLink } from "../ui/ExternalLink";
 import { InlineNotice } from "../ui/InlineNotice";
-import { useWorkspace } from "../workspace/context";
 import { bugReportUrl, failureNotice } from "./failure";
 
-export function RunFailureNotice({ kind, message, onRunAgain }: RunFailureNoticeProps) {
+export function RunFailureNotice({ kind, message, request, onRunAgain }: RunFailureNoticeProps) {
   const notice = failureNotice(kind, message);
   const { data: version } = useVersion();
-  const settings = useWorkspace((state) => state.settings);
+  const settings = request.settings;
 
   const reportUrl = useMemo(
     () =>
@@ -22,7 +23,7 @@ export function RunFailureNotice({ kind, message, onRunAgain }: RunFailureNotice
             kind,
             version: version.version,
             userAgent: navigator.userAgent,
-            settings,
+            settings: settings ?? {},
           }),
     [kind, settings, version],
   );
@@ -59,5 +60,6 @@ export function RunFailureNotice({ kind, message, onRunAgain }: RunFailureNotice
 export interface RunFailureNoticeProps {
   kind: FailureKind;
   message: string;
+  request: AnalysisRequest;
   onRunAgain: () => void;
 }

@@ -39,11 +39,11 @@ export function RunBar() {
     <div className="flex flex-col gap-3 px-4 py-3">
       <NoticeRegion>
         {run.status === "failed" && run.kind === "cancelled" ? (
-          <RunFailureNotice kind={run.kind} message={run.message} onRunAgain={runAgain} />
+          <RunFailureNotice kind={run.kind} message={run.message} request={run.request} onRunAgain={runAgain} />
         ) : null}
       </NoticeRegion>
       {run.status === "failed" && run.kind !== "cancelled" ? (
-        <RunFailureNotice kind={run.kind} message={run.message} onRunAgain={runAgain} />
+        <RunFailureNotice kind={run.kind} message={run.message} request={run.request} onRunAgain={runAgain} />
       ) : null}
       {running || generalErrors.length === 0 ? null : (
         <ul className="flex flex-col gap-1">
