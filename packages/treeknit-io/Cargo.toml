@@ -17,6 +17,7 @@ tsify = ["dep:tsify", "dep:wasm-bindgen"]
 
 [dependencies]
 log.workspace = true
+quick-xml.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 treeknit-core.workspace = true
