@@ -3,7 +3,15 @@ import { type ColumnFiltersState, type SortingState, useTable } from "@tanstack/
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { leavesPreview, MCC_COLUMN, mccColumns, mccsBySize, mccTableFeatures, sortDirection } from "../mccTable";
+import {
+  hasAmbiguousAttachment,
+  leavesPreview,
+  MCC_COLUMN,
+  mccColumns,
+  mccsBySize,
+  mccTableFeatures,
+  sortDirection,
+} from "../mccTable";
 
 const contains = (text: string, substring: string) => text.toLowerCase().includes(substring.toLowerCase());
 
@@ -14,6 +22,12 @@ const MCCS: MccInfo[] = [
   mcc(1, ["B/Lee/1940"], [], []),
   mcc(2, ["A/Hong Kong/1/1968", "A/Hanoi/5/2005"], [], []),
 ];
+
+describe("hasAmbiguousAttachment", () => {
+  test("holds for an MCC with at least one ambiguously attached member", () => {
+    expect(MCCS.map(hasAmbiguousAttachment)).toStrictEqual([true, false, false]);
+  });
+});
 
 describe("mccsBySize", () => {
   test("lists the largest MCC first and breaks size ties by MCC number", () => {

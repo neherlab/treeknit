@@ -33,6 +33,7 @@ import { useWorkspace } from "../workspace/context";
 import type { RunResult } from "../workspace/store";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 import {
+  hasAmbiguousAttachment,
   isMccColumn,
   leavesPreview,
   MCC_COLUMN,
@@ -215,7 +216,7 @@ function MccRow({ cells, mcc, index, selected, measure, onSelect, onShow }: MccR
     [MCC_COLUMN.size]: leafCount(mcc.size),
     [MCC_COLUMN.leaves]: <span className="block max-w-[48ch] truncate">{leavesPreview(mcc.leaves)}</span>,
     [MCC_COLUMN.imputed]: mcc.imputedLeaves.length === 0 ? NONE : formatCount(mcc.imputedLeaves.length),
-    [MCC_COLUMN.ambiguous]: yesNo(mcc.ambiguousLeaves.length > 0),
+    [MCC_COLUMN.ambiguous]: yesNo(hasAmbiguousAttachment(mcc)),
   };
 
   return (

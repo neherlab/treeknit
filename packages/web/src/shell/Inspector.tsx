@@ -12,7 +12,7 @@ import { selectionOf, type Selection, withSelection } from "../drawing/selection
 import { segmentLabels, segmentList, segmentName, type SegmentLabels } from "../drawing/tooltip";
 import { NONE, yesNo } from "../format/words";
 import { type InspectorSubject, inspectorSubject, type LeafPair } from "../inspector/subject";
-import { mccsBySize } from "../tables/mccTable";
+import { hasAmbiguousAttachment, mccsBySize } from "../tables/mccTable";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
 import { Link } from "../ui/Link";
@@ -127,7 +127,7 @@ function MccDetails({ mcc, onSelect }: { mcc: MccInfo; onSelect: (selection: Sel
         <Fact term="Imputed members">
           {mcc.imputedLeaves.length === 0 ? NONE : <NameList names={mcc.imputedLeaves} />}
         </Fact>
-        <Fact term="Attachment">{mcc.ambiguousLeaves.length > 0 ? "ambiguous for some members" : "unambiguous"}</Fact>
+        <Fact term="Attachment">{hasAmbiguousAttachment(mcc) ? "ambiguous for some members" : "unambiguous"}</Fact>
       </Facts>
       <Button size="sm" icon={ZoomIcon} onPress={zoom} className="self-start">
         Zoom to MCC

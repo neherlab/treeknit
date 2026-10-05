@@ -61,7 +61,7 @@ export function mccColumns(contains: (text: string, substring: string) => boolea
       header: MCC_HEADERS.imputed,
       sortFn: "basic",
     }),
-    column.accessor((mcc) => (mcc.ambiguousLeaves.length > 0 ? 1 : 0), {
+    column.accessor((mcc) => (hasAmbiguousAttachment(mcc) ? 1 : 0), {
       id: MCC_COLUMN.ambiguous,
       header: MCC_HEADERS.ambiguous,
       sortFn: "basic",
@@ -73,6 +73,10 @@ const SORT_DIRECTIONS = { asc: "ascending", desc: "descending" } as const satisf
 
 export function sortDirection(sorted: false | keyof typeof SORT_DIRECTIONS): SortDirection | undefined {
   return sorted === false ? undefined : SORT_DIRECTIONS[sorted];
+}
+
+export function hasAmbiguousAttachment(mcc: MccInfo): boolean {
+  return mcc.ambiguousLeaves.length > 0;
 }
 
 export function mccsBySize(mccs: readonly MccInfo[]): MccInfo[] {
