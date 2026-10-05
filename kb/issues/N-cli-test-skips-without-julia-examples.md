@@ -4,7 +4,7 @@
 
 ## Fix direction
 
-- Copy the two example trees into `fixtures/` (the fixture JSON files already embed trees of the NY H3N2 data) and read them from there, so the test runs in every checkout
+- Read the two example trees from `data/h3n2-2017/`, which holds byte-identical copies of the TreeKnit.jl example files, so the test runs in every checkout
 - Alternatively, fail the test, or mark it `#[ignore]` with the reason, when the inputs are missing, so a skip is visible
 
 ## Validation

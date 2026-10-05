@@ -19,7 +19,7 @@ TreeKnit.jl has no browser version. `packages/treeknit-wasm` compiles the core a
 `packages/web` [[src](../../packages/web/src/analysis/AnalysisPage.tsx#L14-L58)]:
 
 - [x] **Tree input**: one or more Newick files (`.nwk`, `.newick`, `.tre`, `.tree`, `.txt`). The label is the file name without its last extension. A new selection replaces the list [[src](../../packages/web/src/analysis/TreeInputs.tsx#L15-L62)]
-- [x] **Examples**: the **Load example** menu loads a small pair of trees or one of the simulated cases of `fixtures/sim/`. Vite bundles each tree file as its own chunk and fetches it when its case is picked. Only the latest file or example selection replaces the tree list [[src](../../packages/web/src/analysis/example.ts#L11-L36)]
+- [x] **Examples**: the **Load example** menu loads a small pair of trees, one of the real H3N2 tree pairs of `data/`, or one of the simulated cases of `fixtures/sim/`. Vite bundles each tree file as its own chunk and fetches it when its case is picked. Only the latest file or example selection replaces the tree list [[src](../../packages/web/src/analysis/example.ts#L16-L46)]
 - [ ] **Newick text input**: there is no field to paste a tree
 - [ ] **Tree list editing**: the label, order, or presence of a single tree cannot be changed
 - [/] **Settings form**: γ, the resolution mode, and the seed. The other settings keep their defaults ([`N-web-app-partial-settings-and-outputs.md`](../issues/N-web-app-partial-settings-and-outputs.md)) [[src](../../packages/web/src/analysis/SettingsFields.tsx#L23-L34)]
