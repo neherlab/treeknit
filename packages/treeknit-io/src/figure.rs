@@ -267,13 +267,15 @@ mod tests {
     )
     .unwrap();
     // Oracle, by hand from the drawing rules: inner width 600 - 2 * 16 = 568; label columns
-    // 6.75 + 2 * 6 = 18.75 px (one character); link zone 0.2 * 568 - 2 * 18.75 = 76.1 px, less
-    // than 0.15 * 568 = 85.2 px, so 85.2 px; tree columns (568 - 85.2 - 2 * 18.75) / 2 = 222.65
-    // px, so the left tree spans 16 to 238.65, the link zone 257.4 to 342.6, and the mirrored
-    // right tree 584 down to 361.35. Rows are centered at 52 + 12 * (row + 0.5). Cladogram
-    // depths: ha has its leaves at 3, (A,B) and (D,X) at 2, (C,(D,X)) at 1, so
-    // x = 16 + 222.65 * depth / 3. X is its own MCC (slot 1), and the branch above X in each tree
-    // is a reassortment branch with a ring at its midpoint.
+    // 8.664 + 2 * 6 = 20.664 px, from the widest label, C or D, 722/1000 em of 12 px in the
+    // Helvetica metrics; link zone 0.2 * 568 - 2 * 20.664 = 72.272 px, less than
+    // 0.15 * 568 = 85.2 px, so 85.2 px; tree columns (568 - 85.2 - 2 * 20.664) / 2 = 220.736 px,
+    // so the left tree spans 16 to 236.736, the link zone 257.4 to 342.6, and the mirrored right
+    // tree 584 down to 363.264. Rows are centered at 52 + 12 * (row + 0.5). Cladogram depths: ha
+    // has its leaves at 3, (A,B) and (D,X) at 2, (C,(D,X)) at 1, so x = 16 + 220.736 * depth / 3.
+    // X is its own MCC (slot 1), and the branch above X in each tree is a reassortment branch
+    // with a ring at its midpoint. The second legend entry starts 24 + 6 + 20 px after the
+    // 114.708 px of "Reassortment branch" (9559/1000 em).
     let expected = r##"<svg xmlns="http://www.w3.org/2000/svg" width="600" height="164" viewBox="0 0 600 164" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12">
   <title>ha and na</title>
   <rect width="600" height="164" fill="#f3f5f4"/>
@@ -286,47 +288,47 @@ mod tests {
     <path d="M257.4 106 C300 106 300 82 342.6 82" stroke="#93771c"/>
   </g>
   <g fill="none" stroke-width="1.5">
-    <path d="M16 77.5 V64 H164.43" stroke="#2f4b9a"/>
-    <path d="M164.43 64 V58 H238.65" stroke="#2f4b9a"/>
-    <path d="M164.43 64 V70 H238.65" stroke="#2f4b9a"/>
-    <path d="M16 77.5 V91 H90.22" stroke="#2f4b9a"/>
-    <path d="M90.22 91 V82 H238.65" stroke="#2f4b9a"/>
-    <path d="M90.22 91 V100 H164.43" stroke="#2f4b9a"/>
-    <path d="M164.43 100 V94 H238.65" stroke="#2f4b9a"/>
-    <path d="M164.43 100 V106 H238.65" stroke="#b0265e" stroke-width="2"/>
+    <path d="M16 77.5 V64 H163.16" stroke="#2f4b9a"/>
+    <path d="M163.16 64 V58 H236.74" stroke="#2f4b9a"/>
+    <path d="M163.16 64 V70 H236.74" stroke="#2f4b9a"/>
+    <path d="M16 77.5 V91 H89.58" stroke="#2f4b9a"/>
+    <path d="M89.58 91 V82 H236.74" stroke="#2f4b9a"/>
+    <path d="M89.58 91 V100 H163.16" stroke="#2f4b9a"/>
+    <path d="M163.16 100 V94 H236.74" stroke="#2f4b9a"/>
+    <path d="M163.16 100 V106 H236.74" stroke="#b0265e" stroke-width="2"/>
   </g>
-  <circle cx="201.54" cy="106" r="3.5" fill="#f3f5f4" stroke="#b0265e" stroke-width="1.5"/>
+  <circle cx="199.95" cy="106" r="3.5" fill="#f3f5f4" stroke="#b0265e" stroke-width="1.5"/>
   <g font-family="IBM Plex Sans Condensed, IBM Plex Sans, Helvetica, Arial, sans-serif" fill="#1f2b30" text-anchor="start">
-    <text x="244.65" y="62.2">A</text>
-    <text x="244.65" y="74.2">B</text>
-    <text x="244.65" y="86.2">C</text>
-    <text x="244.65" y="98.2">D</text>
-    <text x="244.65" y="110.2">X</text>
+    <text x="242.74" y="62.2">A</text>
+    <text x="242.74" y="74.2">B</text>
+    <text x="242.74" y="86.2">C</text>
+    <text x="242.74" y="98.2">D</text>
+    <text x="242.74" y="110.2">X</text>
   </g>
   <g fill="none" stroke-width="1.5">
-    <path d="M584 83.5 V67 H509.78" stroke="#2f4b9a"/>
-    <path d="M509.78 67 V58 H361.35" stroke="#2f4b9a"/>
-    <path d="M509.78 67 V76 H435.57" stroke="#2f4b9a"/>
-    <path d="M435.57 76 V70 H361.35" stroke="#2f4b9a"/>
-    <path d="M584 83.5 V100 H435.57" stroke="#2f4b9a"/>
-    <path d="M435.57 100 V94 H361.35" stroke="#2f4b9a"/>
-    <path d="M435.57 100 V106 H361.35" stroke="#2f4b9a"/>
-    <path d="M435.57 76 V82 H361.35" stroke="#b0265e" stroke-width="2"/>
+    <path d="M584 83.5 V67 H510.42" stroke="#2f4b9a"/>
+    <path d="M510.42 67 V58 H363.26" stroke="#2f4b9a"/>
+    <path d="M510.42 67 V76 H436.84" stroke="#2f4b9a"/>
+    <path d="M436.84 76 V70 H363.26" stroke="#2f4b9a"/>
+    <path d="M584 83.5 V100 H436.84" stroke="#2f4b9a"/>
+    <path d="M436.84 100 V94 H363.26" stroke="#2f4b9a"/>
+    <path d="M436.84 100 V106 H363.26" stroke="#2f4b9a"/>
+    <path d="M436.84 76 V82 H363.26" stroke="#b0265e" stroke-width="2"/>
   </g>
-  <circle cx="398.46" cy="82" r="3.5" fill="#f3f5f4" stroke="#b0265e" stroke-width="1.5"/>
+  <circle cx="400.05" cy="82" r="3.5" fill="#f3f5f4" stroke="#b0265e" stroke-width="1.5"/>
   <g font-family="IBM Plex Sans Condensed, IBM Plex Sans, Helvetica, Arial, sans-serif" fill="#1f2b30" text-anchor="end">
-    <text x="355.35" y="62.2">A</text>
-    <text x="355.35" y="74.2">B</text>
-    <text x="355.35" y="86.2">X</text>
-    <text x="355.35" y="98.2">C</text>
-    <text x="355.35" y="110.2">D</text>
+    <text x="357.26" y="62.2">A</text>
+    <text x="357.26" y="74.2">B</text>
+    <text x="357.26" y="86.2">X</text>
+    <text x="357.26" y="98.2">C</text>
+    <text x="357.26" y="110.2">D</text>
   </g>
   <g fill="#1f2b30">
     <path d="M16 138 H40" fill="none" stroke="#b0265e" stroke-width="2"/>
     <circle cx="28" cy="138" r="3.5" fill="#f3f5f4" stroke="#b0265e" stroke-width="1.5"/>
     <text x="46" y="142.2">Reassortment branch</text>
-    <path d="M194.25 134 C206.25 134 206.25 142 218.25 142" fill="none" stroke="#2f4b9a" stroke-width="1.5"/>
-    <text x="224.25" y="142.2">Leaves of one MCC</text>
+    <path d="M180.71 134 C192.71 134 192.71 142 204.71 142" fill="none" stroke="#2f4b9a" stroke-width="1.5"/>
+    <text x="210.71" y="142.2">Leaves of one MCC</text>
   </g>
 </svg>
 "##;
@@ -508,7 +510,10 @@ mod tests {
     )
     .unwrap_err();
     let expected = vec![
-      error("width", &format!("figure width must be at most 100000 px, got {}", 1e308)),
+      error(
+        "width",
+        &format!("figure width must be at most 100000 px, got {}", 1e308),
+      ),
       error("rowHeight", "row height must be at most 1000 px, got 1000.5"),
     ];
     assert_eq!(expected, errors);

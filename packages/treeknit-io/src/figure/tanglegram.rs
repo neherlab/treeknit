@@ -2,9 +2,9 @@
 //! view mapped to px.
 
 use super::svg::{
-  BRANCH_WIDTH, Column, DASH, LABEL_GAP, LINK_WIDTH, LegendEntry, MARGIN, Path, REASSORTMENT_WIDTH, RIBBON_OPACITY,
-  RING_AT_BRANCH_MIDDLE, RING_AT_LEAF_TIP, Rows, Svg, Symbol, dash_array, drawing_top, figure_height, label_column,
-  legend_top, num,
+  BRANCH_WIDTH, Column, DASH, LABEL_GAP, LINK_WIDTH, LabelColumn, LegendEntry, MARGIN, Path, REASSORTMENT_WIDTH,
+  RIBBON_OPACITY, RING_AT_BRANCH_MIDDLE, RING_AT_LEAF_TIP, Rows, Svg, Symbol, dash_array, drawing_top, figure_height,
+  label_column, legend_top, num,
 };
 use super::{FigureOptions, labels_shown};
 use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes};
@@ -36,13 +36,13 @@ pub(super) fn draw(view: &PairView, options: &FigureOptions) -> String {
       rows: layout.rows,
       colors: &colors,
     };
-    if layout.max_label_chars > 0 {
+    if layout.labels.shown() {
       svg.leaders(&shapes.leaders, layout.rows, column, &colors.ink_muted);
     }
     draw.branches(&mut svg);
     draw.marks(&mut svg);
-    if layout.max_label_chars > 0 {
-      draw.labels(&mut svg, side, layout.max_label_chars);
+    if layout.labels.shown() {
+      draw.labels(&mut svg, side, &layout.labels);
     }
   }
   svg.legend(
@@ -63,8 +63,8 @@ struct Layout {
   rows_count: usize,
   /// Each block is a ribbon, instead of one S-curve per link.
   ribbons: bool,
-  /// Labels are shortened to this many characters; 0 when labels are not drawn.
-  max_label_chars: usize,
+  /// The two label columns.
+  labels: LabelColumn,
 }
 
 impl Layout {
@@ -106,7 +106,7 @@ impl Layout {
         .max(leaf_names(&view.right).count())
         .max(1),
       ribbons: options.row_height < f64::from(DRAWING_RULES.link_min_row_px),
-      max_label_chars: labels.max_chars,
+      labels,
     }
   }
 }
@@ -210,7 +210,7 @@ impl TreeDrawing<'_> {
 
   /// The leaf labels in the label column next to the tree: left-aligned right of the left tree,
   /// right-aligned left of the right tree.
-  fn labels(&self, svg: &mut Svg, side: Side, max_chars: usize) {
+  fn labels(&self, svg: &mut Svg, side: Side, column: &LabelColumn) {
     let (x, anchor) = match side {
       Side::Left => (self.column.end + LABEL_GAP, "start"),
       Side::Right => (self.column.end - LABEL_GAP, "end"),
@@ -221,7 +221,7 @@ impl TreeDrawing<'_> {
       .iter()
       .filter(|n| n.leaf)
       .map(|n| (n.name.as_str(), n.y));
-    svg.labels(labels, self.rows, x, Some(anchor), max_chars, &self.colors.ink);
+    svg.labels(labels, self.rows, column, x, Some(anchor), &self.colors.ink);
   }
 }
 

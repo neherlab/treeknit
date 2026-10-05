@@ -20,7 +20,7 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
     labels_shown(options),
     DRAWING_RULES.arg_label_column_max_share * inner,
   );
-  let (label, max_label_chars) = (labels.width, labels.max_chars);
+  let label = labels.width;
   let column = Column {
     start: MARGIN,
     end: MARGIN + inner - label,
@@ -36,7 +36,7 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
   let mut svg = Svg::new(options.width, height, &title, &colors.ground);
   svg.title(&title, &colors.ink);
 
-  if max_label_chars > 0 {
+  if labels.shown() {
     svg.leaders(&view.shapes.leaders, rows, column, &colors.ink_muted);
   }
 
@@ -63,9 +63,9 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
     svg.ring(rows.point(column, mark.at), &colors.signal, &colors.ground);
   }
 
-  if max_label_chars > 0 {
-    let labels = leaves().map(|n| (n.label.as_str(), n.y));
-    svg.labels(labels, rows, column.end + LABEL_GAP, None, max_label_chars, &colors.ink);
+  if labels.shown() {
+    let names = leaves().map(|n| (n.label.as_str(), n.y));
+    svg.labels(names, rows, &labels, column.end + LABEL_GAP, None, &colors.ink);
   }
 
   svg.legend(

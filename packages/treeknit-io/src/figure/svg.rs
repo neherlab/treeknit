@@ -26,12 +26,29 @@ const SYMBOL_WIDTH: f64 = 24.0;
 const SYMBOL_GAP: f64 = 6.0;
 /// Space between two legend entries on a line, in px.
 const ENTRY_GAP: f64 = 20.0;
-/// Average advance of a character in em. SVG text has no measured width before a viewer lays it
-/// out, so widths are estimated: 0.5625 em covers IBM Plex Sans Condensed and the wider Helvetica
-/// and Arial fallbacks, so labels do not overrun their column in either. The value is a binary
-/// fraction (9/16), so that widths of whole characters are exact and a label that fits its
-/// column is never shortened by a rounding error.
-const CHAR_EM: f64 = 0.5625;
+/// Advance widths of the printable ASCII characters, U+0020 to U+007E, in 1/1000 em: those of
+/// Helvetica (Adobe font metrics of the standard PostScript fonts), which Arial shares. SVG text
+/// has no width before a viewer lays it out, so the figures estimate widths from these fallback
+/// fonts, which are wider than the IBM Plex Sans Condensed of the labels; a label then fits its
+/// column in each of the label fonts.
+#[rustfmt::skip]
+const ASCII_ADVANCE: [u32; 95] = [
+  // space to /
+  278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278,
+  // 0 to ?
+  556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556,
+  // @ to O
+  1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778,
+  // P to _
+  667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556,
+  // ` to o
+  333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556,
+  // p to ~
+  556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584,
+];
+/// Advance of any other character in 1/1000 em: the full em of a CJK ideograph, which bounds the
+/// letters of other scripts too. A combining mark takes no width in a viewer but counts here.
+const OTHER_ADVANCE: u32 = 1000;
 
 /// Fonts of the figure text.
 const FONT_FAMILY: &str = "IBM Plex Sans, Helvetica, Arial, sans-serif";
@@ -237,26 +254,25 @@ impl Svg {
     self.close("g");
   }
 
-  /// The leaf `labels`, each a name and its row, at `x` with the text `anchor` (`start` when
-  /// `None`), shortened to `max_chars` characters.
+  /// The leaf `labels`, each a name and its row, in `column` at `x` with the text `anchor`
+  /// (`start` when `None`).
   pub(super) fn labels<'a>(
     &mut self,
     labels: impl Iterator<Item = (&'a str, f64)>,
     rows: Rows,
+    column: &LabelColumn,
     x: f64,
     anchor: Option<&str>,
-    max_chars: usize,
     ink: &str,
   ) {
     let mut attributes = vec![("font-family", LABEL_FONT_FAMILY.to_owned()), ("fill", ink.to_owned())];
     attributes.extend(anchor.map(|a| ("text-anchor", a.to_owned())));
     self.open("g", &attributes);
     for (name, row) in labels {
-      self.text(
-        "text",
-        &[("x", num(x)), ("y", num(baseline(rows.y(row))))],
-        &shorten(name, max_chars),
-      );
+      let text = column.text(name);
+      if !text.is_empty() {
+        self.text("text", &[("x", num(x)), ("y", num(baseline(rows.y(row))))], &text);
+      }
     }
     self.close("g");
   }
@@ -311,63 +327,98 @@ pub(super) fn dash_array([dash, gap]: [f64; 2]) -> String {
 
 /// The estimated width of `text` in px at the label font size.
 fn text_width(text: &str) -> f64 {
-  count(text.chars().count()) * CHAR_EM * FONT_SIZE
+  f64::from(advance(text)) * FONT_SIZE / 1000.0
 }
 
-/// The label column of a drawing in px, and the length labels are shortened to.
+/// The estimated advance of `text` in 1/1000 em.
+fn advance(text: &str) -> u32 {
+  text
+    .chars()
+    .map(|c| {
+      u32::from(c)
+        .checked_sub(0x20)
+        .and_then(|i| ASCII_ADVANCE.get(usize::try_from(i).ok()?))
+        .copied()
+        .unwrap_or(OTHER_ADVANCE)
+    })
+    .fold(0, u32::saturating_add)
+}
+
+/// The label column of a drawing in px, and the room its labels have.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct LabelColumn {
   /// Width in px; 0 without labels.
   pub(super) width: f64,
-  /// Labels are shortened to this many characters; 0 when labels are not drawn.
-  pub(super) max_chars: usize,
+  /// Room for the text of a label, in 1/1000 em.
+  room: u32,
 }
 
-/// The label column for leaf `names`: as wide as the longest label (shortened to the limit of the
-/// drawing rules) and a gap on each side, at most `max_width` px. Labels that do not fit are
-/// shortened further. No column when `shown` is false, there are no names, or not one character
-/// fits.
+impl LabelColumn {
+  /// No label column.
+  const NONE: LabelColumn = LabelColumn { width: 0.0, room: 0 };
+
+  /// The column has labels.
+  pub(super) fn shown(&self) -> bool {
+    self.width > 0.0
+  }
+
+  /// The label of `name`: shortened to the length of the drawing rules, then further until its
+  /// estimated width fits the column; empty when not even one character fits.
+  pub(super) fn text(&self, name: &str) -> String {
+    let max = label_max_chars().min(name.chars().count());
+    (1..=max)
+      .rev()
+      .map(|k| shorten(name, k))
+      .find(|t| advance(t) <= self.room)
+      .unwrap_or_else(String::new)
+  }
+}
+
+/// The label column for leaf `names`: as wide as the longest label (shortened to the length of
+/// the drawing rules) and a gap on each side, at most `max_width` px. Labels that do not fit are
+/// shortened further. No column when `shown` is false, there are no names, or no label fits with
+/// one character.
 pub(super) fn label_column<'a>(names: impl Iterator<Item = &'a str>, shown: bool, max_width: f64) -> LabelColumn {
-  let longest = if shown {
-    names
-      .map(|n| text_width(&shorten(n, label_max_chars())))
-      .fold(0.0, f64::max)
-  } else {
-    0.0
+  if !shown {
+    return LabelColumn::NONE;
+  }
+  let names: Vec<&str> = names.filter(|n| !n.is_empty()).collect();
+  let Some(longest) = names.iter().map(|n| advance(&shorten(n, label_max_chars()))).max() else {
+    return LabelColumn::NONE;
   };
-  if longest <= 0.0 {
+  let wanted = em_px(longest) + 2.0 * LABEL_GAP;
+  if wanted <= max_width {
     return LabelColumn {
-      width: 0.0,
-      max_chars: 0,
+      width: wanted,
+      room: longest,
     };
   }
-  let wanted = longest + 2.0 * LABEL_GAP;
-  if wanted <= max_width {
-    LabelColumn {
-      width: wanted,
-      max_chars: label_max_chars(),
-    }
+  let room = px_em(max_width - 2.0 * LABEL_GAP);
+  let narrowest = names.iter().map(|n| advance(&shorten(n, 1))).min().unwrap_or(u32::MAX);
+  if narrowest <= room {
+    LabelColumn { width: max_width, room }
   } else {
-    let max_chars = chars_fitting(max_width - 2.0 * LABEL_GAP).min(label_max_chars());
-    LabelColumn {
-      width: if max_chars > 0 { max_width } else { 0.0 },
-      max_chars,
-    }
+    LabelColumn::NONE
   }
 }
 
-/// The number of characters that fit into `width` px at the label font size.
-fn chars_fitting(width: f64) -> usize {
-  let chars = (width / (CHAR_EM * FONT_SIZE)).floor();
-  if chars > 0.0 {
+/// `units` of 1/1000 em in px at the label font size.
+fn em_px(units: u32) -> f64 {
+  f64::from(units) * FONT_SIZE / 1000.0
+}
+
+/// The whole 1/1000 em in `px` at the label font size; 0 for no room.
+fn px_em(px: f64) -> u32 {
+  let units = (px * 1000.0 / FONT_SIZE).floor();
+  if units > 0.0 {
     #[expect(
       clippy::as_conversions,
       clippy::cast_possible_truncation,
       clippy::cast_sign_loss,
-      reason = "a positive whole number of characters; `as` saturates at usize::MAX"
+      reason = "a positive whole number; `as` saturates at u32::MAX"
     )]
-    let chars = chars as usize;
-    chars
+    let units = units as u32;
+    units
   } else {
     0
   }
@@ -594,41 +645,46 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::none(    0.0,  0)]
-  #[case::partial( 13.0, 1)]
-  #[case::exact(   13.5, 2)]
-  #[case::negative(-5.0, 0)]
+  // Oracle: the Helvetica widths of the Adobe font metrics, in 1/1000 em, and 1000 for any
+  // character outside ASCII.
+  #[case::capitals( "AW",          667 + 944)]
+  #[case::narrow(   "il",          222 + 222)]
+  #[case::greek(    "αβ",          1000 + 1000)]
+  #[case::combining("a\u{301}",    556 + 1000)]
+  #[case::empty(    "",            0)]
   #[trace]
-  fn chars_fitting_counts_whole_characters(#[case] width: f64, #[case] expected: usize) {
-    // Oracle: a character is 0.5625 em of 12 px, 6.75 px.
-    assert_eq!(expected, chars_fitting(width));
+  fn advance_adds_the_widths_of_the_characters(#[case] text: &str, #[case] expected: u32) {
+    assert_eq!(expected, advance(text));
   }
 
   #[rustfmt::skip]
   #[rstest]
-  // Oracle: a character is 0.5625 * 12 = 6.75 px, and the column adds a 6 px gap on each side:
-  // 17 characters need 17 * 6.75 + 12 = 126.75 px.
-  #[case::fits_exactly(&["0123456789abcdefg"],    126.75, (126.75, 40))]
-  #[case::narrower(    &["0123456789", "abc"],    126.75, (79.5,   40))]
-  #[case::too_long(    &["0123456789abcdefgh"],   126.75, (126.75, 17))]
-  #[case::no_names(    &[],                       126.75, (0.0,    0))]
-  // 18 px leave 6 px between the gaps, less than one character.
-  #[case::no_room(     &["abc"],                  18.0,   (0.0,    0))]
-  #[case::one_char(    &["abc"],                  18.75,  (18.75,  1))]
+  // Oracle: a width of u units is u * 12 / 1000 px, and the column adds a 6 px gap on each side.
+  // AW is 1611 units, 19.332 px, so its column is 31.332 px.
+  #[case::fits(     &["AW"],         100.0, ("31.33", vec!["AW"]))]
+  #[case::narrower( &["il", "AW"],   100.0, ("31.33", vec!["il", "AW"]))]
+  // 40 px leave 28 px, 2333 units: "M…M" needs 833 + 1000 + 833 = 2666 units, "M…" 1833.
+  #[case::shortened(&["MMMMMM"],     40.0,  ("40",    vec!["M\u{2026}"]))]
+  // "a" alone needs 6.672 + 12 = 18.672 px.
+  #[case::one_char( &["a"],          19.0,  ("18.67", vec!["a"]))]
+  // 18 px leave 6 px, 500 units, less than the 556 of "a" and the 1000 of "…".
+  #[case::no_room(  &["a", "abc"],   18.0,  ("0",     vec!["", ""]))]
+  #[case::no_names( &[],             100.0, ("0",     vec![]))]
   #[trace]
   fn label_column_fits_the_longest_label(
     #[case] names: &[&str],
     #[case] max_width: f64,
-    #[case] (width, max_chars): (f64, usize),
+    #[case] (width, texts): (&str, Vec<&str>),
   ) {
     let column = label_column(names.iter().copied(), true, max_width);
-    assert_eq!((num(width), max_chars), (num(column.width), column.max_chars));
+    let actual: Vec<String> = names.iter().map(|n| column.text(n)).collect();
+    assert_eq!((width.to_owned(), texts), (num(column.width), actual.iter().map(String::as_str).collect()));
   }
 
   #[test]
   fn label_column_without_labels_is_empty() {
     let column = label_column(["abc"].into_iter(), false, 100.0);
-    assert_eq!((0, "0".to_owned()), (column.max_chars, num(column.width)));
+    assert_eq!(("0".to_owned(), false), (num(column.width), column.shown()));
   }
 
   #[test]
@@ -667,10 +723,10 @@ mod tests {
       symbol: vec![],
       label: label.to_owned(),
     };
-    // Each entry is 24 + 6 + 10 * 6.75 = 97.5 px wide, 117.5 px with its gap; a 300 px figure
-    // has 268 px between its margins, room for two entries per line.
+    // Each entry is 24 + 6 + 10 * 556 * 12 / 1000 = 96.72 px wide, 116.72 px with its gap; a
+    // 300 px figure has 268 px between its margins, room for two entries per line.
     let entries = vec![entry("0123456789"), entry("0123456789"), entry("0123456789")];
-    let expected = vec![(0, "16".to_owned()), (0, "133.5".to_owned()), (1, "16".to_owned())];
+    let expected = vec![(0, "16".to_owned()), (0, "132.72".to_owned()), (1, "16".to_owned())];
     let places: Vec<(usize, String)> = legend_places(&entries, 300.0)
       .into_iter()
       .map(|(l, x)| (l, num(x)))
