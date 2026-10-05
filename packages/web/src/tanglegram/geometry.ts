@@ -10,6 +10,7 @@ import {
   type WorldPosition,
 } from "../canvas/projection";
 import { type LeafAxis, worldPosition } from "../canvas/viewState";
+import { itemAt } from "../drawing/lookup";
 import type { PairTarget } from "../drawing/selection";
 import { type TreeSide, treeNodePoints } from "../drawing/trees";
 import type { TanglegramColumns } from "./columns";
@@ -104,7 +105,7 @@ export function tanglegramGeometry(
     leaders: [...left.leaders, ...right.leaders],
     links: view.shapes.links.map(({ link, slot, curve }) => ({
       link,
-      mcc: view.links[link]?.mcc ?? 0,
+      mcc: itemAt(view.links, link, "link").mcc,
       slot,
       path: projectPath(
         sampleCubic(curve, wangSegmentCount(curve, columns.links, curveRowPx)),
@@ -114,7 +115,7 @@ export function tanglegramGeometry(
     })),
     ribbons: view.shapes.ribbons.map(({ block, slot, outline }) => ({
       block,
-      mcc: view.blocks[block]?.mcc ?? 0,
+      mcc: itemAt(view.blocks, block, "block").mcc,
       slot,
       polygon: projectPath(sampleCubicChain(outline, columns.links, curveRowPx), columns.links, leafAxis),
     })),
@@ -165,19 +166,19 @@ function treeGeometry(view: PairView, side: TreeSide, column: Column, leafAxis: 
   const branch = (elbow: Elbow): BranchItem => ({
     side,
     node: elbow.node,
-    mcc: tree.nodes[elbow.node]?.mcc ?? null,
+    mcc: itemAt(tree.nodes, elbow.node, "node").mcc,
     slot: elbow.slot,
     path: projectPath(elbow.points, column, leafAxis),
   });
 
   const mark = ({ node, at }: Mark): MarkItem => {
-    const mcc = tree.nodes[node]?.mcc ?? null;
+    const { mcc } = itemAt(tree.nodes, node, "node");
 
     return {
       side,
       node,
       mcc,
-      slot: mcc === null ? null : (view.mccs[mcc]?.slot ?? null),
+      slot: mcc === null ? null : itemAt(view.mccs, mcc, "MCC").slot,
       position: projectPoint(at, column, leafAxis),
     };
   };

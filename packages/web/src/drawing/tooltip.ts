@@ -1,6 +1,7 @@
 import type { ArgView, PairView } from "@neherlab/treeknit-wasm";
 
 import { formatBranchLength, leafCount, mccSummary } from "./format";
+import { itemAt } from "./lookup";
 import type { ArgTarget, PairTarget } from "./selection";
 
 export type SegmentLabels = readonly [string, string];
@@ -71,11 +72,11 @@ export function segmentList(present: readonly number[], segments: SegmentLabels)
 }
 
 function tauOf(tau: readonly (number | null)[], segment: number): string {
-  return formatBranchLength(tau[segment] ?? null);
+  return formatBranchLength(itemAt(tau, segment, "segment"));
 }
 
 function mccLine(view: PairView, mcc: number): string {
-  return mccSummary(mcc, view.mccs[mcc]?.size ?? 0);
+  return mccSummary(mcc, itemAt(view.mccs, mcc, "MCC").size);
 }
 
 function blockLine([first, last]: [number, number]): string {

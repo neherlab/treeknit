@@ -23,6 +23,14 @@ describe("tanglegramGeometry", () => {
     ]);
   });
 
+  test("rejects a link curve whose link is missing instead of giving it MCC 0", () => {
+    const broken = structuredClone(VIEW);
+
+    broken.shapes.links = broken.shapes.links.map((curve) => ({ ...curve, link: 99 }));
+
+    expect(() => tanglegramGeometry(broken, COLUMNS, "y", 64)).toThrow(RangeError);
+  });
+
   test("mirrors the right tree: its root sits at the right edge", () => {
     expect(GEOMETRY.nodes.right[0]).toStrictEqual([COLUMNS.right.end, 2]);
   });

@@ -45,7 +45,7 @@ export function leafRows(
   nodes: readonly { children: readonly number[]; leaf: boolean; y: number }[],
   node: number,
 ): RowRange | null {
-  const rows = descendantLeaves(nodes, node).map((index) => nodes[index]?.y ?? 0);
+  const rows = descendantLeaves(nodes, node).map((leaf) => leaf.y);
 
   return rows.length === 0 ? null : { first: Math.min(...rows), last: Math.max(...rows) };
 }
@@ -86,8 +86,11 @@ export function rowCount(...trees: readonly { nodes: readonly { leaf: boolean }[
   return Math.max(1, ...trees.map((tree) => tree.nodes.filter((node) => node.leaf).length));
 }
 
-function descendantLeaves(nodes: readonly { children: readonly number[]; leaf: boolean }[], root: number): number[] {
-  const leaves: number[] = [];
+function descendantLeaves<N extends { children: readonly number[]; leaf: boolean }>(
+  nodes: readonly N[],
+  root: number,
+): N[] {
+  const leaves: N[] = [];
   const seen = new Set<number>();
   const stack = [root];
 
@@ -101,7 +104,7 @@ function descendantLeaves(nodes: readonly { children: readonly number[]; leaf: b
     seen.add(next);
 
     if (node.leaf) {
-      leaves.push(next);
+      leaves.push(node);
     }
 
     stack.push(...node.children);

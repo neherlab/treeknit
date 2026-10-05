@@ -9,6 +9,7 @@ import {
   type WorldPosition,
 } from "../canvas/projection";
 import { type LeafAxis, worldPosition } from "../canvas/viewState";
+import { itemAt } from "../drawing/lookup";
 import type { ArgTarget } from "../drawing/selection";
 import { DRAWING_MARGIN_PX, LABEL_GAP_PX } from "../drawing/spacing";
 import { argNodePoints } from "../drawing/trees";
@@ -70,11 +71,11 @@ export function argColumn(crossPx: number, longestLabelPx: number): Column {
 export function argGeometry(view: ArgView, column: Column, leafAxis: LeafAxis, curveRowPx: number): ArgGeometry {
   const item = ({ edge, path }: DrawnEdge): EdgeItem => ({
     edge,
-    segments: view.edges[edge]?.segments ?? [],
+    segments: itemAt(view.edges, edge, "edge").segments,
     path: projectPath(edgePoints(path, column, curveRowPx), column, leafAxis),
   });
 
-  const reticulation = (drawn: DrawnEdge) => view.edges[drawn.edge]?.reticulation ?? false;
+  const reticulation = (drawn: DrawnEdge) => itemAt(view.edges, drawn.edge, "edge").reticulation;
 
   return {
     edges: view.shapes.edges.flatMap((drawn) => (reticulation(drawn) ? [] : [item(drawn)])),
