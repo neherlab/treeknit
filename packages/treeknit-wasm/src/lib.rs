@@ -234,7 +234,8 @@ impl Session {
   pub fn zip(&self) -> Result<Vec<u8>, JsError> {
     let _log = log_capture::discard();
     let archive_error = |e: output::ArchiveError| JsError::new(&e.to_string());
-    let mut archive = Archive::new();
+    // The texts known so far bound the archive; a figure not yet read lets the buffer grow.
+    let mut archive = Archive::with_capacity(self.files.iter().filter_map(|f| f.entry().size).sum());
     for f in &self.files {
       match f {
         SessionFile::Text(file) => archive.add(&file.path, &file.text),
