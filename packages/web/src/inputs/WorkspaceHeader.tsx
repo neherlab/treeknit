@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef } from "react";
-import { FileTrigger, type Key } from "react-aria-components";
+import type { Key } from "react-aria-components";
 import MoreIcon from "~icons/lucide/ellipsis";
 import OpenIcon from "~icons/lucide/folder-open";
 import RestoredIcon from "~icons/lucide/history";
@@ -8,6 +8,7 @@ import UndoIcon from "~icons/lucide/undo-2";
 
 import { PersistenceSwitch } from "../persistence/PersistenceSwitch";
 import { Button } from "../ui/Button";
+import { FilePicker, type FilePickerHandle } from "../ui/FilePicker";
 import { IconButton } from "../ui/IconButton";
 import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
 import { Menu, MenuItem, MenuSeparator } from "../ui/Menu";
@@ -30,12 +31,12 @@ export function WorkspaceHeader() {
   const restored = useWorkspace((state) => state.restored);
   const undo = useWorkspace((state) => state.undo);
   const { input, error, dismissError } = useTreeInput();
-  const sessionInput = useRef<HTMLInputElement>(null);
+  const sessionPicker = useRef<FilePickerHandle>(null);
 
   const act = useCallback(
     (key: Key) => {
       if (key === "open") {
-        sessionInput.current?.click();
+        sessionPicker.current?.open();
       } else if (key === "clear") {
         store.getState().clear();
       }
@@ -99,7 +100,7 @@ export function WorkspaceHeader() {
           {error}
         </InlineNotice>
       )}
-      <FileTrigger ref={sessionInput} acceptedFileTypes={SESSION_FILE_TYPES} onSelect={openSession} />
+      <FilePicker ref={sessionPicker} acceptedFileTypes={SESSION_FILE_TYPES} onSelect={openSession} />
     </div>
   );
 }

@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { FileTrigger, type Key } from "react-aria-components";
+import type { Key } from "react-aria-components";
 import ErrorIcon from "~icons/lucide/circle-alert";
 import UndoIcon from "~icons/lucide/undo-2";
 
 import { useInspectTrees, useOverlap, useSettingsSchema } from "../analysis/queries";
 import { visibleGeneralErrors } from "../run/runControl";
 import { Button } from "../ui/Button";
+import { FilePicker, type FilePickerHandle } from "../ui/FilePicker";
 import { GridList } from "../ui/GridList";
 import { InfoButton } from "../ui/InfoButton";
 import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
@@ -34,7 +35,7 @@ export function TreeList() {
   const { input, error, dismissError } = useTreeInput();
   const [viewingId, setViewingId] = useState<string | null>(null);
   const replacingId = useRef<string | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
+  const filePicker = useRef<FilePickerHandle>(null);
   const seqLengthsOn = settings.seqLengths !== null && settings.seqLengths !== undefined;
   const viewingIndex = trees.findIndex(({ id }) => id === viewingId);
   const viewing = trees[viewingIndex];
@@ -60,7 +61,7 @@ export function TreeList() {
 
   const replace = useCallback((treeId: string) => {
     replacingId.current = treeId;
-    fileInput.current?.click();
+    filePicker.current?.open();
   }, []);
 
   const replaceWith = useCallback(
@@ -155,7 +156,7 @@ export function TreeList() {
         </InlineNotice>
       )}
       <TreeActions input={input} />
-      <FileTrigger ref={fileInput} acceptedFileTypes={TREE_FILE_TYPES} onSelect={replaceWith} />
+      <FilePicker ref={filePicker} acceptedFileTypes={TREE_FILE_TYPES} onSelect={replaceWith} />
       {viewing === undefined ? null : (
         <NewickDialog
           label={viewing.label}
