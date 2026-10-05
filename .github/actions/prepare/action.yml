@@ -1,5 +1,5 @@
 name: "Prepare the build container"
-description: "Restore the cargo and compiler caches, and pull or build the container image"
+description: "Restore the cargo, compiler, and Bun caches, and pull or build the container image"
 
 inputs:
   cache:
@@ -41,6 +41,13 @@ runs:
         path: .cache/kache/
         key: kache-${{ inputs.cache }}-${{ hashFiles('.config/mise.lock') }}-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
         restore-keys: kache-${{ inputs.cache }}-${{ hashFiles('.config/mise.lock') }}-
+
+    - name: "Restore the Bun package cache"
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: .cache/bun/
+        key: bun-${{ hashFiles('bun.lock') }}
+        restore-keys: bun-
 
     - name: "Pull or build the image"
       shell: bash

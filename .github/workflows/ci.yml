@@ -43,6 +43,8 @@ jobs:
             group: "clippy"
           - name: "tests"
             group: "tests"
+          - name: "typescript"
+            group: "typescript"
 
     steps:
       - name: "Check out"
