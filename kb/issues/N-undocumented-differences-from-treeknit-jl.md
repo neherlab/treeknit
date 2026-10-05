@@ -4,13 +4,13 @@ The README section "Deliberate differences from TreeKnit.jl" and `kb/decisions/`
 
 ## Error handling
 
-- **Incompatible split in the MCC resolution**: TreeKnit.jl calls `resolve!` with `conflict = :fail` and stops the run. The port skips the split with the warning "skipping split incompatible with tree <label>" ([resolve.rs#L261-L276](../../packages/treeknit-core/src/resolve.rs#L261-L276))
-- **Failed ARG construction**: TreeKnit.jl stops the command. The port logs the error, writes no ARG, and exits with 0 ([main.rs#L272-L278](../../packages/treeknit-cli/src/main.rs#L272-L278))
-- **`--verbosity-level -1`**: TreeKnit.jl still shows warnings. The port turns the terminal output off, warnings included ([main.rs#L515-L520](../../packages/treeknit-cli/src/main.rs#L515-L520))
+- **Incompatible split in the MCC resolution**: TreeKnit.jl calls `resolve!` with `conflict = :fail` and stops the run. The port skips the split with the warning "skipping split incompatible with tree <label>" ([resolve.rs#L306-L311](../../packages/treeknit-core/src/resolve.rs#L306-L311))
+- **Failed ARG construction**: TreeKnit.jl stops the command. The port logs the error, writes no ARG, and exits with 0 ([main.rs#L283-L289](../../packages/treeknit-cli/src/main.rs#L283-L289))
+- **`--verbosity-level -1`**: TreeKnit.jl still shows warnings. The port turns the terminal output off, warnings included ([main.rs#L592-L597](../../packages/treeknit-cli/src/main.rs#L592-L597))
 
 ## Command line
 
-- **`--rounds 1` with the former method options**: TreeKnit.jl applies `--rounds` only when the value is not 1, so `--better-MCCs --rounds 1` keeps two rounds for more than two trees. The port applies the value 1 ([main.rs#L398-L400](../../packages/treeknit-cli/src/main.rs#L398-L400)). The README says that the former options reproduce the TreeKnit.jl results
+- **`--rounds 1` with the former method options**: TreeKnit.jl applies `--rounds` only when the value is not 1, so `--better-MCCs --rounds 1` keeps two rounds for more than two trees. The port applies the value 1 ([main.rs#L475-L477](../../packages/treeknit-cli/src/main.rs#L475-L477)). The README says that the former options reproduce the TreeKnit.jl results
 - **`--help-defaults`**: TreeKnit.jl explains the method presets. The port prints the `--help-resolve` text
 - **Extension of output trees**: TreeKnit.jl uses the extension of the first input file for all output trees. The port uses the extension of each input file
 

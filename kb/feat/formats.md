@@ -50,7 +50,7 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 
 ## `parameters.json`
 
-`fn params_json` [[src](../../packages/treeknit-cli/src/main.rs#L479-L498)]:
+`fn params_json` [[src](../../packages/treeknit-cli/src/main.rs#L514-L533)]:
 
 - [x] **Time of writing**: before the inference
 - [/] **Fields**: `gamma`, `itmax`, `likelihood_sort`, `resolution`, `seq_lengths`, `pre_resolve`, `rounds`, `final_unresolved_round`, `nMCMC`, `sa_rep`, `Tmin`, `Tmax`, `nT`, `cooling_schedule`, `naive`, and `seed`. TreeKnit.jl writes the `OptArgs` fields: `γ`, `resolve`, `strict`, `final_no_resolve`, `parallel`, and `Trange`, which the port does not write. A reader of the TreeKnit.jl file cannot read this file

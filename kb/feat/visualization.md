@@ -4,7 +4,7 @@ Counterpart: [`v0/visualization.md`](v0/visualization.md). The command line draw
 
 ## Ordering of the output trees
 
-`fn sort_pair` runs in the last round for each pair [[src](../../packages/treeknit-core/src/pipeline.rs#L329-L352)]:
+`fn sort_pair` runs in the last round for each pair [[src](../../packages/treeknit-core/src/pipeline.rs#L454-L504)]:
 
 - [x] **When**: in the last round, ladderize tree 0 in its pairs, then sort the polytomies of the pair. With more than two trees, the sort for the last pair of a tree gives its final order
 - [x] **Ladderize**: children sorted by leaf count, smallest first, then by label [[src](../../packages/treeknit-core/src/tree.rs#L427-L444)]. Unit test `ladderize_sorts_by_size_then_name`
