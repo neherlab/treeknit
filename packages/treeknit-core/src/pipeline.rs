@@ -747,6 +747,284 @@ mod tests {
     assert!(res[2].mccs.is_empty());
   }
 
+  /// Each node in preorder with its name and the names of its children in order: the topology,
+  /// the internal node names, and the leaf order of `t`.
+  fn layout(t: &Tree) -> Vec<(String, Vec<String>)> {
+    t.preorder()
+      .into_iter()
+      .map(|v| {
+        let children = t.children(v).iter().map(|&c| t.nodes[c].name.clone()).collect();
+        (t.nodes[v].name.clone(), children)
+      })
+      .collect()
+  }
+
+  /// Two-tree inputs for the display sort: the two-tree example, a polytomy, and leaves in one
+  /// tree only (P in the first tree, Q in the second).
+  const PAIR_INPUTS: [[&str; 2]; 3] = [
+    ["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));"],
+    ["((A,B,C),(D,X),E);", "((A,(B,X)),(C,D),E);"],
+    ["((A,B),((C,P),(D,X)));", "((A,(B,X)),(C,(D,Q)));"],
+  ];
+
+  #[test]
+  fn sort_for_pair_reproduces_the_run_order_of_two_trees() {
+    // The trees that the run's sort received are rebuilt from the input with the run's own
+    // steps: unchanged without resolution, resolved with the MCCs in strict mode, and in
+    // matched mode also matched within MCCs. The MCCs are those of the result restricted to the
+    // shared leaves; in matched mode no MCC is split, so they are also the MCCs before matching.
+    let mut reordered = false;
+    for resolution in [Resolution::None, Resolution::Strict, Resolution::Matched] {
+      for nwks in PAIR_INPUTS {
+        let o = Options {
+          n_t: 10,
+          resolution,
+          ..Options::for_trees(2)
+        };
+        let case = format!("{resolution:?}, {nwks:?}");
+        let (mut ran, taxa) = trees(&nwks);
+        let n = taxa.len();
+        let res = run(&mut ran, &taxa, &o, 3);
+        let mccs = res[0].shared_mccs(&ran, n);
+        let (mut copies, _) = trees(&nwks);
+        if resolution != Resolution::None {
+          resolve_pair(&mut copies, 0, 1, &mccs, n, true);
+        }
+        if resolution == Resolution::Matched {
+          let mut matched = vec![mccs.clone()];
+          let (_, split) = match_topologies(&mut copies, &[(0, 1)], &mut matched, n);
+          assert_eq!((0, &mccs), (split, &matched[0]), "{case}");
+        }
+        reordered |= copies.iter().zip(&ran).any(|(c, r)| c.leaf_names() != r.leaf_names());
+        let (left, right) = pair_mut(&mut copies, 0, 1);
+        sort_for_pair(left, right, &mccs, n, sort_strictness(&o, 2));
+        assert_eq!(layout(&ran[0]), layout(&copies[0]), "{case}");
+        assert_eq!(layout(&ran[1]), layout(&copies[1]), "{case}");
+      }
+    }
+    assert!(reordered, "no input was reordered by the sort");
+  }
+
+  #[test]
+  fn shared_mccs_drop_the_leaves_of_one_tree_only() {
+    let (mut ts, taxa) = trees(&PAIR_INPUTS[2]);
+    let o = Options {
+      resolution: Resolution::None,
+      ..Options::for_trees(2)
+    };
+    let res = run(&mut ts, &taxa, &o, 1);
+    assert_eq!(2, res[0].attached.len());
+    let shared = res[0].shared_mccs(&ts, taxa.len());
+    assert_eq!(ids(&taxa, &[&["X"], &["A", "B", "C", "D"]]), shared);
+    let attached: Vec<usize> = res[0].mccs.iter().map(Vec::len).collect();
+    assert_eq!(vec![1, 6], attached);
+  }
+
+  #[test]
+  fn sort_for_pair_leaves_a_skipped_pair_unchanged() {
+    // Ladderizing the first tree would reorder it, so an unchanged order shows no sort.
+    for nwks in [
+      ["(A,((B,C),D));", "(P,((Q,R),S));"],
+      ["(A,((B,C),D));", "(A,((Q,R),S));"],
+    ] {
+      for strict in [false, true] {
+        let (mut ts, taxa) = trees(&nwks);
+        let before: Vec<_> = ts.iter().map(layout).collect();
+        let (left, right) = pair_mut(&mut ts, 0, 1);
+        sort_for_pair(left, right, &[], taxa.len(), strict);
+        assert_eq!(
+          before,
+          ts.iter().map(layout).collect::<Vec<_>>(),
+          "{nwks:?}, strict {strict}"
+        );
+      }
+    }
+  }
+
+  /// Log lines, each with the thread that logged it.
+  type Records = Vec<(std::thread::ThreadId, String)>;
+
+  /// Logger that keeps every record, with the thread that logged it, since other tests may log
+  /// from other threads of the same process.
+  struct Capture(std::sync::Mutex<Records>);
+
+  impl log::Log for Capture {
+    fn enabled(&self, _: &log::Metadata<'_>) -> bool {
+      true
+    }
+
+    fn log(&self, record: &log::Record<'_>) {
+      let line = format!("{} {}", record.level(), record.args());
+      self.0.lock().unwrap().push((std::thread::current().id(), line));
+    }
+
+    fn flush(&self) {}
+  }
+
+  static CAPTURE: Capture = Capture(std::sync::Mutex::new(Vec::new()));
+
+  /// Lines that `f` logs on this thread.
+  fn logged(f: impl FnOnce()) -> Vec<String> {
+    static INSTALL: std::sync::Once = std::sync::Once::new();
+    INSTALL.call_once(|| {
+      log::set_logger(&CAPTURE).unwrap();
+      log::set_max_level(log::LevelFilter::Trace);
+    });
+    let me = std::thread::current().id();
+    CAPTURE.0.lock().unwrap().retain(|(t, _)| *t != me);
+    f();
+    let records = CAPTURE.0.lock().unwrap();
+    records
+      .iter()
+      .filter(|(t, _)| *t == me)
+      .map(|(_, l)| l.clone())
+      .collect()
+  }
+
+  #[test]
+  fn sort_for_pair_logs_nothing_where_the_run_warns() {
+    // The MCCs cut the clade (A,B), so resolving the copies of a strict sort skips one split
+    // in each tree. The run's sort warns about each; the display sort sorts the same and logs
+    // nothing.
+    let nwks = ["((A,B),C,D,E);", "((A,B),C,D,E);"];
+    let (mut ran, taxa) = trees(&nwks);
+    let n = taxa.len();
+    let mccs = ids(&taxa, &[&["A", "C", "E"], &["B", "D"]]);
+    let warned = logged(|| sort_pair(&mut ran, 0, 1, &mccs, n, true));
+    let warning = "WARN skipping split incompatible with tree t".to_owned();
+    assert_eq!(vec![warning.clone(), warning], warned);
+    let (mut copies, _) = trees(&nwks);
+    let (left, right) = pair_mut(&mut copies, 0, 1);
+    assert!(logged(|| sort_for_pair(left, right, &mccs, n, true)).is_empty());
+    assert_eq!(
+      ran.iter().map(layout).collect::<Vec<_>>(),
+      copies.iter().map(layout).collect::<Vec<_>>()
+    );
+  }
+
+  #[test]
+  fn sort_strictness_follows_the_last_round_of_the_run() {
+    let o = |resolution, k, final_unresolved_round, sort_strict| Options {
+      resolution,
+      final_unresolved_round,
+      sort_strict,
+      ..Options::for_trees(k)
+    };
+    let cases = [
+      (o(Resolution::Strict, 2, true, None), true),
+      // The extra round without resolution comes last, and it sorts non-strictly.
+      (o(Resolution::Strict, 3, true, None), false),
+      (o(Resolution::Strict, 3, false, None), true),
+      (o(Resolution::Liberal, 2, true, None), false),
+      (o(Resolution::None, 2, true, None), false),
+      (o(Resolution::None, 2, true, Some(true)), true),
+      (o(Resolution::Strict, 2, true, Some(false)), false),
+      // Matched trees agree within MCCs, so their sort is never strict.
+      (o(Resolution::Matched, 2, true, None), false),
+      (o(Resolution::Matched, 2, true, Some(true)), false),
+    ];
+    for (opts, strict) in cases {
+      let case = format!(
+        "{:?}, k {}, {:?}",
+        opts.resolution,
+        opts.seq_lengths.len(),
+        opts.sort_strict
+      );
+      assert_eq!(strict, sort_strictness(&opts, opts.seq_lengths.len()), "{case}");
+    }
+  }
+
+  /// `k` trees on the same leaves.
+  fn same_leaves(k: usize) -> (Vec<Tree>, Taxa) {
+    trees(&vec!["((A,B),(C,D));"; k])
+  }
+
+  /// The last sorting pair of each tree, and the pairs whose trees keep the run's order.
+  fn sorting(ts: &[Tree], taxa: &Taxa, opts: &Options) -> (Vec<Option<(usize, usize)>>, Vec<(usize, usize)>) {
+    let n = taxa.len();
+    let last = (0..ts.len()).map(|t| last_sorting_pair(ts, opts, n, t)).collect();
+    let kept = pipeline_pairs(ts.len())
+      .into_iter()
+      .filter(|&(i, j)| keeps_run_order(ts, opts, n, i, j))
+      .collect();
+    (last, kept)
+  }
+
+  #[test]
+  fn last_sorting_pair_of_two_trees_is_their_pair() {
+    let (ts, taxa) = same_leaves(2);
+    for resolution in [Resolution::None, Resolution::Strict, Resolution::Matched] {
+      let o = Options {
+        resolution,
+        ..Options::for_trees(2)
+      };
+      let expected = (vec![Some((0, 1)), Some((0, 1))], vec![(0, 1)]);
+      assert_eq!(expected, sorting(&ts, &taxa, &o), "{resolution:?}");
+    }
+  }
+
+  #[test]
+  fn last_sorting_pair_of_three_and_four_trees() {
+    // A non-strict sort reorders the second tree of a pair, and the first tree only when it is
+    // tree 0 (ladderized); a strict sort reorders both trees.
+    let non_strict = Options::for_trees(3);
+    let strict = Options {
+      resolution: Resolution::Strict,
+      final_unresolved_round: false,
+      ..Options::for_trees(3)
+    };
+    let (ts, taxa) = same_leaves(3);
+    assert_eq!(
+      (vec![Some((0, 2)), Some((0, 1)), Some((1, 2))], vec![(1, 2)]),
+      sorting(&ts, &taxa, &non_strict)
+    );
+    assert_eq!(
+      (vec![Some((0, 2)), Some((1, 2)), Some((1, 2))], vec![(1, 2)]),
+      sorting(&ts, &taxa, &strict)
+    );
+    let (ts, taxa) = same_leaves(4);
+    let four = |o: &Options| Options {
+      seq_lengths: vec![1.0; 4],
+      ..o.clone()
+    };
+    assert_eq!(
+      (
+        vec![Some((0, 3)), Some((0, 1)), Some((1, 2)), Some((2, 3))],
+        vec![(1, 2), (2, 3)]
+      ),
+      sorting(&ts, &taxa, &four(&non_strict))
+    );
+    assert_eq!(
+      (
+        vec![Some((0, 3)), Some((1, 3)), Some((2, 3)), Some((2, 3))],
+        vec![(2, 3)]
+      ),
+      sorting(&ts, &taxa, &four(&strict))
+    );
+  }
+
+  #[test]
+  fn last_sorting_pair_skips_pairs_without_two_shared_leaves() {
+    // Tree 2 shares only A with tree 1, so the pair (1, 2) is not sorted.
+    let (ts, taxa) = trees(&["((A,B),(C,P));", "((A,B),(C,D));", "((A,P),(Q,R));"]);
+    let o = Options::for_trees(3);
+    assert_eq!(
+      (vec![Some((0, 2)), Some((0, 1)), Some((0, 2))], vec![(0, 2)]),
+      sorting(&ts, &taxa, &o)
+    );
+  }
+
+  #[test]
+  fn last_sorting_pair_is_none_for_a_run_without_rounds() {
+    let (ts, taxa) = same_leaves(2);
+    let o = Options {
+      rounds: 0,
+      resolution: Resolution::None,
+      ..Options::for_trees(2)
+    };
+    assert_eq!((vec![None, None], vec![]), sorting(&ts, &taxa, &o));
+  }
+
   /// Progress events of a run of `nwks` with `opts` and seed 1.
   fn observed(nwks: &[&str], opts: &Options) -> Vec<Progress> {
     let (mut ts, taxa) = trees(nwks);
