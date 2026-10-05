@@ -1,4 +1,5 @@
 import type { AnalysisRequest, OutputFile } from "@neherlab/treeknit-wasm";
+import { isDeepEqual } from "remeda";
 
 import type { TreeSource } from "../workspace/treeSource";
 import {
@@ -83,6 +84,8 @@ export class WorkspacePersistence {
   }
 
   async restore<T>(read: (stored: StoredWorkspace) => Promise<T>): Promise<T | null> {
+    const epoch = this.#epoch;
+
     try {
       const record = await this.#services.storage.read();
 
@@ -91,6 +94,15 @@ export class WorkspacePersistence {
       }
 
       const restored = await read({ sessionFile: record.sessionFile, sources: record.sources });
+      const current = await this.#services.storage.read();
+
+      if (epoch !== this.#epoch) {
+        return null;
+      }
+
+      if (!isDeepEqual(current, record)) {
+        return await this.restore(read);
+      }
 
       this.#switchOn(record.generation);
 

@@ -104,6 +104,62 @@ describe("workspace persistence", () => {
     });
   });
 
+  test("a restore whose stored workspace is turned off in another tab during parsing restores nothing", async () => {
+    const storage = new MemoryStorage(workspaceRecord(3, TWO_TREES));
+    const hub = new MemoryChannelHub();
+    const restoring = new Tab(storage, hub.channel());
+    const other = new Tab(storage, hub.channel());
+    const parsing = Promise.withResolvers<undefined>();
+
+    await other.restore();
+
+    const restored = restoring.persistence.restore(async (stored) => {
+      await parsing.promise;
+
+      return stored;
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    await other.persistence.disable();
+    parsing.resolve(undefined);
+
+    expect({
+      restored: await restored,
+      switches: restoring.switches,
+      enabled: restoring.persistence.enabled,
+      record: storage.record,
+    }).toStrictEqual({
+      restored: null,
+      switches: [],
+      enabled: false,
+      record: { kind: "off", version: 1, generation: 4 },
+    });
+  });
+
+  test("a restore whose stored workspace is saved again during parsing restores the newer workspace", async () => {
+    const storage = new MemoryStorage(workspaceRecord(3, ONE_TREE));
+    const parsed: string[] = [];
+    const parsing = Promise.withResolvers<undefined>();
+    const tab = new Tab(storage);
+
+    const restored = tab.persistence.restore(async (stored) => {
+      parsed.push(stored.sessionFile);
+      await parsing.promise;
+
+      return stored;
+    });
+
+    await vi.advanceTimersByTimeAsync(0);
+    storage.record = workspaceRecord(3, TWO_TREES);
+    parsing.resolve(undefined);
+
+    expect({ restored: await restored, parsed: parsed.length, switches: tab.switches }).toStrictEqual({
+      restored: { sessionFile: sessionFileText(TWO_TREES.request), sources: TWO_TREES.sources },
+      parsed: 2,
+      switches: [true],
+    });
+  });
+
   test("an off marker or no record restores nothing and leaves the switch off", async () => {
     const off = new Tab(new MemoryStorage({ kind: "off", version: 1, generation: 2 }));
     const none = new Tab(new MemoryStorage());
