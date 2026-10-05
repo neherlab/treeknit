@@ -16,7 +16,7 @@ import { innerWidthPx } from "../drawing/spacing";
 import type { SegmentLabels } from "../drawing/tooltip";
 import { argLeafNames } from "../drawing/trees";
 import { ArgLegend } from "./ArgLegend";
-import { argColumn, argGeometry } from "./geometry";
+import { argColumn, argCurves, argFrame } from "./geometry";
 import { argLayers, type ArgStyle } from "./layers";
 import { argPickRules } from "./picking";
 
@@ -38,10 +38,11 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
 
   const sampledRowPx = curveRowPx(rowPx);
 
-  const geometry = useMemo(
-    () => argGeometry(data, column, leafAxis, sampledRowPx),
-    [data, column, leafAxis, sampledRowPx],
-  );
+  const frameGeometry = useMemo(() => argFrame(data, column, leafAxis), [data, column, leafAxis]);
+
+  const curves = useMemo(() => argCurves(data, column, leafAxis, sampledRowPx), [data, column, leafAxis, sampledRowPx]);
+
+  const geometry = useMemo(() => ({ ...frameGeometry, ...curves }), [frameGeometry, curves]);
 
   const style = useMemo<ArgStyle>(
     () => ({

@@ -4,7 +4,8 @@ import { describe, expect, test } from "vitest";
 import { columnPixel } from "../../canvas/projection";
 import { examplePairView } from "../../drawing/__tests__/fixtures";
 import { tanglegramColumns } from "../columns";
-import { PAIR_LAYER, pairTargetAt, tanglegramGeometry } from "../geometry";
+import { PAIR_LAYER, pairTargetAt } from "../geometry";
+import { tanglegramGeometry } from "./geometry";
 
 const VIEW = examplePairView();
 

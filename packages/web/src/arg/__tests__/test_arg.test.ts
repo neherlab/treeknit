@@ -5,11 +5,12 @@ import type { DrawingColors } from "../../canvas/drawingColors";
 import { columnPixel } from "../../canvas/projection";
 import { exampleArgView } from "../../drawing/__tests__/fixtures";
 import { argEmphasis } from "../../drawing/selection";
-import { ARG_LAYER, argColumn, argGeometry, argTargetAt } from "../geometry";
+import { ARG_LAYER, argColumn, argTargetAt } from "../geometry";
 import { argEdgeColor, argSelectionPositions } from "../layers";
 import { argLegend } from "../legend";
 import { ARG_MISSING, argFailure } from "../outcome";
 import { argTargetRows } from "../picking";
+import { argGeometry } from "./geometry";
 
 const VIEW = exampleArgView();
 

@@ -16,7 +16,7 @@ import { NO_SELECTION, pairEmphasis, type Selection } from "../drawing/selection
 import { innerWidthPx } from "../drawing/spacing";
 import { pairLeafNames } from "../drawing/trees";
 import { tanglegramColumns } from "./columns";
-import { tanglegramGeometry } from "./geometry";
+import { tanglegramCurves, tanglegramFrame } from "./geometry";
 import { type PairStyle, ribbonsShown, tanglegramLayers } from "./layers";
 import { PAIR_PICK_RULES } from "./picking";
 import { TanglegramLegend } from "./TanglegramLegend";
@@ -49,10 +49,14 @@ export default function TanglegramCanvas({
 
   const sampledRowPx = curveRowPx(rowPx);
 
-  const geometry = useMemo(
-    () => tanglegramGeometry(data, columns, leafAxis, sampledRowPx),
+  const frameGeometry = useMemo(() => tanglegramFrame(data, columns, leafAxis), [data, columns, leafAxis]);
+
+  const curves = useMemo(
+    () => tanglegramCurves(data, columns, leafAxis, sampledRowPx),
     [data, columns, leafAxis, sampledRowPx],
   );
+
+  const geometry = useMemo(() => ({ ...frameGeometry, ...curves }), [frameGeometry, curves]);
 
   const style = useMemo<PairStyle>(
     () => ({

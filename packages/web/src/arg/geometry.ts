@@ -66,18 +66,10 @@ export function argColumn(crossPx: number, labelPx: number): Column {
   };
 }
 
-export function argGeometry(view: ArgView, column: Column, leafAxis: LeafAxis, curveRowPx: number): ArgGeometry {
-  const item = ({ edge, path }: DrawnEdge): EdgeItem => ({
-    edge,
-    segments: itemAt(view.edges, edge, "edge").segments,
-    path: projectPath(edgePoints(path, column, curveRowPx), column, leafAxis),
-  });
+export type ArgCurves = Pick<ArgGeometry, "edges" | "reticulations">;
 
-  const reticulation = (drawn: DrawnEdge) => itemAt(view.edges, drawn.edge, "edge").reticulation;
-
+export function argFrame(view: ArgView, column: Column, leafAxis: LeafAxis): Omit<ArgGeometry, keyof ArgCurves> {
   return {
-    edges: view.shapes.edges.flatMap((drawn) => (reticulation(drawn) ? [] : [item(drawn)])),
-    reticulations: view.shapes.edges.flatMap((drawn) => (reticulation(drawn) ? [item(drawn)] : [])),
     hybrids: view.shapes.marks.flatMap(({ kind, node, at }) =>
       kind === "hybrid" ? [{ node, position: projectPoint(at, column, leafAxis) }] : [],
     ),
@@ -91,6 +83,21 @@ export function argGeometry(view: ArgView, column: Column, leafAxis: LeafAxis, c
     nodes: argNodePoints(view).map((point) =>
       point === undefined ? undefined : projectPoint(point, column, leafAxis),
     ),
+  };
+}
+
+export function argCurves(view: ArgView, column: Column, leafAxis: LeafAxis, curveRowPx: number): ArgCurves {
+  const item = ({ edge, path }: DrawnEdge): EdgeItem => ({
+    edge,
+    segments: itemAt(view.edges, edge, "edge").segments,
+    path: projectPath(edgePoints(path, column, curveRowPx), column, leafAxis),
+  });
+
+  const reticulation = (drawn: DrawnEdge) => itemAt(view.edges, drawn.edge, "edge").reticulation;
+
+  return {
+    edges: view.shapes.edges.flatMap((drawn) => (reticulation(drawn) ? [] : [item(drawn)])),
+    reticulations: view.shapes.edges.flatMap((drawn) => (reticulation(drawn) ? [item(drawn)] : [])),
   };
 }
 

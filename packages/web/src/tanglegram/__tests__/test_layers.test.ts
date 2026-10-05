@@ -10,7 +10,7 @@ import { DOT_PX, type StyledPathLayer } from "../../canvas/layers/pathLayer";
 import { examplePairView } from "../../drawing/__tests__/fixtures";
 import { pairEmphasis, UNSELECTED_OPACITY } from "../../drawing/selection";
 import { tanglegramColumns } from "../columns";
-import { PAIR_LAYER, tanglegramGeometry } from "../geometry";
+import { PAIR_LAYER } from "../geometry";
 import {
   branchColor,
   labelColor,
@@ -23,6 +23,7 @@ import {
   selectionPositions,
   tanglegramLayers,
 } from "../layers";
+import { tanglegramGeometry } from "./geometry";
 
 const COLORS: DrawingColors = {
   ground: [243, 245, 244, 255],

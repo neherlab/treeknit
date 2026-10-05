@@ -86,12 +86,13 @@ export const PAIR_LAYER = {
 
 export type PairLayerId = (typeof PAIR_LAYER)[keyof typeof PAIR_LAYER];
 
-export function tanglegramGeometry(
+export type TanglegramCurves = Pick<TanglegramGeometry, "links" | "ribbons">;
+
+export function tanglegramFrame(
   view: PairView,
   columns: TanglegramColumns,
   leafAxis: LeafAxis,
-  curveRowPx: number,
-): TanglegramGeometry {
+): Omit<TanglegramGeometry, keyof TanglegramCurves> {
   const left = treeGeometry(view, "left", columns.left, leafAxis);
   const right = treeGeometry(view, "right", columns.right, leafAxis);
 
@@ -106,6 +107,21 @@ export function tanglegramGeometry(
       imputed: [...left.marks.imputed, ...right.marks.imputed],
     },
     leaders: [...left.leaders, ...right.leaders],
+    labels: {
+      left: labelItems(view, "left", columns.leftLabels.start, leafAxis),
+      right: labelItems(view, "right", columns.rightLabels.end, leafAxis),
+    },
+    nodes: { left: left.nodes, right: right.nodes },
+  };
+}
+
+export function tanglegramCurves(
+  view: PairView,
+  columns: TanglegramColumns,
+  leafAxis: LeafAxis,
+  curveRowPx: number,
+): TanglegramCurves {
+  return {
     links: view.shapes.links.map(({ link, slot, curve }) => ({
       link,
       mcc: itemAt(view.links, link, "link").mcc,
@@ -122,11 +138,6 @@ export function tanglegramGeometry(
       slot,
       polygon: projectPath(sampleCubicChain(outline, columns.links, curveRowPx), columns.links, leafAxis),
     })),
-    labels: {
-      left: labelItems(view, "left", columns.leftLabels.start, leafAxis),
-      right: labelItems(view, "right", columns.rightLabels.end, leafAxis),
-    },
-    nodes: { left: left.nodes, right: right.nodes },
   };
 }
 
