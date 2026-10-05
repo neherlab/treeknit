@@ -1,6 +1,6 @@
 import type { LabelMode, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
 import { stringifySearchWith } from "@tanstack/react-router";
-import { omit } from "remeda";
+import { isDeepEqual, omit } from "remeda";
 import * as z from "zod";
 
 export const WORKSPACE_VIEWS = [
@@ -148,6 +148,17 @@ export function resolveWorkspaceSearch(search: WorkspaceSearch, availability: Wo
 
 export function resolvePair(pair: number, pairCount: number): number {
   return pair < pairCount ? pair : WORKSPACE_SEARCH_DEFAULTS.pair;
+}
+
+export function withSelectionPair(
+  written: WorkspaceSearch,
+  next: WorkspaceSearch,
+  resolvedPair: number,
+): WorkspaceSearch {
+  const selectionChanged =
+    next.mcc !== written.mcc || next.leaf !== written.leaf || !isDeepEqual(next.node, written.node);
+
+  return selectionChanged && next.pair === written.pair ? { ...next, pair: resolvedPair } : next;
 }
 
 export function selectPair(search: WorkspaceSearch, pair: number): WorkspaceSearch {

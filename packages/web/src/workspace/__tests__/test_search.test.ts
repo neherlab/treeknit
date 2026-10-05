@@ -15,6 +15,7 @@ import {
   workspaceSearchSchema,
   viewFitsTreeCount,
   type WorkspaceView,
+  withSelectionPair,
 } from "../search";
 
 const DEFAULT_SEARCH: WorkspaceSearch = {
@@ -282,5 +283,39 @@ describe("selectPair", () => {
 describe("resolvePair", () => {
   test("keeps a pair in range and falls back to the first pair otherwise", () => {
     expect([resolvePair(2, 3), resolvePair(3, 3), resolvePair(0, 0), resolvePair(5, 0)]).toStrictEqual([2, 0, 0, 0]);
+  });
+});
+
+describe("withSelectionPair", () => {
+  const HIDDEN_PAIR: WorkspaceSearch = { ...DEFAULT_SEARCH, view: "tanglegram", pair: 2 };
+
+  test("writes the shown pair with a selection made in it, so the selection and its pair agree", () => {
+    expect(withSelectionPair(HIDDEN_PAIR, { ...HIDDEN_PAIR, mcc: 4 }, 0)).toStrictEqual({
+      ...HIDDEN_PAIR,
+      pair: 0,
+      mcc: 4,
+    });
+  });
+
+  test("writes the shown pair when a leaf or node selection changes or is cleared", () => {
+    const node: NodeRef = { side: "left", name: "NODE_1" };
+
+    expect({
+      leaf: withSelectionPair(HIDDEN_PAIR, { ...HIDDEN_PAIR, leaf: "A" }, 0).pair,
+      node: withSelectionPair(HIDDEN_PAIR, { ...HIDDEN_PAIR, node }, 0).pair,
+      cleared: withSelectionPair({ ...HIDDEN_PAIR, mcc: 1 }, HIDDEN_PAIR, 0).pair,
+    }).toStrictEqual({ leaf: 0, node: 0, cleared: 0 });
+  });
+
+  test("keeps the written pair when the selection does not change", () => {
+    const next: WorkspaceSearch = { ...HIDDEN_PAIR, mcc: 1, x: "depth" };
+
+    expect(withSelectionPair({ ...HIDDEN_PAIR, mcc: 1 }, next, 0)).toStrictEqual(next);
+  });
+
+  test("keeps a pair that the change itself selects", () => {
+    const next: WorkspaceSearch = { ...HIDDEN_PAIR, pair: 1, leaf: "A" };
+
+    expect(withSelectionPair(HIDDEN_PAIR, next, 0)).toStrictEqual(next);
   });
 });
