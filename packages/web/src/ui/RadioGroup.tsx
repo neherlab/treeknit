@@ -23,7 +23,11 @@ export function RadioGroup({
   ...props
 }: RadioGroupProps) {
   return (
-    <AriaRadioGroup {...props} className={cn("group/radios flex min-w-0 flex-col gap-2", className)}>
+    <AriaRadioGroup
+      {...props}
+      isInvalid={props.isInvalid ?? errorMessage !== undefined}
+      className={cn("group/radios flex min-w-0 flex-col gap-2", className)}
+    >
       <FieldLabel label={label} labelHidden={labelHidden} info={info} />
       <div className="flex flex-col gap-x-4 gap-y-1.5 group-data-[orientation=horizontal]/radios:flex-row group-data-[orientation=horizontal]/radios:flex-wrap">
         {children}

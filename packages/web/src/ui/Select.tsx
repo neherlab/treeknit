@@ -42,7 +42,13 @@ export function Select<K extends string>({
   );
 
   return (
-    <AriaSelect {...props} value={value} onChange={select} className={cn(fieldStyle, "group/select", className)}>
+    <AriaSelect
+      {...props}
+      isInvalid={props.isInvalid ?? errorMessage !== undefined}
+      value={value}
+      onChange={select}
+      className={cn(fieldStyle, "group/select", className)}
+    >
       <FieldLabel label={label} labelHidden={labelHidden} info={info} />
       <AriaButton
         className={cn(

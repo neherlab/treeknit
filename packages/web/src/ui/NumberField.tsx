@@ -25,7 +25,11 @@ export function NumberField({
   ...props
 }: NumberFieldProps) {
   return (
-    <AriaNumberField {...props} className={cn(fieldStyle, className)}>
+    <AriaNumberField
+      {...props}
+      isInvalid={props.isInvalid ?? errorMessage !== undefined}
+      className={cn(fieldStyle, className)}
+    >
       <FieldLabel label={label} labelHidden={labelHidden} info={info} />
       <Group className={cn(inputStyle(), "flex items-stretch overflow-hidden px-0")}>
         <Input

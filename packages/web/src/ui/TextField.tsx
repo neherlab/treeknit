@@ -25,7 +25,11 @@ export function TextField({
   ...props
 }: TextFieldProps) {
   return (
-    <AriaTextField {...props} className={cn(fieldStyle, className)}>
+    <AriaTextField
+      {...props}
+      isInvalid={props.isInvalid ?? errorMessage !== undefined}
+      className={cn(fieldStyle, className)}
+    >
       <FieldLabel label={label} labelHidden={labelHidden} info={info} />
       {multiline ? (
         <TextArea rows={rows} placeholder={placeholder ?? ""} className={inputStyle({ multiline: true, mono })} />
