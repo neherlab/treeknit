@@ -19,7 +19,6 @@ set script-interpreter := ["mise", "exec", "--", "bash", "-euo", "pipefail"]
 # User-defined functions, for the build modes
 set unstable
 
-export CARGO_TERM_QUIET := "true"
 export NEXTEST_NO_TESTS := "fail"
 
 # Build output of the checkout. dev/docker/run points TREEKNIT_BUILD_DIR at

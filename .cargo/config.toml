@@ -1,3 +1,12 @@
+# Cargo prints warnings, errors, and the output of the programs it runs, but no
+# status line for each crate it downloads or compiles. The setting applies to
+# every cargo command in the checkout: on the host, in the build container, and
+# in CI. `--verbose` or CARGO_TERM_QUIET=false shows the status lines.
+# `cargo install` reads no project configuration; .config/mise.toml silences the
+# tools that mise builds with it.
+[term]
+quiet = true
+
 # Settings of the kache compiler cache, which cargo passes to the rustc wrapper.
 # `force` overrides the environment, so every checkout and worktree compiles
 # with the same settings.
