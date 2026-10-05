@@ -9,3 +9,5 @@
 /.vscode
 /tmp*
 target
+node_modules
+dist

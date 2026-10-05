@@ -138,18 +138,19 @@ passthrough_env() {
 }
 passthrough_env
 
-# The cargo home lives under .cache of the checkout; build output goes to
-# .build/container, apart from host builds in .build/host. The cargo home is
-# mounted at one fixed path in every checkout, so the registry source paths that
-# compiled crates record, and that kache shares between worktrees, exist in each
-# of them.
-mkdir -p "${root}/.cache/cargo" "${root}/.build/container"
+# The cargo home and the bun cache live under .cache of the checkout; build
+# output goes to .build/container, apart from host builds in .build/host. The
+# cargo home is mounted at one fixed path in every checkout, so the registry
+# source paths that compiled crates record, and that kache shares between
+# worktrees, exist in each of them.
+mkdir -p "${root}/.cache/cargo" "${root}/.cache/bun" "${root}/.build/container"
 run_flags+=(
   --env="HOME=/tmp/home"
   --env="MISE_TRUSTED_CONFIG_PATHS=${root}"
   --volume="${root}/.cache/cargo:/cargo-home"
   --env="CARGO_HOME=/cargo-home"
   --env="TREEKNIT_BUILD_DIR=${root}/.build/container"
+  --env="BUN_INSTALL_CACHE_DIR=${root}/.cache/bun"
 )
 if [[ -n "${KACHE_STORE:-}" ]]; then
   mkdir -p "${KACHE_STORE}"

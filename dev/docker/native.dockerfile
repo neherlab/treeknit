@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # check=experimental=all
 #
-# Development image: the Rust toolchain and the lint and test tools.
+# Development image: the Rust toolchain, Bun, and the lint and test tools.
 # dev/docker/run builds it and runs every command as the host user, with
 # HOME=/tmp/home and the cargo home in the checkout. Ubuntu 24.04 keeps the
 # glibc of the binaries built here no newer than on current hosts, so the
@@ -60,7 +60,8 @@ done \
 && chmod -R a+rX "${MISE_DATA_DIR}" \
 && rm -rf "/tmp/mise" "/install-mise" "/mise-version" \
 && just --version \
-&& cargo nextest --version
+&& cargo nextest --version \
+&& bun --version
 
 # dev/docker/run runs as the host user with HOME=/tmp/home.
 RUN set -euxo pipefail >/dev/null \
