@@ -3,14 +3,18 @@
 
 #[cfg(test)]
 mod tests {
-  use js_sys::{Error, Function, JSON};
+  use js_sys::{Date, Error, Function, JSON};
   use pretty_assertions::assert_eq;
   use serde_json::{Value, json};
+  use std::cell::RefCell;
+  use std::collections::BTreeSet;
+  use std::rc::Rc;
   use treeknit_core::{Options, Resolution, Taxa, Tree};
   use treeknit_io::newick;
   use treeknit_wasm::Session;
   use tsify::{Ts, Tsify};
-  use wasm_bindgen::{JsError, JsValue};
+  use wasm_bindgen::prelude::Closure;
+  use wasm_bindgen::{JsCast, JsError, JsValue};
   use wasm_bindgen_test::wasm_bindgen_test;
 
   #[wasm_bindgen_test]
@@ -151,19 +155,196 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
-  fn not_built_exports_throw_not_implemented() {
+  fn session_run_throws_the_error_of_the_progress_callback() {
+    let error = match Session::run(
+      &ts(&two_trees()),
+      &Function::new_no_args("throw new RangeError('stop')"),
+    ) {
+      Ok(_) => panic!("expected the error of the callback"),
+      Err(e) => Error::from(e),
+    };
+    assert_eq!(
+      ("RangeError".to_owned(), "stop".to_owned()),
+      (String::from(error.name()), String::from(error.message()))
+    );
+  }
+
+  #[wasm_bindgen_test]
+  fn session_run_reports_plain_progress_to_done() {
+    let events: Rc<RefCell<Vec<Value>>> = Rc::default();
+    let sink = Rc::clone(&events);
+    let callback = Closure::<dyn FnMut(JsValue)>::new(move |p: JsValue| sink.borrow_mut().push(plain(&p)));
+    Session::run(&ts(&two_trees()), callback.as_ref().unchecked_ref()).unwrap();
+    let events = events.borrow();
+    let keys: BTreeSet<BTreeSet<&str>> = events
+      .iter()
+      .map(|e| e.as_object().unwrap().keys().map(String::as_str).collect())
+      .collect();
+    let expected = BTreeSet::from(["fraction", "pair", "pairs", "phase", "round", "rounds"]);
+    assert_eq!(BTreeSet::from([expected]), keys);
+    let fractions: Vec<f64> = events.iter().map(|e| e["fraction"].as_f64().unwrap()).collect();
+    // Oracle: the progress contract of `treeknit_core::Progress`: never decreasing, and only the
+    // final `done` event reports 1.
+    assert!(fractions.is_sorted_by(|a, b| a <= b), "{fractions:?}");
+    let last = events.last().unwrap();
+    assert_eq!(
+      (json!("done"), Some(1.0)),
+      (last["phase"].clone(), last["fraction"].as_f64())
+    );
+    assert_eq!(1, fractions.iter().filter(|&&f| f >= 1.0).count());
+  }
+
+  #[wasm_bindgen_test]
+  fn session_summary_of_the_two_tree_example_matches_the_reference() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    // Oracle: fixtures/doc_mccs_1.json (TreeKnit.jl): MCCs [X] and [A,B,C,D], one reassortment.
+    let expected = json!({
+        "pairs": [{
+            "index": 0, "labels": ["ha", "na"], "mccCount": 2, "mccs": [["X"], ["A", "B", "C", "D"]],
+            "imputedCount": 0, "ambiguousCount": 0,
+        }],
+        "arg": {"status": "built", "reassortments": 1},
+        "diagnostics": [],
+    });
+    assert_eq!(expected, plain(&session.summary().unwrap().js_value()));
+  }
+
+  #[wasm_bindgen_test]
+  fn session_summary_has_the_warnings_of_the_run() {
     let request = json!({
         "trees": [
-            {"label": "ha", "newick": "((A,B),(C,(D,X)));"},
+            {"label": "ha", "newick": "((A,B),(C,(D,X)));\n(A,B);"},
+            {"label": "na", "newick": "((A,(B,X)),(C,D):0.R);"},
+        ],
+    });
+    let session = Session::run(&ts(&request), &Function::new_no_args("")).unwrap();
+    let diagnostics = plain(&session.summary().unwrap().js_value())["diagnostics"].clone();
+    // Oracle: the warning lines of `newick::ParseWarning::log`, which the command line writes.
+    let expected = json!([
+        {"level": "warn", "message": "ha: more than one tree in file, using the first"},
+        {"level": "warn", "message": "ignoring invalid branch length '0.R'"},
+    ]);
+    let without_time: Vec<Value> = diagnostics
+      .as_array()
+      .unwrap()
+      .iter()
+      .map(|d| json!({"level": d["level"], "message": d["message"]}))
+      .collect();
+    assert_eq!(expected, json!(without_time));
+    let time = diagnostics[0]["time"].as_str().unwrap();
+    assert!(!Date::parse(time).is_nan() && time.ends_with('Z'), "{time}");
+  }
+
+  #[wasm_bindgen_test]
+  fn session_run_log_leaves_out_records_of_earlier_exports() {
+    let request = json!({
+        "trees": [
+            {"label": "ha", "newick": "((A,B),(C,(D,X)));\n(A,B);"},
             {"label": "na", "newick": "((A,(B,X)),(C,D));"},
         ],
     });
-    let error = match Session::run(&ts(&request), &Function::new_no_args("")) {
+    treeknit_wasm::validate(&ts(&request)).unwrap();
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let summary = plain(&session.summary().unwrap().js_value());
+    assert_eq!(json!([]), summary["diagnostics"]);
+    assert!(!session.file_text("log.txt").unwrap().contains("more than one tree"));
+  }
+
+  #[wasm_bindgen_test]
+  fn session_files_list_every_output_with_its_size() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let files = plain_list(&session.files().unwrap());
+    let paths: Vec<&str> = files
+      .as_array()
+      .unwrap()
+      .iter()
+      .map(|f| f["path"].as_str().unwrap())
+      .collect();
+    let expected = vec![
+      "treeknit_request.json",
+      "MCCs.json",
+      "MCCs.dat",
+      "ha_resolved.nwk",
+      "na_resolved.nwk",
+      "ha_imputed.nwk",
+      "na_imputed.nwk",
+      "auspice_ha.json",
+      "auspice_na.json",
+      "ARG/arg.nwk",
+      "ARG/nodes.dat",
+      "ARG/ha_liberal_resolved.nwk",
+      "ARG/na_liberal_resolved.nwk",
+      "parameters.json",
+      "log.txt",
+    ];
+    assert_eq!(expected, paths);
+    let sizes_match = files.as_array().unwrap().iter().all(|f| {
+      let text = session.file_text(f["path"].as_str().unwrap()).unwrap();
+      f["size"] == json!(text.len())
+    });
+    assert!(sizes_match, "{files}");
+    assert_eq!(
+      json!({"path": "MCCs.dat", "mediaType": "text/plain", "size": 9}),
+      files[2]
+    );
+  }
+
+  #[wasm_bindgen_test]
+  fn session_file_texts_hold_the_request_and_the_log() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let request = plain(
+      &treeknit_wasm::read_request(&session.file_text("treeknit_request.json").unwrap())
+        .unwrap()
+        .js_value(),
+    );
+    assert_eq!(
+      json!(["ha", "na"]),
+      json!([request["trees"][0]["label"], request["trees"][1]["label"]])
+    );
+    let log = session.file_text("log.txt").unwrap();
+    // Oracle: the layout of the command-line log, `<time> [LEVEL] <message>`, whose first line
+    // names the version.
+    let (time, rest) = log.split_once(' ').unwrap();
+    assert!(!Date::parse(time).is_nan(), "{log}");
+    assert!(rest.starts_with("[INFO] TreeKnit "), "{log}");
+    assert!(log.ends_with('\n'));
+  }
+
+  #[wasm_bindgen_test]
+  fn session_file_text_of_an_unlisted_path_throws() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    match session.file_text("nope.txt") {
       Ok(_) => panic!("expected an error"),
-      Err(e) => Error::from(e),
-    };
-    assert_eq!("Error", String::from(error.name()));
-    assert_eq!("not implemented: Session.run", String::from(error.message()));
+      Err(e) => assert_eq!("no file nope.txt", message(e)),
+    }
+  }
+
+  #[wasm_bindgen_test]
+  fn session_zip_holds_every_listed_file() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let bytes = session.zip().unwrap();
+    assert_eq!(b"PK\x03\x04", &bytes[..4]);
+    let listed = plain_list(&session.files().unwrap());
+    let missing: Vec<&str> = listed
+      .as_array()
+      .unwrap()
+      .iter()
+      .map(|f| f["path"].as_str().unwrap())
+      .filter(|p| {
+        let name = format!("treeknit_results/{p}");
+        !bytes.windows(name.len()).any(|w| w == name.as_bytes())
+      })
+      .collect();
+    assert_eq!(Vec::<&str>::new(), missing);
+  }
+
+  #[wasm_bindgen_test]
+  fn session_command_line_runs_the_session_file() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    assert_eq!(
+      "treeknit --request treeknit_results/treeknit_request.json --impute --auspice-view",
+      session.command_line()
+    );
   }
 
   #[wasm_bindgen_test]
@@ -265,6 +446,16 @@ mod tests {
     assert_eq!(expected, actual);
     assert_eq!(json!("#2f4b9a"), actual["light"]["mcc"][0]);
     assert_eq!(json!("#83908d"), actual["light"]["noMcc"]);
+  }
+
+  /// The two-tree example: X moved between the trees.
+  fn two_trees() -> Value {
+    json!({
+        "trees": [
+            {"label": "ha", "newick": "((A,B),(C,(D,X)));"},
+            {"label": "na", "newick": "((A,(B,X)),(C,D));"},
+        ],
+    })
   }
 
   fn ts<T: Tsify>(v: &Value) -> Ts<T> {
