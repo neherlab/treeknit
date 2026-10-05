@@ -1,8 +1,8 @@
 import type { VariantProps } from "class-variance-authority";
 import { cn } from "cn";
+import type { ComponentType, SVGProps } from "react";
 import { Button as AriaButton, type ButtonProps as AriaButtonProps, composeRenderProps } from "react-aria-components";
 
-import type { IconComponent } from "./icon";
 import { buttonStyle } from "./styles";
 
 export function Button({ variant, size, icon: Icon, className, children, ...props }: ButtonProps) {
@@ -22,5 +22,5 @@ export function Button({ variant, size, icon: Icon, className, children, ...prop
 }
 
 export interface ButtonProps extends AriaButtonProps, Omit<VariantProps<typeof buttonStyle>, "iconOnly"> {
-  icon?: IconComponent;
+  icon?: ComponentType<SVGProps<SVGSVGElement>>;
 }

@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 import {
   composeRenderProps,
   Header,
@@ -18,7 +18,6 @@ import {
 import CheckIcon from "~icons/lucide/check";
 import ChevronRightIcon from "~icons/lucide/chevron-right";
 
-import type { IconComponent } from "./icon";
 import { listBoxStyle, popoverStyle } from "./styles";
 
 const POPOVER_OFFSET_PX = 4;
@@ -65,7 +64,7 @@ export function MenuItem({ icon: Icon, tone = "default", className, children, ..
 }
 
 export interface MenuItemProps extends AriaMenuItemProps {
-  icon?: IconComponent;
+  icon?: ComponentType<SVGProps<SVGSVGElement>>;
   tone?: "default" | "danger";
 }
 

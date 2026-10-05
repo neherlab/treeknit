@@ -1,15 +1,13 @@
 import { cva } from "class-variance-authority";
 import { cn } from "cn";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 import DangerIcon from "~icons/lucide/circle-alert";
 import InfoIcon from "~icons/lucide/info";
 import WarningIcon from "~icons/lucide/triangle-alert";
 
-import type { IconComponent } from "./icon";
-
 export type NoticeTone = "info" | "warning" | "danger";
 
-const TONE_ICONS: Record<NoticeTone, IconComponent> = {
+const TONE_ICONS: Record<NoticeTone, ComponentType<SVGProps<SVGSVGElement>>> = {
   info: InfoIcon,
   warning: WarningIcon,
   danger: DangerIcon,

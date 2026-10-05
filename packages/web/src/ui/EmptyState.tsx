@@ -1,7 +1,5 @@
 import { cn } from "cn";
-import type { ReactNode } from "react";
-
-import type { IconComponent } from "./icon";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 
 export function EmptyState({ icon: Icon, title, action, className, children }: EmptyStateProps) {
   return (
@@ -15,7 +13,7 @@ export function EmptyState({ icon: Icon, title, action, className, children }: E
 }
 
 export interface EmptyStateProps {
-  icon?: IconComponent;
+  icon?: ComponentType<SVGProps<SVGSVGElement>>;
   title: ReactNode;
   action?: ReactNode;
   className?: string;

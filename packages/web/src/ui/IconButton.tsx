@@ -1,8 +1,8 @@
 import type { VariantProps } from "class-variance-authority";
 import { cn } from "cn";
+import type { ComponentType, SVGProps } from "react";
 import { Button as AriaButton, type ButtonProps as AriaButtonProps, composeRenderProps } from "react-aria-components";
 
-import type { IconComponent } from "./icon";
 import { buttonStyle } from "./styles";
 import { TooltipTrigger, type TooltipTriggerProps } from "./TooltipTrigger";
 
@@ -33,6 +33,6 @@ export function IconButton({
 export interface IconButtonProps
   extends Omit<AriaButtonProps, "children" | "aria-label">, Omit<VariantProps<typeof buttonStyle>, "iconOnly"> {
   label: string;
-  icon: IconComponent;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
   tooltipPlacement?: TooltipTriggerProps["placement"];
 }

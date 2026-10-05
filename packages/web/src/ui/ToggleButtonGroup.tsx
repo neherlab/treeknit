@@ -1,4 +1,5 @@
 import { cn } from "cn";
+import type { ComponentType, SVGProps } from "react";
 import {
   composeRenderProps,
   ToggleButton as AriaToggleButton,
@@ -8,7 +9,6 @@ import {
   type ToggleButtonGroupProps as AriaToggleButtonGroupProps,
 } from "react-aria-components";
 
-import type { IconComponent } from "./icon";
 import { focusRing } from "./styles";
 import { TooltipTrigger } from "./TooltipTrigger";
 
@@ -17,7 +17,7 @@ export function ToggleButtonGroup({
   disallowEmptySelection = true,
   className,
   ...props
-}: ToggleButtonGroupProps) {
+}: AriaToggleButtonGroupProps) {
   return (
     <AriaToggleButtonGroup
       {...props}
@@ -34,8 +34,6 @@ export function ToggleButtonGroup({
     />
   );
 }
-
-export type ToggleButtonGroupProps = AriaToggleButtonGroupProps;
 
 export function ToggleButton({ label, icon: Icon, iconOnly = false, ...props }: ToggleButtonProps) {
   const button = (
@@ -71,6 +69,6 @@ export function ToggleButton({ label, icon: Icon, iconOnly = false, ...props }: 
 export interface ToggleButtonProps extends Pick<AriaToggleButtonProps, "isDisabled"> {
   id: Key;
   label: string;
-  icon?: IconComponent;
+  icon?: ComponentType<SVGProps<SVGSVGElement>>;
   iconOnly?: boolean;
 }

@@ -1,4 +1,5 @@
 import { cn } from "cn";
+import type { ComponentType, SVGProps } from "react";
 import {
   Button as AriaButton,
   ButtonContext,
@@ -12,7 +13,6 @@ import DecreaseIcon from "~icons/lucide/chevron-down";
 import IncreaseIcon from "~icons/lucide/chevron-up";
 
 import { FieldDescription, FieldErrorMessage, FieldLabel, type FieldProps } from "./Field";
-import type { IconComponent } from "./icon";
 import { fieldStyle, inputStyle } from "./styles";
 import { TooltipTrigger } from "./TooltipTrigger";
 
@@ -76,5 +76,5 @@ function StepButton({ slot, icon: Icon }: StepButtonProps) {
 
 interface StepButtonProps {
   slot: "increment" | "decrement";
-  icon: IconComponent;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
 }

@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { type ComponentType, type SVGProps, useCallback, useEffect, useId, useMemo, useState } from "react";
 import CopiedIcon from "~icons/lucide/check";
 import FailedIcon from "~icons/lucide/circle-alert";
 import CopyIcon from "~icons/lucide/copy";
@@ -7,11 +7,10 @@ import CopyIcon from "~icons/lucide/copy";
 import { Button } from "./Button";
 import { type CodeLine, codeLines, type TextRange } from "./codeLines";
 import { copyFeedback, type CopyState } from "./copyFeedback";
-import type { IconComponent } from "./icon";
 import { revealScroll } from "./revealScroll";
 import { nativeFocusRing } from "./styles";
 
-const COPY_BUTTON: Record<CopyState, { label: string; icon: IconComponent }> = {
+const COPY_BUTTON: Record<CopyState, { label: string; icon: ComponentType<SVGProps<SVGSVGElement>> }> = {
   idle: { label: "Copy", icon: CopyIcon },
   copied: { label: "Copied", icon: CopiedIcon },
   failed: { label: "Copy failed", icon: FailedIcon },
