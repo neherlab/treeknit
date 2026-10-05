@@ -207,15 +207,7 @@ pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationErro
   if parsed.len() < trees.len() {
     return Err(errors);
   }
-  let taxa = Taxa::from_trees(&parsed);
-  for t in &mut parsed {
-    #[expect(
-      clippy::expect_used,
-      reason = "the table is built from these trees, so it holds every leaf"
-    )]
-    t.assign_taxa(&taxa)
-      .expect("the taxon table built from the trees holds every leaf of every tree");
-  }
+  let ParsedTrees { trees: parsed, taxa } = number_leaves(parsed);
   errors.extend(
     shared_leaf_counts(&parsed, taxa.len())
       .into_iter()
@@ -235,6 +227,20 @@ pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationErro
   } else {
     Err(errors)
   }
+}
+
+/// Number the leaves of `trees` with one taxon table built from all their leaves.
+pub fn number_leaves(mut trees: Vec<Tree>) -> ParsedTrees {
+  let taxa = Taxa::from_trees(&trees);
+  for t in &mut trees {
+    #[expect(
+      clippy::expect_used,
+      reason = "the table is built from these trees, so it holds every leaf"
+    )]
+    t.assign_taxa(&taxa)
+      .expect("the taxon table built from the trees holds every leaf of every tree");
+  }
+  ParsedTrees { trees, taxa }
 }
 
 /// Check the settings of a request with `k` trees.

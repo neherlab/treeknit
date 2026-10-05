@@ -3,7 +3,7 @@
 use crate::analysis::{self, MIN_SHARED_LEAVES, TreeText};
 use crate::newick;
 use serde::Serialize;
-use treeknit_core::{Taxa, Tree};
+use treeknit_core::Tree;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
@@ -151,23 +151,12 @@ pub fn overlap(trees: &[TreeText]) -> Overlap {
       Err(_) => failed.push(i),
     }
   }
-  let taxa = Taxa::from_trees(&parsed);
-  let mut numbered = Vec::with_capacity(parsed.len());
-  let mut kept = Vec::with_capacity(parsed.len());
-  for (mut t, i) in parsed.into_iter().zip(indices) {
-    // The taxon table holds every leaf of the parsed trees, so this does not fail.
-    if t.assign_taxa(&taxa).is_ok() {
-      numbered.push(t);
-      kept.push(i);
-    } else {
-      failed.push(i);
-    }
-  }
-  failed.sort_unstable();
-  let total_leaves = taxa.len();
+  let numbered = analysis::number_leaves(parsed);
+  let total_leaves = numbered.taxa.len();
   let tree_overlaps = numbered
+    .trees
     .iter()
-    .zip(&kept)
+    .zip(&indices)
     .map(|(t, &i)| TreeOverlap {
       index: i,
       label: trees[i].label.clone(),
@@ -175,11 +164,11 @@ pub fn overlap(trees: &[TreeText]) -> Overlap {
       missing: total_leaves - t.n_leaves(),
     })
     .collect();
-  let pairs = analysis::shared_leaf_counts(&numbered, total_leaves)
+  let pairs = analysis::shared_leaf_counts(&numbered.trees, total_leaves)
     .into_iter()
     .map(|p| PairOverlap {
-      i: kept[p.i],
-      j: kept[p.j],
+      i: indices[p.i],
+      j: indices[p.j],
       shared: p.shared,
       blocked: p.shared < MIN_SHARED_LEAVES,
     })
