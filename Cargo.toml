@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["packages/treeknit-core", "packages/treeknit-io", "packages/treeknit-cli"]
+members = ["packages/treeknit-core", "packages/treeknit-io", "packages/treeknit-cli", "packages/web"]
 
 [workspace.package]
 description = "Inference of reassortment from segment trees"
@@ -67,6 +67,7 @@ log = "=0.4.34"
 rand = { version = "=0.8.8", default-features = false }
 rand_xoshiro = "=0.6.0"
 rayon = "=1.12.0"
+serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["preserve_order"] }
 simplelog = "=0.12.2"
 
