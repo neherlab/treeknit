@@ -54,3 +54,7 @@ export function progressPercent(progress: Progress | null): number | null {
 function roundAndPair({ round, rounds, pair, pairs }: Progress): string {
   return `Round ${String(round)} of ${String(rounds)}, pair ${String(pair)} of ${String(pairs)}`;
 }
+
+export function isRunShortcut(key: string, ctrlKey: boolean, metaKey: boolean): boolean {
+  return key === "Enter" && (ctrlKey || metaKey);
+}

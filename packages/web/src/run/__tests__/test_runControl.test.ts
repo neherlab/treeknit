@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 import {
   ADD_ANOTHER_TREE,
   FIX_THE_ERRORS,
+  isRunShortcut,
   MATCHING_TOPOLOGIES,
   progressLabel,
   progressPercent,
@@ -60,5 +61,14 @@ describe("run control", () => {
       matching: progressPercent({ ...PROGRESS, phase: "matching" }),
       done: progressPercent({ ...PROGRESS, phase: "done", fraction: 1 }),
     }).toStrictEqual({ start: null, pairs: 43, matching: null, done: 100 });
+  });
+
+  test("runs on Ctrl+Enter and Cmd+Enter only", () => {
+    expect([
+      isRunShortcut("Enter", true, false),
+      isRunShortcut("Enter", false, true),
+      isRunShortcut("Enter", false, false),
+      isRunShortcut("Escape", true, false),
+    ]).toStrictEqual([true, true, false, false]);
   });
 });

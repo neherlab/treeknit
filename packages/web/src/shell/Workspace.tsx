@@ -1,6 +1,7 @@
 import { cn } from "cn";
 import { useCallback, useState } from "react";
 
+import { useRunShortcut } from "../run/useRunShortcut";
 import { Dialog } from "../ui/Dialog";
 import { CenterViews } from "./CenterViews";
 import { Inspector } from "./Inspector";
@@ -22,6 +23,7 @@ export function Workspace() {
   const [inspectorOpen, setInspectorOpen] = useSheetOpen(layout.inspector);
   const railSheet = layout.rail === "sheet";
   const inspectorSheet = layout.inspector === "sheet";
+  const runShortcut = useRunShortcut();
 
   const openRail = useCallback(() => {
     setRailOpen(true);
@@ -32,7 +34,7 @@ export function Workspace() {
   }, [setInspectorOpen]);
 
   return (
-    <div className="flex min-h-0 flex-1">
+    <div {...runShortcut} className="flex min-h-0 flex-1">
       {railSheet ? null : (
         <aside
           aria-label={RAIL_TITLE}
