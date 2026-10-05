@@ -1,4 +1,10 @@
-import { isViewAvailable, WORKSPACE_VIEWS, type WorkspaceAvailability, type WorkspaceView } from "../workspace/search";
+import {
+  isViewAvailable,
+  viewFitsTreeCount,
+  WORKSPACE_VIEWS,
+  type WorkspaceAvailability,
+  type WorkspaceView,
+} from "../workspace/search";
 
 export interface ViewTab {
   view: WorkspaceView;
@@ -16,15 +22,10 @@ const VIEW_LABELS: Record<WorkspaceView, string> = {
   diagnostics: "Diagnostics",
 };
 
-const VIEW_FITS_TREE_COUNT: Partial<Record<WorkspaceView, (treeCount: number) => boolean>> = {
-  arg: (treeCount) => treeCount === 2,
-  constellation: (treeCount) => treeCount >= 3,
-};
-
 export function viewTabs(availability: WorkspaceAvailability): ViewTab[] {
   const treeCount = availability.hasResult ? availability.resultTreeCount : availability.treeCount;
 
-  return WORKSPACE_VIEWS.filter((view) => VIEW_FITS_TREE_COUNT[view]?.(treeCount) ?? true).map((view) => ({
+  return WORKSPACE_VIEWS.filter((view) => viewFitsTreeCount(view, treeCount)).map((view) => ({
     view,
     label: VIEW_LABELS[view],
     isDisabled: !isViewAvailable(view, availability),

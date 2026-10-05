@@ -13,6 +13,7 @@ import {
   type WorkspaceAvailability,
   type WorkspaceSearch,
   workspaceSearchSchema,
+  viewFitsTreeCount,
   type WorkspaceView,
 } from "../search";
 
@@ -146,6 +147,18 @@ describe("parseNodeRef", () => {
     const node: NodeRef = { side: "right", name: "NODE_12:x" };
 
     expect(parseNodeRef(formatNodeRef(node))).toStrictEqual(node);
+  });
+});
+
+describe("viewFitsTreeCount", () => {
+  test.each([
+    { view: "arg", treeCount: 2, expected: true },
+    { view: "arg", treeCount: 3, expected: false },
+    { view: "constellation", treeCount: 2, expected: false },
+    { view: "constellation", treeCount: 3, expected: true },
+    { view: "tanglegram", treeCount: 1, expected: true },
+  ] as const)("$view for $treeCount trees: $expected", ({ view, treeCount, expected }) => {
+    expect(viewFitsTreeCount(view, treeCount)).toBe(expected);
   });
 });
 

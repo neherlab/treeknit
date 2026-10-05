@@ -99,18 +99,27 @@ export const NO_WORKSPACE: WorkspaceAvailability = {
   nodeExists: () => false,
 };
 
+const VIEW_TREE_COUNT: Partial<Record<WorkspaceView, (treeCount: number) => boolean>> = {
+  arg: (treeCount) => treeCount === 2,
+  constellation: (treeCount) => treeCount >= 3,
+};
+
 const VIEW_AVAILABLE: Record<WorkspaceView, (availability: WorkspaceAvailability) => boolean> = {
   overview: () => true,
   tanglegram: ({ hasResult, pairCount }) => hasResult && pairCount > 0,
-  arg: ({ hasResult, resultTreeCount }) => hasResult && resultTreeCount === 2,
+  arg: ({ hasResult }) => hasResult,
   mccs: ({ hasResult, pairCount }) => hasResult && pairCount > 0,
-  constellation: ({ hasResult, resultTreeCount }) => hasResult && resultTreeCount >= 3,
+  constellation: ({ hasResult }) => hasResult,
   files: ({ hasResult }) => hasResult,
   diagnostics: ({ hasResult }) => hasResult,
 };
 
+export function viewFitsTreeCount(view: WorkspaceView, treeCount: number): boolean {
+  return VIEW_TREE_COUNT[view]?.(treeCount) ?? true;
+}
+
 export function isViewAvailable(view: WorkspaceView, availability: WorkspaceAvailability): boolean {
-  return VIEW_AVAILABLE[view](availability);
+  return viewFitsTreeCount(view, availability.resultTreeCount) && VIEW_AVAILABLE[view](availability);
 }
 
 export function resolveWorkspaceSearch(search: WorkspaceSearch, availability: WorkspaceAvailability): WorkspaceSearch {
