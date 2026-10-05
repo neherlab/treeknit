@@ -1,7 +1,7 @@
 //! An SVG document writer over `quick-xml`, which escapes attribute values and text, with the
 //! pixel frame, path data, text width estimate, and legend shared by the figures.
 
-use crate::display::{Bezier, DRAWING_RULES, Point, label_max_chars, shorten};
+use crate::display::{Bezier, DRAWING_RULES, Leader, Point, label_max_chars, shorten};
 use quick_xml::Writer;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::borrow::Cow;
@@ -36,20 +36,20 @@ const CHAR_EM: f64 = 0.5625;
 /// Fonts of the figure text.
 const FONT_FAMILY: &str = "IBM Plex Sans, Helvetica, Arial, sans-serif";
 /// Fonts of the leaf labels: the condensed cut first, as in the interactive views.
-pub(super) const LABEL_FONT_FAMILY: &str = "IBM Plex Sans Condensed, IBM Plex Sans, Helvetica, Arial, sans-serif";
+const LABEL_FONT_FAMILY: &str = "IBM Plex Sans Condensed, IBM Plex Sans, Helvetica, Arial, sans-serif";
 
 /// Strokes and marks of the drawing rules.
 pub(super) const BRANCH_WIDTH: f64 = DRAWING_RULES.branch_width_px;
 pub(super) const REASSORTMENT_WIDTH: f64 = DRAWING_RULES.reassortment_width_px;
 pub(super) const LINK_WIDTH: f64 = DRAWING_RULES.link_width_px;
-pub(super) const LEADER_WIDTH: f64 = DRAWING_RULES.leader_width_px;
-pub(super) const LEADER_OPACITY: f64 = DRAWING_RULES.leader_opacity;
+const LEADER_WIDTH: f64 = DRAWING_RULES.leader_width_px;
+const LEADER_OPACITY: f64 = DRAWING_RULES.leader_opacity;
 pub(super) const MARK_RADIUS: f64 = DRAWING_RULES.mark_radius_px;
 pub(super) const MARK_WIDTH: f64 = DRAWING_RULES.mark_line_px;
 pub(super) const RIBBON_OPACITY: f64 = DRAWING_RULES.ribbon_opacity;
 /// Dash patterns: dashed branches and reticulations, dotted leaders.
 pub(super) const DASH: [f64; 2] = DRAWING_RULES.dash_px;
-pub(super) const DOT: [f64; 2] = DRAWING_RULES.dot_px;
+const DOT: [f64; 2] = DRAWING_RULES.dot_px;
 
 /// The position of the ring in a legend symbol, as a fraction of the symbol width: a
 /// reassortment ring at the middle of its branch, an imputed ring at the tip of a leaf branch with
@@ -210,6 +210,55 @@ impl Svg {
         self.ring([x + at * SYMBOL_WIDTH, mid], stroke, ground);
       },
     }
+  }
+
+  /// The dotted `leaders` from the leaf tips to the label edge, in `column` of `rows`; none for a
+  /// tip at the edge.
+  pub(super) fn leaders(&mut self, leaders: &[Leader], rows: Rows, column: Column, ink_muted: &str) {
+    let leaders: Vec<_> = leaders.iter().filter(|l| l.from[0] < l.to[0]).collect();
+    if leaders.is_empty() {
+      return;
+    }
+    self.open(
+      "g",
+      &[
+        ("fill", "none".to_owned()),
+        ("stroke", ink_muted.to_owned()),
+        ("stroke-opacity", num(LEADER_OPACITY)),
+        ("stroke-width", num(LEADER_WIDTH)),
+        ("stroke-dasharray", dash_array(DOT)),
+      ],
+    );
+    for leader in leaders {
+      let from = rows.point(column, leader.from);
+      let to = rows.point(column, leader.to);
+      self.path(&Path::new().move_to(from).h(to[0]), &[]);
+    }
+    self.close("g");
+  }
+
+  /// The leaf `labels`, each a name and its row, at `x` with the text `anchor` (`start` when
+  /// `None`), shortened to `max_chars` characters.
+  pub(super) fn labels<'a>(
+    &mut self,
+    labels: impl Iterator<Item = (&'a str, f64)>,
+    rows: Rows,
+    x: f64,
+    anchor: Option<&str>,
+    max_chars: usize,
+    ink: &str,
+  ) {
+    let mut attributes = vec![("font-family", LABEL_FONT_FAMILY.to_owned()), ("fill", ink.to_owned())];
+    attributes.extend(anchor.map(|a| ("text-anchor", a.to_owned())));
+    self.open("g", &attributes);
+    for (name, row) in labels {
+      self.text(
+        "text",
+        &[("x", num(x)), ("y", num(baseline(rows.y(row))))],
+        &shorten(name, max_chars),
+      );
+    }
+    self.close("g");
   }
 
   /// A mark ring at `at`, filled with the ground color.

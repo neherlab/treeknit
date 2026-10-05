@@ -2,12 +2,12 @@
 //! view mapped to px.
 
 use super::svg::{
-  BRANCH_WIDTH, Column, DASH, DOT, LABEL_FONT_FAMILY, LABEL_GAP, LEADER_OPACITY, LEADER_WIDTH, LINK_WIDTH, LegendEntry,
-  MARGIN, Path, REASSORTMENT_WIDTH, RIBBON_OPACITY, RING_AT_BRANCH_MIDDLE, RING_AT_LEAF_TIP, Rows, Svg, Symbol,
-  baseline, dash_array, drawing_top, figure_height, label_column, legend_top, num,
+  BRANCH_WIDTH, Column, DASH, LABEL_GAP, LINK_WIDTH, LegendEntry, MARGIN, Path, REASSORTMENT_WIDTH, RIBBON_OPACITY,
+  RING_AT_BRANCH_MIDDLE, RING_AT_LEAF_TIP, Rows, Svg, Symbol, dash_array, drawing_top, figure_height, label_column,
+  legend_top, num,
 };
 use super::{FigureOptions, labels_shown};
-use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes, shorten};
+use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes};
 use crate::palette::{ThemeColors, palette};
 
 /// The SVG text of the tanglegram of `view` with valid `options`.
@@ -37,7 +37,7 @@ pub(super) fn draw(view: &PairView, options: &FigureOptions) -> String {
       colors: &colors,
     };
     if layout.max_label_chars > 0 {
-      draw.leaders(&mut svg);
+      svg.leaders(&shapes.leaders, layout.rows, column, &colors.ink_muted);
     }
     draw.branches(&mut svg);
     draw.marks(&mut svg);
@@ -159,30 +159,6 @@ struct TreeDrawing<'a> {
 }
 
 impl TreeDrawing<'_> {
-  /// The dotted lines from the leaf tips to the label edge; none for a tip at the edge.
-  fn leaders(&self, svg: &mut Svg) {
-    let leaders: Vec<_> = self.shapes.leaders.iter().filter(|l| l.from[0] < l.to[0]).collect();
-    if leaders.is_empty() {
-      return;
-    }
-    svg.open(
-      "g",
-      &[
-        ("fill", "none".to_owned()),
-        ("stroke", self.colors.ink_muted.clone()),
-        ("stroke-opacity", num(LEADER_OPACITY)),
-        ("stroke-width", num(LEADER_WIDTH)),
-        ("stroke-dasharray", dash_array(DOT)),
-      ],
-    );
-    for leader in leaders {
-      let from = self.rows.point(self.column, leader.from);
-      let to = self.rows.point(self.column, leader.to);
-      svg.path(&Path::new().move_to(from).h(to[0]), &[]);
-    }
-    svg.close("g");
-  }
-
   /// The elbows: in the color of their MCC, dashed ink-muted for added nodes, and signal and
   /// wider for reassortment branches, drawn last so they stay on top.
   fn branches(&self, svg: &mut Svg) {
@@ -239,22 +215,13 @@ impl TreeDrawing<'_> {
       Side::Left => (self.column.end + LABEL_GAP, "start"),
       Side::Right => (self.column.end - LABEL_GAP, "end"),
     };
-    svg.open(
-      "g",
-      &[
-        ("font-family", LABEL_FONT_FAMILY.to_owned()),
-        ("fill", self.colors.ink.clone()),
-        ("text-anchor", anchor.to_owned()),
-      ],
-    );
-    for node in self.tree.nodes.iter().filter(|n| n.leaf) {
-      svg.text(
-        "text",
-        &[("x", num(x)), ("y", num(baseline(self.rows.y(node.y))))],
-        &shorten(&node.name, max_chars),
-      );
-    }
-    svg.close("g");
+    let labels = self
+      .tree
+      .nodes
+      .iter()
+      .filter(|n| n.leaf)
+      .map(|n| (n.name.as_str(), n.y));
+    svg.labels(labels, self.rows, x, Some(anchor), max_chars, &self.colors.ink);
   }
 }
 

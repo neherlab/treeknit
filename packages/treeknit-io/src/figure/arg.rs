@@ -1,12 +1,11 @@
 //! The SVG figure of the ARG of two trees: one tree column with the labels at its right.
 
 use super::svg::{
-  BRANCH_WIDTH, Column, DASH, DOT, LABEL_FONT_FAMILY, LABEL_GAP, LEADER_OPACITY, LEADER_WIDTH, LegendEntry, MARGIN,
-  Path, RING_AT_CURVE_END, Rows, Svg, Symbol, baseline, dash_array, drawing_top, figure_height, label_column,
-  legend_top, num,
+  BRANCH_WIDTH, Column, DASH, LABEL_GAP, LegendEntry, MARGIN, Path, RING_AT_CURVE_END, Rows, Svg, Symbol, dash_array,
+  drawing_top, figure_height, label_column, legend_top, num,
 };
 use super::{FigureOptions, labels_shown};
-use crate::display::{ArgView, DRAWING_RULES, EdgePath, shorten};
+use crate::display::{ArgView, DRAWING_RULES, EdgePath};
 use crate::palette::{ThemeColors, palette};
 
 /// The SVG text of the ARG `view` of the trees labeled `segments` (A, then B) with valid
@@ -37,24 +36,8 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
   let mut svg = Svg::new(options.width, height, &title, &colors.ground);
   svg.title(&title, &colors.ink);
 
-  let leaders: Vec<_> = view.shapes.leaders.iter().filter(|l| l.from[0] < l.to[0]).collect();
-  if max_label_chars > 0 && !leaders.is_empty() {
-    svg.open(
-      "g",
-      &[
-        ("fill", "none".to_owned()),
-        ("stroke", colors.ink_muted.clone()),
-        ("stroke-opacity", num(LEADER_OPACITY)),
-        ("stroke-width", num(LEADER_WIDTH)),
-        ("stroke-dasharray", dash_array(DOT)),
-      ],
-    );
-    for leader in leaders {
-      let from = rows.point(column, leader.from);
-      let to = rows.point(column, leader.to);
-      svg.path(&Path::new().move_to(from).h(to[0]), &[]);
-    }
-    svg.close("g");
+  if max_label_chars > 0 {
+    svg.leaders(&view.shapes.leaders, rows, column, &colors.ink_muted);
   }
 
   svg.open("g", &[("fill", "none".to_owned()), ("stroke-width", num(BRANCH_WIDTH))]);
@@ -81,22 +64,8 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
   }
 
   if max_label_chars > 0 {
-    svg.open(
-      "g",
-      &[
-        ("font-family", LABEL_FONT_FAMILY.to_owned()),
-        ("fill", colors.ink.clone()),
-      ],
-    );
-    let x = column.end + LABEL_GAP;
-    for node in leaves() {
-      svg.text(
-        "text",
-        &[("x", num(x)), ("y", num(baseline(rows.y(node.y))))],
-        &shorten(&node.label, max_label_chars),
-      );
-    }
-    svg.close("g");
+    let labels = leaves().map(|n| (n.label.as_str(), n.y));
+    svg.labels(labels, rows, column.end + LABEL_GAP, None, max_label_chars, &colors.ink);
   }
 
   svg.legend(
