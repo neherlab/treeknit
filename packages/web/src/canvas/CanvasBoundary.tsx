@@ -1,6 +1,8 @@
-import { type ReactNode, Suspense } from "react";
-import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
+import { type ReactNode, Suspense, useCallback, useMemo } from "react";
+import { ErrorBoundary, type FallbackProps, getErrorMessage } from "react-error-boundary";
+import RetryIcon from "~icons/lucide/rotate-ccw";
 
+import { Button } from "../ui/Button";
 import { InlineNotice } from "../ui/InlineNotice";
 import { ProgressBar } from "../ui/ProgressBar";
 
@@ -11,23 +13,38 @@ const LOADING = (
 );
 
 export interface CanvasBoundaryProps {
+  resultKey: string;
   children: ReactNode;
 }
 
-export function CanvasBoundary({ children }: CanvasBoundaryProps) {
+export function CanvasBoundary({ resultKey, children }: CanvasBoundaryProps) {
+  const resetKeys = useMemo(() => [resultKey], [resultKey]);
+
   return (
-    <ErrorBoundary FallbackComponent={DrawingFailed}>
+    <ErrorBoundary FallbackComponent={DrawingFailed} resetKeys={resetKeys}>
       <Suspense fallback={LOADING}>{children}</Suspense>
     </ErrorBoundary>
   );
 }
 
-function DrawingFailed({ error }: FallbackProps) {
-  const message = error instanceof Error ? error.message : String(error);
+function DrawingFailed({ error, resetErrorBoundary }: FallbackProps) {
+  const retry = useCallback(() => {
+    resetErrorBoundary();
+  }, [resetErrorBoundary]);
+
+  const action = useMemo(
+    () => (
+      <Button variant="secondary" size="sm" icon={RetryIcon} onPress={retry}>
+        Retry
+      </Button>
+    ),
+    [retry],
+  );
 
   return (
-    <InlineNotice tone="danger" title="The drawing could not be shown">
-      {message}. The tables and files are still available.
+    <InlineNotice tone="danger" title="The drawing could not be shown" action={action}>
+      <p>{getErrorMessage(error) ?? String(error)}</p>
+      <p>The tables and files are still available.</p>
     </InlineNotice>
   );
 }
