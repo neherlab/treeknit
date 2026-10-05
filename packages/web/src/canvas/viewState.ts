@@ -27,6 +27,12 @@ export interface TreeViewState {
   maxZoomY: number;
 }
 
+export interface ViewStateRequest {
+  target?: readonly number[] | undefined;
+  zoomX?: number | undefined;
+  zoomY?: number | undefined;
+}
+
 export const MAX_ROW_PX = 64;
 
 export const TOOLBAR_ZOOM_FACTOR = 2;
@@ -109,14 +115,11 @@ export function fitViewState(frame: CanvasFrame): TreeViewState {
   return viewStateAt(frame, fittedZoom(frame), 0);
 }
 
-export function constrainViewState(
-  next: Pick<TreeViewState, "target"> & Partial<Pick<TreeViewState, "zoomX" | "zoomY">>,
-  frame: CanvasFrame,
-): TreeViewState {
-  const zoom = frame.leafAxis === "y" ? next.zoomY : next.zoomX;
-  const center = frame.leafAxis === "y" ? next.target[1] : next.target[0];
+export function constrainViewState(request: ViewStateRequest, frame: CanvasFrame): TreeViewState {
+  const zoom = frame.leafAxis === "y" ? request.zoomY : request.zoomX;
+  const center = request.target?.[frame.leafAxis === "y" ? 1 : 0];
 
-  return viewStateAt(frame, zoom ?? fittedZoom(frame), center);
+  return viewStateAt(frame, zoom ?? fittedZoom(frame), center ?? 0);
 }
 
 export function zoomViewState(state: TreeViewState, frame: CanvasFrame, factor: number): TreeViewState {
@@ -149,4 +152,63 @@ export function resizeViewState(state: TreeViewState, previous: CanvasFrame, fra
 
 export function worldPosition(leafAxis: LeafAxis, cross: number, leaf: number): [number, number] {
   return leafAxis === "y" ? [cross, leaf] : [leaf, cross];
+}
+
+export const MINIMAP_MIN_ROWS = 200;
+
+export const MINIMAP_CROSS_PX = 160;
+
+export const MINIMAP_LEAF_PX = 200;
+
+const MINIMAP_MIN_CANVAS_SHARE = 2;
+
+export function minimapShown(frame: CanvasFrame): boolean {
+  return frame.rows > MINIMAP_MIN_ROWS && leafExtent(frame) >= MINIMAP_MIN_CANVAS_SHARE * MINIMAP_LEAF_PX;
+}
+
+export function minimapSize({ leafAxis }: Pick<CanvasFrame, "leafAxis">): CanvasSize {
+  return leafAxis === "y"
+    ? { width: MINIMAP_CROSS_PX, height: MINIMAP_LEAF_PX }
+    : { width: MINIMAP_LEAF_PX, height: MINIMAP_CROSS_PX };
+}
+
+export function minimapViewState(frame: CanvasFrame): TreeViewState {
+  const mini: CanvasFrame = { ...frame, size: minimapSize(frame) };
+  const fitted = fitViewState(mini);
+  const crossCenter = crossExtent(frame) / 2;
+  const crossZoom = Math.log2(MINIMAP_CROSS_PX / Math.max(crossExtent(frame), 1));
+
+  return frame.leafAxis === "y"
+    ? {
+        ...fitted,
+        target: [crossCenter, fitted.target[1]],
+        zoomX: crossZoom,
+        minZoomX: crossZoom,
+        maxZoomX: crossZoom,
+      }
+    : {
+        ...fitted,
+        target: [fitted.target[0], crossCenter],
+        zoomY: crossZoom,
+        minZoomY: crossZoom,
+        maxZoomY: crossZoom,
+      };
+}
+
+export function visibleWorldRect(state: TreeViewState, frame: CanvasFrame): [number, number][] {
+  const [first, last] = visibleLeafRange(state, frame);
+  const cross = crossExtent(frame);
+
+  return [
+    worldPosition(frame.leafAxis, 0, first),
+    worldPosition(frame.leafAxis, cross, first),
+    worldPosition(frame.leafAxis, cross, last),
+    worldPosition(frame.leafAxis, 0, last),
+  ];
+}
+
+export function minimapLeafAt(frame: CanvasFrame, offsetPx: number): number {
+  const [low, high] = leafBounds(frame.rows);
+
+  return low + (offsetPx / MINIMAP_LEAF_PX) * (high - low);
 }

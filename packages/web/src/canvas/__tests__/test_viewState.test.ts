@@ -7,10 +7,15 @@ import {
   fitRowsViewState,
   fitViewState,
   MAX_ROW_PX,
+  minimapLeafAt,
+  minimapShown,
+  minimapSize,
+  minimapViewState,
   panViewState,
   rowPixels,
   type TreeViewState,
   visibleLeafRange,
+  visibleWorldRect,
   worldPosition,
   zoomViewState,
 } from "../viewState";
@@ -149,5 +154,56 @@ describe("fitRowsViewState", () => {
     const [, high] = visibleLeafRange(state, WIDE);
 
     expect(high).toBeCloseTo(299.5, 9);
+  });
+});
+
+describe("minimap", () => {
+  const LARGE: CanvasFrame = { size: { width: 900, height: 800 }, rows: 2_000, leafAxis: "y" };
+
+  test("appears only for drawings with more than 200 leaves", () => {
+    expect(minimapShown({ ...LARGE, rows: 200 })).toBe(false);
+    expect(minimapShown({ ...LARGE, rows: 201 })).toBe(true);
+  });
+
+  test("stays hidden when it would cover more than half the leaf axis", () => {
+    expect(minimapShown({ ...LARGE, size: { width: 900, height: 399 } })).toBe(false);
+    expect(minimapShown({ ...LARGE, size: { width: 900, height: 400 } })).toBe(true);
+  });
+
+  test("is 160 px across the cross axis", () => {
+    expect(minimapSize(LARGE)).toStrictEqual({ width: 160, height: 200 });
+    expect(minimapSize(NARROW)).toStrictEqual({ width: 200, height: 160 });
+  });
+
+  test.each([LARGE, { ...LARGE, leafAxis: "x" as const }])(
+    "projects the whole drawing onto the minimap (%o)",
+    (frame) => {
+      const mini = minimapViewState(frame);
+      const viewport = new OrthographicViewport({ ...minimapSize(frame), ...mini });
+      const cross = frame.leafAxis === "y" ? frame.size.width : frame.size.height;
+      const [left = Number.NaN, top = Number.NaN] = viewport.project(worldPosition(frame.leafAxis, 0, -0.5));
+      const [right = Number.NaN, bottom = Number.NaN] = viewport.project(worldPosition(frame.leafAxis, cross, 1_999.5));
+      const size = minimapSize(frame);
+
+      expect(left).toBeCloseTo(0, 9);
+      expect(top).toBeCloseTo(0, 9);
+      expect(right).toBeCloseTo(size.width, 9);
+      expect(bottom).toBeCloseTo(size.height, 9);
+    },
+  );
+
+  test("frames the visible rows of the main view across the whole width", () => {
+    const state = fitRowsViewState(LARGE, { first: 500, last: 999 });
+    const corners = visibleWorldRect(state, LARGE).flat();
+
+    expect(corners.map((value) => Math.round(value * 1e9) / 1e9)).toStrictEqual([
+      0, 499.5, 900, 499.5, 900, 999.5, 0, 999.5,
+    ]);
+  });
+
+  test("maps a pointer offset back to a leaf row", () => {
+    expect(minimapLeafAt(LARGE, 0)).toBe(-0.5);
+    expect(minimapLeafAt(LARGE, 100)).toBe(999.5);
+    expect(minimapLeafAt(LARGE, 200)).toBe(1_999.5);
   });
 });
