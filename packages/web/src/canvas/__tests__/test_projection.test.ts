@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 import {
   type Column,
   columnPixel,
+  CURVE_SEGMENTS_MAX,
   CURVE_SEGMENTS_MIN,
   cubicPoint,
   curveRowPx,
@@ -102,6 +103,12 @@ describe("wangSegmentCount", () => {
     const long: Bezier = { from: [0, 0], c1: [0.5, 0], c2: [0.5, 1_000], to: [1, 1_000] };
 
     expect(wangSegmentCount(long, LEFT, 64)).toBe(310);
+  });
+
+  test("caps the count for a link across 20,000 rows of 64 px, whose bound ceil(sqrt(3/4 * hypot(100, 1280000) / 0.5)) = 1386 exceeds it", () => {
+    const longest: Bezier = { from: [0, 0], c1: [0.5, 0], c2: [0.5, 20_000], to: [1, 20_000] };
+
+    expect(wangSegmentCount(longest, LEFT, 64)).toBe(CURVE_SEGMENTS_MAX);
   });
 
   test("rejects a curve with a control point that is not finite", () => {

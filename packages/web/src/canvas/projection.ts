@@ -14,6 +14,8 @@ export const CURVE_TOLERANCE_PX = 0.5;
 
 export const CURVE_SEGMENTS_MIN = 1;
 
+export const CURVE_SEGMENTS_MAX = 1024;
+
 const CUBIC_WANG_FACTOR = (3 * 2) / 8;
 
 export function columnPixel({ start, end, mirrored }: Column, x: number): number {
@@ -58,7 +60,7 @@ export function wangSegmentCount(curve: Bezier, column: Column, rowPx: number): 
     );
   }
 
-  return Math.max(count, CURVE_SEGMENTS_MIN);
+  return Math.min(Math.max(count, CURVE_SEGMENTS_MIN), CURVE_SEGMENTS_MAX);
 }
 
 export function sampleCubic(curve: Bezier, segments: number): Point[] {
