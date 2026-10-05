@@ -56,8 +56,7 @@ pub fn infer_pair(
       "iteration {it} (max. {}): {n_leaves} leaves, {m} steps per temperature",
       p.itmax
     );
-    // At most `itmax + 1` iterations run: the loop stops after iteration `it > itmax`.
-    let on_anneal = |step: f64| on_progress(iterations_done(it - 1, step, p.itmax + 1));
+    let on_anneal = |step: f64| on_progress(iterations_done(it - 1, step, max_iterations(p.itmax)));
     let new = remove_mccs(&trees[0], &trees[1], n_taxa, p, m, rng, &on_anneal);
     log::debug!("found {} new MCCs", new.len());
     found.extend(new.iter().cloned());
@@ -82,6 +81,12 @@ pub fn infer_pair(
     }
   }
   sort_mccs(found)
+}
+
+/// Most iterations that inference with `itmax` runs: `itmax + 1`, since the loop of `infer_pair`
+/// stops after iteration `it > itmax`. Saturates at `usize::MAX`, a bound no run reaches.
+fn max_iterations(itmax: usize) -> usize {
+  itmax.saturating_add(1)
 }
 
 /// One annealing step: the naive MCCs that should be removed from the trees. Calls `on_anneal`
@@ -206,6 +211,16 @@ mod tests {
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(seed);
     let m = infer_pair(&ts[0], &ts[1], taxa.len(), &params(o), &mut rng, &|_| {});
     m.iter().map(|x| taxa.names_of(x)).collect()
+  }
+
+  #[test]
+  fn max_iterations_is_one_more_than_itmax() {
+    assert_eq!(3, max_iterations(2));
+  }
+
+  #[test]
+  fn max_iterations_saturates_at_the_largest_itmax() {
+    assert_eq!(usize::MAX, max_iterations(usize::MAX));
   }
 
   #[test]
