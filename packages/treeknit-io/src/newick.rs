@@ -1,8 +1,9 @@
 //! Newick reading and writing.
 //!
 //! Supported: quoted labels (`'a b'`, with `''` for a quote), comments in square brackets
-//! (skipped; they do not nest, so a comment ends at its first `]`), branch lengths, whitespace. Unnamed or numeric (support value) internal
-//! nodes and duplicate internal names are renamed `NODE_i`.
+//! (skipped; they do not nest, so a comment ends at its first `]`), branch lengths, whitespace.
+//! Unnamed or numeric (support value) internal nodes and duplicate internal names are renamed
+//! `NODE_i`.
 
 #![expect(
   clippy::disallowed_types,
