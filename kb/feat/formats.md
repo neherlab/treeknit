@@ -50,9 +50,10 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 
 ## `parameters.json`
 
-`fn params_json` [[src](../../packages/treeknit-cli/src/main.rs#L514-L533)]:
+`fn parameters_file` [[src](../../packages/treeknit-io/src/output.rs#L143-L147)]:
 
-- [x] **Time of writing**: before the inference
+- [x] **Time of writing**: before the inference, so the file exists when a run fails
+- [x] **Line end**: no newline after the closing brace
 - [/] **Fields**: `gamma`, `itmax`, `likelihood_sort`, `resolution`, `seq_lengths`, `pre_resolve`, `rounds`, `final_unresolved_round`, `nMCMC`, `sa_rep`, `Tmin`, `Tmax`, `nT`, `cooling_schedule`, `naive`, and `seed`. TreeKnit.jl writes the `OptArgs` fields: `γ`, `resolve`, `strict`, `final_no_resolve`, `parallel`, and `Trange`, which the port does not write. A reader of the TreeKnit.jl file cannot read this file
 - [x] **Values**: the values the run uses. TreeKnit.jl shows defaults for the five fields it ignores
 
@@ -81,6 +82,23 @@ See [`arg.md`](arg.md#extended-newick-output).
 ## `auspice_<label>.json`
 
 - [x] **Structure**: the Auspice v2 subset of TreeKnit.jl (see [`visualization.md`](visualization.md#auspice-json))
+- [x] **Line end**: no newline after the closing brace
+
+## Session file (`treeknit_request.json`, new)
+
+The analysis request of the web app: the trees with their labels and Newick texts, and the settings. `fn request_file` writes it [[src](../../packages/treeknit-io/src/output.rs#L164-L173)], and `fn read_request` reads it [[src](../../packages/treeknit-io/src/analysis.rs#L300-L323)].
+
+- [x] **Structure**: `{"trees": [{"label": ..., "newick": ...}], "settings": {...}}`, pretty JSON with a newline at the end. The settings use the camelCase names of the web app (`gamma`, `seqLengths`, `nMcmcIt`, `resolve`, `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed`); a missing setting takes its default
+- [x] **Reading**: checks the structure only: types, required and unknown fields, and a seed of at most 2^53 - 1, which a JavaScript number holds exactly. A file with a broken tree or an out-of-range setting loads, so the web app can show the errors at their fields; the command line applies the shared validation after reading
+- [x] **Writers**: the web app ("Save session file", and the archive of a run), and the command line with `--request`, which writes the request it ran into the results directory
+
+## ZIP archive (new)
+
+`fn zip_archive` packs the output files of a web app run [[src](../../packages/treeknit-io/src/output.rs#L149-L162)].
+
+- [x] **Entries**: every file under `treeknit_results/`, the default results directory of the command line, at its path in that directory (`treeknit_results/ARG/arg.nwk`)
+- [x] **Reproducible bytes**: every entry is deflated and dated 1980-01-01 00:00, the earliest ZIP time, so equal files give a byte-identical archive. `log.txt` carries clock times, so the archives of two runs differ in that entry
+- [x] **Reproduction**: `treeknit --request treeknit_results/treeknit_request.json --impute --auspice-view`, run in the directory where the archive was extracted, writes the same file set with the command line
 
 ## Other formats
 

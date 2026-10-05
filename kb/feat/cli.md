@@ -11,7 +11,7 @@ Counterpart: [`v0/cli.md`](v0/cli.md). The port parses the command line with `cl
 
 ## Arguments
 
-- [x] **Positional**: two or more Newick files. Fewer stop the command with "need at least two tree files" [[src](../../packages/treeknit-cli/src/main.rs#L174-L176)]
+- [x] **Positional**: two or more Newick files. Fewer stop the command with "need at least two tree files" [[src](../../packages/treeknit-cli/src/main.rs#L189-L191)]. With `--request`, no tree file is given
 - [x] **Value syntax**: `clap` accepts `-o val`, `-o=val`, `--outdir val`, and `--outdir=val`. A negative value needs `=`, for example `--gamma=-1`, because `clap` reads `-1` after a space as an unknown flag
 
 ## Options
@@ -28,6 +28,7 @@ Counterpart: [`v0/cli.md`](v0/cli.md). The port parses the command line with `cl
 - [x] **`--seed` (new)**: default 1, at most 2^53 - 1, so a seed passes through the web app unchanged. Same seed, same output (see [`pipeline.md`](pipeline.md#reproducibility))
 - [x] **`--threads` (new)**: worker threads for independent pairs, default 0 for all cores [[src](../../packages/treeknit-cli/src/main.rs#L610-L615)]
 - [x] **`--impute` (new)**: also writes the trees with missing leaves placed (see [`partial-overlap.md`](partial-overlap.md))
+- [x] **`--request <FILE>` (new)**: runs the trees and settings of a session file, `treeknit_request.json`, which the web app saves (see [`formats.md`](formats.md#session-file-treeknit_requestjson)) [[src](../../packages/treeknit-cli/src/main.rs#L291-L310)]. It cannot be combined with tree files or with the analysis options (`--gamma`, `--seq-lengths`, `--n-mcmc-it`, `--resolve`, `--pre-resolve`, `--rounds`, `--no-final-round`, `--no-likelihood`, `--naive`, `--seed`, and the former options); `-o`, `-v`, `--verbosity-level`, `--threads`, `--impute`, and `--auspice-view` apply. The trees keep the labels of the file, and their output files get the extension `.nwk`. The command also writes the request it ran to `treeknit_request.json` in the results directory. `treeknit --request treeknit_results/treeknit_request.json --impute --auspice-view`, run where the ZIP archive of the web app was extracted, writes the file set of the web app (`treeknit_io::output::command_line`)
 - [x] **`--help-resolve` (new)**: explains the resolution modes and the former options [[src](../../packages/treeknit-cli/src/main.rs#L14-L41)]
 
 ## Flags
@@ -44,8 +45,8 @@ Counterpart: [`v0/cli.md`](v0/cli.md). The port parses the command line with `cl
 
 ## Input validation
 
-- [x] **Tree labels**: the file name without its extension. When two names are equal, every tree gets `<name>_<parent directory>`. Labels that are still not unique stop the command with "input trees must be identifiable by file name" [[src](../../packages/treeknit-cli/src/main.rs#L535-L561)]
-- [x] **Shared leaves (new behavior)**: the trees may have different leaf sets. TreeKnit.jl stops with "Trees must share leaves". The log reports the number of missing leaves per tree [[src](../../packages/treeknit-cli/src/main.rs#L572-L584)]. A pair with fewer than two shared leaves stops the command with `trees "<a>" and "<b>" share fewer than 2 leaves`, with the resolution modes and with the former options ([`H-pairs-with-fewer-than-two-shared-leaves.md`](../issues/H-pairs-with-fewer-than-two-shared-leaves.md))
+- [x] **Tree labels**: `fn path_labels`: the file name without its extension. When two names are equal, every tree gets `<name>_<parent directory>`. Labels that are still not unique stop the command with "input trees must be identifiable by file name" [[src](../../packages/treeknit-cli/src/main.rs#L531-L560)]. The web app labels trees by file name only, with `_2`, `_3` on a collision (`treeknit_io::analysis::tree_labels`), because it has no directories
+- [x] **Shared leaves (new behavior)**: the trees may have different leaf sets. TreeKnit.jl stops with "Trees must share leaves". The log reports the number of missing leaves per tree [[src](../../packages/treeknit-io/src/run.rs#L68-L81)]. A pair with fewer than two shared leaves stops the command with `trees "<a>" and "<b>" share fewer than 2 leaves`, with the resolution modes, with the former options, and with `--request` ([`kb/decisions/pairs-with-fewer-than-two-shared-leaves.md`](../decisions/pairs-with-fewer-than-two-shared-leaves.md))
 - [x] **Shared checks (new)**: the command line and the web app validate with the same functions of `treeknit_io::analysis` [[src](../../packages/treeknit-io/src/analysis.rs#L160-L172)]: labels usable as file names, distinct pair file names such as `MCCs_<a>_<b>.dat`, Newick syntax, γ finite and not negative, one finite positive sequence length per tree, at least one round and one MCMC step, and a seed of at most 2^53 - 1. The command reports every error, one per line, and exits with 1 before it writes `parameters.json` or any result. An error of a tree starts with the path of its file and, for a Newick syntax error, the line and column (`ha.nwk:2:8: ...`). The former options get the same checks of γ, the sequence lengths, the rounds, the MCMC steps, and the seed
 - [x] **Sequence lengths**: the number format is checked by the command line, the count and the values by the shared checks
 - [x] **Rounds (new)**: `--rounds 0` stops with "rounds must be at least 1", also with the former options
@@ -57,21 +58,22 @@ Counterpart: [`v0/cli.md`](v0/cli.md). The port parses the command line with `cl
 - [x] **Output directory and log**: created before the trees are read
 - [x] **Reading**: read each file, assign labels, and build one taxon table from all leaves
 - [x] **`parameters.json`**: written before the inference, with the values the run uses (see [`formats.md`](formats.md#parametersjson))
-- [x] **Inference**: `treeknit_core::run` on the trees, then a log line with the MCC count per pair and the runtime
-- [x] **MCC and tree outputs**: `MCCs.json`, one resolved tree per input, Auspice files with `--auspice-view`. New: `MCCs.dat` and imputed trees with `--impute`
-- [x] **ARG for two trees**: built from the resolved output trees, which differs from TreeKnit.jl on purpose (see [`arg.md`](arg.md)). The log reports the hybrid count as the number of reassortments [[src](../../packages/treeknit-cli/src/main.rs#L279-L302)]
-- [/] **Errors**: an error stops the command with `Error: <message>` and exit code 1. A failed ARG construction logs "ARG construction failed: <reason>; no ARG written" and the command exits with 0 [[src](../../packages/treeknit-cli/src/main.rs#L283-L289)]. In TreeKnit.jl, the error stops the command
+- [x] **Inference**: `treeknit_io::run::run` builds the run result that the web app builds too: `treeknit_core::run_observed` on the trees, the imputed trees, and for two trees the ARG [[src](../../packages/treeknit-io/src/run.rs#L44-L66)]. A log line then gives the MCC count per pair and the runtime
+- [x] **MCC and tree outputs**: `fn output_files` of `treeknit-io` builds every output file from the run result, with the bytes the command line has always written, and the command writes them in order, creating `ARG/` when needed [[src](../../packages/treeknit-io/src/output.rs#L78-L141)]: `MCCs.json`, one resolved tree per input, Auspice files with `--auspice-view`. New: `MCCs.dat` and imputed trees with `--impute`. The test `output_files_keep_their_bytes` compares every file of a two-tree run and of a three-tree run with `--impute --auspice-view` byte for byte with the captured output of the command [[src](../../packages/treeknit-cli/tests/cli.rs#L215)]
+- [x] **ARG for two trees**: built from the resolved output trees, which differs from TreeKnit.jl on purpose (see [`arg.md`](arg.md)). The log reports the hybrid count as the number of reassortments [[src](../../packages/treeknit-io/src/run.rs#L83-L93)]
+- [/] **Errors**: an error stops the command with `Error: <message>` and exit code 1. A failed ARG construction logs "ARG construction failed: <reason>; no ARG written" and the command exits with 0 [[src](../../packages/treeknit-io/src/run.rs#L83-L93)]. In TreeKnit.jl, the error stops the command
 
 ## Output directory
 
 See [`formats.md`](formats.md) for the content of each file.
 
 - [x] **`log.txt`**, **`parameters.json`**, **`MCCs.json`**
-- [x] **`<name>_resolved<ext>`**: one per input. `<ext>` is the extension of that input file; TreeKnit.jl uses the extension of the first file for all trees [[src](../../packages/treeknit-cli/src/main.rs#L563-L570)]
+- [x] **`<label>_resolved<ext>`**: one per input, named by the tree label, so files with one name in different directories (`a/ha.nwk`, `b/ha.nwk`) give `ha_a_resolved.nwk` and `ha_b_resolved.nwk`. `<ext>` is the extension of that input file, `.nwk` with `--request`; TreeKnit.jl uses the extension of the first file for all trees [[src](../../packages/treeknit-cli/src/main.rs#L562-L569)]
 - [x] **`auspice_<label>.json`**: with `--auspice-view`
-- [x] **`ARG/arg.nwk`**, **`ARG/nodes.dat`**, **`ARG/<name>_liberal_resolved<ext>`**: two trees only
-- [x] **`MCCs.dat` (new)**: the MCCs in the line format of TreeKnit.jl 0.4. With more than two trees, `MCCs_<a>_<b>.dat` per pair [[src](../../packages/treeknit-cli/src/main.rs#L238-L248)]
-- [x] **`<name>_imputed<ext>` (new)**: with `--impute`
+- [x] **`ARG/arg.nwk`**, **`ARG/nodes.dat`**, **`ARG/<label>_liberal_resolved<ext>`**: two trees only
+- [x] **`MCCs.dat` (new)**: the MCCs in the line format of TreeKnit.jl 0.4. With more than two trees, `MCCs_<a>_<b>.dat` per pair [[src](../../packages/treeknit-io/src/output.rs#L101-L111)]
+- [x] **`<label>_imputed<ext>` (new)**: with `--impute`
+- [x] **`treeknit_request.json` (new)**: with `--request`, the request that ran
 
 ## Logging
 

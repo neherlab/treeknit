@@ -4,12 +4,12 @@ TreeKnit.jl requires all trees to have the same leaves and stops with "Trees mus
 
 ## Inference on shared leaves
 
-- [x] **Taxon table**: the union of the leaves of all trees. The command line logs, for each tree, how many leaves it lacks [[src](../../packages/treeknit-cli/src/main.rs#L572-L584)]
+- [x] **Taxon table**: the union of the leaves of all trees. `fn report_overlap` logs, for each tree, how many leaves it lacks, on the command line and in the web app [[src](../../packages/treeknit-io/src/run.rs#L68-L81)]
 - [x] **Restriction**: each pair is restricted to its shared leaves. Unary nodes are removed and their branch lengths added [[src](../../packages/treeknit-core/src/pipeline.rs#L358-L369)]. A unit test checks that a pair with one extra leaf gives the same MCCs as the pair without it
 - [x] **Pre-resolution**: splits are compared on the leaves each two trees share (see [`resolution.md`](resolution.md#resolution-with-topology-only))
 - [x] **Resolution with MCCs**: on the restricted pair, then inserted into the full trees with the shared leaves as mask, so subtrees of other leaves do not move
 - [x] **Polytomy sorting**: on the restricted pair, then applied to the full trees (see [`visualization.md`](visualization.md))
-- [ ] **Pairs with fewer than two shared leaves**: the pair is skipped with a warning. No shared leaf makes the run panic, and one shared leaf gives one MCC of all leaves ([`H-pairs-with-fewer-than-two-shared-leaves.md`](../issues/H-pairs-with-fewer-than-two-shared-leaves.md))
+- [x] **Pairs with fewer than two shared leaves**: the shared validation rejects the request on the command line and in the web app. The core called directly skips the pair with a warning and gives it no MCCs ([`kb/decisions/pairs-with-fewer-than-two-shared-leaves.md`](../decisions/pairs-with-fewer-than-two-shared-leaves.md))
 
 ## Attachment of missing leaves
 
@@ -28,7 +28,7 @@ TreeKnit.jl requires all trees to have the same leaves and stops with "Trees mus
 - [x] **Choice of the pair**: for each tree and each missing leaf, the pair whose MCC with that leaf is largest, ties to the lower tree index
 - [x] **Grafting**: a copy of the source subtree goes below the LCA of the shared leaves of its MCC under the attachment point. With one such leaf, a new node above that leaf takes both [[src](../../packages/treeknit-core/src/impute.rs#L96-L133)]. New nodes are named `IMPUTED_<n>`
 - [x] **Whole or split subtrees**: a subtree is grafted whole when all its leaves chose it, otherwise leaf by leaf
-- [x] **Output**: `<name>_imputed<ext>` with `--impute`. The web app always returns these trees
+- [x] **Output**: `<label>_imputed<ext>` with `--impute`. The run result always holds these trees, and the web app lists their files
 
 ## ARG with missing leaves
 
@@ -37,4 +37,4 @@ TreeKnit.jl requires all trees to have the same leaves and stops with "Trees mus
 ## Evaluation and tests
 
 - [x] **Accuracy experiment**: `examples/accuracy.rs <fraction>` drops that fraction of leaves (default 0.2) from each tree of the simulated cases. It counts a placed leaf as correct when its true MCC is the true MCC of most of the leaves it was placed next to, and compares the rate with placement in the largest MCC [[src](../../packages/treeknit-io/examples/accuracy.rs#L137-L220)]
-- [x] **Tests**: unit tests in `impute.rs` and `pipeline.rs`, the command-line test `three_trees_partial_overlap_imputed` [[src](../../packages/treeknit-cli/tests/cli.rs#L223)], and the WebAssembly test `leaf_missing_from_one_tree_is_imputed`
+- [x] **Tests**: unit tests in `impute.rs` and `pipeline.rs`, the command-line test `three_trees_partial_overlap_imputed` [[src](../../packages/treeknit-cli/tests/cli.rs#L405)], and the run-result tests `run_imputes_a_leaf_missing_from_one_tree` and `output_files_place_a_leaf_missing_from_one_tree` in `treeknit-io`
