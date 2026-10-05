@@ -53,8 +53,8 @@ describe("treeViewReducer", () => {
     const zoomedRowPx = zoomed === undefined ? Number.NaN : rowPixels(zoomed.viewState);
     const pannedEnd = panned === undefined ? Number.NaN : visibleLeafRange(panned.viewState, panned.frame)[1];
 
-    expect(Math.abs(zoomedRowPx - 8)).toBeLessThan(1e-16);
-    expect(Math.abs(pannedEnd - 299.5)).toBeLessThan(1e-16);
+    expect(zoomedRowPx).toBe(8);
+    expect(pannedEnd).toBe(299.5);
     expect(fitted?.viewState).toStrictEqual(sized().viewState);
   });
 
