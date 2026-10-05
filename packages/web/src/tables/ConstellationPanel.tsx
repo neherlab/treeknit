@@ -55,7 +55,7 @@ function Constellation({ data }: { data: ConstellationTable }) {
   const columns = useMemo(() => constellationColumns(data), [data]);
   const table = useTable({ features: constellationFeatures, columns, data: rows });
   const scrollRef = useRef<HTMLDivElement>(null);
-  const virtual = useVirtualRows(rows.length, scrollRef);
+  const { items, before, after, measureRow, headerRef } = useVirtualRows(rows.length, scrollRef);
   const shown = table.getRowModel().rows;
   const headers = useMemo(() => constellationHeaders(data), [data]);
   const titles = useMemo(() => data.pairs.map(([a, b]) => pairTitle(a, b)), [data]);
@@ -81,7 +81,7 @@ function Constellation({ data }: { data: ConstellationTable }) {
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         <table className={cn(tableStyle, "w-auto")} aria-rowcount={rows.length + 1}>
-          <thead className="bg-ground sticky top-0 z-[2]">
+          <thead ref={headerRef} className="bg-ground sticky top-0 z-[2]">
             <tr aria-rowindex={1}>
               {headers.map(({ id, title }) => (
                 <th key={id} scope="col" className={cn(headerStyle, id === LEAF_COLUMN && STICKY_COLUMN)}>
@@ -91,15 +91,15 @@ function Constellation({ data }: { data: ConstellationTable }) {
             </tr>
           </thead>
           <tbody>
-            <VirtualGap heightPx={virtual.before} />
-            {virtual.items.map(({ index }) => {
+            <VirtualGap heightPx={before} />
+            {items.map(({ index }) => {
               const row = shown[index]?.original;
 
               return row === undefined ? null : (
-                <LeafRow key={row.leaf} row={row} rowIndex={index + 2} titles={titles} onOpen={open} />
+                <LeafRow key={row.leaf} row={row} index={index} titles={titles} measure={measureRow} onOpen={open} />
               );
             })}
-            <VirtualGap heightPx={virtual.after} />
+            <VirtualGap heightPx={after} />
           </tbody>
         </table>
       </div>
@@ -107,9 +107,9 @@ function Constellation({ data }: { data: ConstellationTable }) {
   );
 }
 
-function LeafRow({ row, rowIndex, titles, onOpen }: LeafRowProps) {
+function LeafRow({ row, index, titles, measure, onOpen }: LeafRowProps) {
   return (
-    <tr aria-rowindex={rowIndex} className="hover:bg-ink/4 h-8">
+    <tr ref={measure} data-index={index} aria-rowindex={index + 2} className="hover:bg-ink/4">
       <th scope="row" className={cn(cellStyle, STICKY_COLUMN, "max-w-[32ch] truncate text-left font-normal")}>
         {row.leaf}
       </th>
@@ -124,8 +124,9 @@ function LeafRow({ row, rowIndex, titles, onOpen }: LeafRowProps) {
 
 interface LeafRowProps {
   row: ConstellationRow;
-  rowIndex: number;
+  index: number;
   titles: readonly string[];
+  measure: (row: HTMLTableRowElement | null) => void;
   onOpen: (pair: number, leaf: string) => void;
 }
 

@@ -64,7 +64,7 @@ function MccTable({ data, title }: { data: PairView; title: string }) {
   const [query, setQuery] = useState("");
   const rows = table.getRowModel().rows;
   const scrollRef = useRef<HTMLDivElement>(null);
-  const virtual = useVirtualRows(rows.length, scrollRef);
+  const { items, before, after, measureRow, headerRef } = useVirtualRows(rows.length, scrollRef);
   const headers = table.getHeaderGroups()[0]?.headers ?? [];
 
   const filter = useCallback(
@@ -114,7 +114,7 @@ function MccTable({ data, title }: { data: PairView; title: string }) {
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         <table className={tableStyle} aria-rowcount={rows.length + 1}>
-          <thead className="bg-ground sticky top-0 z-10">
+          <thead ref={headerRef} className="bg-ground sticky top-0 z-10">
             <tr aria-rowindex={1}>
               {headers.map((header) => (
                 <SortHeader key={header.id} header={header} />
@@ -125,22 +125,23 @@ function MccTable({ data, title }: { data: PairView; title: string }) {
             </tr>
           </thead>
           <tbody>
-            <VirtualGap heightPx={virtual.before} />
-            {virtual.items.map(({ index }) => {
+            <VirtualGap heightPx={before} />
+            {items.map(({ index }) => {
               const row = rows[index];
 
               return row === undefined ? null : (
                 <MccRow
                   key={row.id}
                   mcc={row.original}
-                  rowIndex={index + 2}
+                  index={index}
                   selected={search.mcc === row.original.index}
+                  measure={measureRow}
                   onSelect={select}
                   onShow={show}
                 />
               );
             })}
-            <VirtualGap heightPx={virtual.after} />
+            <VirtualGap heightPx={after} />
           </tbody>
         </table>
         {rows.length === 0 ? (
@@ -179,7 +180,7 @@ function SortHeader({ header }: { header: Header<typeof mccTableFeatures, MccInf
   );
 }
 
-function MccRow({ mcc, rowIndex, selected, onSelect, onShow }: MccRowProps) {
+function MccRow({ mcc, index, selected, measure, onSelect, onShow }: MccRowProps) {
   const choose = useCallback(() => {
     onSelect(mcc.index);
   }, [mcc.index, onSelect]);
@@ -206,7 +207,7 @@ function MccRow({ mcc, rowIndex, selected, onSelect, onShow }: MccRowProps) {
   };
 
   return (
-    <tr aria-rowindex={rowIndex} className={cn("h-8", selected ? "bg-pane" : "hover:bg-ink/4")}>
+    <tr ref={measure} data-index={index} aria-rowindex={index + 2} className={selected ? "bg-pane" : "hover:bg-ink/4"}>
       {Object.values(MCC_COLUMN).map((id) => (
         <td key={id} className={cn(cellStyle, ALIGN_END.has(id) && "text-right")}>
           {cells[id]}
@@ -221,8 +222,9 @@ function MccRow({ mcc, rowIndex, selected, onSelect, onShow }: MccRowProps) {
 
 interface MccRowProps {
   mcc: MccInfo;
-  rowIndex: number;
+  index: number;
   selected: boolean;
+  measure: (row: HTMLTableRowElement | null) => void;
   onSelect: (mcc: number) => void;
   onShow: (mcc: number) => void;
 }
