@@ -186,10 +186,11 @@ mod tests {
   }
 
   #[test]
-  fn contrast_of_a_failing_starting_color_matches_the_plan() {
-    // The light starting value of slot 1 against the light ground has 2.21:1 (rounded), the
-    // value that made the slot fail and need darkening.
-    assert_eq!("2.21", format!("{:.2}", contrast("#c9a227", "#f3f5f4")));
+  fn contrast_of_the_lightest_gray_with_4_5_to_1_on_white() {
+    // Oracle: #767676 is the lightest gray with at least 4.5:1 on white, 4.54:1 (rounded), the
+    // value of WebAIM's contrast checker; #777777 falls short.
+    let actual = [contrast("#767676", "#ffffff"), contrast("#777777", "#ffffff")].map(|c| format!("{c:.2}"));
+    assert_eq!(["4.54", "4.48"], actual);
   }
 
   /// The `--color-<name>: <value>;` tokens of the CSS block that starts with `opening`, by name
