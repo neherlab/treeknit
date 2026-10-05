@@ -7,7 +7,8 @@
 
 use crate::newick;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::btree_map::Entry;
+use std::collections::BTreeMap;
 use treeknit_core::{Options, Resolution, Taxa, Tree, bits};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
@@ -310,11 +311,16 @@ pub fn shared_leaf_counts(trees: &[Tree], n_taxa: usize) -> Vec<PairShared> {
   counts
 }
 
+/// Characters that Windows does not allow in file names, besides the path separators.
+const RESERVED_CHARS: [char; 7] = ['<', '>', ':', '"', '|', '?', '*'];
+
 /// A label is also a file-name stem of the outputs, so it must name a file in the results
-/// directory: no path separator, no control character, and neither `.` nor `..`.
+/// directory on every release target: no path separator, no character reserved on Windows, no
+/// control character, and neither `.` nor `..`. Labels that differ only in case are repeated
+/// labels, because the file systems of macOS and Windows ignore case.
 fn check_labels(trees: &[TreeText]) -> Vec<ValidationError> {
   let mut errors = Vec::new();
-  let mut seen = BTreeSet::new();
+  let mut seen: BTreeMap<String, &str> = BTreeMap::new();
   for (i, t) in trees.iter().enumerate() {
     let field = format!("trees[{i}].label");
     let l = t.label.as_str();
@@ -322,38 +328,52 @@ fn check_labels(trees: &[TreeText]) -> Vec<ValidationError> {
       Some(format!("tree {} needs a label", i + 1))
     } else if l.contains(['/', '\\']) {
       Some(format!("tree label {l:?} must not contain / or \\"))
+    } else if l.contains(RESERVED_CHARS) {
+      Some(format!("tree label {l:?} must not contain any of <>:\"|?*"))
     } else if l.chars().any(char::is_control) {
       Some(format!("tree label {l:?} must not contain control characters"))
     } else if l == "." || l == ".." {
       Some(format!("tree label {l:?} is not a file name"))
-    } else if !seen.insert(l) {
-      Some(format!("tree label {l:?} is used twice"))
     } else {
-      None
+      match seen.entry(l.to_lowercase()) {
+        Entry::Vacant(e) => {
+          e.insert(l);
+          None
+        },
+        Entry::Occupied(e) if *e.get() == l => Some(format!("tree label {l:?} is used twice")),
+        Entry::Occupied(e) => Some(format!(
+          "tree label {l:?} differs from {:?} only in case, so their output files get the same name",
+          e.get()
+        )),
+      }
     };
     errors.extend(message.map(|m| ValidationError::at(field, m)));
   }
   errors
 }
 
-/// Pairs whose output files would get the same name: `MCCs_<a>_<b>.dat` joins two labels with
-/// `_`, so the labels `a_b`, `c`, `a`, `b_c` give the pairs (0,1) and (2,3) one name.
+/// Pairs whose output files would get the same name, ignoring case as `check_labels` does:
+/// `MCCs_<a>_<b>.dat` joins two labels with `_`, so the labels `a_b`, `c`, `a`, `b_c` give the
+/// pairs (0,1) and (2,3) one name.
 fn check_pair_stems(trees: &[TreeText]) -> Vec<ValidationError> {
   let mut first: BTreeMap<String, (usize, usize)> = BTreeMap::new();
   let mut errors = Vec::new();
   for i in 0..trees.len() {
     for j in i + 1..trees.len() {
       let stem = pair_stem(&trees[i].label, &trees[j].label);
-      match first.get(&stem) {
-        Some(&(a, b)) => errors.push(ValidationError::at(
-          "trees",
-          format!(
-            "tree pairs ({:?}, {:?}) and ({:?}, {:?}) give the same output file names ({stem:?}); rename a tree",
-            trees[a].label, trees[b].label, trees[i].label, trees[j].label
-          ),
-        )),
-        None => {
-          first.insert(stem, (i, j));
+      match first.entry(stem.to_lowercase()) {
+        Entry::Occupied(e) => {
+          let &(a, b) = e.get();
+          errors.push(ValidationError::at(
+            "trees",
+            format!(
+              "tree pairs ({:?}, {:?}) and ({:?}, {:?}) give the same output file names ({stem:?}); rename a tree",
+              trees[a].label, trees[b].label, trees[i].label, trees[j].label
+            ),
+          ));
+        },
+        Entry::Vacant(e) => {
+          e.insert((i, j));
         },
       }
     }
@@ -377,6 +397,7 @@ mod tests {
   use pretty_assertions::assert_eq;
   use rstest::rstest;
   use serde_json::json;
+  use std::collections::BTreeSet;
 
   const T: &str = "((A,B),(C,D));";
 
@@ -596,6 +617,15 @@ mod tests {
   #[case::dot(            &["ha", "."],                "trees[1].label",  "tree label \".\" is not a file name")]
   #[case::dot_dot(        &["..", "na"],               "trees[0].label",  "tree label \"..\" is not a file name")]
   #[case::pair_stems(     &["a_b", "c", "a", "b_c"],   "trees",           "tree pairs (\"a_b\", \"c\") and (\"a\", \"b_c\") give the same output file names (\"a_b_c\"); rename a tree")]
+  #[case::case_only(      &["HA", "na", "ha"],         "trees[2].label",  "tree label \"ha\" differs from \"HA\" only in case, so their output files get the same name")]
+  #[case::pair_stems_case(&["a_b", "c", "A", "B_c"],   "trees",           "tree pairs (\"a_b\", \"c\") and (\"A\", \"B_c\") give the same output file names (\"A_B_c\"); rename a tree")]
+  #[case::less_than(      &["ha", "a<b"],              "trees[1].label",  "tree label \"a<b\" must not contain any of <>:\"|?*")]
+  #[case::greater_than(   &["ha", "a>b"],              "trees[1].label",  "tree label \"a>b\" must not contain any of <>:\"|?*")]
+  #[case::colon(          &["ha", "a:b"],              "trees[1].label",  "tree label \"a:b\" must not contain any of <>:\"|?*")]
+  #[case::quote(          &["ha", "a\"b"],             "trees[1].label",  "tree label \"a\\\"b\" must not contain any of <>:\"|?*")]
+  #[case::pipe(           &["ha", "a|b"],              "trees[1].label",  "tree label \"a|b\" must not contain any of <>:\"|?*")]
+  #[case::question(       &["ha", "a?b"],              "trees[1].label",  "tree label \"a?b\" must not contain any of <>:\"|?*")]
+  #[case::star(           &["ha", "a*b"],              "trees[1].label",  "tree label \"a*b\" must not contain any of <>:\"|?*")]
   #[trace]
   fn invalid_labels_are_rejected(#[case] labels: &[&str], #[case] field: &str, #[case] message: &str) {
     assert_eq!(vec![error(field, message)], check_trees(&labeled(labels)));
@@ -606,6 +636,7 @@ mod tests {
   #[case::dots_inside(&["ha", "a.b", "..c"])]
   #[case::unicode(    &["A-H3N2 HA", "NA ü"])]
   #[case::underscores(&["a_b", "c", "a"])]
+  #[case::case_distinct(&["HA", "ha2"])]
   #[trace]
   fn usable_labels_are_accepted(#[case] labels: &[&str]) {
     assert_eq!(Vec::<ValidationError>::new(), check_trees(&labeled(labels)));
