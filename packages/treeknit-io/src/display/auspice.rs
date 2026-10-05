@@ -8,7 +8,6 @@ use super::{
 };
 use crate::palette::palette;
 use crate::run::RunResult;
-use treeknit_core::Options;
 
 /// Key of the MCC coloring and node attribute.
 const MCC_KEY: &str = "mcc";
@@ -16,21 +15,15 @@ const MCC_KEY: &str = "mcc";
 const MCC_LABEL: &str = "MCC";
 
 /// The trees of pair `pair` (pipeline order) of `run` in `version` as Auspice datasets, with
-/// `div` from `scale`; `None` when the run has no such pair. `opts` are the options of the run.
+/// `div` from `scale`; `None` when the run has no such pair.
 ///
 /// The trees are those of `pair_view`: the same node names, display order, MCCs, and color
 /// slots. Each node with an MCC has the attribute `mcc` with the MCC's number (its index in
 /// `MCCs.json` plus 1), and each reassortment branch the label `MCC` with that number. Both
 /// datasets hold the whole MCC coloring, in the light theme's colors, because Auspice has no
 /// dark theme.
-pub fn auspice_view(
-  run: &RunResult,
-  opts: &Options,
-  pair: usize,
-  version: TreeVersion,
-  scale: Scale,
-) -> Option<AuspicePair> {
-  let (layout, slots) = pair_layout(run, opts, pair, version)?;
+pub fn auspice_view(run: &RunResult, pair: usize, version: TreeVersion, scale: Scale) -> Option<AuspicePair> {
+  let (layout, slots) = pair_layout(run, pair, version)?;
   let colors = palette().light.mcc;
   let coloring = AuspiceColoring {
     key: MCC_KEY.to_owned(),
@@ -103,7 +96,7 @@ mod tests {
   use pretty_assertions::assert_eq;
   use serde_json::json;
 
-  fn run_trees(trees: &[(&str, &str)]) -> (RunResult, Options) {
+  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
     let texts: Vec<TreeText> = trees
       .iter()
       .map(|(label, newick)| TreeText {
@@ -113,8 +106,7 @@ mod tests {
       .collect();
     let settings = Settings::default();
     let opts = analysis::options(&settings, texts.len(), false).unwrap();
-    let r = run::run(analysis::parse_trees(&texts).unwrap(), &opts, settings.seed, &|_| {});
-    (r, opts)
+    run::run(analysis::parse_trees(&texts).unwrap(), &opts, settings.seed, &|_| {})
   }
 
   /// A node with `div`, the MCC number `mcc`, the branch label `label`, and `children` (`None`
@@ -220,7 +212,7 @@ mod tests {
 
   #[test]
   fn auspice_view_of_the_input_version_with_divergence() {
-    let (r, opts) = run_trees(&[("ha", HA), ("na", NA)]);
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
     let mccs: Vec<Vec<String>> = r.pairs[0].mccs.iter().map(|m| r.taxa.names_of(m)).collect();
     assert_eq!(
       MCCS.map(|m| m.join(",")).to_vec(),
@@ -276,26 +268,23 @@ mod tests {
       left: dataset(&meta(), left),
       right: dataset(&meta(), right),
     };
-    assert_eq!(
-      Some(expected),
-      auspice_view(&r, &opts, 0, TreeVersion::Input, Scale::Div)
-    );
+    assert_eq!(Some(expected), auspice_view(&r, 0, TreeVersion::Input, Scale::Div));
   }
 
   #[test]
   fn auspice_view_of_the_right_tree_as_a_cladogram() {
-    let (r, opts) = run_trees(&[("ha", HA), ("na", NA)]);
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
     // Oracle: na has height 3 (r2, abw, ab, A), so its leaves are at 3; abw has height 2 (at 1),
     // ab and cd height 1 (at 2).
     let right = right_tree([0.0, 2.0, 3.0, 3.0, 1.0, 3.0, 2.0, 3.0, 3.0]);
-    let view = auspice_view(&r, &opts, 0, TreeVersion::Input, Scale::Depth).unwrap();
+    let view = auspice_view(&r, 0, TreeVersion::Input, Scale::Depth).unwrap();
     assert_eq!(dataset(&meta(), right), view.right);
   }
 
   #[test]
   fn auspice_view_serializes_with_the_auspice_field_names() {
-    let (r, opts) = run_trees(&[("ha", HA), ("na", NA)]);
-    let view = auspice_view(&r, &opts, 0, TreeVersion::Input, Scale::Div).unwrap();
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
+    let view = auspice_view(&r, 0, TreeVersion::Input, Scale::Div).unwrap();
     let value = serde_json::to_value(&view.left).unwrap();
     let colors = palette().light.mcc;
     assert_eq!(
@@ -347,10 +336,10 @@ mod tests {
 
   #[test]
   fn auspice_view_of_the_two_tree_example_has_the_trees_of_the_pair_view() {
-    let (r, opts) = run_trees(&[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")]);
+    let r = run_trees(&[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")]);
     for version in [TreeVersion::Input, TreeVersion::Resolved, TreeVersion::Imputed] {
-      let pair = pair_view(&r, &opts, 0, version, Scale::Div).unwrap();
-      let view = auspice_view(&r, &opts, 0, version, Scale::Div).unwrap();
+      let pair = pair_view(&r, 0, version, Scale::Div).unwrap();
+      let view = auspice_view(&r, 0, version, Scale::Div).unwrap();
       assert_eq!(draw_preorder(&pair.left.nodes), preorder(&view.left.tree));
       assert_eq!(draw_preorder(&pair.right.nodes), preorder(&view.right.tree));
     }
@@ -358,7 +347,7 @@ mod tests {
 
   #[test]
   fn auspice_view_of_an_unknown_pair_is_none() {
-    let (r, opts) = run_trees(&[("ha", HA), ("na", NA)]);
-    assert!(auspice_view(&r, &opts, 1, TreeVersion::Resolved, Scale::Div).is_none());
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
+    assert!(auspice_view(&r, 1, TreeVersion::Resolved, Scale::Div).is_none());
   }
 }

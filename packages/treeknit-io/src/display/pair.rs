@@ -10,10 +10,10 @@ use std::collections::BTreeMap;
 use treeknit_core::impute::Attachment;
 use treeknit_core::mcc_map::leaf_mcc_map;
 use treeknit_core::pipeline::{keeps_run_order, sort_for_pair, sort_strictness};
-use treeknit_core::{Options, PairResult, Tree};
+use treeknit_core::{PairResult, Tree};
 
 /// The tanglegram of pair `pair` (pipeline order) of `run` in `version`, with the shapes for
-/// `scale`; `None` when the run has no such pair. `opts` are the options of the run.
+/// `scale`; `None` when the run has no such pair.
 ///
 /// The trees of the pair are sorted for it on copies, with the sort of the run (see
 /// `treeknit_core::pipeline::sort_for_pair`). Only the `resolved` version of a pair whose order
@@ -23,9 +23,11 @@ use treeknit_core::{Options, PairResult, Tree};
 /// and `resolved` are left out, as the run left them out of its sort; the `imputed` trees have
 /// the attached leaves in both trees, so they take part.
 ///
-/// MCC colors come from the `resolved` version, so they stay put across versions.
-pub fn pair_view(run: &RunResult, opts: &Options, pair: usize, version: TreeVersion, scale: Scale) -> Option<PairView> {
-  let (layout, slots) = pair_layout(run, opts, pair, version)?;
+/// MCC colors come from the `resolved` version, so they stay put across versions. The slots keep
+/// neighboring MCCs apart only in that version: the `input` and `imputed` trees can order the
+/// leaves differently, so two MCCs that are neighbors only there can share a color.
+pub fn pair_view(run: &RunResult, pair: usize, version: TreeVersion, scale: Scale) -> Option<PairView> {
+  let (layout, slots) = pair_layout(run, pair, version)?;
   let mccs = mcc_infos(run, &run.pairs[pair], slots);
   let shapes = pair_shapes(&layout.left, &layout.right, &layout.links, &layout.blocks, slots, scale);
   Some(PairView {
@@ -40,28 +42,23 @@ pub fn pair_view(run: &RunResult, opts: &Options, pair: usize, version: TreeVers
 
 /// The drawn trees of pair `pair` (pipeline order) of `run` in `version`, with their links and
 /// blocks, and the color slot of every MCC of the pair; `None` when the run has no such pair.
-pub(super) fn pair_layout<'a>(
-  run: &'a RunResult,
-  opts: &Options,
-  pair: usize,
-  version: TreeVersion,
-) -> Option<(Layout, &'a [usize])> {
+pub(super) fn pair_layout(run: &RunResult, pair: usize, version: TreeVersion) -> Option<(Layout, &[usize])> {
   let p = run.pairs.get(pair)?;
-  let layout = Layout::new(run, opts, p, version);
+  let layout = Layout::new(run, p, version);
   let slots = if version == TreeVersion::Resolved {
     run.pair_slots[pair].get_or_init(|| layout.slots(p))
   } else {
-    pair_slots(run, opts, pair)
+    pair_slots(run, pair)
   };
   Some((layout, slots))
 }
 
 /// The color slot of every MCC of pair `pair`, computed on its `resolved` version once per run
 /// and kept in `run`.
-pub(super) fn pair_slots<'a>(run: &'a RunResult, opts: &Options, pair: usize) -> &'a [usize] {
+pub(super) fn pair_slots(run: &RunResult, pair: usize) -> &[usize] {
   run.pair_slots[pair].get_or_init(|| {
     let p = &run.pairs[pair];
-    Layout::new(run, opts, p, TreeVersion::Resolved).slots(p)
+    Layout::new(run, p, TreeVersion::Resolved).slots(p)
   })
 }
 
@@ -74,8 +71,8 @@ pub(super) struct Layout {
 }
 
 impl Layout {
-  fn new(run: &RunResult, opts: &Options, p: &PairResult, version: TreeVersion) -> Layout {
-    let (left, right) = sorted_pair(run, opts, p, version);
+  fn new(run: &RunResult, p: &PairResult, version: TreeVersion) -> Layout {
+    let (left, right) = sorted_pair(run, p, version);
     let leaf_mcc = leaf_mcc_map(&p.mccs, run.taxa.len());
     let left = draw_tree(&left, &run.input_trees[p.i], &leaf_mcc);
     let right = draw_tree(&right, &run.input_trees[p.j], &leaf_mcc);
@@ -96,13 +93,8 @@ impl Layout {
 }
 
 /// The trees `i` and `j` of pair `p` in `version`, sorted for the pair.
-fn sorted_pair<'a>(
-  run: &'a RunResult,
-  opts: &Options,
-  p: &PairResult,
-  version: TreeVersion,
-) -> (Cow<'a, Tree>, Cow<'a, Tree>) {
-  let n = run.taxa.len();
+fn sorted_pair<'a>(run: &'a RunResult, p: &PairResult, version: TreeVersion) -> (Cow<'a, Tree>, Cow<'a, Tree>) {
+  let (n, opts) = (run.taxa.len(), &run.opts);
   let trees = match version {
     TreeVersion::Input => &run.input_trees,
     TreeVersion::Resolved => &run.trees,
@@ -223,7 +215,7 @@ mod tests {
   const HA: &str = "((A,B),(C,(D,X)));";
   const NA: &str = "((A,(B,X)),(C,D));";
 
-  fn run_with(trees: &[(&str, &str)], settings: &Settings) -> (RunResult, Options) {
+  fn run_with(trees: &[(&str, &str)], settings: &Settings) -> RunResult {
     let texts: Vec<TreeText> = trees
       .iter()
       .map(|(label, newick)| TreeText {
@@ -232,11 +224,10 @@ mod tests {
       })
       .collect();
     let opts = analysis::options(settings, texts.len(), false).unwrap();
-    let r = run::run(analysis::parse_trees(&texts).unwrap(), &opts, settings.seed, &|_| {});
-    (r, opts)
+    run::run(analysis::parse_trees(&texts).unwrap(), &opts, settings.seed, &|_| {})
   }
 
-  fn run_trees(trees: &[(&str, &str)]) -> (RunResult, Options) {
+  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
     run_with(trees, &Settings::default())
   }
 
@@ -256,16 +247,15 @@ mod tests {
       auspice: false,
       figures: false,
     };
-    // Without figures, the files do not depend on the options of the run.
-    let file = output::output_files(r, &Options::for_trees(r.trees.len()), &options)
+    let file = output::output_files(r, &options)
       .into_iter()
       .find(|f| f.path == path)
       .unwrap();
     newick::parse(file.text.trim_end(), "t").unwrap().leaf_names()
   }
 
-  fn view(r: &RunResult, opts: &Options, pair: usize, version: TreeVersion) -> PairView {
-    pair_view(r, opts, pair, version, Scale::Div).unwrap()
+  fn view(r: &RunResult, pair: usize, version: TreeVersion) -> PairView {
+    pair_view(r, pair, version, Scale::Div).unwrap()
   }
 
   /// A tree of one root above `leaves`, each a name and an MCC, in display order.
@@ -328,13 +318,13 @@ mod tests {
   #[test]
   fn pair_view_lays_out_each_version_and_scale_exactly() {
     // P is in ha only; the imputed version of na places it as the sister of D.
-    let (r, opts) = run_trees(&[
+    let r = run_trees(&[
       ("ha", "((A:1,B:1):1,(C:1,(D:1,P:1):1):1);"),
       ("na", "((A:1,B:1):2,(C:1,D:3):1);"),
     ]);
     // The x of each named leaf and the sorted x of the internal nodes of the right tree.
     let xs = |version, scale| {
-      let v = pair_view(&r, &opts, 0, version, scale).unwrap();
+      let v = pair_view(&r, 0, version, scale).unwrap();
       let x = |n: &super::super::DrawNode| if scale == Scale::Div { n.x_div } else { n.x_depth };
       let mut leaves: Vec<(String, f64)> = v
         .right
@@ -376,8 +366,8 @@ mod tests {
 
   #[test]
   fn pair_view_of_the_two_tree_example() {
-    let (r, opts) = run_trees(&[("ha", HA), ("na", NA)]);
-    let v = view(&r, &opts, 0, TreeVersion::Resolved);
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
+    let v = view(&r, 0, TreeVersion::Resolved);
     // Oracle: the run's output order of each tree (sorted by the run for this pair).
     assert_eq!(output_order(&r, "ha_resolved.nwk"), leaf_names(&v.left));
     assert_eq!(output_order(&r, "na_resolved.nwk"), leaf_names(&v.right));
@@ -424,8 +414,8 @@ mod tests {
 
   #[test]
   fn pair_view_shapes_of_the_two_tree_example() {
-    let (r, opts) = run_trees(&[("ha", HA), ("na", NA)]);
-    let v = view(&r, &opts, 0, TreeVersion::Resolved);
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
+    let v = view(&r, 0, TreeVersion::Resolved);
     let x_link = &v.shapes.links[4];
     assert_eq!(1, x_link.slot);
     let expected = super::super::Bezier {
@@ -450,16 +440,16 @@ mod tests {
 
   #[test]
   fn pair_view_keeps_slots_across_versions() {
-    let (r, opts) = run_trees(&[("ha", HA), ("na", NA)]);
-    let slots = |version| -> Vec<usize> { view(&r, &opts, 0, version).mccs.iter().map(|m| m.slot).collect() };
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
+    let slots = |version| -> Vec<usize> { view(&r, 0, version).mccs.iter().map(|m| m.slot).collect() };
     assert_eq!(slots(TreeVersion::Resolved), slots(TreeVersion::Input));
     assert_eq!(slots(TreeVersion::Resolved), slots(TreeVersion::Imputed));
   }
 
   #[test]
   fn pair_view_of_an_unknown_pair_is_none() {
-    let (r, opts) = run_trees(&[("ha", HA), ("na", NA)]);
-    assert!(pair_view(&r, &opts, 1, TreeVersion::Resolved, Scale::Div).is_none());
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
+    assert!(pair_view(&r, 1, TreeVersion::Resolved, Scale::Div).is_none());
   }
 
   #[rstest::rstest]
@@ -476,8 +466,8 @@ mod tests {
       resolve,
       ..Settings::default()
     };
-    let (r, opts) = run_with(&[("ha", ha), ("na", na)], &settings);
-    let v = view(&r, &opts, 0, TreeVersion::Resolved);
+    let r = run_with(&[("ha", ha), ("na", na)], &settings);
+    let v = view(&r, 0, TreeVersion::Resolved);
     assert_eq!(output_order(&r, "ha_resolved.nwk"), leaf_names(&v.left));
     assert_eq!(output_order(&r, "na_resolved.nwk"), leaf_names(&v.right));
   }
@@ -496,15 +486,15 @@ mod tests {
       ("seg1", "((A,(B,X)),(C,D,E));"),
       ("seg2", "((A,B),((C,D),(E,X)));"),
     ];
-    let (r, opts) = run_with(&trees, &settings);
+    let r = run_with(&trees, &settings);
     let n = r.taxa.len();
     let mut kept = 0;
     for (index, p) in r.pairs.iter().enumerate() {
-      if !keeps_run_order(&r.trees, &opts, n, p.i, p.j) {
+      if !keeps_run_order(&r.trees, &r.opts, n, p.i, p.j) {
         continue;
       }
       kept += 1;
-      let v = view(&r, &opts, index, TreeVersion::Resolved);
+      let v = view(&r, index, TreeVersion::Resolved);
       assert_eq!(
         output_order(&r, &format!("{}_resolved.nwk", trees[p.i].0)),
         leaf_names(&v.left)
@@ -517,14 +507,14 @@ mod tests {
     assert!(kept > 0, "no pair kept the run order");
     // Every tree's last sorting pair: its own order in that pair's view, when the run kept it.
     for t in 0..trees.len() {
-      let Some((i, j)) = treeknit_core::pipeline::last_sorting_pair(&r.trees, &opts, n, t) else {
+      let Some((i, j)) = treeknit_core::pipeline::last_sorting_pair(&r.trees, &r.opts, n, t) else {
         continue;
       };
-      if !keeps_run_order(&r.trees, &opts, n, i, j) {
+      if !keeps_run_order(&r.trees, &r.opts, n, i, j) {
         continue;
       }
       let index = r.pairs.iter().position(|p| (p.i, p.j) == (i, j)).unwrap();
-      let v = view(&r, &opts, index, TreeVersion::Resolved);
+      let v = view(&r, index, TreeVersion::Resolved);
       let drawn = if t == i { &v.left } else { &v.right };
       assert_eq!(
         output_order(&r, &format!("{}_resolved.nwk", trees[t].0)),
@@ -535,8 +525,8 @@ mod tests {
 
   #[test]
   fn pair_view_flags_added_nodes_of_a_resolved_polytomy() {
-    let (r, opts) = run_trees(&[("ha", "((A,B,C),(D,E));"), ("na", "((A,(B,C)),(D,E));")]);
-    let v = view(&r, &opts, 0, TreeVersion::Resolved);
+    let r = run_trees(&[("ha", "((A,B,C),(D,E));"), ("na", "((A,(B,C)),(D,E));")]);
+    let v = view(&r, 0, TreeVersion::Resolved);
     // Matched resolution copies na's split (B,C) into ha's polytomy.
     let added = names_where(&v.left, |n| n.added);
     assert_eq!(1, added.len());
@@ -544,7 +534,7 @@ mod tests {
     let below: Vec<&str> = bc.children.iter().map(|&c| v.left.nodes[c].name.as_str()).collect();
     assert_eq!(vec!["B", "C"], below);
     assert!(names_where(&v.right, |n| n.added).is_empty());
-    let input = view(&r, &opts, 0, TreeVersion::Input);
+    let input = view(&r, 0, TreeVersion::Input);
     assert!(names_where(&input.left, |n| n.added).is_empty());
     assert!(input.left.nodes.iter().all(|n| !n.imputed));
   }
@@ -552,14 +542,14 @@ mod tests {
   #[test]
   fn pair_view_of_the_partial_overlap_input_flags_imputed_leaves() {
     // The input of the command-line test `three_trees_partial_overlap_imputed`.
-    let (r, opts) = run_trees(&[
+    let r = run_trees(&[
       ("seg0", "((A,B),(C,(D,(E,X))));"),
       ("seg1", "((A,(B,X)),(C,D,E,P));"),
       ("seg2", "((A,(B,P)),((C,D),(E,X)));"),
     ]);
     // Pair (0,1): P is only in seg1. In the resolved version it has no link; in the imputed
     // version seg0 holds it as an imputed leaf, and it is an imputed member of its MCC.
-    let resolved = view(&r, &opts, 0, TreeVersion::Resolved);
+    let resolved = view(&r, 0, TreeVersion::Resolved);
     assert!(!leaf_names(&resolved.left).contains(&"P"));
     assert!(leaf_names(&resolved.right).contains(&"P"));
     assert_eq!(6, resolved.links.len());
@@ -569,7 +559,7 @@ mod tests {
       .find(|m| m.leaves.iter().any(|l| l == "P"))
       .unwrap();
     assert_eq!(vec!["P".to_owned()], p_mcc.imputed_leaves);
-    let imputed = view(&r, &opts, 0, TreeVersion::Imputed);
+    let imputed = view(&r, 0, TreeVersion::Imputed);
     assert_eq!(vec!["P"], names_where(&imputed.left, |n| n.imputed));
     assert!(names_where(&imputed.right, |n| n.imputed).is_empty());
     assert_eq!(7, imputed.links.len());
@@ -579,7 +569,7 @@ mod tests {
     for pair in 0..r.pairs.len() {
       for version in [TreeVersion::Input, TreeVersion::Resolved, TreeVersion::Imputed] {
         for scale in [Scale::Div, Scale::Depth] {
-          let v = pair_view(&r, &opts, pair, version, scale).unwrap();
+          let v = pair_view(&r, pair, version, scale).unwrap();
           assert!(numbers(&v).iter().all(|x| x.is_finite()));
         }
       }
@@ -590,8 +580,8 @@ mod tests {
   fn pair_view_names_ambiguously_attached_leaves() {
     // P hangs at ha's root, whose children belong to different MCCs: its attachment is
     // ambiguous.
-    let (r, opts) = run_trees(&[("ha", "(P,((A,B),(C,D)),X);"), ("na", "((A,(B,X)),(C,D));")]);
-    let v = view(&r, &opts, 0, TreeVersion::Resolved);
+    let r = run_trees(&[("ha", "(P,((A,B),(C,D)),X);"), ("na", "((A,(B,X)),(C,D));")]);
+    let v = view(&r, 0, TreeVersion::Resolved);
     let p_mcc = v.mccs.iter().find(|m| m.leaves.iter().any(|l| l == "P")).unwrap();
     assert_eq!(vec!["P".to_owned()], p_mcc.imputed_leaves);
     assert_eq!(vec!["P".to_owned()], p_mcc.ambiguous_leaves);
@@ -605,8 +595,8 @@ mod tests {
 
   #[test]
   fn pair_view_shapes_carry_the_mcc_of_their_link_block_and_node() {
-    let (r, opts) = run_trees(&[("ha", HA), ("na", NA)]);
-    let v = view(&r, &opts, 0, TreeVersion::Resolved);
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
+    let v = view(&r, 0, TreeVersion::Resolved);
     for (i, c) in v.shapes.links.iter().enumerate() {
       assert_eq!((i, v.links[i].mcc, v.mccs[c.mcc].slot), (c.link, c.mcc, c.slot));
     }
@@ -631,8 +621,8 @@ mod tests {
   #[test]
   fn pair_view_renames_an_internal_node_named_like_an_imputed_leaf() {
     // Imputation grafts na's leaf P into ha, whose internal node above A and B is named P.
-    let (r, opts) = run_trees(&[("ha", "((A,B)P,(C,D));"), ("na", "((A,B),(C,(D,P)));")]);
-    let v = view(&r, &opts, 0, TreeVersion::Imputed);
+    let r = run_trees(&[("ha", "((A,B)P,(C,D));"), ("na", "((A,B),(C,(D,P)));")]);
+    let v = view(&r, 0, TreeVersion::Imputed);
     assert_eq!(vec!["P"], names_where(&v.left, |n| n.imputed));
     let internal: Vec<&str> = names_where(&v.left, |n| !n.leaf && n.name.starts_with('P'));
     assert_eq!(vec!["P_2"], internal);
@@ -653,10 +643,10 @@ mod tests {
         .map(|(i, t)| (format!("t{i}"), t.as_str()))
         .collect();
       let trees: Vec<(&str, &str)> = trees.iter().map(|(l, t)| (l.as_str(), *t)).collect();
-      let Some((r, opts)) = try_run(&trees) else { continue };
+      let Some(r) = try_run(&trees) else { continue };
       for pair in 0..r.pairs.len() {
         for version in [TreeVersion::Input, TreeVersion::Resolved, TreeVersion::Imputed] {
-          let v = view(&r, &opts, pair, version);
+          let v = view(&r, pair, version);
           for tree in [&v.left, &v.right] {
             let names: BTreeSet<&str> = tree.nodes.iter().map(|n| n.name.as_str()).collect();
             assert_eq!(tree.nodes.len(), names.len(), "{texts:?}");
@@ -687,7 +677,7 @@ mod tests {
   }
 
   /// The run of `trees`, or `None` when the trees do not validate.
-  fn try_run(trees: &[(&str, &str)]) -> Option<(RunResult, Options)> {
+  fn try_run(trees: &[(&str, &str)]) -> Option<RunResult> {
     let texts: Vec<TreeText> = trees
       .iter()
       .map(|(label, newick)| TreeText {
@@ -698,14 +688,14 @@ mod tests {
     let settings = Settings::default();
     let parsed = analysis::parse_trees(&texts).ok()?;
     let opts = analysis::options(&settings, texts.len(), false).ok()?;
-    Some((run::run(parsed, &opts, settings.seed, &|_| {}), opts))
+    Some(run::run(parsed, &opts, settings.seed, &|_| {}))
   }
 
   #[test]
   fn pair_view_breaks_each_child_branch_below_a_root_without_mcc() {
     // W moves into the clade of A and B: MCCs [W] and [A,B,C,D], and ha's root has no MCC.
-    let (r, opts) = run_trees(&[("ha", "(((A,B),(C,D)),W);"), ("na", "(((A,B),W),(C,D));")]);
-    let v = view(&r, &opts, 0, TreeVersion::Resolved);
+    let r = run_trees(&[("ha", "(((A,B),(C,D)),W);"), ("na", "(((A,B),W),(C,D));")]);
+    let v = view(&r, 0, TreeVersion::Resolved);
     let root = &v.left.nodes[0];
     assert_eq!(None, root.mcc);
     let child_mccs: BTreeSet<Option<usize>> = root.children.iter().map(|&c| v.left.nodes[c].mcc).collect();

@@ -129,14 +129,13 @@ mod tests {
   use quick_xml::{Reader, XmlVersion};
   use rstest::rstest;
   use serde_json::json;
-  use treeknit_core::Options;
 
   /// The two-tree example: X moved between the trees. Its MCCs are `[X]` and `[A,B,C,D]`
   /// (TreeKnit.jl fixture `fixtures/doc_mccs_1.json`).
   const HA: &str = "((A,B),(C,(D,X)));";
   const NA: &str = "((A,(B,X)),(C,D));";
 
-  fn run_trees(trees: &[(&str, &str)]) -> (RunResult, Options) {
+  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
     let texts: Vec<TreeText> = trees
       .iter()
       .map(|(label, newick)| TreeText {
@@ -146,14 +145,13 @@ mod tests {
       .collect();
     let s = Settings::default();
     let opts = analysis::options(&s, texts.len(), false).unwrap();
-    let r = run::run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {});
-    (r, opts)
+    run::run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {})
   }
 
   /// The resolved pair view of the two-tree example, laid out with `scale`.
   fn example_view(scale: Scale) -> PairView {
-    let (r, opts) = run_trees(&[("ha", HA), ("na", NA)]);
-    display::pair_view(&r, &opts, 0, TreeVersion::Resolved, scale).unwrap()
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
+    display::pair_view(&r, 0, TreeVersion::Resolved, scale).unwrap()
   }
 
   /// The elements of `svg` in document order, with their attributes and the text of `text` and
@@ -453,8 +451,8 @@ mod tests {
   #[test]
   fn tanglegram_svg_draws_imputed_and_added_marks() {
     // P is only in ha, so imputation places it into na; the polytomy of na is resolved.
-    let (r, opts) = run_trees(&[("ha", "((A,B),(C,(D,P)));"), ("na", "((A,B,C),D);")]);
-    let view = display::pair_view(&r, &opts, 0, TreeVersion::Imputed, Scale::Depth).unwrap();
+    let r = run_trees(&[("ha", "((A,B),(C,(D,P)));"), ("na", "((A,B,C),D);")]);
+    let view = display::pair_view(&r, 0, TreeVersion::Imputed, Scale::Depth).unwrap();
     let svg = tanglegram_svg(&view, &options(1200.0, 12.0, Scale::Depth, LabelMode::On)).unwrap();
     let colors = palette::palette().light;
     let imputed = view
@@ -575,7 +573,7 @@ mod tests {
 
   #[test]
   fn arg_svg_without_reassortment_has_no_rings_or_reassortment_entry() {
-    let (r, _) = run_trees(&[("ha", HA), ("na", HA)]);
+    let r = run_trees(&[("ha", HA), ("na", HA)]);
     let view = display::arg_view(&r, Scale::Depth).unwrap();
     let svg = arg_svg(&view, ["ha", "na"], &options(800.0, 12.0, Scale::Depth, LabelMode::Off)).unwrap();
     let parsed = elements(&svg);
@@ -593,7 +591,7 @@ mod tests {
 
   #[test]
   fn arg_svg_of_the_two_tree_example() {
-    let (r, _) = run_trees(&[("ha", HA), ("na", NA)]);
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
     let view = display::arg_view(&r, Scale::Depth).unwrap();
     let svg = arg_svg(&view, ["ha", "na"], &options(800.0, 12.0, Scale::Depth, LabelMode::On)).unwrap();
     let colors = palette::palette().light;
@@ -638,7 +636,7 @@ mod tests {
 
   #[test]
   fn arg_svg_rejects_invalid_options() {
-    let (r, _) = run_trees(&[("ha", HA), ("na", NA)]);
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
     let view = display::arg_view(&r, Scale::Div).unwrap();
     let errors = arg_svg(
       &view,

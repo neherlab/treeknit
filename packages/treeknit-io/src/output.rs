@@ -179,8 +179,8 @@ pub fn media_type(path: &str) -> &'static str {
 /// directory, with the bytes the command line writes: the MCCs as JSON and as lines, the
 /// resolved trees, the imputed trees and Auspice files when `options` asks for them, for two
 /// trees the ARG files, and the figures when `options` asks for them. File names follow the tree
-/// labels. `opts` are the options of the run, by which the figures sort the trees of a pair.
-pub fn output_files(run: &RunResult, opts: &Options, options: &OutputOptions) -> Vec<OutputFile> {
+/// labels.
+pub fn output_files(run: &RunResult, options: &OutputOptions) -> Vec<OutputFile> {
   let RunResult {
     trees,
     taxa,
@@ -237,7 +237,7 @@ pub fn output_files(run: &RunResult, opts: &Options, options: &OutputOptions) ->
         clippy::expect_used,
         reason = "`figure_files` lists only figures that `run` has, so each has a text"
       )]
-      let text = figure_text(run, opts, f.figure).expect("a listed figure has a text");
+      let text = figure_text(run, f.figure).expect("a listed figure has a text");
       OutputFile::new(f.path, text)
     }));
   }
@@ -260,23 +260,17 @@ pub fn figure_files(run: &RunResult) -> Vec<FigureFile> {
 
 /// The file set of a run of the web app for `request`, in order: the session file, the files of
 /// `output_files` with `OutputOptions::web`, the figures of `figure_files`, `parameters.json`,
-/// and `log.txt` of `records`. `command_line` writes the same files. `opts` and `seed` are the
-/// options and the seed of the run.
-pub fn web_files(
-  request: &AnalysisRequest,
-  run: &RunResult,
-  opts: &Options,
-  seed: u64,
-  records: &[Diagnostic],
-) -> Vec<WebFile> {
+/// and `log.txt` of `records`. `command_line` writes the same files. `seed` is the seed of the
+/// run.
+pub fn web_files(request: &AnalysisRequest, run: &RunResult, seed: u64, records: &[Diagnostic]) -> Vec<WebFile> {
   let options = OutputOptions {
     figures: false,
     ..OutputOptions::web(run.trees.len())
   };
   let mut files = vec![WebFile::Text(request_file(request))];
-  files.extend(output_files(run, opts, &options).into_iter().map(WebFile::Text));
+  files.extend(output_files(run, &options).into_iter().map(WebFile::Text));
   files.extend(figure_files(run).into_iter().map(WebFile::Figure));
-  files.push(WebFile::Text(parameters_file(opts, seed)));
+  files.push(WebFile::Text(parameters_file(&run.opts, seed)));
   files.push(WebFile::Text(log_file(records)));
   files
 }
@@ -354,11 +348,11 @@ pub fn check_output_paths(labels: &[String], options: &OutputOptions) -> Vec<Val
 
 /// The SVG text of `figure` of `run` with the default `FigureOptions`, a tanglegram of the
 /// resolved trees, as `pair_figure` and `arg_figure` draw it; `None` when `run` lacks the pair or
-/// the ARG. `opts` are the options of the run.
-pub fn figure_text(run: &RunResult, opts: &Options, figure: Figure) -> Option<String> {
+/// the ARG.
+pub fn figure_text(run: &RunResult, figure: Figure) -> Option<String> {
   let options = FigureOptions::default();
   let svg = match figure {
-    Figure::Pair { pair } => pair_figure(run, opts, pair, TreeVersion::Resolved, &options),
+    Figure::Pair { pair } => pair_figure(run, pair, TreeVersion::Resolved, &options),
     Figure::Arg => arg_figure(run, &options),
   };
   #[expect(clippy::expect_used, reason = "the default figure options are valid")]
@@ -367,17 +361,16 @@ pub fn figure_text(run: &RunResult, opts: &Options, figure: Figure) -> Option<St
 
 /// The SVG tanglegram of pair `pair` (pipeline order) of `run` in `version` with `options`;
 /// `Ok(None)` when `run` lacks the pair, and the errors of `figure::check_figure_options` when
-/// `options` are invalid. `opts` are the options of the run. With the scale `div`, a pair where
-/// a tree has no branch lengths is drawn as cladograms (scale `depth`), because the divergence of
-/// that tree is 0 everywhere and `div` would draw all its nodes at the root.
+/// `options` are invalid. With the scale `div`, a pair where a tree has no branch lengths is
+/// drawn as cladograms (scale `depth`), because the divergence of that tree is 0 everywhere and
+/// `div` would draw all its nodes at the root.
 pub fn pair_figure(
   run: &RunResult,
-  opts: &Options,
   pair: usize,
   version: TreeVersion,
   options: &FigureOptions,
 ) -> Result<Option<String>, Vec<ValidationError>> {
-  let Some(view) = display::pair_view(run, opts, pair, version, options.scale) else {
+  let Some(view) = display::pair_view(run, pair, version, options.scale) else {
     return Ok(None);
   };
   let flat = |tree: &DrawTree| tree.nodes.iter().all(|n| n.x_div <= 0.0);
@@ -386,7 +379,7 @@ pub fn pair_figure(
       scale: Scale::Depth,
       ..*options
     };
-    let view = display::pair_view(run, opts, pair, version, options.scale);
+    let view = display::pair_view(run, pair, version, options.scale);
     return view.map(|v| figure::tanglegram_svg(&v, &options)).transpose();
   }
   figure::tanglegram_svg(&view, options).map(Some)
@@ -602,14 +595,9 @@ mod tests {
     run::run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {})
   }
 
-  /// The options of `run_trees` for `k` trees.
-  fn run_options(k: usize) -> Options {
-    analysis::options(&Settings::default(), k, false).unwrap()
-  }
-
   /// The output files of the trees `trees` with `options`.
   fn files_of(trees: &[(&str, &str)], options: &OutputOptions) -> Vec<OutputFile> {
-    output_files(&run_trees(trees), &run_options(trees.len()), options)
+    output_files(&run_trees(trees), options)
   }
 
   fn all_files(k: usize) -> OutputOptions {
@@ -798,7 +786,7 @@ mod tests {
   #[test]
   fn web_files_are_the_session_file_the_output_files_the_figures_and_the_run_files() {
     let trees = [("ha", HA), ("na", NA)];
-    let (r, opts) = (run_trees(&trees), run_options(2));
+    let r = run_trees(&trees);
     let request = AnalysisRequest {
       trees: trees
         .iter()
@@ -809,15 +797,15 @@ mod tests {
         .collect(),
       settings: Settings::default(),
     };
-    let files = web_files(&request, &r, &opts, 1, &[]);
+    let files = web_files(&request, &r, 1, &[]);
     let options = OutputOptions {
       figures: false,
       ..OutputOptions::web(2)
     };
     let mut expected = vec![WebFile::Text(request_file(&request))];
-    expected.extend(output_files(&r, &opts, &options).into_iter().map(WebFile::Text));
+    expected.extend(output_files(&r, &options).into_iter().map(WebFile::Text));
     expected.extend(figure_files(&r).into_iter().map(WebFile::Figure));
-    expected.push(WebFile::Text(parameters_file(&opts, 1)));
+    expected.push(WebFile::Text(parameters_file(r.options(), 1)));
     expected.push(WebFile::Text(log_file(&[])));
     assert_eq!(expected, files);
   }
@@ -851,8 +839,8 @@ mod tests {
       figures: true,
       ..all_files(2)
     };
-    let (r, opts) = (run_trees(&trees), run_options(2));
-    let files = output_files(&r, &opts, &options);
+    let r = run_trees(&trees);
+    let files = output_files(&r, &options);
     let without = files_of(&trees, &all_files(2));
     // The files without figures keep their bytes, and the figures follow them.
     assert_eq!(without, files[..without.len()]);
@@ -861,12 +849,12 @@ mod tests {
       OutputFile {
         path: "tanglegram_ha_na.svg".to_owned(),
         media_type: "image/svg+xml".to_owned(),
-        text: figure_text(&r, &opts, Figure::Pair { pair: 0 }).unwrap(),
+        text: figure_text(&r, Figure::Pair { pair: 0 }).unwrap(),
       },
       OutputFile {
         path: "ARG/arg.svg".to_owned(),
         media_type: "image/svg+xml".to_owned(),
-        text: figure_text(&r, &opts, Figure::Arg).unwrap(),
+        text: figure_text(&r, Figure::Arg).unwrap(),
       },
     ];
     assert_eq!(expected, figures);
@@ -874,17 +862,17 @@ mod tests {
 
   #[test]
   fn figure_text_draws_trees_without_branch_lengths_as_cladograms() {
-    let (r, opts) = (run_trees(&[("ha", HA), ("na", NA)]), run_options(2));
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
     let depth = FigureOptions {
       scale: Scale::Depth,
       ..FigureOptions::default()
     };
-    let view = display::pair_view(&r, &opts, 0, TreeVersion::Resolved, Scale::Depth).unwrap();
+    let view = display::pair_view(&r, 0, TreeVersion::Resolved, Scale::Depth).unwrap();
     let expected = figure::tanglegram_svg(&view, &depth).unwrap();
-    assert_eq!(Some(expected), figure_text(&r, &opts, Figure::Pair { pair: 0 }));
+    assert_eq!(Some(expected), figure_text(&r, Figure::Pair { pair: 0 }));
     let arg = display::arg_view(&r, Scale::Depth).unwrap();
     let expected = figure::arg_svg(&arg, ["ha", "na"], &depth).unwrap();
-    assert_eq!(Some(expected), figure_text(&r, &opts, Figure::Arg));
+    assert_eq!(Some(expected), figure_text(&r, Figure::Arg));
   }
 
   #[test]
@@ -893,56 +881,49 @@ mod tests {
       "((A:1,B:1):1,(C:1,(D:1,X:1):1):1);",
       "((A:1,(B:1,X:1):1):1,(C:1,D:1):1);",
     );
-    let (r, opts) = (run_trees(&[("ha", ha), ("na", na)]), run_options(2));
-    let view = display::pair_view(&r, &opts, 0, TreeVersion::Resolved, Scale::Div).unwrap();
+    let r = run_trees(&[("ha", ha), ("na", na)]);
+    let view = display::pair_view(&r, 0, TreeVersion::Resolved, Scale::Div).unwrap();
     let expected = figure::tanglegram_svg(&view, &FigureOptions::default()).unwrap();
-    assert_eq!(Some(expected), figure_text(&r, &opts, Figure::Pair { pair: 0 }));
+    assert_eq!(Some(expected), figure_text(&r, Figure::Pair { pair: 0 }));
   }
 
   #[test]
   fn figure_text_draws_a_pair_with_branch_lengths_in_one_tree_as_cladograms_and_its_arg_by_divergence() {
     let (ha, na) = ("((A:1,B:1):1,(C:1,(D:1,X:1):1):1);", NA);
-    let (r, opts) = (run_trees(&[("ha", ha), ("na", na)]), run_options(2));
+    let r = run_trees(&[("ha", ha), ("na", na)]);
     let depth = FigureOptions {
       scale: Scale::Depth,
       ..FigureOptions::default()
     };
-    let view = display::pair_view(&r, &opts, 0, TreeVersion::Resolved, Scale::Depth).unwrap();
+    let view = display::pair_view(&r, 0, TreeVersion::Resolved, Scale::Depth).unwrap();
     let expected = figure::tanglegram_svg(&view, &depth).unwrap();
-    assert_eq!(Some(expected), figure_text(&r, &opts, Figure::Pair { pair: 0 }));
+    assert_eq!(Some(expected), figure_text(&r, Figure::Pair { pair: 0 }));
     let arg = display::arg_view(&r, Scale::Div).unwrap();
     let expected = figure::arg_svg(&arg, ["ha", "na"], &FigureOptions::default()).unwrap();
-    assert_eq!(Some(expected), figure_text(&r, &opts, Figure::Arg));
+    assert_eq!(Some(expected), figure_text(&r, Figure::Arg));
   }
 
   #[test]
   fn pair_figure_with_the_depth_scale_keeps_it() {
-    let (r, opts) = (run_trees(&[("ha", HA), ("na", NA)]), run_options(2));
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
     let depth = FigureOptions {
       scale: Scale::Depth,
       width: 500.0,
       ..FigureOptions::default()
     };
-    let view = display::pair_view(&r, &opts, 0, TreeVersion::Input, Scale::Depth).unwrap();
+    let view = display::pair_view(&r, 0, TreeVersion::Input, Scale::Depth).unwrap();
     let expected = figure::tanglegram_svg(&view, &depth).unwrap();
-    assert_eq!(
-      Some(expected),
-      pair_figure(&r, &opts, 0, TreeVersion::Input, &depth).unwrap()
-    );
-    assert_eq!(None, pair_figure(&r, &opts, 1, TreeVersion::Input, &depth).unwrap());
+    assert_eq!(Some(expected), pair_figure(&r, 0, TreeVersion::Input, &depth).unwrap());
+    assert_eq!(None, pair_figure(&r, 1, TreeVersion::Input, &depth).unwrap());
   }
 
   #[test]
   fn figure_text_of_a_missing_pair_or_arg_is_none() {
     let t = "((A,B),(C,D));";
     let r = run_trees(&[("ha", t), ("na", t), ("pb2", t)]);
-    let opts = run_options(3);
     assert_eq!(
       (None, None),
-      (
-        figure_text(&r, &opts, Figure::Pair { pair: 3 }),
-        figure_text(&r, &opts, Figure::Arg)
-      )
+      (figure_text(&r, Figure::Pair { pair: 3 }), figure_text(&r, Figure::Arg))
     );
   }
 

@@ -474,18 +474,17 @@ mod tests {
     let opts = treeknit_io::analysis::options(&parsed.settings, 2, true).unwrap();
     let texts = treeknit_io::analysis::parse_trees(&parsed.trees).unwrap();
     let run = treeknit_io::run::run(texts, &opts, parsed.settings.seed, &|_| {});
-    let expected: BTreeMap<String, String> =
-      treeknit_io::output::web_files(&parsed, &run, &opts, parsed.settings.seed, &[])
-        .into_iter()
-        .map(|f| match f {
-          treeknit_io::output::WebFile::Text(f) => (f.path, f.text),
-          treeknit_io::output::WebFile::Figure(f) => {
-            let text = treeknit_io::output::figure_text(&run, &opts, f.figure).unwrap();
-            (f.path, text)
-          },
-        })
-        .filter(|(path, _)| path != "log.txt")
-        .collect();
+    let expected: BTreeMap<String, String> = treeknit_io::output::web_files(&parsed, &run, parsed.settings.seed, &[])
+      .into_iter()
+      .map(|f| match f {
+        treeknit_io::output::WebFile::Text(f) => (f.path, f.text),
+        treeknit_io::output::WebFile::Figure(f) => {
+          let text = treeknit_io::output::figure_text(&run, f.figure).unwrap();
+          (f.path, text)
+        },
+      })
+      .filter(|(path, _)| path != "log.txt")
+      .collect();
     assert_eq!(expected, readable(files_below(&out)));
   }
 

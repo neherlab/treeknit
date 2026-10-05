@@ -291,12 +291,12 @@ fn main() -> Result<()> {
   let result = run::run(parsed, &opts, input.seed, &|_| {});
   log::info!(
     "found {:?} MCCs (runtime {:.2}s)",
-    result.pairs.iter().map(|p| p.mccs.len()).collect::<Vec<_>>(),
+    result.pairs().iter().map(|p| p.mccs.len()).collect::<Vec<_>>(),
     start.elapsed().as_secs_f64()
   );
 
   log::info!("writing results in {}", cli.outdir.display());
-  for file in output::output_files(&result, &opts, &output_options) {
+  for file in output::output_files(&result, &output_options) {
     write_file(&cli.outdir, &file)?;
   }
   Ok(())

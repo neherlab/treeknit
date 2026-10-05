@@ -4,7 +4,6 @@ use js_sys::{Error, Function, JSON};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::cell::{OnceCell, RefCell};
-use treeknit_core::Options;
 use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
 use treeknit_io::display::{
   self, ArgView, AuspicePair, ConstellationTable, DrawingRules, PairView, Scale, TreeVersion,
@@ -136,8 +135,6 @@ pub fn drawing_rules() -> Result<Ts<DrawingRules>, JsError> {
 pub struct Session {
   /// Everything the run produced; display data and figures read from it.
   run: RunResult,
-  /// The options of the run; the display data sorts the trees of a pair as the run did.
-  options: Options,
   /// The Warn and Error records of the run, in the order they occurred.
   diagnostics: Vec<Diagnostic>,
   /// The output files of `output::web_files`, in the order of `files()`.
@@ -190,7 +187,7 @@ impl Session {
       return Err(e);
     }
     let records = log_capture::take();
-    let files = output::web_files(&request, &result, &opts, seed, &records)
+    let files = output::web_files(&request, &result, seed, &records)
       .into_iter()
       .map(|f| match f {
         WebFile::Text(file) => SessionFile::Text(file),
@@ -202,7 +199,6 @@ impl Session {
       .collect();
     Ok(Session {
       run: result,
-      options: opts,
       diagnostics: records
         .into_iter()
         .filter(|r| matches!(r.level, Level::Error | Level::Warn))
@@ -236,7 +232,7 @@ impl Session {
       .iter()
       .find(|f| f.path() == path)
       .ok_or_else(|| JsError::new(&format!("no file {path}")))?;
-    Ok(file.text(&self.run, &self.options)?.to_owned())
+    Ok(file.text(&self.run)?.to_owned())
   }
 
   /// A ZIP archive of every listed file, under `treeknit_results/`, figures included. A figure
@@ -252,7 +248,7 @@ impl Session {
         SessionFile::Text(file) => archive.add(&file.path, &file.text),
         SessionFile::Figure { file, svg } => match svg.get() {
           Some(text) => archive.add(&file.path, text),
-          None => archive.add(&file.path, &render(file, &self.run, &self.options)?),
+          None => archive.add(&file.path, &render(file, &self.run)?),
         },
       }
       .map_err(archive_error)?;
@@ -273,8 +269,7 @@ impl Session {
     let _log = log_capture::discard();
     let version = from_js("version", version)?;
     let scale = from_js("scale", scale)?;
-    let view =
-      display::pair_view(&self.run, &self.options, pair, version, scale).ok_or_else(|| no_pair(&self.run, pair))?;
+    let view = display::pair_view(&self.run, pair, version, scale).ok_or_else(|| no_pair(&self.run, pair))?;
     to_js(&view)
   }
 
@@ -290,8 +285,7 @@ impl Session {
     let _log = log_capture::discard();
     let version = from_js("version", version)?;
     let scale = from_js("scale", scale)?;
-    let view =
-      display::auspice_view(&self.run, &self.options, pair, version, scale).ok_or_else(|| no_pair(&self.run, pair))?;
+    let view = display::auspice_view(&self.run, pair, version, scale).ok_or_else(|| no_pair(&self.run, pair))?;
     to_js(&view)
   }
 
@@ -307,7 +301,7 @@ impl Session {
   #[wasm_bindgen]
   pub fn constellation(&self) -> Result<Ts<ConstellationTable>, JsError> {
     let _log = log_capture::discard();
-    to_js(&display::constellation(&self.run, &self.options))
+    to_js(&display::constellation(&self.run))
   }
 
   /// The SVG tanglegram of pair `pair` (pipeline order) in `version` with `options`. With the
@@ -319,7 +313,7 @@ impl Session {
     let _log = log_capture::discard();
     let version = from_js("version", version)?;
     let options = from_js("options", options)?;
-    output::pair_figure(&self.run, &self.options, pair, version, &options)
+    output::pair_figure(&self.run, pair, version, &options)
       .map_err(|e| validation_error(&e))?
       .ok_or_else(|| no_pair(&self.run, pair).into())
   }
@@ -339,7 +333,7 @@ impl Session {
 
 /// The error for a pair index that `run` does not have.
 fn no_pair(run: &RunResult, pair: usize) -> JsError {
-  let pairs = match run.pairs.len() {
+  let pairs = match run.pairs().len() {
     1 => "1 pair".to_owned(),
     n => format!("{n} pairs"),
   };
@@ -360,15 +354,15 @@ impl SessionFile {
     }
   }
 
-  /// The text of the file: a figure of `run` with `options` is rendered on first use and kept.
-  fn text(&self, run: &RunResult, options: &Options) -> Result<&str, JsError> {
+  /// The text of the file: a figure of `run` is rendered on first use and kept.
+  fn text(&self, run: &RunResult) -> Result<&str, JsError> {
     match self {
       SessionFile::Text(f) => Ok(&f.text),
       SessionFile::Figure { file, svg } => {
         if let Some(text) = svg.get() {
           return Ok(text);
         }
-        let text = render(file, run, options)?;
+        let text = render(file, run)?;
         Ok(svg.get_or_init(|| text))
       },
     }
@@ -387,10 +381,9 @@ impl SessionFile {
   }
 }
 
-/// The SVG text of the figure `file` of `run` with the default options; `options` are the
-/// options of the run.
-fn render(file: &FigureFile, run: &RunResult, options: &Options) -> Result<String, JsError> {
-  output::figure_text(run, options, file.figure).ok_or_else(|| JsError::new(&format!("no figure {}", file.path)))
+/// The SVG text of the figure `file` of `run` with the default options.
+fn render(file: &FigureFile, run: &RunResult) -> Result<String, JsError> {
+  output::figure_text(run, file.figure).ok_or_else(|| JsError::new(&format!("no figure {}", file.path)))
 }
 
 /// A JavaScript `Error` named `ValidationError` whose message joins the messages of `errors`, one

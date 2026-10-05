@@ -7,35 +7,66 @@ use std::sync::OnceLock;
 use treeknit_core::arg::{Arg, ArgError, arg_from_trees};
 use treeknit_core::{Options, PairResult, Progress, Taxa, Tree};
 
-/// The trees, MCCs, imputed trees, and ARG of one run.
+/// The trees, MCCs, imputed trees, and ARG of one run, with the options it ran with. The fields
+/// are read-only outside this crate, because the display data keeps values derived from them
+/// (the color slots of each pair).
 #[derive(Debug)]
-#[expect(
-  clippy::partial_pub_fields,
-  reason = "the cache of color slots is filled only by the display data of this crate"
-)]
 pub struct RunResult {
   /// The parsed trees, before resolution: the `input` version of the display data, and the
   /// reference by which every version flags added nodes and imputed leaves.
-  pub input_trees: Vec<Tree>,
+  pub(crate) input_trees: Vec<Tree>,
   /// The final trees of the run: resolved and sorted.
-  pub trees: Vec<Tree>,
+  pub(crate) trees: Vec<Tree>,
   /// The leaves of all trees; the trees carry taxon ids of this table.
-  pub taxa: Taxa,
+  pub(crate) taxa: Taxa,
   /// The MCCs of every pair, in pipeline order `(0,1), (0,2), ..., (1,2), ...`.
-  pub pairs: Vec<PairResult>,
+  pub(crate) pairs: Vec<PairResult>,
   /// The final trees with the leaves that only other trees have, placed by imputation: the
   /// `_imputed` output files and the `imputed` version of the display data. Every run computes
   /// them, because the file set of the web app always holds them.
-  pub imputed: Vec<Tree>,
+  pub(crate) imputed: Vec<Tree>,
   /// The ARG of two trees whose pair has MCCs, or the reason it could not be built; `None`
   /// otherwise.
-  pub arg: Option<Result<Arg, ArgError>>,
+  pub(crate) arg: Option<Result<Arg, ArgError>>,
+  /// The options of the run; the display data and the figures sort the trees of a pair as the
+  /// run did.
+  pub(crate) opts: Options,
   /// The color slots of the MCCs of each pair, computed on the first display of the pair (see
   /// `display`), because they need a full layout of its resolved trees.
   pub(crate) pair_slots: Vec<OnceLock<Vec<usize>>>,
 }
 
 impl RunResult {
+  /// The parsed trees, before resolution.
+  pub fn input_trees(&self) -> &[Tree] {
+    &self.input_trees
+  }
+
+  /// The final trees of the run: resolved and sorted.
+  pub fn trees(&self) -> &[Tree] {
+    &self.trees
+  }
+
+  /// The leaves of all trees.
+  pub fn taxa(&self) -> &Taxa {
+    &self.taxa
+  }
+
+  /// The MCCs of every pair, in pipeline order.
+  pub fn pairs(&self) -> &[PairResult] {
+    &self.pairs
+  }
+
+  /// The final trees with the leaves that only other trees have, placed by imputation.
+  pub fn imputed(&self) -> &[Tree] {
+    &self.imputed
+  }
+
+  /// The options of the run.
+  pub fn options(&self) -> &Options {
+    &self.opts
+  }
+
   /// Outcome of the ARG for the summary; `None` when no ARG was attempted.
   pub fn arg_outcome(&self) -> Option<ArgOutcome> {
     self.arg.as_ref().map(|a| match a {
@@ -74,6 +105,7 @@ pub fn run(parsed: ParsedTrees, opts: &Options, seed: u64, observe: &dyn Fn(Prog
     pairs,
     imputed,
     arg,
+    opts: opts.clone(),
     pair_slots,
   }
 }

@@ -362,11 +362,11 @@ mod tests {
   #[wasm_bindgen_test]
   fn session_figure_files_equal_the_native_figures() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
-    let (r, opts) = native_run(&two_trees());
+    let r = native_run(&two_trees());
     // Oracle: the figure files of the command line, from the same run without WebAssembly.
     let expected = (
-      output::figure_text(&r, &opts, Figure::Pair { pair: 0 }).unwrap(),
-      output::figure_text(&r, &opts, Figure::Arg).unwrap(),
+      output::figure_text(&r, Figure::Pair { pair: 0 }).unwrap(),
+      output::figure_text(&r, Figure::Arg).unwrap(),
     );
     let actual = (
       session.file_text("tanglegram_ha_na.svg").unwrap(),
@@ -378,14 +378,14 @@ mod tests {
   #[wasm_bindgen_test]
   fn session_figure_draws_custom_options_and_keeps_the_default_files() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
-    let (r, opts) = native_run(&two_trees());
+    let r = native_run(&two_trees());
     let custom = FigureOptions {
       width: 640.0,
       row_height: 20.0,
       scale: Scale::Depth,
       labels: LabelMode::Off,
     };
-    let view = display::pair_view(&r, &opts, 0, TreeVersion::Imputed, Scale::Depth).unwrap();
+    let view = display::pair_view(&r, 0, TreeVersion::Imputed, Scale::Depth).unwrap();
     assert_eq!(
       figure::tanglegram_svg(&view, &custom).unwrap(),
       session.figure(0, &ts(&json!("imputed")), &ts(&json!(custom))).unwrap()
@@ -396,7 +396,7 @@ mod tests {
       session.arg_figure(&ts(&json!(custom))).unwrap()
     );
     // The figure files keep the default options after a custom figure.
-    let default = output::figure_text(&r, &opts, Figure::Pair { pair: 0 }).unwrap();
+    let default = output::figure_text(&r, Figure::Pair { pair: 0 }).unwrap();
     assert_eq!(default, session.file_text("tanglegram_ha_na.svg").unwrap());
     let files: Vec<OutputFile> = plain_list(&session.files().unwrap())
       .as_array()
@@ -524,13 +524,13 @@ mod tests {
   fn session_zip_renders_unread_figures_without_keeping_them() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let bytes = session.zip().unwrap();
-    let (r, opts) = native_run(&two_trees());
+    let r = native_run(&two_trees());
     let request: AnalysisRequest = serde_json::from_value(two_trees()).unwrap();
     // Oracle: the files of the command line with the web options, figures included, from the
     // same run without WebAssembly. The session file and the log are plain texts of the session.
-    let native: Vec<OutputFile> = output::output_files(&r, &opts, &output::OutputOptions::web(2))
+    let native: Vec<OutputFile> = output::output_files(&r, &output::OutputOptions::web(2))
       .into_iter()
-      .chain([output::parameters_file(&opts, request.settings.seed)])
+      .chain([output::parameters_file(r.options(), request.settings.seed)])
       .collect();
     let listed = plain_list(&session.files().unwrap());
     let files: Vec<OutputFile> = listed
@@ -886,13 +886,13 @@ mod tests {
     })
   }
 
-  /// The run of `request` and its options, as `Session::run` builds them, without WebAssembly
+  /// The run of `request`, as `Session::run` builds it, without WebAssembly
   /// bindings.
-  fn native_run(request: &Value) -> (RunResult, Options) {
+  fn native_run(request: &Value) -> RunResult {
     let request: AnalysisRequest = serde_json::from_value(request.clone()).unwrap();
     let opts = analysis::options(&request.settings, request.trees.len(), false).unwrap();
     let parsed = analysis::parse_trees(&request.trees).unwrap();
-    (run::run(parsed, &opts, request.settings.seed, &|_| {}), opts)
+    run::run(parsed, &opts, request.settings.seed, &|_| {})
   }
 
   fn ts<T: Tsify>(v: &Value) -> Ts<T> {

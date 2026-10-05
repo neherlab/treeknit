@@ -3,12 +3,10 @@
 use super::pair::pair_slots;
 use super::{ConstellationCell, ConstellationTable};
 use crate::run::RunResult;
-use treeknit_core::Options;
 use treeknit_core::mcc_map::leaf_mcc_map;
 
 /// The MCC of every taxon of `run` in every pair, with the color slots of the pair views.
-/// `opts` are the options of the run.
-pub fn constellation(run: &RunResult, opts: &Options) -> ConstellationTable {
+pub fn constellation(run: &RunResult) -> ConstellationTable {
   let n = run.taxa.len();
   // Taxa in row order: the leaves of the first final tree, then each later tree's leaves that no
   // earlier tree has.
@@ -25,7 +23,7 @@ pub fn constellation(run: &RunResult, opts: &Options) -> ConstellationTable {
   // An MCC holds only leaves of the two trees of its pair, so a leaf has an MCC in every pair
   // that has it.
   let leaf_mccs: Vec<Vec<Option<usize>>> = run.pairs.iter().map(|p| leaf_mcc_map(&p.mccs, n)).collect();
-  let slots: Vec<&[usize]> = (0..run.pairs.len()).map(|i| pair_slots(run, opts, i)).collect();
+  let slots: Vec<&[usize]> = (0..run.pairs.len()).map(|i| pair_slots(run, i)).collect();
   let cells = rows
     .iter()
     .map(|&x| {
@@ -64,7 +62,7 @@ mod tests {
   use crate::run;
   use pretty_assertions::assert_eq;
 
-  fn run_trees(trees: &[(&str, &str)]) -> (RunResult, Options) {
+  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
     let texts: Vec<TreeText> = trees
       .iter()
       .map(|(label, newick)| TreeText {
@@ -74,14 +72,13 @@ mod tests {
       .collect();
     let s = Settings::default();
     let opts = analysis::options(&s, texts.len(), false).unwrap();
-    let r = run::run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {});
-    (r, opts)
+    run::run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {})
   }
 
   #[test]
   fn constellation_of_the_two_tree_example() {
-    let (r, opts) = run_trees(&[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")]);
-    let table = constellation(&r, &opts);
+    let r = run_trees(&[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")]);
+    let table = constellation(&r);
     assert_eq!(r.trees[0].leaf_names(), table.leaves);
     assert_eq!(vec![["ha".to_owned(), "na".to_owned()]], table.pairs);
     let row = |name: &str| &table.cells[table.leaves.iter().position(|l| l == name).unwrap()];
@@ -89,7 +86,7 @@ mod tests {
     let cell = |mcc, size, slot| Some(ConstellationCell { mcc, size, slot });
     assert_eq!(&vec![cell(0, 1, 1)], row("X"));
     assert_eq!(&vec![cell(1, 4, 0)], row("A"));
-    let view = pair_view(&r, &opts, 0, TreeVersion::Resolved, Scale::Div).unwrap();
+    let view = pair_view(&r, 0, TreeVersion::Resolved, Scale::Div).unwrap();
     assert_eq!(view.mccs[0].slot, row("X")[0].unwrap().slot);
   }
 
@@ -97,12 +94,12 @@ mod tests {
   fn constellation_has_a_row_for_each_leaf_only_in_later_trees() {
     // R is in seg1 and seg2, Q in seg2 only. Their rows follow the leaves of seg0, in the order
     // of the first tree that has them.
-    let (r, opts) = run_trees(&[
+    let r = run_trees(&[
       ("seg0", "((A,B),(C,(D,(E,X))));"),
       ("seg1", "((A,(B,X)),(C,D,(E,R)));"),
       ("seg2", "((A,(B,Q)),((C,D),(E,(X,R))));"),
     ]);
-    let t = constellation(&r, &opts);
+    let t = constellation(&r);
     let seg0: Vec<String> = r.trees[0].leaf_names();
     assert_eq!(seg0[..], t.leaves[..seg0.len()]);
     assert_eq!(vec!["R".to_owned(), "Q".to_owned()], t.leaves[seg0.len()..].to_vec());
