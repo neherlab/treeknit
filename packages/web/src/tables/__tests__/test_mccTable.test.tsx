@@ -10,14 +10,14 @@ const contains = (text: string, substring: string) => text.toLowerCase().include
 const COLUMNS = mccColumns(contains);
 
 const MCCS: MccInfo[] = [
-  mcc(0, ["A/Texas/1/2004", "A/Ohio/2/2004", "A/Iowa/3/2004", "A/Utah/4/2004"], ["A/Utah/4/2004"], true),
-  mcc(1, ["B/Lee/1940"], [], false),
-  mcc(2, ["A/Hong Kong/1/1968", "A/Hanoi/5/2005"], [], false),
+  mcc(0, ["A/Texas/1/2004", "A/Ohio/2/2004", "A/Iowa/3/2004", "A/Utah/4/2004"], ["A/Utah/4/2004"], ["A/Ohio/2/2004"]),
+  mcc(1, ["B/Lee/1940"], [], []),
+  mcc(2, ["A/Hong Kong/1/1968", "A/Hanoi/5/2005"], [], []),
 ];
 
 describe("mccsBySize", () => {
   test("lists the largest MCC first and breaks size ties by MCC number", () => {
-    const tied = [...MCCS, mcc(3, ["C/1", "C/2"], [], false)];
+    const tied = [...MCCS, mcc(3, ["C/1", "C/2"], [], [])];
 
     expect(mccsBySize(tied).map(({ index }) => index)).toStrictEqual([0, 2, 3, 1]);
   });
@@ -87,13 +87,13 @@ function Probe({ sorting, columnFilters }: { sorting: SortingState; columnFilter
     .join(",");
 }
 
-function mcc(index: number, leaves: string[], imputedLeaves: string[], ambiguous: boolean): MccInfo {
+function mcc(index: number, leaves: string[], imputedLeaves: string[], ambiguousLeaves: string[]): MccInfo {
   return {
     index,
     size: leaves.length,
     leaves,
     imputedLeaves,
-    ambiguousLeaves: ambiguous ? imputedLeaves : [],
+    ambiguousLeaves,
     slot: index,
   };
 }
