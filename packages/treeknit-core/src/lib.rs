@@ -19,6 +19,9 @@ pub mod tree;
 
 pub use naive::{Mcc, naive_mccs};
 pub use options::{Cooling, Method, Options, Resolution};
-pub use pipeline::{PairResult, arg_inputs, imputed_trees, run, run_observed, unmatched_mccs};
+pub use pipeline::{
+  PairResult, arg_inputs, imputed_trees, keeps_run_order, last_sorting_pair, run, run_observed, sort_for_pair,
+  sort_strictness, unmatched_mccs,
+};
 pub use progress::{Phase, Progress};
 pub use tree::{NodeId, Taxa, Tree};

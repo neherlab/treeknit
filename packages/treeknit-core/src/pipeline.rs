@@ -16,7 +16,9 @@ use crate::naive::{Mcc, naive_mccs, sort_mccs};
 use crate::options::{Options, Resolution};
 use crate::pair::{PairParams, infer_pair};
 use crate::progress::Progress;
-use crate::resolve::{Insert, insert_all_on, insert_split, resolve_trees, resolve_with_mccs};
+use crate::resolve::{
+  Insert, insert_all_on, insert_split, resolve_trees, resolve_with_mccs, resolve_with_mccs_quiet, warn_skipped,
+};
 use crate::tree::{Taxa, Tree};
 use rand::SeedableRng;
 use rand_xoshiro::Xoshiro256PlusPlus;
@@ -39,6 +41,90 @@ impl PairResult {
   pub fn mcc_of(&self, leaf: usize) -> Option<usize> {
     self.mccs.iter().position(|m| m.binary_search(&leaf).is_ok())
   }
+
+  /// MCCs restricted to the leaves that trees `i` and `j` of `trees` share; sorted. These are
+  /// the MCCs that the run inferred, resolved with, and sorted the pair by, before the leaves
+  /// of one tree only were attached. Empty when the pair shares fewer than two leaves.
+  pub fn shared_mccs(&self, trees: &[Tree], n: usize) -> Vec<Mcc> {
+    let Some(shared) = shared_leaves(&trees[self.i], &trees[self.j], n) else {
+      return Vec::new();
+    };
+    let restricted = self
+      .mccs
+      .iter()
+      .map(|m| m.iter().copied().filter(|&x| shared.contains(x)).collect::<Mcc>())
+      .filter(|m| !m.is_empty())
+      .collect();
+    sort_mccs(restricted)
+  }
+}
+
+/// Number of rounds of a run on `k` trees, and whether the last of them is the extra round
+/// without resolution.
+fn schedule(opts: &Options, k: usize) -> (usize, bool) {
+  let extra_round =
+    matches!(opts.resolution, Resolution::Strict | Resolution::Liberal) && k > 2 && opts.final_unresolved_round;
+  (opts.rounds + extra_round as usize, extra_round)
+}
+
+/// Whether a round resolves the trees, and whether it adds only unambiguous splits with MCCs
+/// (all splits in liberal mode). `unresolved_round` is the extra round without resolution.
+fn round_mode(opts: &Options, unresolved_round: bool) -> (bool, bool) {
+  let resolve = opts.resolves() && !unresolved_round;
+  (resolve, opts.resolution != Resolution::Liberal && resolve)
+}
+
+/// Whether the run on `k` trees sorts the polytomies of its output trees through strictly
+/// resolved copies: in its last round as resolution in that round (or `opts.sort_strict`), and
+/// never after `Matched` resolution, whose trees already agree within MCCs.
+pub fn sort_strictness(opts: &Options, k: usize) -> bool {
+  if opts.resolution == Resolution::Matched {
+    return false;
+  }
+  let (_, extra_round) = schedule(opts, k);
+  let (_, strict) = round_mode(opts, extra_round);
+  opts.sort_strict.unwrap_or(strict)
+}
+
+/// Pairs of `k` trees in pipeline order (0,1), (0,2), …, (1,2), …
+fn pipeline_pairs(k: usize) -> Vec<(usize, usize)> {
+  (0..k).flat_map(|i| (i + 1..k).map(move |j| (i, j))).collect()
+}
+
+/// The last pair whose sort in the run reordered tree `tree`, or `None` if no pair sorted it. `trees` are the trees of the run (their leaf sets decide which pairs are skipped).
+///
+/// The run sorts every pair that shares at least two leaves, in pipeline order, once: in the
+/// last round, or after `Matched` resolution. A pair `(i, j)` reorders tree `j`, and tree `i`
+/// when it ladderizes it (`i == 0`) or sorts strictly (see [`sort_strictness`]).
+pub fn last_sorting_pair(trees: &[Tree], opts: &Options, n: usize, tree: usize) -> Option<(usize, usize)> {
+  let k = trees.len();
+  let (rounds, _) = schedule(opts, k);
+  if rounds == 0 && opts.resolution != Resolution::Matched {
+    return None;
+  }
+  let strict = sort_strictness(opts, k);
+  pipeline_pairs(k).into_iter().rfind(|&(i, j)| {
+    (j == tree || (i == tree && (i == 0 || strict))) && shared_leaves(&trees[i], &trees[j], n).is_some()
+  })
+}
+
+/// Whether the run left trees `i` and `j` in the order of its sort of the pair `(i, j)`: the
+/// run sorted the pair, and no later sort changed either tree. The view of that pair then uses
+/// the run's trees as they are; other pairs sort copies with [`sort_for_pair`].
+pub fn keeps_run_order(trees: &[Tree], opts: &Options, n: usize, i: usize, j: usize) -> bool {
+  shared_leaves(&trees[i], &trees[j], n).is_some()
+    && [i, j]
+      .iter()
+      .all(|&t| last_sorting_pair(trees, opts, n, t).is_some_and(|last| last <= (i, j)))
+}
+
+/// Sort `left` and `right` for display as a pair, as the run sorts a pair: ladderize `left`,
+/// then order the polytomies of both so that MCCs face each other. `mccs` are the MCCs over the
+/// leaves the two trees share (see [`PairResult::shared_mccs`]), and `strict` is the
+/// strictness of the run's sort (see [`sort_strictness`]). Logs nothing. A pair that shares
+/// fewer than two leaves is left unchanged.
+pub fn sort_for_pair(left: &mut Tree, right: &mut Tree, mccs: &[Mcc], n: usize, strict: bool) {
+  sort_two(left, right, true, mccs, n, strict);
 }
 
 /// Run TreeKnit on `trees` (leaves must have taxa assigned from `taxa`).
@@ -71,12 +157,11 @@ pub fn run_observed(
       new.iter().map(|s| s.len()).collect::<Vec<_>>()
     );
   }
-  let pairs: Vec<(usize, usize)> = (0..k).flat_map(|i| (i + 1..k).map(move |j| (i, j))).collect();
+  let pairs = pipeline_pairs(k);
   let mut mccs: Vec<Vec<Mcc>> = vec![Vec::new(); pairs.len()];
   let matched = opts.resolution == Resolution::Matched;
-  let extra_round =
-    matches!(opts.resolution, Resolution::Strict | Resolution::Liberal) && k > 2 && opts.final_unresolved_round;
-  let rounds = opts.rounds + extra_round as usize;
+  let (rounds, extra_round) = schedule(opts, k);
+  let sort_strict = sort_strictness(opts, k);
   let reached = std::cell::Cell::new(0.0);
   let report = |p: Progress| {
     reached.set(p.fraction);
@@ -84,10 +169,8 @@ pub fn run_observed(
   };
   for round in 1..=rounds {
     let last = round == rounds;
-    let unresolved_round = extra_round && last;
-    let resolve = opts.resolves() && !unresolved_round;
     // Splits added with MCCs: unambiguous ones only, except in liberal mode.
-    let strict = opts.resolution != Resolution::Liberal && resolve;
+    let (resolve, strict) = round_mode(opts, extra_round && last);
     log::info!("round {round}/{rounds}{}", if resolve { " (resolving)" } else { "" });
     let at = |pair: usize, within: f64| report(Progress::at(round - 1, rounds, pair, pairs.len(), within));
     if resolve || !opts.parallel {
@@ -98,7 +181,7 @@ pub fn run_observed(
           resolve_pair(trees, i, j, &mccs[p], n, strict);
         }
         if last && !matched {
-          sort_pair(trees, i, j, &mccs[p], n, opts.sort_strict.unwrap_or(strict));
+          sort_pair(trees, i, j, &mccs[p], n, sort_strict);
         }
       }
     } else {
@@ -111,7 +194,7 @@ pub fn run_observed(
       at(pairs.len() - 1, 1.0);
       if last && !matched {
         for (p, &(i, j)) in pairs.iter().enumerate() {
-          sort_pair(trees, i, j, &mccs[p], n, opts.sort_strict.unwrap_or(strict));
+          sort_pair(trees, i, j, &mccs[p], n, sort_strict);
         }
       }
     }
@@ -120,7 +203,7 @@ pub fn run_observed(
     report(Progress::matching(reached.get(), rounds, pairs.len()));
     match_topologies(trees, &pairs, &mut mccs, n);
     for (p, &(i, j)) in pairs.iter().enumerate() {
-      sort_pair(trees, i, j, &mccs[p], n, false);
+      sort_pair(trees, i, j, &mccs[p], n, sort_strict);
     }
   }
   let results = pairs
@@ -262,18 +345,18 @@ pub fn internal_clades(t: &Tree, n: usize) -> std::collections::HashSet<Bits> {
     .collect()
 }
 
-/// Leaves common to trees `i` and `j`, or `None` if they share fewer than two leaves.
+/// Leaves common to trees `a` and `b`, or `None` if they share fewer than two leaves.
 ///
 /// This is the only check of the shared-leaf count: a pair without two shared leaves has no
 /// MCCs, and resolution and sorting leave its trees unchanged.
-fn shared_leaves(trees: &[Tree], i: usize, j: usize, n: usize) -> Option<Bits> {
-  let shared = bits::and(&trees[i].leaf_set(n), &trees[j].leaf_set(n));
+fn shared_leaves(a: &Tree, b: &Tree, n: usize) -> Option<Bits> {
+  let shared = bits::and(&a.leaf_set(n), &b.leaf_set(n));
   (shared.count_ones(..) >= 2).then_some(shared)
 }
 
-/// Trees `i` and `j` restricted to their `shared` leaves (borrowed if no restriction is
+/// Trees `a` and `b` restricted to their `shared` leaves (borrowed if no restriction is
 /// needed). `shared` comes from `shared_leaves`, so it holds at least two leaves.
-fn restrict_pair<'a>(trees: &'a [Tree], i: usize, j: usize, shared: &Bits, n: usize) -> (Cow<'a, Tree>, Cow<'a, Tree>) {
+fn restrict_pair<'a>(a: &'a Tree, b: &'a Tree, shared: &Bits, n: usize) -> (Cow<'a, Tree>, Cow<'a, Tree>) {
   let r = |t: &'a Tree| {
     if t.leaf_set(n) == *shared {
       Cow::Borrowed(t)
@@ -281,7 +364,13 @@ fn restrict_pair<'a>(trees: &'a [Tree], i: usize, j: usize, shared: &Bits, n: us
       Cow::Owned(t.restricted(shared).expect("shared leaves are in both trees"))
     }
   };
-  (r(&trees[i]), r(&trees[j]))
+  (r(a), r(b))
+}
+
+/// Trees `i < j` of `trees`, both mutable.
+fn pair_mut(trees: &mut [Tree], i: usize, j: usize) -> (&mut Tree, &mut Tree) {
+  let (a, b) = trees.split_at_mut(j);
+  (&mut a[i], &mut b[0])
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -296,7 +385,7 @@ fn infer(
   round: usize,
   on_progress: &dyn Fn(f64),
 ) -> Vec<Mcc> {
-  let Some(shared) = shared_leaves(trees, i, j, n) else {
+  let Some(shared) = shared_leaves(&trees[i], &trees[j], n) else {
     log::warn!(
       "trees {} and {} share fewer than two leaves: skipped",
       trees[i].label,
@@ -310,7 +399,7 @@ fn infer(
     trees[j].label,
     shared.count_ones(..)
   );
-  let (ti, tj) = restrict_pair(trees, i, j, &shared, n);
+  let (ti, tj) = restrict_pair(&trees[i], &trees[j], &shared, n);
   let m = if opts.naive {
     naive_mccs(&[&ti, &tj], n)
   } else {
@@ -343,10 +432,10 @@ fn mix(seed: u64, round: usize, i: usize, j: usize) -> u64 {
 /// fewer than two leaves is left unchanged.
 /// Returns the number of splits added to the two trees.
 fn resolve_pair(trees: &mut [Tree], i: usize, j: usize, mccs: &[Mcc], n: usize, strict: bool) -> usize {
-  let Some(shared) = shared_leaves(trees, i, j, n) else {
+  let Some(shared) = shared_leaves(&trees[i], &trees[j], n) else {
     return 0;
   };
-  let (ti, tj) = restrict_pair(trees, i, j, &shared, n);
+  let (ti, tj) = restrict_pair(&trees[i], &trees[j], &shared, n);
   let (mut ti, mut tj) = (ti.into_owned(), tj.into_owned());
   let [mut si, mut sj] = resolve_with_mccs(&mut ti, &mut tj, mccs, n, strict);
   log::debug!(
@@ -361,32 +450,55 @@ fn resolve_pair(trees: &mut [Tree], i: usize, j: usize, mccs: &[Mcc], n: usize, 
   si.len() + sj.len()
 }
 
-/// Ladderize the first tree and order polytomies so that MCCs face each other. A pair that
-/// shares fewer than two leaves is left unchanged.
+/// Sort trees `i < j` as the run's last round does: ladderize the first tree of the run and
+/// order polytomies so that MCCs face each other, logging the splits that resolving the copies
+/// of a strict sort skips. A pair that shares fewer than two leaves is left unchanged.
 fn sort_pair(trees: &mut [Tree], i: usize, j: usize, mccs: &[Mcc], n: usize, strict: bool) {
-  let Some(shared) = shared_leaves(trees, i, j, n) else {
-    return;
+  let (ti, tj) = pair_mut(trees, i, j);
+  let skipped = sort_two(ti, tj, i == 0, mccs, n, strict);
+  warn_skipped(ti, skipped[0]);
+  warn_skipped(tj, skipped[1]);
+}
+
+/// Ladderize `left` if `ladderize_left`, then order polytomies so that MCCs face each other:
+/// strictly through liberally resolved copies of both trees, whose order is applied to both,
+/// or by sorting the polytomies of `right` along `left`. A pair that shares fewer than two
+/// leaves is left unchanged. Returns the number of splits that resolving the copies skipped as
+/// incompatible, per tree.
+fn sort_two(
+  left: &mut Tree,
+  right: &mut Tree,
+  ladderize_left: bool,
+  mccs: &[Mcc],
+  n: usize,
+  strict: bool,
+) -> [usize; 2] {
+  let Some(shared) = shared_leaves(left, right, n) else {
+    return [0, 0];
   };
-  if i == 0 {
-    trees[0].ladderize();
+  if ladderize_left {
+    left.ladderize();
   }
-  let (ti, tj) = restrict_pair(trees, i, j, &shared, n);
+  let (ti, tj) = restrict_pair(left, right, &shared, n);
   let full = matches!((&ti, &tj), (Cow::Borrowed(_), Cow::Borrowed(_)));
   let (mut ti, mut tj) = (ti.into_owned(), tj.into_owned());
   if strict {
     // Order leaves using liberally resolved copies, then apply that order.
-    resolve_with_mccs(&mut ti, &mut tj, mccs, n, false);
+    let (_, skipped) = resolve_with_mccs_quiet(&mut ti, &mut tj, mccs, n, false);
     ti.ladderize();
     sort_polytomies_by_mccs(&ti, &mut tj, mccs, n);
     let (oi, oj) = (leaf_order(&ti), leaf_order(&tj));
-    sort_by_leaf_order(&mut trees[i], &oi);
-    sort_by_leaf_order(&mut trees[j], &oj);
-  } else if full {
-    let ti = trees[i].clone();
-    sort_polytomies_by_mccs(&ti, &mut trees[j], mccs, n);
+    sort_by_leaf_order(left, &oi);
+    sort_by_leaf_order(right, &oj);
+    skipped
   } else {
-    sort_polytomies_by_mccs(&ti, &mut tj, mccs, n);
-    sort_by_leaf_order(&mut trees[j], &leaf_order(&tj));
+    if full {
+      sort_polytomies_by_mccs(left, right, mccs, n);
+    } else {
+      sort_polytomies_by_mccs(&ti, &mut tj, mccs, n);
+      sort_by_leaf_order(right, &leaf_order(&tj));
+    }
+    [0, 0]
   }
 }
 
