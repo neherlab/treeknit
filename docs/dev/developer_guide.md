@@ -180,6 +180,13 @@ The dependency recipes run in the main checkout only.
 
 `.github/workflows/ci.yml` runs on pull requests and on pushes to `main`: the check groups `format`, `clippy`, `tests`, and `typescript` in parallel jobs, each in the build container.
 
-`.github/workflows/cli-build.yml` runs on the same events and builds the shipped CLI for every release target, one job per target in its cross image: it builds, checks the libraries the binary needs, runs it on a simulated case (except on macOS), and uploads it as the artifact `treeknit-<target>`. On pushes to `main` and manual runs, two more jobs download the Linux x86_64 binaries and run `dev/cross/test-distros` on them, logged in to Docker Hub when the secrets are available; pull requests skip them to stay within the Docker Hub pull limits.
+`.github/workflows/nightly.yml` runs every night at 04:00 UTC on `main` and does nothing when `main` has not changed since the latest nightly. Otherwise it:
 
-The CI jobs pull the container image from Docker Hub by the hash of its build inputs, and build it when the inputs changed. Only pushes to `main` publish images, and only when the Docker Hub secrets are available to the repository.
+- **Publishes the CLI**: builds the shipped CLI for every release target, one job per target in its cross image, and publishes the binaries that build as a release on the releases page. A failed target leaves only its binary out. The release notes hold download hints and the pull requests merged since the previous nightly, which GitHub generates. Every nightly stays on the releases page
+- **Deploys the web app**: `just build-web prod`, published to GitHub Pages. The site is public even though the repository is private. The build uses relative asset paths (Vite `base: "./"`), so it works under the `/treeknit-rs/` path of Pages and at any other path
+
+Start a nightly by hand, from `main`, with the GitHub CLI: `gh workflow run nightly.yml`, or `gh workflow run nightly.yml -f force=true` to publish even when `main` has not changed.
+
+`treeknit --version` reports the crate version with the suffix of `TREEKNIT_VERSION_SUFFIX` at build time (`packages/treeknit-cli/build.rs`): `0.1.0-dev` when unset, `0.1.0-nightly.20261005T040000Z+abc1234` for a nightly. The tag of a nightly release is the same version.
+
+The CI jobs pull the container image from Docker Hub by the hash of its build inputs, and build it when the inputs changed. Only runs on `main` outside pull requests publish images, and only when the Docker Hub secrets are available to the repository; `.github/actions/prepare` makes that decision and sets the build environment of every job.
