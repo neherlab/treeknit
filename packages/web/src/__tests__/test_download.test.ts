@@ -7,30 +7,39 @@ const OBJECT_URL = "blob:treeknit/1";
 describe("downloadFile", () => {
   const blobs: Blob[] = [];
   const revoked: string[] = [];
-  const anchor = { href: "", download: "", click: vi.fn<() => void>() };
+
+  const anchor = {
+    href: "",
+    download: "",
+    clicks: 0,
+    click: () => {
+      anchor.clicks += 1;
+    },
+  };
 
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
-      blobs.push(blob as Blob);
+    vi.stubGlobal("URL", {
+      createObjectURL: (blob: Blob) => {
+        blobs.push(blob);
 
-      return OBJECT_URL;
-    });
-    vi.spyOn(URL, "revokeObjectURL").mockImplementation((url) => {
-      revoked.push(url);
+        return OBJECT_URL;
+      },
+      revokeObjectURL: (url: string) => {
+        revoked.push(url);
+      },
     });
     vi.stubGlobal("document", { createElement: () => anchor });
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     blobs.length = 0;
     revoked.length = 0;
     anchor.href = "";
     anchor.download = "";
-    anchor.click.mockClear();
+    anchor.clicks = 0;
   });
 
   test("saves the content under the file name through one click on an object URL", () => {
@@ -38,7 +47,7 @@ describe("downloadFile", () => {
 
     expect(anchor.href).toBe(OBJECT_URL);
     expect(anchor.download).toBe("MCCs.json");
-    expect(anchor.click).toHaveBeenCalledOnce();
+    expect(anchor.clicks).toBe(1);
   });
 
   test("puts text content into a Blob of the media type", async () => {
