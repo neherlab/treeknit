@@ -11,7 +11,7 @@
       "project": []
     },
     "packages/web": {
-      "entry": ["index.html!"],
+      "entry": ["index.html!", "src/analysis/worker.ts!"],
       "project": ["src/**/*.{ts,tsx,css}!", "build/**/*.ts"],
       "ignoreDependencies": ["@svgr/plugin-jsx"]
     }
