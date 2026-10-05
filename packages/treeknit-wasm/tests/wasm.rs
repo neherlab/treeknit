@@ -727,7 +727,11 @@ mod tests {
 
   #[wasm_bindgen_test]
   fn drawing_rules_are_plain() {
-    let expected = json!({"labelAutoMinRowPx": 10, "linkMinRowPx": 6, "labelMaxChars": 40});
+    let expected = json!({
+      "labelAutoMinRowPx": 10, "linkMinRowPx": 6, "labelMaxChars": 40, "marginPx": 16, "labelGapPx": 6,
+      "linkZoneShare": 0.2, "linkZoneMinShare": 0.15, "tanglegramLabelColumnMaxShare": 0.25,
+      "argLabelColumnMaxShare": 0.25,
+    });
     assert_eq!(expected, plain(&treeknit_wasm::drawing_rules().unwrap().js_value()));
   }
 

@@ -870,6 +870,60 @@ export interface Leader {
 }
 
 /**
+ * The drawing rules that the consumer applies, because they depend on the drawn size: the
+ * thresholds of the row height, and the columns of a drawing. The label width that the columns
+ * take is measured by the consumer: the interactive views measure the rendered text, the SVG
+ * figures estimate it.
+ *
+ * A drawing has a margin of `margin_px` on each side; the inner width is the rest. A label
+ * column is as wide as its longest label plus `label_gap_px` on each side, at most a share of
+ * the width it labels. The tanglegram has, from left to right, the left tree, its labels, the
+ * link zone, the right labels, and the mirrored right tree. Its link zone takes
+ * `link_zone_share` of the inner width minus both label columns, at least `link_zone_min_share`
+ * of the inner width, and the two trees share the rest equally. The ARG has its tree, then its
+ * labels.
+ */
+export interface DrawingRules {
+    /**
+     * In the label mode `auto`, leaf labels are drawn from this many px per row.
+     */
+    labelAutoMinRowPx: number;
+    /**
+     * From this many px per row, each link is an S-curve; below it, each block is a ribbon.
+     */
+    linkMinRowPx: number;
+    /**
+     * A longer leaf label is shortened in the middle to this many characters (Unicode scalar
+     * values); `DrawNode.short_name` and `ArgNodeView.short_label` hold the shortened labels.
+     */
+    labelMaxChars: number;
+    /**
+     * Space around a drawing, in px.
+     */
+    marginPx: number;
+    /**
+     * Space on each side of a label column, between it and the tree and the link zone, in px.
+     */
+    labelGapPx: number;
+    /**
+     * Share of the inner width that the link zone of a tanglegram takes, minus the label columns.
+     */
+    linkZoneShare: number;
+    /**
+     * Smallest share of the inner width that the link zone of a tanglegram takes.
+     */
+    linkZoneMinShare: number;
+    /**
+     * Largest share of half the inner width that each label column of a tanglegram takes.
+     */
+    tanglegramLabelColumnMaxShare: number;
+    /**
+     * Largest share of the inner width that the label column of an ARG takes.
+     */
+    argLabelColumnMaxShare: number;
+}
+
+/**
  * The rectangular branch above a node: from (parent x, parent y) to (parent x, node y) to
  * (node x, node y).
  */
@@ -1045,26 +1099,6 @@ export interface Link {
      * Index of the leaf's MCC in `PairView.mccs`.
      */
     mcc: number;
-}
-
-/**
- * Thresholds of the drawing rules that the consumer applies, because they depend on the
- * height of a drawn leaf row.
- */
-export interface DrawingRules {
-    /**
-     * In the label mode `auto`, leaf labels are drawn from this many px per row.
-     */
-    labelAutoMinRowPx: number;
-    /**
-     * From this many px per row, each link is an S-curve; below it, each block is a ribbon.
-     */
-    linkMinRowPx: number;
-    /**
-     * A longer leaf label is shortened in the middle to this many characters (Unicode scalar
-     * values); `DrawNode.short_name` and `ArgNodeView.short_label` hold the shortened labels.
-     */
-    labelMaxChars: number;
 }
 
 /**

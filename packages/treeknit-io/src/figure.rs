@@ -1,5 +1,7 @@
 //! SVG figures of a tanglegram and of the ARG, drawn from the shapes of `display` with the
-//! light colors of `palette`: the same geometry as the interactive views, mapped to px.
+//! light colors of `palette` and the columns of `DrawingRules`, as the interactive views draw
+//! them. The width of a label is estimated, because SVG text has no width before a viewer lays it
+//! out, so the label columns can differ from those of the interactive views.
 
 mod arg;
 mod svg;
@@ -251,58 +253,59 @@ mod tests {
     )
     .unwrap();
     // Oracle, by hand from the drawing rules: inner width 600 - 2 * 16 = 568; label columns
-    // 6.75 + 2 * 6 = 18.75 px (one character); link zone 0.2 * 568 = 113.6 px; tree columns
-    // (568 - 113.6 - 2 * 18.75) / 2 = 208.45 px, so the left tree spans 16 to 224.45, the link
-    // zone 243.2 to 356.8, and the mirrored right tree 584 down to 375.55. Rows are centered at
-    // 52 + 12 * (row + 0.5). Cladogram depths: ha has its leaves at 3, (A,B) and (D,X) at 2,
-    // (C,(D,X)) at 1, so x = 16 + 208.45 * depth / 3. X is its own MCC (slot 1), and the branch
-    // above X in each tree is a reassortment branch with a ring at its midpoint.
+    // 6.75 + 2 * 6 = 18.75 px (one character); link zone 0.2 * 568 - 2 * 18.75 = 76.1 px, less
+    // than 0.15 * 568 = 85.2 px, so 85.2 px; tree columns (568 - 85.2 - 2 * 18.75) / 2 = 222.65
+    // px, so the left tree spans 16 to 238.65, the link zone 257.4 to 342.6, and the mirrored
+    // right tree 584 down to 361.35. Rows are centered at 52 + 12 * (row + 0.5). Cladogram
+    // depths: ha has its leaves at 3, (A,B) and (D,X) at 2, (C,(D,X)) at 1, so
+    // x = 16 + 222.65 * depth / 3. X is its own MCC (slot 1), and the branch above X in each tree
+    // is a reassortment branch with a ring at its midpoint.
     let expected = r##"<svg xmlns="http://www.w3.org/2000/svg" width="600" height="164" viewBox="0 0 600 164" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="12">
   <title>ha and na</title>
   <rect width="600" height="164" fill="#f3f5f4"/>
   <text x="16" y="32" font-size="16" font-weight="600" fill="#1f2b30">ha and na</text>
   <g fill="none" stroke-width="1">
-    <path d="M243.2 58 C300 58 300 58 356.8 58" stroke="#2f4b9a"/>
-    <path d="M243.2 70 C300 70 300 70 356.8 70" stroke="#2f4b9a"/>
-    <path d="M243.2 82 C300 82 300 94 356.8 94" stroke="#2f4b9a"/>
-    <path d="M243.2 94 C300 94 300 106 356.8 106" stroke="#2f4b9a"/>
-    <path d="M243.2 106 C300 106 300 82 356.8 82" stroke="#93771c"/>
+    <path d="M257.4 58 C300 58 300 58 342.6 58" stroke="#2f4b9a"/>
+    <path d="M257.4 70 C300 70 300 70 342.6 70" stroke="#2f4b9a"/>
+    <path d="M257.4 82 C300 82 300 94 342.6 94" stroke="#2f4b9a"/>
+    <path d="M257.4 94 C300 94 300 106 342.6 106" stroke="#2f4b9a"/>
+    <path d="M257.4 106 C300 106 300 82 342.6 82" stroke="#93771c"/>
   </g>
   <g fill="none" stroke-width="1.5">
-    <path d="M16 77.5 V64 H154.97" stroke="#2f4b9a"/>
-    <path d="M154.97 64 V58 H224.45" stroke="#2f4b9a"/>
-    <path d="M154.97 64 V70 H224.45" stroke="#2f4b9a"/>
-    <path d="M16 77.5 V91 H85.48" stroke="#2f4b9a"/>
-    <path d="M85.48 91 V82 H224.45" stroke="#2f4b9a"/>
-    <path d="M85.48 91 V100 H154.97" stroke="#2f4b9a"/>
-    <path d="M154.97 100 V94 H224.45" stroke="#2f4b9a"/>
-    <path d="M154.97 100 V106 H224.45" stroke="#b0265e" stroke-width="2"/>
+    <path d="M16 77.5 V64 H164.43" stroke="#2f4b9a"/>
+    <path d="M164.43 64 V58 H238.65" stroke="#2f4b9a"/>
+    <path d="M164.43 64 V70 H238.65" stroke="#2f4b9a"/>
+    <path d="M16 77.5 V91 H90.22" stroke="#2f4b9a"/>
+    <path d="M90.22 91 V82 H238.65" stroke="#2f4b9a"/>
+    <path d="M90.22 91 V100 H164.43" stroke="#2f4b9a"/>
+    <path d="M164.43 100 V94 H238.65" stroke="#2f4b9a"/>
+    <path d="M164.43 100 V106 H238.65" stroke="#b0265e" stroke-width="2"/>
   </g>
-  <circle cx="189.71" cy="106" r="3.5" fill="#f3f5f4" stroke="#b0265e" stroke-width="1.5"/>
+  <circle cx="201.54" cy="106" r="3.5" fill="#f3f5f4" stroke="#b0265e" stroke-width="1.5"/>
   <g font-family="IBM Plex Sans Condensed, IBM Plex Sans, Helvetica, Arial, sans-serif" fill="#1f2b30" text-anchor="start">
-    <text x="230.45" y="62.2">A</text>
-    <text x="230.45" y="74.2">B</text>
-    <text x="230.45" y="86.2">C</text>
-    <text x="230.45" y="98.2">D</text>
-    <text x="230.45" y="110.2">X</text>
+    <text x="244.65" y="62.2">A</text>
+    <text x="244.65" y="74.2">B</text>
+    <text x="244.65" y="86.2">C</text>
+    <text x="244.65" y="98.2">D</text>
+    <text x="244.65" y="110.2">X</text>
   </g>
   <g fill="none" stroke-width="1.5">
-    <path d="M584 83.5 V67 H514.52" stroke="#2f4b9a"/>
-    <path d="M514.52 67 V58 H375.55" stroke="#2f4b9a"/>
-    <path d="M514.52 67 V76 H445.03" stroke="#2f4b9a"/>
-    <path d="M445.03 76 V70 H375.55" stroke="#2f4b9a"/>
-    <path d="M584 83.5 V100 H445.03" stroke="#2f4b9a"/>
-    <path d="M445.03 100 V94 H375.55" stroke="#2f4b9a"/>
-    <path d="M445.03 100 V106 H375.55" stroke="#2f4b9a"/>
-    <path d="M445.03 76 V82 H375.55" stroke="#b0265e" stroke-width="2"/>
+    <path d="M584 83.5 V67 H509.78" stroke="#2f4b9a"/>
+    <path d="M509.78 67 V58 H361.35" stroke="#2f4b9a"/>
+    <path d="M509.78 67 V76 H435.57" stroke="#2f4b9a"/>
+    <path d="M435.57 76 V70 H361.35" stroke="#2f4b9a"/>
+    <path d="M584 83.5 V100 H435.57" stroke="#2f4b9a"/>
+    <path d="M435.57 100 V94 H361.35" stroke="#2f4b9a"/>
+    <path d="M435.57 100 V106 H361.35" stroke="#2f4b9a"/>
+    <path d="M435.57 76 V82 H361.35" stroke="#b0265e" stroke-width="2"/>
   </g>
-  <circle cx="410.29" cy="82" r="3.5" fill="#f3f5f4" stroke="#b0265e" stroke-width="1.5"/>
+  <circle cx="398.46" cy="82" r="3.5" fill="#f3f5f4" stroke="#b0265e" stroke-width="1.5"/>
   <g font-family="IBM Plex Sans Condensed, IBM Plex Sans, Helvetica, Arial, sans-serif" fill="#1f2b30" text-anchor="end">
-    <text x="369.55" y="62.2">A</text>
-    <text x="369.55" y="74.2">B</text>
-    <text x="369.55" y="86.2">X</text>
-    <text x="369.55" y="98.2">C</text>
-    <text x="369.55" y="110.2">D</text>
+    <text x="355.35" y="62.2">A</text>
+    <text x="355.35" y="74.2">B</text>
+    <text x="355.35" y="86.2">X</text>
+    <text x="355.35" y="98.2">C</text>
+    <text x="355.35" y="110.2">D</text>
   </g>
   <g fill="#1f2b30">
     <path d="M16 138 H40" fill="none" stroke="#b0265e" stroke-width="2"/>

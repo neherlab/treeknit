@@ -10,11 +10,6 @@ use super::{FigureOptions, labels_shown};
 use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes, shorten};
 use crate::palette::{ThemeColors, palette};
 
-/// The label column takes at most this share of half the inner width.
-const LABEL_COLUMN_MAX_SHARE: f64 = 0.25;
-/// The link zone takes this share of the inner width, at least the 15% of the drawing rules.
-const LINK_ZONE_SHARE: f64 = 0.2;
-
 /// The SVG text of the tanglegram of `view` with valid `options`.
 pub(super) fn draw(view: &PairView, options: &FigureOptions) -> String {
   let colors = palette().light;
@@ -73,18 +68,17 @@ struct Layout {
 }
 
 impl Layout {
-  /// From left to right: the left tree, its labels, the link zone, the right labels, and the
-  /// right tree, mirrored. A label column is as wide as its longest label, at most a quarter of
-  /// half the inner width; labels that do not fit are shortened.
+  /// The columns of `DrawingRules`; labels that do not fit their column are shortened.
   fn new(view: &PairView, options: &FigureOptions) -> Layout {
+    let rules = DRAWING_RULES;
     let inner = (options.width - 2.0 * MARGIN).max(0.0);
     let labels = label_column(
       leaf_names(&view.left).chain(leaf_names(&view.right)),
       labels_shown(options),
-      LABEL_COLUMN_MAX_SHARE * inner / 2.0,
+      rules.tanglegram_label_column_max_share * inner / 2.0,
     );
     let label = labels.width;
-    let links = LINK_ZONE_SHARE * inner;
+    let links = (rules.link_zone_share * inner - 2.0 * label).max(rules.link_zone_min_share * inner);
     let tree = ((inner - links - 2.0 * label) / 2.0).max(0.0);
     let left_end = MARGIN + tree;
     let links_start = left_end + label;

@@ -35,6 +35,12 @@ pub const DRAWING_RULES: DrawingRules = DrawingRules {
   label_auto_min_row_px: 10,
   link_min_row_px: 6,
   label_max_chars: 40,
+  margin_px: 16.0,
+  label_gap_px: 6.0,
+  link_zone_share: 0.2,
+  link_zone_min_share: 0.15,
+  tanglegram_label_column_max_share: 0.25,
+  arg_label_column_max_share: 0.25,
 };
 
 /// The longest label of the drawing rules, in characters.
@@ -43,9 +49,19 @@ pub(crate) fn label_max_chars() -> usize {
   usize::try_from(DRAWING_RULES.label_max_chars).expect("the label length fits in usize")
 }
 
-/// Thresholds of the drawing rules that the consumer applies, because they depend on the
-/// height of a drawn leaf row.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+/// The drawing rules that the consumer applies, because they depend on the drawn size: the
+/// thresholds of the row height, and the columns of a drawing. The label width that the columns
+/// take is measured by the consumer: the interactive views measure the rendered text, the SVG
+/// figures estimate it.
+///
+/// A drawing has a margin of `margin_px` on each side; the inner width is the rest. A label
+/// column is as wide as its longest label plus `label_gap_px` on each side, at most a share of
+/// the width it labels. The tanglegram has, from left to right, the left tree, its labels, the
+/// link zone, the right labels, and the mirrored right tree. Its link zone takes
+/// `link_zone_share` of the inner width minus both label columns, at least `link_zone_min_share`
+/// of the inner width, and the two trees share the rest equally. The ARG has its tree, then its
+/// labels.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct DrawingRules {
@@ -56,6 +72,18 @@ pub struct DrawingRules {
   /// A longer leaf label is shortened in the middle to this many characters (Unicode scalar
   /// values); `DrawNode.short_name` and `ArgNodeView.short_label` hold the shortened labels.
   pub label_max_chars: u32,
+  /// Space around a drawing, in px.
+  pub margin_px: f64,
+  /// Space on each side of a label column, between it and the tree and the link zone, in px.
+  pub label_gap_px: f64,
+  /// Share of the inner width that the link zone of a tanglegram takes, minus the label columns.
+  pub link_zone_share: f64,
+  /// Smallest share of the inner width that the link zone of a tanglegram takes.
+  pub link_zone_min_share: f64,
+  /// Largest share of half the inner width that each label column of a tanglegram takes.
+  pub tanglegram_label_column_max_share: f64,
+  /// Largest share of the inner width that the label column of an ARG takes.
+  pub arg_label_column_max_share: f64,
 }
 
 /// A point `[x, y]` in normalized units.
@@ -518,7 +546,11 @@ mod tests {
 
   #[test]
   fn drawing_rules_serialize_camel_case() {
-    let expected = json!({"labelAutoMinRowPx": 10, "linkMinRowPx": 6, "labelMaxChars": 40});
+    let expected = json!({
+      "labelAutoMinRowPx": 10, "linkMinRowPx": 6, "labelMaxChars": 40, "marginPx": 16.0, "labelGapPx": 6.0,
+      "linkZoneShare": 0.2, "linkZoneMinShare": 0.15, "tanglegramLabelColumnMaxShare": 0.25,
+      "argLabelColumnMaxShare": 0.25,
+    });
     assert_eq!(expected, serde_json::to_value(DRAWING_RULES).unwrap());
   }
 

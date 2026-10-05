@@ -5,11 +5,8 @@ use super::svg::{
   Path, Rows, Svg, Symbol, baseline, drawing_top, figure_height, label_column, legend_top, num,
 };
 use super::{FigureOptions, labels_shown};
-use crate::display::{ArgView, EdgePath, shorten};
+use crate::display::{ArgView, DRAWING_RULES, EdgePath, shorten};
 use crate::palette::{ThemeColors, palette};
-
-/// The label column takes at most this share of the inner width.
-const LABEL_COLUMN_MAX_SHARE: f64 = 0.25;
 
 /// The SVG text of the ARG `view` of the trees labeled `segments` (A, then B) with valid
 /// `options`.
@@ -21,7 +18,7 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
   let labels = label_column(
     leaves().map(|n| n.label.as_str()),
     labels_shown(options),
-    LABEL_COLUMN_MAX_SHARE * inner,
+    DRAWING_RULES.arg_label_column_max_share * inner,
   );
   let (label, max_label_chars) = (labels.width, labels.max_chars);
   let column = Column {

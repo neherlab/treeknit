@@ -1,15 +1,15 @@
 //! An SVG document writer over `quick-xml`, which escapes attribute values and text, with the
 //! pixel frame, path data, text width estimate, and legend shared by the figures.
 
-use crate::display::{Bezier, Point, label_max_chars, shorten};
+use crate::display::{Bezier, DRAWING_RULES, Point, label_max_chars, shorten};
 use quick_xml::Writer;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::borrow::Cow;
 
-/// Space around the drawing, in px; the margin of the interactive views.
-pub(super) const MARGIN: f64 = 16.0;
-/// Space between a tree column and its labels, in px.
-pub(super) const LABEL_GAP: f64 = 6.0;
+/// Space around the drawing, in px.
+pub(super) const MARGIN: f64 = DRAWING_RULES.margin_px;
+/// Space on each side of a label column, in px.
+pub(super) const LABEL_GAP: f64 = DRAWING_RULES.label_gap_px;
 /// Font size of the leaf labels and the legend, in px.
 pub(super) const FONT_SIZE: f64 = 12.0;
 /// Font size of the title, in px.
