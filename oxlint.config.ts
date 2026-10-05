@@ -14,11 +14,10 @@ const IMPORT_BOUNDARY_PATTERNS = [
     group: ["@neherlab/*/src/*", "@neherlab/*/src/**", "@neherlab/*/dist/*", "@neherlab/*/dist/**"],
     message: "Import a workspace package through its entry point, not a deep internal path.",
   },
-  {
-    group: ["../../*", "../../**"],
-    message: "A relative path must not reach into a sibling package. Import it by its @neherlab/* name.",
-  },
 ];
+
+const SIBLING_PATH_MESSAGE =
+  "A relative path must not reach into a sibling package. Import it by its @neherlab/* name.";
 
 const REJECTED_LIBRARY_PATTERNS = [
   {
@@ -46,32 +45,34 @@ const packageManifestSchema = z.object({
 function packageBoundaryOverrides(): OxlintOverride[] {
   const packages = workspacePackages();
   const names = packages.map((entry) => entry.name);
+  const packageDirs = readdirSync(PACKAGES_DIR);
 
-  return packages.flatMap((entry) => {
+  return packages.map((entry) => {
     const allowed = new Set([entry.name, ...entry.dependencies]);
     const banned = names.filter((other) => !allowed.has(other));
 
-    if (banned.length === 0) {
-      return [];
-    }
+    const siblings = packageDirs
+      .filter((dir) => dir !== entry.dir)
+      .map((dir) => dir.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`));
 
-    return [
-      {
-        files: [`packages/${entry.dir}/**`],
-        rules: {
-          "no-restricted-imports": [
-            "error",
-            {
-              patterns: [
-                ...IMPORT_BOUNDARY_PATTERNS,
-                ...REJECTED_LIBRARY_PATTERNS,
-                { group: banned, message: PACKAGE_GRAPH_MESSAGE },
-              ],
-            },
-          ],
-        },
+    const graphPatterns = banned.length === 0 ? [] : [{ group: banned, message: PACKAGE_GRAPH_MESSAGE }];
+
+    return {
+      files: [`packages/${entry.dir}/**`],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              ...IMPORT_BOUNDARY_PATTERNS,
+              ...REJECTED_LIBRARY_PATTERNS,
+              { regex: `^(\\.\\./)+(${siblings.join("|")})(/|$)`, message: SIBLING_PATH_MESSAGE },
+              ...graphPatterns,
+            ],
+          },
+        ],
       },
-    ];
+    };
   });
 }
 

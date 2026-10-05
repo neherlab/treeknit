@@ -1,8 +1,7 @@
 import { describe, expect, test } from "vitest";
 
+import type { WorkspaceAvailability } from "../../workspace/search";
 import { viewTabs } from "../viewTabs";
-
-type WorkspaceAvailability = Parameters<typeof viewTabs>[0];
 
 const NO_WORKSPACE: WorkspaceAvailability = {
   hasResult: false,
