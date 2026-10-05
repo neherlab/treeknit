@@ -111,7 +111,7 @@ export interface ArgNodeView {
      * Distance from the top root along the parent chain that leads to it; a missing or negative
      * length counts as 0.
      */
-    x: number;
+    xDiv: number;
     /**
      * Cladogram position along the same chain, with all leaves at the largest leaf depth.
      */

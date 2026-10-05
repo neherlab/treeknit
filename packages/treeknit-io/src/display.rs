@@ -286,7 +286,7 @@ pub struct ArgNodeView {
   pub segments: Vec<usize>,
   /// Distance from the top root along the parent chain that leads to it; a missing or negative
   /// length counts as 0.
-  pub x: f64,
+  pub x_div: f64,
   /// Cladogram position along the same chain, with all leaves at the largest leaf depth.
   pub x_depth: f64,
   /// Leaf rank in display order; an internal node sits at the midpoint of its children.
