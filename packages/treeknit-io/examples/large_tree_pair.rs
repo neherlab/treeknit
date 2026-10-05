@@ -22,6 +22,10 @@ const USAGE: &str = "usage: large_tree_pair <leaves> <outdir> [seed=1] [moves=10
 /// Smallest number of leaves on which a subtree move changes the topology.
 const MIN_LEAVES: u32 = 3;
 
+/// Largest number of leaves, so that a mistyped count fails at once instead of exhausting the
+/// memory. A million leaves is far beyond the trees TreeKnit is used on.
+const MAX_LEAVES: u32 = 1_000_000;
+
 #[derive(Debug, PartialEq)]
 struct Args {
   leaves: u32,
@@ -53,6 +57,9 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
     return Err(format!(
       "leaves: {leaves} is below {MIN_LEAVES}, the smallest tree that a subtree move changes\n{USAGE}"
     ));
+  }
+  if leaves > MAX_LEAVES {
+    return Err(format!("leaves: {leaves} is above the limit of {MAX_LEAVES}\n{USAGE}"));
   }
   let seed = rest
     .first()
@@ -109,23 +116,18 @@ fn coalescent_tree(leaves: u32, rng: &mut impl Rng) -> Tree {
   // Node times, indexed by node id; leaves sit at time 0, node 0 is the root.
   let mut time = vec![0.0];
   let mut lineages: Vec<NodeId> = (1..=leaves)
-    .map(|i| {
-      time.push(0.0);
-      tree.add_node(format!("A/Sim/{i}/2020"), None)
-    })
+    .map(|i| add_timed_node(&mut tree, &mut time, format!("A/Sim/{i}/2020")))
     .collect();
   let mut now = 0.0;
-  let mut remaining = f64::from(leaves);
   while lineages.len() > 1 {
     // Inverse transform sampling: 1 - u lies in (0, 1], so the waiting time is finite.
-    now += -(1.0 - rng.r#gen::<f64>()).ln() / (remaining * (remaining - 1.0) / 2.0);
+    now += -(1.0 - rng.r#gen::<f64>()).ln() / lineage_pairs(lineages.len());
     let first = lineages.swap_remove(rng.gen_range(0..lineages.len()));
     let second = lineages.swap_remove(rng.gen_range(0..lineages.len()));
     let parent = if lineages.is_empty() {
       tree.root
     } else {
-      time.push(0.0);
-      tree.add_node("", None)
+      add_timed_node(&mut tree, &mut time, String::new())
     };
     time[parent] = now;
     for child in [first, second] {
@@ -135,9 +137,26 @@ fn coalescent_tree(leaves: u32, rng: &mut impl Rng) -> Tree {
     if parent != tree.root {
       lineages.push(parent);
     }
-    remaining -= 1.0;
   }
   tree
+}
+
+/// Add a node at time 0 to `tree` and to `time`, which is indexed by node id.
+fn add_timed_node(tree: &mut Tree, time: &mut Vec<f64>, name: String) -> NodeId {
+  let id = tree.add_node(name, None);
+  assert_eq!(time.len(), id, "node ids must be sequential to index the node times");
+  time.push(0.0);
+  id
+}
+
+/// Number k(k-1)/2 of pairs of `k` lineages, the coalescence rate.
+#[expect(
+  clippy::as_conversions,
+  reason = "at most MAX_LEAVES lineages, a count that f64 holds exactly"
+)]
+fn lineage_pairs(k: usize) -> f64 {
+  let k = k as f64;
+  k * (k - 1.0) / 2.0
 }
 
 /// Prune a random subtree and regraft it onto the middle of a random branch elsewhere.
@@ -236,6 +255,18 @@ mod tests {
   }
 
   #[test]
+  fn test_large_tree_pair_args_rejects_too_many_leaves() {
+    let err = parse_args(&strings(&["1000001", "out"])).unwrap_err();
+    assert_eq!(format!("leaves: 1000001 is above the limit of 1000000\n{USAGE}"), err);
+    assert_eq!(MAX_LEAVES, parse_args(&strings(&["1000000", "out"])).unwrap().leaves);
+  }
+
+  #[test]
+  fn test_large_tree_pair_lineage_pairs() {
+    assert_eq!(vec![0.0, 1.0, 3.0, 6.0], (1..=4).map(lineage_pairs).collect::<Vec<_>>());
+  }
+
+  #[test]
   fn test_large_tree_pair_args_rejects_missing_outdir() {
     assert_eq!(Err(USAGE.to_owned()), parse_args(&strings(&["10"])));
   }
@@ -308,19 +339,15 @@ mod tests {
   }
 
   #[test]
-  fn test_large_tree_pair_one_move_changes_smallest_tree() {
-    let (a, b) = tree_pair(MIN_LEAVES, 8, 1);
-    assert_eq!(leaf_names(&a), leaf_names(&b));
-    assert!(is_binary(&b));
-    assert_ne!(clades(&a), clades(&b));
-  }
-
-  #[test]
   fn test_large_tree_pair_one_move_changes_tree() {
-    let (a, b) = tree_pair(200, 9, 1);
-    assert_eq!(leaf_names(&a), leaf_names(&b));
-    assert!(is_binary(&b));
-    assert_ne!(clades(&a), clades(&b));
+    for leaves in [MIN_LEAVES, 4, 5, 10, 200] {
+      for seed in 0..20 {
+        let (a, b) = tree_pair(leaves, seed, 1);
+        assert_eq!(leaf_names(&a), leaf_names(&b), "{leaves} leaves, seed {seed}");
+        assert!(is_binary(&b), "{leaves} leaves, seed {seed}");
+        assert_ne!(clades(&a), clades(&b), "{leaves} leaves, seed {seed}");
+      }
+    }
   }
 
   #[test]
