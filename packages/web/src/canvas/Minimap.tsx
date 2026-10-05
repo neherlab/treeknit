@@ -3,6 +3,7 @@ import { PolygonLayer } from "@deck.gl/layers";
 import { DeckGL } from "@deck.gl/react";
 import { useCallback, useMemo, useState } from "react";
 import { mergeProps, useMove, usePress } from "react-aria";
+import { useErrorBoundary } from "react-error-boundary";
 
 import { withOpacity } from "./color";
 import { useDrawingColors } from "./drawingColors";
@@ -32,6 +33,7 @@ export interface MinimapProps {
 
 export function Minimap({ view, frame, layers }: MinimapProps) {
   const colors = useDrawingColors();
+  const { showBoundary } = useErrorBoundary();
   const { viewState, actions } = view;
   const { leafAxis } = frame;
   const along = leafAxis === "y" ? 1 : 0;
@@ -93,6 +95,7 @@ export function Minimap({ view, frame, layers }: MinimapProps) {
         height={planned.height}
         style={IN_FLOW}
         onResize={measure}
+        onError={showBoundary}
       />
     </div>
   );

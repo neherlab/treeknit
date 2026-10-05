@@ -21,12 +21,12 @@ export function supportsWebGl2(createCanvas: () => ContextSource): boolean {
 }
 
 export function cachedProbe(probe: () => boolean): () => boolean {
-  let result: boolean | undefined;
+  let supported = false;
 
   return () => {
-    result ??= probe();
+    supported ||= probe();
 
-    return result;
+    return supported;
   };
 }
 

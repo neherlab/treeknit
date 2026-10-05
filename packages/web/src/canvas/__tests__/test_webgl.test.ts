@@ -38,11 +38,19 @@ describe("supportsWebGl2", () => {
 });
 
 describe("cachedProbe", () => {
-  test("runs the probe once and returns its first result on every call", () => {
+  test("runs the probe once after it reports support", () => {
     const results = [true, false];
     const probe = cachedProbe(() => results.shift() ?? false);
 
     expect([probe(), probe(), probe()]).toStrictEqual([true, true, true]);
+    expect(results).toStrictEqual([false]);
+  });
+
+  test("probes again after a probe without support", () => {
+    const results = [false, true, false];
+    const probe = cachedProbe(() => results.shift() ?? false);
+
+    expect([probe(), probe(), probe()]).toStrictEqual([false, true, true]);
     expect(results).toStrictEqual([false]);
   });
 });

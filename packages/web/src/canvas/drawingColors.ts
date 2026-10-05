@@ -115,6 +115,7 @@ export function nextColorReading(previous: ColorReading | undefined, style: Cust
 
 function drawingColorStore() {
   let reading: ColorReading | undefined;
+  let failure: { error: unknown } | undefined;
   let observer: MutationObserver | undefined;
   const listeners = new Set<() => void>();
 
@@ -124,24 +125,41 @@ function drawingColorStore() {
     return reading;
   }
 
+  function notify() {
+    for (const listener of listeners) {
+      listener();
+    }
+  }
+
   function refresh() {
     const previous = reading;
 
-    if (read() !== previous) {
-      for (const listener of listeners) {
-        listener();
+    try {
+      if (read() === previous && failure === undefined) {
+        return;
       }
+
+      failure = undefined;
+    } catch (error) {
+      failure = { error };
     }
+
+    notify();
   }
 
   return {
     snapshot(): DrawingColors {
-      return (reading ?? read()).colors;
+      if (failure !== undefined) {
+        throw failure.error;
+      }
+
+      return (observer === undefined ? read() : (reading ?? read())).colors;
     },
     subscribe(onChange: () => void): () => void {
       listeners.add(onChange);
 
       if (observer === undefined) {
+        failure = undefined;
         read();
         observer = new MutationObserver(refresh);
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style"] });
