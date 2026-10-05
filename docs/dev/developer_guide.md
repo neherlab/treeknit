@@ -68,7 +68,7 @@ In the container, prefix each command with `./dev/docker/run`.
 
 `check` runs its checks in parallel through `dev/run-checks`, keeps going past failures, and lists the failed checks at the end. Each check writes its output to `tmp/checks/<check>.log`. Warnings fail the checks, and a missing tool is a failure, not a skipped check.
 
-`just example large_tree_pair 10000 tmp/large-pair` writes input for performance checks of the CLI and the web app: `tree_a.nwk`, a random binary tree under the Kingman coalescent with leaf names like `A/Sim/17/2020`, and `tree_b.nwk`, the same tree after random subtree moves. The seed (default 1) and the number of moves (default 10) are the optional third and fourth arguments, and the same arguments write the same files. The tests of the examples run with `just test-rs --examples`.
+`just example large_tree_pair 10000 tmp/large-pair` writes input for performance checks of the CLI and the web app: `tree_a.nwk`, a random binary tree under the Kingman coalescent with leaf names like `A/Sim/17/2020`, and `tree_b.nwk`, the same tree after random subtree moves. The seed (default 1) and the number of moves (default 10) are the optional third and fourth arguments, and the same arguments write the same files. `just test-rs` runs its tests.
 
 ## Web app
 

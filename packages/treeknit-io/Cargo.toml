@@ -19,5 +19,10 @@ treeknit-core.workspace = true
 rand.workspace = true
 rand_xoshiro.workspace = true
 
+# The default test run collects the tests of this example.
+[[example]]
+name = "large_tree_pair"
+test = true
+
 [lints]
 workspace = true
