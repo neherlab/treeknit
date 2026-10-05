@@ -54,7 +54,11 @@ export function copyFeedback(
       return () => {
         attached = false;
         latestRequest += 1;
-        cancelReset();
+
+        if (reset !== undefined) {
+          cancelReset();
+          onStateChange("idle");
+        }
       };
     },
   };

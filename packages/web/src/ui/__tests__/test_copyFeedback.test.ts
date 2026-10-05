@@ -77,14 +77,33 @@ describe("copyFeedback", () => {
     expect(states).toStrictEqual(["copied", "copied", "idle"]);
   });
 
-  test("cancels the pending return to idle on detach", async () => {
+  test("returns to idle at once on detach and starts no timer", async () => {
     const { feedback, detach } = attached(writeSucceeds);
 
     await feedback.copy("(A,B);");
     detach();
+
+    expect(vi.getTimerCount()).toBe(0);
+    expect(states).toStrictEqual(["copied", "idle"]);
+  });
+
+  test("leaves no feedback shown after a copy, a detach, a new attach, and the wait", async () => {
+    const { feedback, detach } = attached(writeSucceeds);
+
+    await feedback.copy("(A,B);");
+    detach();
+    feedback.attach();
     vi.advanceTimersByTime(COPY_FEEDBACK_MS);
 
-    expect(states).toStrictEqual(["copied"]);
+    expect(states.at(-1)).toBe("idle");
+  });
+
+  test("reports nothing on a detach without shown feedback", () => {
+    const { detach } = attached(writeSucceeds);
+
+    detach();
+
+    expect(states).toStrictEqual([]);
   });
 
   test("ignores a write that ends after detach and starts no timer", async () => {
