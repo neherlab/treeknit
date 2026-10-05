@@ -1,6 +1,6 @@
 # Tree ordering and visualization outputs: parity checklist
 
-Counterpart: [`v0/visualization.md`](v0/visualization.md). The command line draws nothing, as in TreeKnit.jl. The display data of the run result in `treeknit_io::display` holds the geometry of tanglegrams and ARG drawings for the web app and the figures (see [`web-app.md`](web-app.md#display-data)).
+Counterpart: [`v0/visualization.md`](v0/visualization.md). TreeKnit.jl draws nothing. The display data of the run result in `treeknit_io::display` holds the geometry of tanglegrams and ARG drawings for the web app and the figures (see [`web-app.md`](web-app.md#display-data)), and `treeknit_io::figure` writes SVG figures from it for the command line (`--plot`) and the web app (see [Figures](#figures)).
 
 ## Ordering of the output trees
 
@@ -29,4 +29,15 @@ Counterpart: [`v0/visualization.md`](v0/visualization.md). The command line draw
 ## ARG viewers
 
 - [x] **IcyTree**: `ARG/arg.nwk` has the TreeKnit.jl syntax (see [`arg.md`](arg.md#extended-newick-output))
-- [/] **Drawing of trees, tanglegrams, or ARGs**: TreeKnit.jl links a separate prototype viewer, TreeKnit-web, that draws ARGs. This port computes the layout and the shapes of tanglegrams and ARG drawings in Rust (see [`web-app.md`](web-app.md#display-data)); the web app draws them
+- [/] **Drawing of trees, tanglegrams, or ARGs**: TreeKnit.jl links a separate prototype viewer, TreeKnit-web, that draws ARGs. This port computes the layout and the shapes of tanglegrams and ARG drawings in Rust (see [`web-app.md`](web-app.md#display-data)); the web app draws them, and the SVG figures draw the same shapes
+
+## Figures
+
+`treeknit_io::figure` writes publication figures as SVG text from the display data, so a figure has the geometry of the interactive drawing: it maps the normalized shapes of a pair view or an ARG view to px and builds no shape of its own. `quick-xml` writes the text, so labels and titles with `<`, `&`, or quotes give well-formed SVG.
+
+- [x] **Tanglegram (new)**: `fn tanglegram_svg(&PairView, &FigureOptions)` [[src](../../packages/treeknit-io/src/figure.rs#L14-L20)]. Columns from left to right: the left tree, its labels, the link zone (20% of the inner width), the right labels, and the right tree, mirrored. A label column is as wide as its longest label, at most a quarter of half the inner width; a longer label is shortened in the middle. Branches are elbows in the color of their MCC slot (light theme of `palette()`), reassortment branches are signal and 2 px wide with a ring at their midpoint, branches of added nodes are dashed, imputed leaves have a hollow circle. Below 6 px per row each block is a ribbon at 55% opacity, from 6 px each link is an S-curve. The title names the two trees ("ha and na"), and a legend under the drawing lists the symbols that occur
+- [x] **ARG (new)**: `fn arg_svg(&ArgView, [&str; 2], &FigureOptions)` takes the labels of the two trees, because the ARG view has none [[src](../../packages/treeknit-io/src/figure.rs#L22-L28)]. One tree column with the labels at its right, edges in the color of segment A or B or ink for both, reticulations as dashed S-curves, and a signal ring on each hybrid node. The title is "ARG of ha and na"
+- [x] **Options**: width (default 1200 px), row height (default 12 px), branch scale (`div` or `depth`), and label mode (`auto` draws labels from 10 px per row, `on`, `off`). `fn check_figure_options` rejects a width or row height that is not finite and positive; the figure functions return its errors
+- [x] **Text**: `font-family="IBM Plex Sans, Helvetica, Arial, sans-serif"` on the figure, with IBM Plex Sans Condensed first for the leaf labels, as in the interactive views. SVG text has no width before a viewer lays it out, so a column width counts 0.5625 em per character, which covers the condensed font and the wider fallbacks
+- [x] **Figure files**: `fn figure_files` lists `tanglegram_<a>_<b>.svg` per pair and `ARG/arg.svg` for two trees with a built ARG, and `fn figure_text` draws one with the default options from the resolved trees [[src](../../packages/treeknit-io/src/output.rs#L178-L228)]. Trees without branch lengths are drawn as cladograms (`depth`), because their divergence is 0 everywhere. The command line writes the files with `--plot`. The web app lists them in `Session.files()` with the size `null` and the figure they hold (`FileEntry.figure`, `{ kind: "pair", pair }` or `{ kind: "arg" }`), renders each on its first `fileText` or `zip`, and keeps it. `Session.figure(pair, version, options)` and `Session.argFigure(options)` draw a figure with the options of the drawing toolbar and leave the files unchanged
+- [x] **Tests**: an exact SVG of the two-tree example derived by hand from the column and row rules, escaping, label modes, ribbons and links, marks, option errors, the figure files of the command line with `--plot` and `--request`, and the WebAssembly figures against the native output

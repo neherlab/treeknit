@@ -32,6 +32,7 @@ Main options:
 | `--naive` | naive MCCs (γ → ∞) |
 | `--impute` | also write trees with missing leaves placed |
 | `--auspice-view` | auspice JSON for tanglegrams |
+| `--plot` | SVG figures: a tanglegram per pair and, for two trees, the ARG |
 | `--seed`, `--threads` | reproducibility and parallelism |
 | `-v`, `--verbosity-level` | logging detail |
 | `--request treeknit_request.json` | run the trees and settings of a session file saved by the web app, instead of tree files and analysis options |
@@ -47,6 +48,8 @@ Output in the results directory:
 | `ARG/arg.nwk` | two trees only: ARG in extended Newick, `[&segments={0,1}]` annotations, hybrids `#Hi` |
 | `ARG/nodes.dat` | ARG node ↔ tree node table |
 | `ARG/<tree>_liberal_resolved.nwk` | the trees the ARG was built from |
+| `tanglegram_<a>_<b>.svg` | with `--plot`: the tanglegram of the resolved trees of each pair, with MCC colors and reassortment branches marked |
+| `ARG/arg.svg` | with `--plot`, two trees only: the ARG, colored by segment, with reassortments as dashed curves |
 | `parameters.json`, `log.txt` | parameters and log of the run |
 | `treeknit_request.json` | with `--request`: the trees and settings that ran |
 
