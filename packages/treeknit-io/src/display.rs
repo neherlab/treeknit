@@ -10,6 +10,7 @@
 //! views draw the same shapes and only map these units to pixels.
 
 mod arg_view;
+mod auspice;
 mod constellation;
 mod names;
 mod pair;
@@ -18,6 +19,7 @@ mod slots;
 mod tree;
 
 pub use arg_view::arg_view;
+pub use auspice::auspice_view;
 pub use constellation::constellation;
 pub use names::shorten;
 pub use pair::pair_view;
@@ -530,6 +532,137 @@ pub struct ConstellationCell {
   pub size: usize,
   /// Color slot of the MCC.
   pub slot: usize,
+}
+
+/// The two trees of a pair as Auspice v2 datasets, for Auspice's tanglegram: `left` is the main
+/// tree and `right` the second tree. Auspice joins the tips of the two trees by name.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspicePair {
+  pub left: AuspiceDataset,
+  pub right: AuspiceDataset,
+}
+
+/// An Auspice v2 dataset of one tree, with the field names of Auspice's schema.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceDataset {
+  pub version: AuspiceSchema,
+  pub meta: AuspiceMeta,
+  pub tree: AuspiceNode,
+}
+
+/// Version of the Auspice dataset schema.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub enum AuspiceSchema {
+  #[serde(rename = "v2")]
+  V2,
+}
+
+/// The `meta` section of an Auspice dataset.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceMeta {
+  pub title: String,
+  pub panels: Vec<AuspicePanel>,
+  pub colorings: Vec<AuspiceColoring>,
+  /// Keys of the colorings that Auspice offers as filters.
+  pub filters: Vec<String>,
+  pub display_defaults: AuspiceDisplayDefaults,
+}
+
+/// A panel of the Auspice view.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "lowercase")]
+pub enum AuspicePanel {
+  Tree,
+}
+
+/// A coloring of the Auspice view.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceColoring {
+  /// Key of the node attribute.
+  pub key: String,
+  pub title: String,
+  #[serde(rename = "type")]
+  pub kind: AuspiceColoringKind,
+  /// `[value, color]` per value, the color as `#rrggbb`.
+  pub scale: Vec<(String, String)>,
+}
+
+/// Type of an Auspice coloring.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "lowercase")]
+pub enum AuspiceColoringKind {
+  Categorical,
+}
+
+/// The settings that Auspice starts with.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceDisplayDefaults {
+  /// Key of the coloring.
+  pub color_by: String,
+  /// Key of the branch label.
+  pub branch_label: String,
+}
+
+/// A node of an Auspice tree.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceNode {
+  /// The node's `DrawNode.name`, unique within the tree.
+  pub name: String,
+  pub node_attrs: AuspiceNodeAttrs,
+  pub branch_attrs: AuspiceBranchAttrs,
+  /// The children in display order; absent for a leaf.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(feature = "tsify", tsify(optional))]
+  pub children: Option<Vec<AuspiceNode>>,
+}
+
+/// The attributes of an Auspice node.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceNodeAttrs {
+  /// Position from the root: `DrawNode.x_div` for the scale `div`, `DrawNode.x_depth` for
+  /// `depth`.
+  pub div: f64,
+  /// The number of the node's MCC, its index in `MCCs.json` plus 1; absent for a node without
+  /// an MCC.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(feature = "tsify", tsify(optional))]
+  pub mcc: Option<AuspiceValue>,
+}
+
+/// The value of a categorical node attribute.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceValue {
+  pub value: String,
+}
+
+/// The attributes of the branch above an Auspice node.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceBranchAttrs {
+  /// Absent for a branch without labels.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[cfg_attr(feature = "tsify", tsify(optional))]
+  pub labels: Option<AuspiceBranchLabels>,
+}
+
+/// The labels of an Auspice branch.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceBranchLabels {
+  /// The number of the MCC that starts at this branch, on a reassortment branch.
+  #[serde(rename = "MCC")]
+  pub mcc: String,
 }
 
 #[cfg(test)]
