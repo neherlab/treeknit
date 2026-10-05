@@ -47,7 +47,18 @@ impl PairResult {
   /// After `Matched` resolution they hold the parts of every MCC that matching split, so they
   /// can differ from the MCCs inferred for the pair. Empty when the pair shares fewer than two
   /// leaves.
+  ///
+  /// # Panics
+  ///
+  /// If the trees `i` and `j` of the pair are not trees of `trees`.
   pub fn shared_mccs(&self, trees: &[Tree], n: usize) -> Vec<Mcc> {
+    assert!(
+      self.i < self.j && self.j < trees.len(),
+      "({}, {}) is not a pair i < j of the {} trees",
+      self.i,
+      self.j,
+      trees.len()
+    );
     let Some(shared) = shared_leaves(&trees[self.i], &trees[self.j], n) else {
       return Vec::new();
     };
@@ -142,7 +153,15 @@ pub fn keeps_run_order(trees: &[Tree], opts: &Options, n: usize, i: usize, j: us
 /// `mccs` are the MCCs over the leaves the two trees share (see [`PairResult::shared_mccs`]),
 /// and `strict` is the strictness of the run's sort (see [`sort_strictness`]). Logs nothing. A
 /// pair that shares fewer than two leaves is left unchanged.
+///
+/// # Panics
+///
+/// If a leaf of `mccs` is not one of the `n` taxa.
 pub fn sort_for_pair(left: &mut Tree, right: &mut Tree, mccs: &[Mcc], n: usize, strict: bool) {
+  assert!(
+    mccs.iter().flatten().all(|&x| x < n),
+    "an MCC holds a leaf that is not one of the {n} taxa"
+  );
   sort_two(left, right, true, mccs, n, strict);
 }
 
@@ -550,11 +569,13 @@ fn attach_pair(trees: &[Tree], i: usize, j: usize, mut mccs: Vec<Mcc>, n: usize)
   for a in &attached {
     mccs[a.mcc].extend(&a.leaves);
   }
-  let base = mccs.clone();
+  // Re-index attachments to the sorted MCC list by a leaf of their MCC.
+  let firsts: Vec<usize> = attached
+    .iter()
+    .map(|a| mccs[a.mcc].iter().min().copied().unwrap())
+    .collect();
   let mccs = sort_mccs(mccs);
-  // Re-index attachments to the sorted MCC list.
-  for a in &mut attached {
-    let first = base[a.mcc].iter().min().copied().unwrap();
+  for (a, first) in attached.iter_mut().zip(firsts) {
     a.mcc = mccs.iter().position(|m| m.binary_search(&first).is_ok()).unwrap();
   }
   PairResult { i, j, mccs, attached }
@@ -1282,6 +1303,27 @@ mod tests {
   fn keeps_run_order_rejects_a_tree_out_of_range() {
     let (ts, taxa) = same_leaves(2);
     keeps_run_order(&ts, &Options::for_trees(2), taxa.len(), 0, 2);
+  }
+
+  #[test]
+  #[should_panic(expected = "(0, 2) is not a pair i < j of the 2 trees")]
+  fn shared_mccs_reject_a_pair_out_of_range() {
+    let (ts, taxa) = same_leaves(2);
+    let pair = PairResult {
+      i: 0,
+      j: 2,
+      mccs: Vec::new(),
+      attached: Vec::new(),
+    };
+    pair.shared_mccs(&ts, taxa.len());
+  }
+
+  #[test]
+  #[should_panic(expected = "an MCC holds a leaf that is not one of the 4 taxa")]
+  fn sort_for_pair_rejects_an_mcc_leaf_out_of_range() {
+    let (mut ts, taxa) = same_leaves(2);
+    let (left, right) = pair_mut(&mut ts, 0, 1);
+    sort_for_pair(left, right, &[vec![0, 1, 2, 3, 4]], taxa.len(), false);
   }
 
   /// Progress events of a run of `nwks` with `opts` and seed 1.
