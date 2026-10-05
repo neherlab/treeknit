@@ -41,7 +41,7 @@ Host builds go to `.build/host/`. On Linux x86_64, `.cargo/config.toml` links wi
 
 Optional settings go into the gitignored `.env` in the checkout; `.env.example` lists them:
 
-- `KACHE_STORE`: directory of the [kache](https://github.com/kunobi-ninja/kache) compiler cache stores. Every build and clippy pass then compiles through kache, which shares compiled crates across the worktrees of this project. Workspace crates of incremental builds (`dev`, tests, `release`, clippy) keep their incremental state, so an edit rebuilds as fast as without kache; kache serves their dependencies and every build without incremental state (CI, `dist`, `profiling`, `bench`). Coverage compiles without kache
+- `KACHE_STORE`: directory of the [kache](https://github.com/kunobi-ninja/kache) compiler cache stores. Every build and clippy pass then compiles through kache, which shares compiled crates across the worktrees of this project. Workspace crates of incremental builds (`dev`, tests, `release`, clippy) keep their incremental state, so an edit rebuilds as fast as without kache; kache serves their dependencies and every build without incremental state (CI, `dist`, `profiling`, `bench`, cross builds). Coverage compiles without kache. The directory holds one store per kache version, environment (`host` or `docker`), and pass (`build`, `clippy`, or `cross-<target>`)
 - `KACHE_MAX_SIZE`: size limit of each kache store, 100 GiB when unset
 
 ## Everyday commands
@@ -100,7 +100,7 @@ TypeScript is linted by oxlint with type information (`oxlint.config.ts`): the c
 
 ## Build modes
 
-The build and run recipes take the mode as their first argument: `just build <mode>`, `just run <mode> [CLI args]`, `just build-wasm <mode>`, `just build-web <dev|prod>`, `just run-web <dev|prod>`. The commands are the same in the main checkout and in a worktree. Each mode is a cargo profile:
+The build and run recipes take the mode as their first argument: `just build <mode>`, `just run <mode> [CLI args]`, `just build-wasm <mode>`, `just build-web <dev|prod>`, `just run-web <dev|prod>`, `just build-cross <dev|release|prod>`, `just run-cross <dev|release|prod> <target> [CLI args]`. The commands are the same in the main checkout and in a worktree. Each mode is a cargo profile:
 
 - `dev` (the tests): unoptimized workspace crates, dependencies at `opt-level = 2`, full debug info
 - `dev-opt`: `dev` with optimized workspace crates, for long runs on real datasets; rebuilds are slower
@@ -110,6 +110,38 @@ The build and run recipes take the mode as their first argument: `just build <mo
 - `bench` (`just bench`, no mode): the `prod` settings
 
 `just build release` and `just build prod` copy the binary to `.out/treeknit`; use it with `hyperfine`, which the container provides.
+
+## Cross-compilation
+
+`just build-cross <mode>` (on the host, needs Docker) builds the CLI in the given mode for every release target in `dev/cross/targets`, each in its own cross image, in parallel, into `.out/treeknit-<target>` (`.exe` on Windows), and checks the libraries each binary needs. `just build-cross prod` builds the shipped binaries; `release` builds faster, without LTO. Each target writes its log to `tmp/cross/<target>.log`. Options:
+
+- `--target=<triple>`: build this target only; repeat for several
+- `--run`: also run each binary on a simulated case from `fixtures/sim/`, under QEMU or Wine where needed, with output in `tmp/cross/run-<target>/`
+- `--serial`: build one target after another, with the output streamed
+
+`just run-cross <mode> <target> [CLI args]` builds the CLI for one target and runs it in the cross image, for example `just run-cross release aarch64-unknown-linux-gnu --help`.
+
+Without `just` on the host, run `./dev/cross/all --profile=dist treeknit`. The scripts take the cargo profile (`dist` for `prod`). The steps of one target run in its cross image, which `CROSS_COMPILE` selects:
+
+```bash
+CROSS_COMPILE=aarch64-apple-darwin ./dev/docker/run dev/cross/build --profile=dist treeknit
+CROSS_COMPILE=aarch64-apple-darwin ./dev/docker/run dev/cross/check treeknit
+```
+
+`dev/cross/build` builds into `.build/cross/<target>/` and copies the binary to `.out/`. `dev/cross/check` prints the libraries the binary needs and the oldest glibc or macOS it supports, and fails when a user system lacks one of the libraries or when an arm64 macOS binary has no code signature. `dev/cross/run` starts the binary: with QEMU for Linux aarch64, with Wine for Windows, and directly for Linux x86_64; macOS binaries cannot run in the images.
+
+| Target                                                    | Toolchain                                  | Binary                                                                                  |
+| --------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`   | GCC 14 (crosstool-ng) with glibc 2.17      | needs glibc 2.17 or newer                                                               |
+| `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | GCC 14 (crosstool-ng) with musl            | static, runs on any Linux                                                               |
+| `x86_64-pc-windows-gnu`                                   | GCC 14 (MinGW-w64)                         | links the GCC runtime statically; needs the Universal C Runtime of Windows 10 and newer |
+| `x86_64-apple-darwin`, `aarch64-apple-darwin`             | osxcross with the macOS 11.1 SDK and clang | macOS 10.12 or newer on x86_64, 11.0 or newer on aarch64                                |
+
+The `prod` binaries carry the CPU flags of `dev/lib/dist-flags.sh`: they need an x86_64 CPU with AVX2 (Haswell or newer), and on Linux aarch64 the ARMv8.2-A extensions.
+
+The macOS binaries carry the ad-hoc signature of the linker and no Developer ID signature or notarization: macOS (Gatekeeper) blocks a downloaded binary until the user allows it, or until `xattr -d com.apple.quarantine <file>` removes the quarantine attribute.
+
+The cross images are built from `dev/docker/cross-linux.dockerfile` and `dev/docker/cross-darwin.dockerfile`, with the build arguments that `dev/docker/run` sets for each target. They share the base image of the development image, and the toolchains come from the release archives that the scripts in `dev/docker/files/` download and verify.
 
 ## Reports
 
@@ -125,7 +157,8 @@ Every dependency release must be at least seven days old before the project adop
 - Cargo has the age check as an unstable feature until Rust 1.100. `just deps-update` and `just deps-upgrade` enable it for their resolution, and `just deps-age` fails on a lockfile entry younger than seven days
 - Tools in `.config/mise.toml`: `minimum_release_age` makes `just tools-outdated` list only newer releases that are at least seven days old. mise does not filter an exact version, so check the date of a version you type by hand
 - npm packages: `minimumReleaseAge` in `bunfig.toml` makes Bun refuse a release younger than seven days, and `exact` keeps the versions exact. `just deps-upgrade-ts <package>...` upgrades named packages in the catalog
-- The base image in `dev/docker/native.dockerfile` follows the same rule by hand
+- The Dockerfiles in `dev/docker/` share one base image, which follows the same rule by hand
+- The toolchain archives of the cross images (`dev/docker/files/install-*`): each script names one release, and `dev/docker/files/fetch` verifies the download by its line in `dev/docker/files/checksums`. Check the release date before changing a release
 - mise itself: the image installs the version in `dev/docker/files/mise-version`, verified by its line in `dev/docker/files/checksums`. `min_version` in `.config/mise.toml` is the oldest mise that reads the configuration; raise it when the configuration needs a newer mise
 - After changing a tool in `.config/mise.toml`, `just tools-lock <tool>` locks only that tool. Locking calls the GitHub API, which allows 60 anonymous requests per hour. With `MISE_GITHUB_TOKEN` set, mise authenticates instead, on the host and in the container alike (`dev/docker/run` forwards it)
 
@@ -136,5 +169,7 @@ The dependency recipes run in the main checkout only.
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on pull requests and on pushes to `main`: the check groups of `just check-all` (`format`, `clippy`, `tests`, `typescript`) in parallel jobs, each in the build container.
+
+`.github/workflows/cli-build.yml` runs on the same events and builds the shipped CLI for every release target, one job per target in its cross image: it builds, checks the libraries the binary needs, runs it on a simulated case (except on macOS), and uploads it as the artifact `treeknit-<target>`.
 
 The CI jobs pull the container image from Docker Hub by the hash of its build inputs, and build it when the inputs changed. Only pushes to `main` publish images, and only when the Docker Hub secrets are available to the repository.
