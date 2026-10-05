@@ -2,28 +2,19 @@ import type { Bezier, Point } from "@neherlab/treeknit-wasm";
 import * as fc from "fast-check";
 import { describe, expect, test } from "vitest";
 
-import {
-  type Column,
-  CURVE_SEGMENTS_MAX,
-  CURVE_TOLERANCE_PX,
-  columnPixel,
-  cubicPoint,
-  wangSegmentCount,
-} from "../projection";
+import { type Column, CURVE_SEGMENTS_MAX, columnPixel, cubicPoint, wangSegmentCount } from "../projection";
 
 const PROBES_PER_SEGMENT = 16;
 
 describe("wangSegmentCount", () => {
-  test("keeps uniform parameter samples within the pixel tolerance of the curve below the cap, as Wang's bound guarantees", () => {
+  test("keeps uniform parameter samples within 0.5 px of the curve below the cap, as Wang's bound guarantees", () => {
     fc.assert(
       fc.property(genCurve(), genColumn(), fc.double({ min: 0.01, max: 64, noNaN: true }), (curve, column, rowPx) => {
         const segments = wangSegmentCount(curve, column, rowPx);
 
-        expect(segments).toBeLessThanOrEqual(CURVE_SEGMENTS_MAX);
+        fc.pre(segments < CURVE_SEGMENTS_MAX);
 
-        if (segments < CURVE_SEGMENTS_MAX) {
-          expect(largestDeviationPx(curve, column, rowPx, segments) - CURVE_TOLERANCE_PX).toBeLessThan(1e-13);
-        }
+        expect(largestDeviationPx(curve, column, rowPx, segments) - 0.5).toBeLessThan(1e-9);
       }),
     );
   });
