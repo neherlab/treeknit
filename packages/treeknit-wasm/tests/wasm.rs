@@ -475,6 +475,8 @@ mod tests {
     let three =
       json!({"trees": [{"label": "ha", "newick": t}, {"label": "na", "newick": t}, {"label": "pb2", "newick": t}]});
     let session = Session::run(&ts(&three), &Function::new_no_args("")).unwrap();
+    let error = Error::from(session.figure(3, &ts(&json!("resolved")), &ts(&json!({}))).unwrap_err());
+    assert_eq!("no pair 3: the run has 3 pairs", String::from(error.message()));
     let error = Error::from(session.arg_figure(&ts(&json!({}))).unwrap_err());
     assert_eq!(
       (
