@@ -6,13 +6,13 @@ import type { WorldPosition } from "../projection";
 import { markLayer } from "./markLayer";
 import { pathLayer } from "./pathLayer";
 
-const BRANCH_WIDTH_PX = 1.5;
+export const BRANCH_WIDTH_PX = 1.5;
 
 export const REASSORTMENT_WIDTH_PX = 2;
 
-const MARK_RADIUS_PX = 3.5;
+export const MARK_RADIUS_PX = 3.5;
 
-const MARK_LINE_PX = 1.5;
+export const MARK_LINE_PX = 1.5;
 
 const SELECTION_RADIUS_PX = 7;
 

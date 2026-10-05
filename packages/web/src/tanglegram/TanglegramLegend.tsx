@@ -1,19 +1,10 @@
-import {
-  ADDED_SYMBOL,
-  IMPUTED_SYMBOL,
-  Legend,
-  type LegendEntry,
-  REASSORTMENT_SYMBOL,
-  RIBBON_SYMBOL,
-} from "../drawing/Legend";
+import { useMemo } from "react";
 
-const ENTRIES: LegendEntry[] = [
-  { label: "Reassortment branch", symbol: REASSORTMENT_SYMBOL },
-  { label: "Node added by resolution", symbol: ADDED_SYMBOL },
-  { label: "Imputed leaf", symbol: IMPUTED_SYMBOL },
-  { label: "Leaves of one MCC", symbol: RIBBON_SYMBOL },
-];
+import { Legend } from "../drawing/Legend";
+import { type LegendStyle, tanglegramLegend } from "./legend";
 
-export function TanglegramLegend() {
-  return <Legend entries={ENTRIES} />;
+export function TanglegramLegend({ colors, colorByMcc, ribbons }: LegendStyle) {
+  const entries = useMemo(() => tanglegramLegend({ colors, colorByMcc, ribbons }), [colors, colorByMcc, ribbons]);
+
+  return <Legend entries={entries} />;
 }

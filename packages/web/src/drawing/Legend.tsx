@@ -1,9 +1,24 @@
 import { cn } from "cn";
-import { type ReactNode, useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import HideIcon from "~icons/lucide/chevron-up";
 
+import { cssColor, type Rgba } from "../canvas/color";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
+
+export const SYMBOL_WIDTH_PX = 24;
+
+export const SYMBOL_HEIGHT_PX = 12;
+
+export type SymbolMark =
+  | { kind: "line"; path: string; color: Rgba; widthPx: number; dashPx?: readonly [number, number] }
+  | { kind: "ring"; at: readonly [number, number]; color: Rgba; fill: Rgba; radiusPx: number; lineWidthPx: number }
+  | { kind: "area"; path: string; color: Rgba };
+
+export interface LegendEntry {
+  label: string;
+  marks: readonly SymbolMark[];
+}
 
 export function Legend({ entries, className }: LegendProps) {
   const [open, setOpen] = useState(true);
@@ -35,10 +50,19 @@ export function Legend({ entries, className }: LegendProps) {
       )}
     >
       <ul className="flex flex-col gap-1">
-        {entries.map(({ label, symbol }) => (
+        {entries.map(({ label, marks }) => (
           <li key={label} className="text-ink flex items-center gap-2">
-            <svg aria-hidden width={24} height={12} viewBox="0 0 24 12" className="shrink-0 overflow-visible">
-              {symbol}
+            <svg
+              aria-hidden
+              width={SYMBOL_WIDTH_PX}
+              height={SYMBOL_HEIGHT_PX}
+              viewBox={`0 0 ${String(SYMBOL_WIDTH_PX)} ${String(SYMBOL_HEIGHT_PX)}`}
+              className="shrink-0 overflow-visible"
+            >
+              {marks.map((mark, index) => (
+                // oxlint-disable-next-line react/no-array-index-key -- the marks of a symbol are a fixed list drawn in order
+                <Mark key={index} mark={mark} />
+              ))}
             </svg>
             {label}
           </li>
@@ -54,36 +78,31 @@ export interface LegendProps {
   className?: string;
 }
 
-export interface LegendEntry {
-  label: string;
-  symbol: ReactNode;
-}
+function Mark({ mark }: { mark: SymbolMark }) {
+  if (mark.kind === "ring") {
+    return (
+      <circle
+        cx={mark.at[0]}
+        cy={mark.at[1]}
+        r={mark.radiusPx}
+        fill={cssColor(mark.fill)}
+        stroke={cssColor(mark.color)}
+        strokeWidth={mark.lineWidthPx}
+      />
+    );
+  }
 
-export const REASSORTMENT_SYMBOL = (
-  <>
-    <path d="M0 6 H24" className="stroke-signal" strokeWidth={2} />
-    <circle cx={12} cy={6} r={3.5} className="fill-ground stroke-signal" strokeWidth={1.5} />
-  </>
-);
+  if (mark.kind === "area") {
+    return <path d={mark.path} fill={cssColor(mark.color)} />;
+  }
 
-export const ADDED_SYMBOL = <path d="M0 6 H24" className="stroke-ink-muted" strokeWidth={1.5} strokeDasharray="4 3" />;
-
-export const IMPUTED_SYMBOL = (
-  <>
-    <path d="M0 6 H16" className="stroke-ink-muted" strokeWidth={1.5} />
-    <circle cx={18} cy={6} r={3.5} className="fill-ground stroke-ink-muted" strokeWidth={1.5} />
-  </>
-);
-
-export const RIBBON_SYMBOL = <path d="M0 1 C12 1 12 5 24 5 V11 C12 11 12 7 0 7 Z" className="fill-mcc-0/55" />;
-
-export const HYBRID_SYMBOL = (
-  <>
-    <path d="M0 6 H24" className="stroke-ink" strokeWidth={1.5} />
-    <circle cx={12} cy={6} r={3.5} className="fill-ground stroke-signal" strokeWidth={1.5} />
-  </>
-);
-
-export function lineSymbol(className: string, dashed = false) {
-  return <path d="M0 6 H24" className={className} strokeWidth={1.5} strokeDasharray={dashed ? "4 3" : undefined} />;
+  return (
+    <path
+      d={mark.path}
+      fill="none"
+      stroke={cssColor(mark.color)}
+      strokeWidth={mark.widthPx}
+      strokeDasharray={mark.dashPx?.join(" ")}
+    />
+  );
 }

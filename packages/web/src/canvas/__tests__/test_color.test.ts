@@ -1,7 +1,7 @@
 import type { ThemeColors } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
-import { parseColor, withOpacity } from "../color";
+import { cssColor, parseColor, withOpacity } from "../color";
 import {
   type CustomProperties,
   MCC_SLOT_COUNT,
@@ -33,6 +33,15 @@ describe("parseColor", () => {
       expect(parseColor(text)).toBeUndefined();
     },
   );
+});
+
+describe("cssColor", () => {
+  test("writes an RGBA color as a CSS rgb() color with alpha", () => {
+    expect([cssColor([47, 75, 154, 255]), cssColor([47, 75, 154, 140])]).toStrictEqual([
+      "rgb(47 75 154 / 1)",
+      "rgb(47 75 154 / 0.549)",
+    ]);
+  });
 });
 
 describe("withOpacity", () => {

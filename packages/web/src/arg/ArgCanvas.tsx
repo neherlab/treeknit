@@ -80,7 +80,7 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
       className="h-full"
       {...picking}
     >
-      <ArgLegend segments={segments} />
+      <ArgLegend colors={colors} segments={segments} />
     </TreeCanvas>
   );
 }

@@ -1,11 +1,13 @@
 import { describe, expect, test } from "vitest";
 
+import type { Rgba } from "../../canvas/color";
 import type { DrawingColors } from "../../canvas/drawingColors";
 import { columnPixel } from "../../canvas/projection";
 import { exampleArgView } from "../../drawing/__tests__/fixtures";
 import { argEmphasis } from "../../drawing/selection";
 import { ARG_LAYER, argColumn, argGeometry, argTargetAt } from "../geometry";
 import { argEdgeColor, argSelectionPositions } from "../layers";
+import { argLegend } from "../legend";
 import { ARG_MISSING, argFailure } from "../outcome";
 import { argTargetRows } from "../picking";
 
@@ -72,6 +74,33 @@ describe("argGeometry", () => {
       ["B", [COLUMN.end, 1]],
       ["C", [COLUMN.end, 2]],
     ]);
+  });
+});
+
+describe("argLegend", () => {
+  test("draws reassortment as dashed edges in their segment colors into a signal ring", () => {
+    const signal: Rgba = [176, 38, 94, 255];
+
+    const colors: DrawingColors = {
+      ...SEGMENT_COLORS,
+      signal,
+      ground: SEGMENT_COLORS.ink,
+      inkMuted: SEGMENT_COLORS.ink,
+      focus: SEGMENT_COLORS.ink,
+      mcc: [],
+      mccNone: SEGMENT_COLORS.ink,
+    };
+
+    const legend = argLegend(colors, ["ha", "na"]);
+
+    expect({ labels: legend.map(({ label }) => label), reassortment: legend.at(-1)?.marks }).toMatchObject({
+      labels: ["Segment ha", "Segment na", "Both segments", "Reassortment"],
+      reassortment: [
+        { kind: "line", color: SEGMENT_COLORS.segmentA, dashPx: [4, 3] },
+        { kind: "line", color: SEGMENT_COLORS.segmentB, dashPx: [4, 3] },
+        { kind: "ring", color: signal },
+      ],
+    });
   });
 });
 

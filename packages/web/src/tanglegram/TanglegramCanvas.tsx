@@ -96,7 +96,7 @@ export default function TanglegramCanvas({
       className="h-full"
       {...picking}
     >
-      <TanglegramLegend />
+      <TanglegramLegend colors={colors} colorByMcc={colorByMcc} ribbons={style.ribbons} />
     </TreeCanvas>
   );
 }

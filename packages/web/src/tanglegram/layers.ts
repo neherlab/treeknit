@@ -10,17 +10,19 @@ import { leaderLayer } from "../canvas/layers/leaderLayer";
 import { branchLayer, hoverColor, REASSORTMENT_WIDTH_PX, ringLayer, selectionLayer } from "../canvas/layers/treeLayers";
 import { emphasisOpacity, type PairEmphasis } from "../drawing/selection";
 import { LABEL_GAP_PX } from "../drawing/spacing";
-import { type BranchItem, type LinkItem, PAIR_LAYER, type TanglegramGeometry } from "./geometry";
+import { type BranchItem, type LinkItem, type MarkItem, PAIR_LAYER, type TanglegramGeometry } from "./geometry";
 
 export const RIBBON_OPACITY = 0.55;
 
 const SELECTED_LINK_WIDTH_PX = 2.5;
 
-const LINK_WIDTH_PX = 1;
+export const LINK_WIDTH_PX = 1;
 
 export const LEADER_LAYER = "leaders";
 
 export type BranchKind = "plain" | "added" | "reassortment";
+
+export type MarkKind = "imputed" | "reassortment";
 
 export interface PairStyle {
   colors: DrawingColors;
@@ -33,25 +35,33 @@ export interface PairStyle {
   fade: number;
 }
 
+export type ColorStyle = Pick<PairStyle, "colors" | "colorByMcc"> & { emphasis: Pick<PairEmphasis, "mcc"> };
+
 export function ribbonsShown(rowPx: number, rules: DrawingRules): boolean {
   return rowPx < rules.linkMinRowPx;
 }
 
-export function branchColor(item: Pick<BranchItem, "mcc" | "slot">, kind: BranchKind, style: PairStyle): Rgba {
+export function branchColor(item: Pick<BranchItem, "mcc" | "slot">, kind: BranchKind, style: ColorStyle): Rgba {
   const base = baseBranchColor(item.slot, kind, style);
 
   return withOpacity(base, emphasisOpacity(item.mcc, style.emphasis.mcc));
 }
 
-export function linkColor(item: Pick<LinkItem, "mcc" | "slot">, style: PairStyle): Rgba {
+export function linkColor(item: Pick<LinkItem, "mcc" | "slot">, style: ColorStyle): Rgba {
   return withOpacity(mccColor(style.colors, item.slot), emphasisOpacity(item.mcc, style.emphasis.mcc));
 }
 
-export function ribbonColor(item: Pick<LinkItem, "mcc" | "slot">, style: PairStyle): Rgba {
+export function ribbonColor(item: Pick<LinkItem, "mcc" | "slot">, style: ColorStyle): Rgba {
   return withOpacity(mccColor(style.colors, item.slot), RIBBON_OPACITY * emphasisOpacity(item.mcc, style.emphasis.mcc));
 }
 
-export function labelColor(mcc: number | null, style: PairStyle): Rgba {
+export function markColor(item: Pick<MarkItem, "mcc" | "slot">, kind: MarkKind, style: ColorStyle): Rgba {
+  const base = kind === "reassortment" ? style.colors.signal : baseBranchColor(item.slot, "plain", style);
+
+  return withOpacity(base, emphasisOpacity(item.mcc, style.emphasis.mcc));
+}
+
+export function labelColor(mcc: number | null, style: ColorStyle): Rgba {
   return withOpacity(style.colors.ink, emphasisOpacity(mcc, style.emphasis.mcc));
 }
 
@@ -125,8 +135,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       id: PAIR_LAYER.imputedMarks,
       data: geometry.marks.imputed,
       getPosition: (item) => item.position,
-      getLineColor: (item) =>
-        withOpacity(baseBranchColor(item.slot, "plain", style), emphasisOpacity(item.mcc, emphasis.mcc)),
+      getLineColor: (item) => markColor(item, "imputed", style),
       colors,
       colorTriggers: triggers,
     }),
@@ -134,7 +143,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       id: PAIR_LAYER.reassortmentMarks,
       data: geometry.marks.reassortment,
       getPosition: (item) => item.position,
-      getLineColor: (item) => withOpacity(colors.signal, emphasisOpacity(item.mcc, emphasis.mcc)),
+      getLineColor: (item) => markColor(item, "reassortment", style),
       colors,
       colorTriggers: triggers,
     }),
@@ -178,7 +187,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
   ];
 }
 
-function baseBranchColor(slot: number | null, kind: BranchKind, style: PairStyle): Rgba {
+function baseBranchColor(slot: number | null, kind: BranchKind, style: ColorStyle): Rgba {
   if (kind === "reassortment") {
     return style.colors.signal;
   }
