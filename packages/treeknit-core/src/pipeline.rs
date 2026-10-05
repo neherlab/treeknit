@@ -50,7 +50,8 @@ impl PairResult {
   ///
   /// # Panics
   ///
-  /// If the trees `i` and `j` of the pair are not trees of `trees`.
+  /// If the trees `i` and `j` of the pair are not trees of `trees`, or have a leaf without a
+  /// taxon of `0..n`.
   pub fn shared_mccs(&self, trees: &[Tree], n: usize) -> Vec<Mcc> {
     assert!(
       self.i < self.j && self.j < trees.len(),
@@ -58,6 +59,10 @@ impl PairResult {
       self.i,
       self.j,
       trees.len()
+    );
+    assert!(
+      trees[self.i].has_taxa_below(n) && trees[self.j].has_taxa_below(n),
+      "a tree of the pair has a leaf that is not one of the {n} taxa"
     );
     let Some(shared) = shared_leaves(&trees[self.i], &trees[self.j], n) else {
       return Vec::new();
@@ -156,11 +161,15 @@ pub fn keeps_run_order(trees: &[Tree], opts: &Options, n: usize, i: usize, j: us
 ///
 /// # Panics
 ///
-/// If a leaf of `mccs` is not one of the `n` taxa.
+/// If a leaf of `mccs`, `left`, or `right` is not one of the `n` taxa.
 pub fn sort_for_pair(left: &mut Tree, right: &mut Tree, mccs: &[Mcc], n: usize, strict: bool) {
   assert!(
     mccs.iter().flatten().all(|&x| x < n),
     "an MCC holds a leaf that is not one of the {n} taxa"
+  );
+  assert!(
+    left.has_taxa_below(n) && right.has_taxa_below(n),
+    "a tree of the pair has a leaf that is not one of the {n} taxa"
   );
   sort_two(left, right, true, mccs, n, strict);
 }
@@ -1324,6 +1333,37 @@ mod tests {
     let (mut ts, taxa) = same_leaves(2);
     let (left, right) = pair_mut(&mut ts, 0, 1);
     sort_for_pair(left, right, &[vec![0, 1, 2, 3, 4]], taxa.len(), false);
+  }
+
+  #[test]
+  #[should_panic(expected = "a tree of the pair has a leaf that is not one of the 3 taxa")]
+  fn sort_for_pair_rejects_a_tree_leaf_out_of_range() {
+    let (mut ts, _) = same_leaves(2);
+    let (left, right) = pair_mut(&mut ts, 0, 1);
+    sort_for_pair(left, right, &[], 3, false);
+  }
+
+  #[test]
+  #[should_panic(expected = "a tree of the pair has a leaf that is not one of the 4 taxa")]
+  fn sort_for_pair_rejects_a_leaf_without_taxon() {
+    let (mut ts, taxa) = same_leaves(2);
+    let leaf = ts[1].leaves()[0];
+    ts[1].nodes[leaf].taxon = None;
+    let (left, right) = pair_mut(&mut ts, 0, 1);
+    sort_for_pair(left, right, &[], taxa.len(), false);
+  }
+
+  #[test]
+  #[should_panic(expected = "a tree of the pair has a leaf that is not one of the 3 taxa")]
+  fn shared_mccs_reject_a_tree_leaf_out_of_range() {
+    let (ts, _) = same_leaves(2);
+    let pair = PairResult {
+      i: 0,
+      j: 1,
+      mccs: Vec::new(),
+      attached: Vec::new(),
+    };
+    pair.shared_mccs(&ts, 3);
   }
 
   /// Progress events of a run of `nwks` with `opts` and seed 1.

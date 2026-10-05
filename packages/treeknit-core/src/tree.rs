@@ -187,6 +187,14 @@ impl Tree {
     }
     v
   }
+  /// Whether every leaf has a taxon of `0..n_taxa`.
+  pub fn has_taxa_below(&self, n_taxa: usize) -> bool {
+    self
+      .leaves()
+      .into_iter()
+      .all(|l| self.nodes[l].taxon.is_some_and(|t| t < n_taxa))
+  }
+
   #[inline]
   pub fn taxon(&self, n: NodeId) -> usize {
     self.nodes[n].taxon.expect("leaf without taxon")
