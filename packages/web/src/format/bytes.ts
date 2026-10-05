@@ -1,3 +1,5 @@
+import { APP_LOCALE } from "./locale";
+
 const KILO = 1000;
 
 const MEGA = KILO * KILO;
@@ -6,18 +8,16 @@ const ONE_DECIMAL_ROUNDING = 20;
 
 const SMALLEST_ROUNDED_MEGABYTE = MEGA - KILO / ONE_DECIMAL_ROUNDING;
 
-const LOCALE = "en";
+const BYTES = new Intl.NumberFormat(APP_LOCALE, { style: "unit", unit: "byte", unitDisplay: "long" });
 
-const BYTES = new Intl.NumberFormat(LOCALE, { style: "unit", unit: "byte", unitDisplay: "long" });
-
-const KILOBYTES = new Intl.NumberFormat(LOCALE, {
+const KILOBYTES = new Intl.NumberFormat(APP_LOCALE, {
   style: "unit",
   unit: "kilobyte",
   unitDisplay: "short",
   maximumFractionDigits: 1,
 });
 
-const MEGABYTES = new Intl.NumberFormat(LOCALE, {
+const MEGABYTES = new Intl.NumberFormat(APP_LOCALE, {
   style: "unit",
   unit: "megabyte",
   unitDisplay: "short",

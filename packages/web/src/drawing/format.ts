@@ -1,8 +1,8 @@
-const LOCALE = "en";
+import { APP_LOCALE } from "../format/locale";
 
-const BRANCH_LENGTH = new Intl.NumberFormat(LOCALE, { maximumSignificantDigits: 4 });
+const BRANCH_LENGTH = new Intl.NumberFormat(APP_LOCALE, { maximumSignificantDigits: 4 });
 
-const COUNT = new Intl.NumberFormat(LOCALE);
+const COUNT = new Intl.NumberFormat(APP_LOCALE);
 
 export function formatCount(count: number): string {
   return COUNT.format(count);
