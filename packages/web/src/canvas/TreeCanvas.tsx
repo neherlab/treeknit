@@ -1,7 +1,7 @@
 import { type LayersList, OrthographicView, type OrthographicViewState, type PickingInfo } from "@deck.gl/core";
 import { DeckGL, type DeckGLProps, type DeckGLRef } from "@deck.gl/react";
 import { cn } from "cn";
-import { type MouseEvent, type ReactNode, useCallback, useId, useMemo, useRef, useState } from "react";
+import { type MouseEvent, type ReactNode, type RefObject, useCallback, useId, useMemo, useRef, useState } from "react";
 import { useKeyboard } from "react-aria";
 import { useErrorBoundary } from "react-error-boundary";
 
@@ -9,8 +9,8 @@ import { InlineNotice } from "../ui/InlineNotice";
 import { Minimap } from "./Minimap";
 import { selectionZoomRange } from "./selectionZoomKey";
 import { useMeasuredSize } from "./useMeasuredSize";
-import type { TreeView } from "./useTreeView";
-import { type MeasuredSize, minimapShown, type RowRange } from "./viewState";
+import type { TreeView, TreeViewActions } from "./useTreeView";
+import { type CanvasFrame, type MeasuredSize, minimapShown, type RowRange, type TreeViewState } from "./viewState";
 import { browserSupportsWebGl2, WEBGL2_MISSING } from "./webgl";
 
 export const CANVAS_DESCRIPTION =
@@ -70,27 +70,6 @@ export function TreeCanvas({
   );
 
   const { areaRef, canvasRef } = useMeasuredSize(resize);
-  const frameWidth = frame?.size.width;
-  const frameHeight = frame?.size.height;
-
-  const views = useMemo(
-    () =>
-      new OrthographicView({
-        id: VIEW_ID,
-        flipY: true,
-        ...(frameWidth === undefined || frameHeight === undefined
-          ? undefined
-          : { width: frameWidth, height: frameHeight }),
-      }),
-    [frameWidth, frameHeight],
-  );
-
-  const update = useCallback(
-    ({ viewState }: { viewState: OrthographicViewState }) => {
-      actions.update(viewState);
-    },
-    [actions],
-  );
 
   const zoomToCladeAt = useCallback(
     async (position: PickPosition) => {
@@ -161,16 +140,15 @@ export function TreeCanvas({
             // oxlint-disable-next-line better-tailwindcss/no-unknown-classes -- deck.gl takes the element with this class as the target of its pointer and keyboard events
             className="deck-events-root focus-visible:outline-focus absolute inset-0 outline-hidden focus-visible:outline-2 focus-visible:-outline-offset-2"
           >
-            {view.viewState === undefined ? null : (
-              <DeckGL
-                ref={deckRef}
-                views={views}
+            {frame === undefined || view.viewState === undefined ? null : (
+              <TreeDeck
+                deckRef={deckRef}
+                frame={frame}
                 viewState={view.viewState}
-                controller={CONTROLLER}
                 layers={layers}
-                onViewStateChange={update}
+                actions={actions}
                 onError={showBoundary}
-                {...events}
+                events={events}
               />
             )}
           </div>
@@ -184,4 +162,39 @@ export function TreeCanvas({
       </div>
     </div>
   );
+}
+
+function TreeDeck({ deckRef, frame, viewState, layers, actions, onError, events }: TreeDeckProps) {
+  const { width, height } = frame.size;
+  const views = useMemo(() => new OrthographicView({ id: VIEW_ID, flipY: true, width, height }), [width, height]);
+
+  const update = useCallback(
+    ({ viewState: next }: { viewState: OrthographicViewState }) => {
+      actions.update(next);
+    },
+    [actions],
+  );
+
+  return (
+    <DeckGL
+      ref={deckRef}
+      views={views}
+      viewState={viewState}
+      controller={CONTROLLER}
+      layers={layers}
+      onViewStateChange={update}
+      onError={onError}
+      {...events}
+    />
+  );
+}
+
+interface TreeDeckProps {
+  deckRef: RefObject<DeckGLRef<OrthographicView> | null>;
+  frame: CanvasFrame;
+  viewState: TreeViewState;
+  layers: LayersList;
+  actions: TreeViewActions;
+  onError: (error: Error) => void;
+  events: DeckEvents;
 }
