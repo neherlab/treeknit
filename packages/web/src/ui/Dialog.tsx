@@ -28,14 +28,7 @@ const panelStyle = cva("bg-ground text-ink flex max-h-full min-h-0 flex-col outl
 
 export type DialogPlacement = "center" | "left" | "right";
 
-export function Dialog({
-  title,
-  placement = "center",
-  footer,
-  className,
-  children,
-  ...props
-}: DialogProps) {
+export function Dialog({ title, placement = "center", footer, className, children, ...props }: DialogProps) {
   return (
     <ModalOverlay {...props} isDismissable className={overlayStyle({ placement })}>
       <Modal className={cn(panelStyle({ placement }), className)}>

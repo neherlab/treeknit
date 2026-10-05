@@ -71,14 +71,7 @@ export interface RingLayerOptions<D> {
   colorTriggers: readonly unknown[];
 }
 
-export function ringLayer<D>({
-  id,
-  data,
-  getPosition,
-  getLineColor,
-  colors,
-  colorTriggers,
-}: RingLayerOptions<D>) {
+export function ringLayer<D>({ id, data, getPosition, getLineColor, colors, colorTriggers }: RingLayerOptions<D>) {
   return markLayer({
     id,
     data,

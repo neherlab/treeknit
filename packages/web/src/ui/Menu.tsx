@@ -26,10 +26,7 @@ export function Menu<T extends object>({ trigger, placement = "bottom start", cl
     <MenuTrigger>
       {trigger}
       <Popover placement={placement} offset={POPOVER_OFFSET_PX} className={cn(popoverStyle, "min-w-48")}>
-        <AriaMenu
-          {...props}
-          className={composeRenderProps(className, (custom) => cn(listBoxStyle, custom))}
-        />
+        <AriaMenu {...props} className={composeRenderProps(className, (custom) => cn(listBoxStyle, custom))} />
       </Popover>
     </MenuTrigger>
   );

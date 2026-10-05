@@ -1,14 +1,7 @@
 import type { DrawingRules } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
-import {
-  type FontStore,
-  LABEL_FONT,
-  labelCharacters,
-  labelFontStore,
-  labelsVisible,
-  shortenLabel,
-} from "../labels";
+import { type FontStore, LABEL_FONT, labelCharacters, labelFontStore, labelsVisible, shortenLabel } from "../labels";
 
 const RULES: DrawingRules = { labelAutoMinRowPx: 10, linkMinRowPx: 6, labelMaxChars: 40 };
 
