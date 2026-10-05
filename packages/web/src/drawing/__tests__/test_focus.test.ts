@@ -11,8 +11,11 @@ describe("focusRows", () => {
     expect(focusRows(VIEW, { kind: "leaf", name: "C" })).toStrictEqual({ first: 2, last: 2 });
   });
 
-  test("fits the rows of an MCC's leaves in the left tree", () => {
-    expect(mccRows(VIEW, 0)).toStrictEqual({ first: 0, last: 3 });
+  test("fits the rows of an MCC's leaves in both trees", () => {
+    expect({ abcd: mccRows(VIEW, 0), x: mccRows(VIEW, 1) }).toStrictEqual({
+      abcd: { first: 0, last: 4 },
+      x: { first: 2, last: 4 },
+    });
   });
 
   test("gives no rows for an unknown leaf or MCC", () => {

@@ -21,7 +21,7 @@ import {
 } from "../drawing/selection";
 import { pairTooltip } from "../drawing/tooltip";
 import { tooltipContent } from "../drawing/tooltipContent";
-import { leafNames, leafRows } from "../drawing/trees";
+import { leafNames, leafRows, rowSpan } from "../drawing/trees";
 import { labelColumnPx, tanglegramColumns } from "./columns";
 import { pairTargetAt, tanglegramGeometry } from "./geometry";
 import { ribbonsShown, tanglegramLayers } from "./layers";
@@ -172,7 +172,7 @@ function targetRows(data: PairView, target: PairTarget): RowRange | null {
   if (target.kind === "ribbon") {
     const block = data.blocks[target.block];
 
-    return block === undefined ? null : { first: block.left[0], last: block.left[1] };
+    return block === undefined ? null : rowSpan([...block.left, ...block.right]);
   }
 
   if (target.kind === "link") {

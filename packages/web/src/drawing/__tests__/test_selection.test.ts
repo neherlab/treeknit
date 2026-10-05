@@ -129,8 +129,8 @@ describe("pairSelectionRows", () => {
       { first: 0, last: 1 },
     ],
     ["the row of a selected leaf", { mcc: 0, leaf: "X" }, { first: 4, last: 4 }],
-    ["the rows of the left leaves of a selected MCC", { mcc: 0 }, { first: 0, last: 3 }],
-    ["the MCC rows when the selected leaf is not drawn", { mcc: 1, leaf: "Z" }, { first: 4, last: 4 }],
+    ["the rows of the leaves of a selected MCC in both trees", { mcc: 0 }, { first: 0, last: 4 }],
+    ["the MCC rows when the selected leaf is not drawn", { mcc: 1, leaf: "Z" }, { first: 2, last: 4 }],
     ["nothing without a selection", {}, null],
   ] satisfies [string, Selection, unknown][])("zooms to %s", (_case, selection, expected) => {
     expect(pairSelectionRows(VIEW, selection)).toStrictEqual(expected);

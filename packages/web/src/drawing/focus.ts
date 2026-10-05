@@ -53,5 +53,9 @@ export function focusRows(view: PairView, target: FocusTarget): RowRange | null 
 }
 
 export function mccRows(view: PairView, mcc: number): RowRange | null {
-  return rowSpan(view.left.nodes.flatMap((node) => (node.leaf && node.mcc === mcc ? [node.y] : [])));
+  return rowSpan(
+    [view.left, view.right].flatMap((tree) =>
+      tree.nodes.flatMap((node) => (node.leaf && node.mcc === mcc ? [node.y] : [])),
+    ),
+  );
 }
