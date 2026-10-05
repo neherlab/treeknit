@@ -1,5 +1,5 @@
 import type { PickingInfo } from "@deck.gl/core";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import type { RowRange } from "../canvas/viewState";
 import type { Selection } from "./selection";
@@ -40,25 +40,28 @@ export function useDrawingPicking<D, G, T>(
   selection: Selection,
   onSelect: (selection: Selection) => void,
 ): DrawingPicking {
-  return useMemo(() => {
+  const handlers = useMemo(() => {
     const targetOf = (info: PickingInfo) =>
       info.layer === null || info.layer === undefined ? undefined : rules.targetAt(geometry, info.layer.id, info.index);
 
     return {
-      getTooltip: (info) => {
+      getTooltip: (info: PickingInfo) => {
         const target = targetOf(info);
 
         return target === undefined ? null : tooltipContent(rules.tooltip(data, target));
       },
-      onClick: (info) => {
+      onClick: (info: PickingInfo) => {
         onSelect(rules.clickSelection(data, targetOf(info)));
       },
-      onCladeZoom: (info) => {
+      onCladeZoom: (info: PickingInfo) => {
         const target = targetOf(info);
 
         return target === undefined ? null : rules.targetRows(data, target);
       },
-      onSelectionZoom: () => rules.selectionRows(data, selection),
     };
-  }, [rules, data, geometry, selection, onSelect]);
+  }, [rules, data, geometry, onSelect]);
+
+  const onSelectionZoom = useCallback(() => rules.selectionRows(data, selection), [rules, data, selection]);
+
+  return useMemo(() => ({ ...handlers, onSelectionZoom }), [handlers, onSelectionZoom]);
 }
