@@ -79,4 +79,52 @@ describe("copyFeedback", () => {
 
     expect(states).toStrictEqual(["copied"]);
   });
+
+  test("ignores a write that ends after dispose and starts no timer", async () => {
+    const pending = Promise.withResolvers<undefined>();
+    const feedback = copyFeedback(() => pending.promise, recordState);
+
+    const copied = feedback.copy("(A,B);");
+    feedback.dispose();
+    pending.resolve(undefined);
+    await copied;
+
+    expect(vi.getTimerCount()).toBe(0);
+    expect(states).toStrictEqual([]);
+  });
+
+  test("shows the result of the latest copy when an earlier copy ends after it", async () => {
+    const earlier = Promise.withResolvers<undefined>();
+    const later = Promise.withResolvers<undefined>();
+    const writes = [earlier.promise, later.promise];
+    const feedback = copyFeedback(() => writes.shift() ?? Promise.resolve(), recordState);
+
+    const first = feedback.copy("(A,B);");
+    const second = feedback.copy("(A,C);");
+    later.reject(new Error("Clipboard access denied"));
+    await second;
+    earlier.resolve(undefined);
+    await first;
+
+    expect(states).toStrictEqual(["failed"]);
+  });
+
+  test("ignores an earlier copy that ends before the latest one", async () => {
+    const earlier = Promise.withResolvers<undefined>();
+    const later = Promise.withResolvers<undefined>();
+    const writes = [earlier.promise, later.promise];
+    const feedback = copyFeedback(() => writes.shift() ?? Promise.resolve(), recordState);
+
+    const first = feedback.copy("(A,B);");
+    const second = feedback.copy("(A,C);");
+    earlier.resolve(undefined);
+    await first;
+
+    expect(states).toStrictEqual([]);
+
+    later.resolve(undefined);
+    await second;
+
+    expect(states).toStrictEqual(["copied"]);
+  });
 });

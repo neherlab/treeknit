@@ -12,13 +12,19 @@ export function copyFeedback(
   onStateChange: (state: CopyState) => void,
 ): CopyFeedback {
   let reset: ReturnType<typeof setTimeout> | undefined;
+  let latestRequest = 0;
+  let disposed = false;
 
   function cancelReset() {
     clearTimeout(reset);
     reset = undefined;
   }
 
-  function show(state: CopyState) {
+  function show(request: number, state: CopyState) {
+    if (disposed || request !== latestRequest) {
+      return;
+    }
+
     cancelReset();
     onStateChange(state);
     reset = setTimeout(() => {
@@ -29,16 +35,22 @@ export function copyFeedback(
 
   return {
     async copy(text) {
+      latestRequest += 1;
+      const request = latestRequest;
+
       try {
         await write(text);
       } catch {
-        show("failed");
+        show(request, "failed");
 
         return;
       }
 
-      show("copied");
+      show(request, "copied");
     },
-    dispose: cancelReset,
+    dispose() {
+      disposed = true;
+      cancelReset();
+    },
   };
 }
