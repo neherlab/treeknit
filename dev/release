@@ -15,7 +15,8 @@
 # change.
 #
 # Arguments:
-#   <version>   Version to release, MAJOR.MINOR.PATCH, newer than the current one
+#   <version>   Version to release, MAJOR.MINOR.PATCH: the workspace version of
+#               Cargo.toml while it has no tag, or a newer one
 #
 # Options:
 #   -h, --help  Show this help
@@ -102,11 +103,13 @@ main() {
   [[ -z "$(git ls-remote --tags origin "refs/tags/${tag}")" ]] || fail "Tag ${tag} exists on origin"
   printf "✅\n"
 
-  printf "Pre-check: version is newer than the current one... "
+  # The workspace version itself is releasable while it has no tag: the tag
+  # check above stops a second release of it.
+  printf "Pre-check: version is the workspace version or newer... "
   local current
   current="$(yq -p toml -o yaml '.workspace.package.version' Cargo.toml)"
-  [[ "${version}" != "${current}" && "$(printf "%s\n%s\n" "${current}" "${version}" | sort -V | tail -n 1)" == "${version}" ]] ||
-    fail "Version ${version} is not newer than the current version ${current}"
+  [[ "$(printf "%s\n%s\n" "${current}" "${version}" | sort -V | tail -n 1)" == "${version}" ]] ||
+    fail "Version ${version} is older than the workspace version ${current}"
   printf "✅ (%s -> %s)\n" "${current}" "${version}"
 
   printf "Pre-check: CHANGELOG.md has a '## Unreleased' section... "

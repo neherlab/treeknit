@@ -192,7 +192,7 @@ Every release stays on the releases page.
 ### Publish a release
 
 1. Describe the changes under `## Unreleased` in `CHANGELOG.md`
-2. Run `just release <version>` (host only, in the main checkout on `main`). `dev/release` checks that the version is newer than the current one, that `main` contains `origin/main`, that nothing but `CHANGELOG.md` is uncommitted, and that the tag is new; then it runs `just check-all`, sets the workspace version with `cargo set-version` (which also updates `Cargo.lock`), renames `## Unreleased` to `## <version>`, commits `chore: release <version>`, and tags `v<version>`
+2. Run `just release <version>` (host only, in the main checkout on `main`). `dev/release` checks that the version is the workspace version of `Cargo.toml` or newer, that `main` contains `origin/main`, that nothing but `CHANGELOG.md` is uncommitted, and that the tag is new; then it runs `just check-all`, sets the workspace version with `cargo set-version` (which also updates `Cargo.lock`), renames `## Unreleased` to `## <version>`, commits `chore: release <version>`, and tags `v<version>`
 3. Confirm the push: `dev/release` pushes `main` and the tag in one atomic push, and the tag starts the release build. Answering no leaves the commit and the tag local
 
 ### Version of a build
