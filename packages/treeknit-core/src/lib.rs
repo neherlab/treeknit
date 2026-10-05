@@ -16,7 +16,7 @@ pub mod resolve;
 pub mod splitgraph;
 pub mod tree;
 
-pub use naive::{naive_mccs, Mcc};
+pub use naive::{Mcc, naive_mccs};
 pub use options::{Cooling, Method, Options, Resolution};
-pub use pipeline::{arg_inputs, imputed_trees, run, unmatched_mccs, PairResult};
+pub use pipeline::{PairResult, arg_inputs, imputed_trees, run, unmatched_mccs};
 pub use tree::{NodeId, Taxa, Tree};
