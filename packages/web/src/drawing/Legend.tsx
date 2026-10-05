@@ -1,8 +1,5 @@
 import { cssColor, type Rgba } from "../canvas/color";
-
-export const SYMBOL_WIDTH_PX = 24;
-
-export const SYMBOL_HEIGHT_PX = 12;
+import { SYMBOL_HEIGHT_PX, SYMBOL_WIDTH_PX } from "./legendSymbols";
 
 export type SymbolMark =
   | { kind: "line"; path: string; color: Rgba; widthPx: number; dashPx?: readonly [number, number] }

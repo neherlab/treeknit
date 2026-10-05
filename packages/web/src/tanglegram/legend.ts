@@ -3,6 +3,14 @@ import { DASH_PX } from "../canvas/layers/pathLayer";
 import { BRANCH_WIDTH_PX, MARK_LINE_PX, MARK_RADIUS_PX, REASSORTMENT_WIDTH_PX } from "../canvas/layers/treeLayers";
 import type { LegendEntry } from "../drawing/Legend";
 import {
+  bandPath,
+  horizontalPath,
+  SYMBOL_HEIGHT_PX,
+  SYMBOL_MIDDLE_PX,
+  SYMBOL_WIDTH_PX,
+  sCurvePath,
+} from "../drawing/legendSymbols";
+import {
   branchColor,
   type ColorStyle,
   linkColor,
@@ -14,13 +22,13 @@ import {
 
 const EXAMPLE_MCC = { mcc: 0, slot: 0 };
 
-const STRAIGHT = "M0 6 H24";
+const STRAIGHT = horizontalPath();
 
-const TO_TIP = "M0 6 H16";
+const TO_TIP = horizontalPath(16);
 
-const LINK_CURVE = "M0 2 C12 2 12 10 24 10";
+const LINK_CURVE = sCurvePath(2, SYMBOL_HEIGHT_PX - 2);
 
-const RIBBON_OUTLINE = "M0 1 C12 1 12 5 24 5 V11 C12 11 12 7 0 7 Z";
+const RIBBON_OUTLINE = bandPath(1, 5, SYMBOL_MIDDLE_PX);
 
 export function tanglegramLegend({ colors, colorByMcc, ribbons }: LegendStyle): LegendEntry[] {
   const plain: ColorStyle = { colors, colorByMcc, emphasis: { mcc: undefined } };
@@ -35,7 +43,7 @@ export function tanglegramLegend({ colors, colorByMcc, ribbons }: LegendStyle): 
           color: branchColor(EXAMPLE_MCC, "reassortment", plain),
           widthPx: REASSORTMENT_WIDTH_PX,
         },
-        ring([12, 6], markColor(EXAMPLE_MCC, "reassortment", plain), plain),
+        ring([SYMBOL_WIDTH_PX / 2, SYMBOL_MIDDLE_PX], markColor(EXAMPLE_MCC, "reassortment", plain), plain),
       ],
     },
     {
@@ -54,7 +62,7 @@ export function tanglegramLegend({ colors, colorByMcc, ribbons }: LegendStyle): 
       label: "Imputed leaf",
       marks: [
         { kind: "line", path: TO_TIP, color: branchColor(EXAMPLE_MCC, "plain", plain), widthPx: BRANCH_WIDTH_PX },
-        ring([18, 6], markColor(EXAMPLE_MCC, "imputed", plain), plain),
+        ring([18, SYMBOL_MIDDLE_PX], markColor(EXAMPLE_MCC, "imputed", plain), plain),
       ],
     },
     ribbons

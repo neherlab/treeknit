@@ -2,14 +2,19 @@ import type { DrawingColors } from "../canvas/drawingColors";
 import { DASH_PX } from "../canvas/layers/pathLayer";
 import { BRANCH_WIDTH_PX, MARK_LINE_PX, MARK_RADIUS_PX } from "../canvas/layers/treeLayers";
 import type { LegendEntry, SymbolMark } from "../drawing/Legend";
+import { horizontalPath, SYMBOL_HEIGHT_PX, SYMBOL_MIDDLE_PX, sCurvePath } from "../drawing/legendSymbols";
 import type { SegmentLabels } from "../drawing/tooltip";
 import { argEdgeColor } from "./layers";
 
-const STRAIGHT = "M0 6 H24";
+const STRAIGHT = horizontalPath();
 
-const FROM_SEGMENT_A = "M0 1 C9 1 9 6 16 6";
+const RETICULATION_END_PX = 16;
 
-const FROM_SEGMENT_B = "M0 11 C9 11 9 6 16 6";
+const RETICULATION_CONTROL_PX = 9;
+
+const FROM_SEGMENT_A = sCurvePath(1, SYMBOL_MIDDLE_PX, RETICULATION_END_PX, RETICULATION_CONTROL_PX);
+
+const FROM_SEGMENT_B = sCurvePath(SYMBOL_HEIGHT_PX - 1, SYMBOL_MIDDLE_PX, RETICULATION_END_PX, RETICULATION_CONTROL_PX);
 
 const SEGMENT_A = [0];
 
@@ -37,7 +42,7 @@ export function argLegend(colors: DrawingColors, [a, b]: SegmentLabels): LegendE
         edge(SEGMENT_B, FROM_SEGMENT_B, true),
         {
           kind: "ring",
-          at: [19, 6],
+          at: [19, SYMBOL_MIDDLE_PX],
           color: colors.signal,
           fill: colors.ground,
           radiusPx: MARK_RADIUS_PX,
