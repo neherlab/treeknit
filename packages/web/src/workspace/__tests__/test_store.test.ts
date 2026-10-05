@@ -205,6 +205,33 @@ describe("workspace store", () => {
     expect(store.getState().settings.seqLengths).toBeNull();
   });
 
+  test("a failed request to turn sequence lengths on that a later switch replaced reports nothing", async () => {
+    const services = fakeServices();
+    const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
+
+    await store.getState().addTrees([{ newick: HA, source: { kind: "file", name: "a.nwk" } }]);
+    services.failNextSchema = true;
+    const entered = services.schemaGate.hold();
+    const enabling = store.getState().setSeqLengthsEnabled(true);
+
+    await entered;
+    await store.getState().setSeqLengthsEnabled(false);
+    services.schemaGate.release();
+
+    await expect(enabling).resolves.toBeUndefined();
+    expect(store.getState().settings.seqLengths).toBeNull();
+  });
+
+  test("a failed request to turn sequence lengths on rejects while it is current", async () => {
+    const services = fakeServices();
+    const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
+
+    await store.getState().addTrees([{ newick: HA, source: { kind: "file", name: "a.nwk" } }]);
+    services.failNextSchema = true;
+
+    await expect(store.getState().setSeqLengthsEnabled(true)).rejects.toThrow("schema failed");
+  });
+
   test("turning sequence lengths on while a tree is removed gives one length per remaining tree", async () => {
     const services = fakeServices();
     const store = createWorkspaceStore(services, { defaults: DEFAULTS, restored: null });
@@ -655,6 +682,7 @@ describe("workspace store", () => {
 
 class FakeServices implements WorkspaceServices {
   failNextLabels = false;
+  failNextSchema = false;
   dropLabel = false;
   cancelled = 0;
   labelCalls = 0;
@@ -695,6 +723,12 @@ class FakeServices implements WorkspaceServices {
 
   async settingsSchema(): Promise<SettingsSchema> {
     await this.schemaGate.pass();
+
+    if (this.failNextSchema) {
+      this.failNextSchema = false;
+
+      throw new Error("schema failed");
+    }
 
     return schemaWith(SEQ_LENGTH_DEFAULT);
   }

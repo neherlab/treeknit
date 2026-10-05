@@ -177,9 +177,20 @@ export function createWorkspaceStore(services: WorkspaceServices, start: Workspa
 
       const enableSeqLengths = async (toggle: number, replacement: number): Promise<void> => {
         const before = get();
-        const schema = await services.settingsSchema(before.trees.length, before.settings);
+        const replaced = () => revisions.seqLengthToggle !== toggle || revisions.replacement !== replacement;
+        let schema: Awaited<ReturnType<typeof services.settingsSchema>>;
 
-        if (revisions.seqLengthToggle !== toggle || revisions.replacement !== replacement) {
+        try {
+          schema = await services.settingsSchema(before.trees.length, before.settings);
+        } catch (cause) {
+          if (replaced()) {
+            return;
+          }
+
+          throw cause;
+        }
+
+        if (replaced()) {
           return;
         }
 
