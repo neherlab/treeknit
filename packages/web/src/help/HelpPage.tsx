@@ -48,8 +48,9 @@ const GLOSSARY: readonly { term: string; definition: string }[] = [
 const ICYTREE_CHARACTERS = ", ( ) : ; [ ] '";
 
 export function HelpPage() {
+  const treeCount = useWorkspace((state) => state.trees.length);
   const settings = useWorkspace((state) => state.settings);
-  const { data: schema } = useSettingsSchema(2, settings);
+  const { data: schema } = useSettingsSchema(treeCount, settings);
   const { data: version } = useVersion();
 
   return (
