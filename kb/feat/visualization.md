@@ -13,7 +13,7 @@ Counterpart: [`v0/visualization.md`](v0/visualization.md). TreeKnit.jl draws not
 - [x] **Node-to-MCC map**: the two-pass Fitch method of `map_mccs` [[src](../../packages/treeknit-core/src/mcc_map.rs#L25-L65)]. Fixture comparison: `fitch`. A leaf in no MCC, for example a leaf that the other tree lacks, is a wildcard and does not constrain its ancestors (new)
 - [x] **Sort after matching (new)**: with `matched` resolution, every pair is sorted non-strictly after the matching
 - [x] **Different leaf sets (new)**: the pair is sorted on copies restricted to the shared leaves, and the leaf order is applied to the full tree. Leaves outside the pair go last [[src](../../packages/treeknit-core/src/mcc_map.rs#L124-L138)]
-- [x] **Display sort of a pair (new)**: a pair view sorts copies of its two trees with the sort of the run, always ladderizing the left tree, so every pair has a drawing in its own order. The pair whose order the run kept draws the output trees unchanged [[src](../../packages/treeknit-io/src/display/pair.rs#L86-L106)]
+- [x] **Display sort of a pair (new)**: a pair view sorts copies of its two trees with the sort of the run, always ladderizing the left tree, so every pair has a drawing in its own order. The pair whose order the run kept draws the output trees unchanged [[src](../../packages/treeknit-io/src/display/pair.rs#L98-L118)]
 
 ## Auspice JSON
 
