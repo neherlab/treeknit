@@ -98,15 +98,6 @@ export function TreeList() {
     [restore],
   );
 
-  const dismissAction = useMemo(
-    () => (
-      <Button variant="quiet" size="sm" onPress={dismissError}>
-        Dismiss
-      </Button>
-    ),
-    [dismissError],
-  );
-
   const listErrors = visibleGeneralErrors(trees.length, errors.byField.get(TREE_LIST_FIELD) ?? []);
 
   return (
@@ -160,7 +151,7 @@ export function TreeList() {
         ) : null}
       </NoticeRegion>
       {error === null ? null : (
-        <InlineNotice tone="danger" action={dismissAction}>
+        <InlineNotice tone="danger" onDismiss={dismissError}>
           {error}
         </InlineNotice>
       )}

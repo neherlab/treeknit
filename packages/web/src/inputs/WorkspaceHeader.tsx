@@ -65,15 +65,6 @@ export function WorkspaceHeader() {
     [restore],
   );
 
-  const dismissAction = useMemo(
-    () => (
-      <Button variant="quiet" size="sm" onPress={dismissError}>
-        Dismiss
-      </Button>
-    ),
-    [dismissError],
-  );
-
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-start gap-2">
@@ -104,7 +95,7 @@ export function WorkspaceHeader() {
         ) : null}
       </NoticeRegion>
       {error === null ? null : (
-        <InlineNotice tone="danger" action={dismissAction}>
+        <InlineNotice tone="danger" onDismiss={dismissError}>
           {error}
         </InlineNotice>
       )}

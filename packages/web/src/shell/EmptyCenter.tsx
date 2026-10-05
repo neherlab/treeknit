@@ -4,7 +4,6 @@ import TreesIcon from "~icons/lucide/list-tree";
 import { TreeActions } from "../inputs/TreeActions";
 import { TreeDropZone } from "../inputs/TreeDropZone";
 import { useTreeInput } from "../inputs/useTreeInput";
-import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
 import { InlineNotice } from "../ui/InlineNotice";
 
@@ -15,15 +14,6 @@ export function EmptyCenter() {
 
   const actions = useMemo(() => <TreeActions input={input} size="md" />, [input]);
 
-  const dismissAction = useMemo(
-    () => (
-      <Button variant="quiet" size="sm" onPress={dismissError}>
-        Dismiss
-      </Button>
-    ),
-    [dismissError],
-  );
-
   return (
     <div className="flex h-full flex-col p-6">
       <TreeDropZone
@@ -33,7 +23,7 @@ export function EmptyCenter() {
       >
         <EmptyState icon={TreesIcon} title={EMPTY_CENTER_TITLE} action={actions} />
         {error === null ? null : (
-          <InlineNotice tone="danger" action={dismissAction} className="max-w-xl">
+          <InlineNotice tone="danger" onDismiss={dismissError} className="max-w-xl">
             {error}
           </InlineNotice>
         )}

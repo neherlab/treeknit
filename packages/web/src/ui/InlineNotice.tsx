@@ -5,6 +5,8 @@ import DangerIcon from "~icons/lucide/circle-alert";
 import InfoIcon from "~icons/lucide/info";
 import WarningIcon from "~icons/lucide/triangle-alert";
 
+import { Button } from "./Button";
+
 export type NoticeTone = "info" | "warning" | "danger";
 
 const TONE_ICONS: Record<NoticeTone, ComponentType<SVGProps<SVGSVGElement>>> = {
@@ -33,8 +35,15 @@ const noticeIconStyle = cva("mt-px shrink-0", {
   },
 });
 
-export function InlineNotice({ tone, title, action, className, children }: InlineNoticeProps) {
+export function InlineNotice({ tone, title, action, onDismiss, className, children }: InlineNoticeProps) {
   const Icon = TONE_ICONS[tone];
+
+  const dismiss =
+    onDismiss === undefined ? null : (
+      <Button variant="quiet" size="sm" onPress={onDismiss}>
+        Dismiss
+      </Button>
+    );
 
   return (
     <div role={tone === "danger" ? "alert" : undefined} className={cn(noticeStyle({ tone }), className)}>
@@ -43,7 +52,12 @@ export function InlineNotice({ tone, title, action, className, children }: Inlin
         {title === undefined ? null : <p className="font-semibold">{title}</p>}
         {children === undefined ? null : <div className="wrap-break-word">{children}</div>}
       </div>
-      {action === undefined ? null : <div className="-my-1 -mr-1.5 flex shrink-0 items-center gap-1">{action}</div>}
+      {action === undefined && dismiss === null ? null : (
+        <div className="-my-1 -mr-1.5 flex shrink-0 items-center gap-1">
+          {action}
+          {dismiss}
+        </div>
+      )}
     </div>
   );
 }
@@ -52,6 +66,7 @@ export interface InlineNoticeProps {
   tone: NoticeTone;
   title?: ReactNode;
   action?: ReactNode;
+  onDismiss?: () => void;
   className?: string;
   children?: ReactNode;
 }
