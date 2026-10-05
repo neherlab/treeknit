@@ -34,14 +34,14 @@
   --color-segment-b: #8a6a3e;
 
   --color-mcc-0: #2f4b9a;
-  --color-mcc-1: #c9a227;
+  --color-mcc-1: #93771c;
   --color-mcc-2: #2c8c83;
-  --color-mcc-3: #5e3c82;
+  --color-mcc-3: #7c4fac;
   --color-mcc-4: #7a5537;
-  --color-mcc-5: #7d8f3a;
-  --color-mcc-6: #d07a1e;
+  --color-mcc-5: #677630;
+  --color-mcc-6: #ce791e;
   --color-mcc-7: #5b7c99;
-  --color-mcc-none: #9aa5a2;
+  --color-mcc-none: #83908d;
 }
 
 @layer base {
