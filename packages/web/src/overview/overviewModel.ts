@@ -40,35 +40,15 @@ export function resultOverview(summary: Summary, labels: readonly string[]): Res
   return {
     rows: summary.pairs.map(pairRow),
     arg: labels.length === 2 ? summary.arg : null,
-    noReassortment: noReassortmentFound(summary, labels.length),
+    noReassortment: summary.noReassortment,
     matrix: labels.length > 2 ? pairMatrix(summary.pairs, labels) : null,
   };
 }
 
-export function noReassortmentFound(summary: Summary, treeCount: number): boolean {
-  if (treeCount === 2) {
-    return summary.arg?.status === "built" && summary.arg.reassortments === 0;
-  }
-
-  return summary.pairs.length > 0 && summary.pairs.every(({ mccCount }) => mccCount === 1);
-}
-
-export function pipelinePairs(treeCount: number): readonly (readonly [number, number])[] {
-  return Array.from({ length: treeCount }, (_, i) =>
-    Array.from({ length: treeCount - i - 1 }, (__, offset) => [i, i + offset + 1] as const),
-  ).flat();
-}
-
-export function pairMatrix(pairs: readonly PairSummary[], labels: readonly string[]): Matrix<PairCell> {
-  const cells = new Map<string, PairCell>();
-
-  pipelinePairs(labels.length).forEach(([i, j], index) => {
-    const pair = pairs[index];
-
-    if (pair !== undefined) {
-      cells.set(cellKey(i, j), { pair: pair.index, mccCount: pair.mccCount });
-    }
-  });
+function pairMatrix(pairs: readonly PairSummary[], labels: readonly string[]): Matrix<PairCell> {
+  const cells = new Map<string, PairCell>(
+    pairs.map(({ index, trees: [i, j], mccCount }) => [cellKey(i, j), { pair: index, mccCount }]),
+  );
 
   return symmetricMatrix(labels, cells);
 }

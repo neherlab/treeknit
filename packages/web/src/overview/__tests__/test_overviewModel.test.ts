@@ -1,24 +1,29 @@
 import type { Overlap, PairSummary, Summary } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
-import { noReassortmentFound, overlapMatrix, pipelinePairs, resultOverview } from "../overviewModel";
+import { overlapMatrix, resultOverview } from "../overviewModel";
 
 describe("overview after a run", () => {
-  test("two trees: one row and the ARG outcome, without a matrix", () => {
-    const summary = summaryOf([pair(0, ["ha", "na"], 2, 1, 0)], { status: "built", reassortments: 1 });
+  test("two trees: one row, the ARG outcome, and the no-reassortment result of the summary, without a matrix", () => {
+    const summary = summaryOf([pair(0, [0, 1], ["ha", "na"], 1, 1, 0)], { status: "built", reassortments: 0 }, true);
 
     expect(resultOverview(summary, ["ha", "na"])).toStrictEqual({
-      rows: [{ index: 0, labels: ["ha", "na"], mccCount: 2, imputedCount: 1, ambiguousCount: 0 }],
-      arg: { status: "built", reassortments: 1 },
-      noReassortment: false,
+      rows: [{ index: 0, labels: ["ha", "na"], mccCount: 1, imputedCount: 1, ambiguousCount: 0 }],
+      arg: { status: "built", reassortments: 0 },
+      noReassortment: true,
       matrix: null,
     });
   });
 
-  test("three trees: one row per pair and a symmetric matrix of MCC counts in pipeline order", () => {
+  test("three trees: one row per pair and a symmetric matrix of MCC counts at the trees of each pair", () => {
     const summary = summaryOf(
-      [pair(0, ["ha", "na"], 2, 0, 0), pair(1, ["ha", "pb2"], 3, 2, 1), pair(2, ["na", "pb2"], 4, 0, 0)],
+      [
+        pair(0, [0, 1], ["ha", "na"], 2, 0, 0),
+        pair(1, [0, 2], ["ha", "pb2"], 3, 2, 1),
+        pair(2, [1, 2], ["na", "pb2"], 4, 0, 0),
+      ],
       null,
+      false,
     );
 
     const overview = resultOverview(summary, ["ha", "na", "pb2"]);
@@ -26,6 +31,7 @@ describe("overview after a run", () => {
     expect({
       rows: overview.rows.map(({ labels, mccCount }) => [...labels, mccCount]),
       arg: overview.arg,
+      noReassortment: overview.noReassortment,
       matrix: overview.matrix?.rows.map((row) => row.map(({ value }) => value?.mccCount ?? null)),
       links: overview.matrix?.rows.map((row) => row.map(({ value }) => value?.pair ?? null)),
     }).toStrictEqual({
@@ -35,6 +41,7 @@ describe("overview after a run", () => {
         ["na", "pb2", 4],
       ],
       arg: null,
+      noReassortment: false,
       matrix: [
         [null, 2, 3],
         [2, null, 4],
@@ -48,41 +55,20 @@ describe("overview after a run", () => {
     });
   });
 
-  test("lists pairs in the pipeline order of the core", () => {
-    expect(pipelinePairs(4)).toStrictEqual([
-      [0, 1],
-      [0, 2],
-      [0, 3],
-      [1, 2],
-      [1, 3],
-      [2, 3],
+  test("places each pair at its own trees, whatever its position in the list", () => {
+    const summary = summaryOf(
+      [pair(2, [1, 2], ["na", "pb2"], 4, 0, 0), pair(0, [0, 1], ["ha", "na"], 2, 0, 0)],
+      null,
+      false,
+    );
+
+    expect(
+      resultOverview(summary, ["ha", "na", "pb2"]).matrix?.rows.map((row) => row.map(({ value }) => value)),
+    ).toStrictEqual([
+      [null, { pair: 0, mccCount: 2 }, null],
+      [{ pair: 0, mccCount: 2 }, null, { pair: 2, mccCount: 4 }],
+      [null, { pair: 2, mccCount: 4 }, null],
     ]);
-  });
-});
-
-describe("no reassortment found", () => {
-  test("two trees with a built ARG of zero reassortments", () => {
-    expect(noReassortmentFound(summaryOf([pair(0, ["ha", "na"], 1, 0, 0)], built(0)), 2)).toBe(true);
-  });
-
-  test("not for two trees with one MCC whose ARG failed", () => {
-    const failed = summaryOf([pair(0, ["ha", "na"], 1, 3, 0)], { status: "failed", message: "leaf X is missing" });
-
-    expect(noReassortmentFound(failed, 2)).toBe(false);
-  });
-
-  test("not for two trees with reassortments", () => {
-    expect(noReassortmentFound(summaryOf([pair(0, ["ha", "na"], 2, 0, 0)], built(1)), 2)).toBe(false);
-  });
-
-  test("more than two trees only when every pair has exactly one MCC", () => {
-    const one = [pair(0, ["a", "b"], 1, 0, 0), pair(1, ["a", "c"], 1, 0, 0), pair(2, ["b", "c"], 1, 0, 0)];
-    const split = [pair(0, ["a", "b"], 1, 0, 0), pair(1, ["a", "c"], 2, 0, 0), pair(2, ["b", "c"], 1, 0, 0)];
-
-    expect({
-      one: noReassortmentFound(summaryOf(one, null), 3),
-      split: noReassortmentFound(summaryOf(split, null), 3),
-    }).toStrictEqual({ one: true, split: false });
   });
 });
 
@@ -106,25 +92,14 @@ describe("overview before a run", () => {
   });
 });
 
-const TREES_OF_PAIR: readonly [number, number][] = [
-  [0, 1],
-  [0, 2],
-  [1, 2],
-];
-
 function pair(
   index: number,
+  trees: [number, number],
   labels: [string, string],
   mccCount: number,
   imputedCount: number,
   ambiguousCount: number,
 ): PairSummary {
-  const trees = TREES_OF_PAIR[index];
-
-  if (trees === undefined) {
-    throw new RangeError(`no pair ${String(index)} among three trees`);
-  }
-
   return {
     index,
     trees,
@@ -136,10 +111,6 @@ function pair(
   };
 }
 
-function built(reassortments: number): Summary["arg"] {
-  return { status: "built", reassortments };
-}
-
-function summaryOf(pairs: PairSummary[], arg: Summary["arg"]): Summary {
-  return { pairs, arg, noReassortment: false, diagnostics: [] };
+function summaryOf(pairs: PairSummary[], arg: Summary["arg"], noReassortment: boolean): Summary {
+  return { pairs, arg, noReassortment, diagnostics: [] };
 }
