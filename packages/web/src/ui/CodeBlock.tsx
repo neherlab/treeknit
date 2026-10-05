@@ -1,35 +1,12 @@
 import { cn } from "cn";
-import {
-  type ComponentType,
-  type RefObject,
-  type SVGProps,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
-import CopiedIcon from "~icons/lucide/check";
-import FailedIcon from "~icons/lucide/circle-alert";
-import CopyIcon from "~icons/lucide/copy";
+import { type RefObject, useCallback, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
-import { Button } from "./Button";
 import { type CodeLine, codeLines, type TextRange } from "./codeLines";
-import { copyFeedback, type CopyState } from "./copyFeedback";
+import { CopyPanel } from "./CopyPanel";
 import { revealOffset } from "./revealScroll";
 import { nativeFocusRing } from "./styles";
 
-const COPY_BUTTON: Record<CopyState, { label: string; icon: ComponentType<SVGProps<SVGSVGElement>> }> = {
-  idle: { label: "Copy", icon: CopyIcon },
-  copied: { label: "Copied", icon: CopiedIcon },
-  failed: { label: "Copy failed", icon: FailedIcon },
-};
-
-export function CodeBlock({ code, label, errorRange, lineNumbers, className }: CodeBlockProps) {
-  const [copyState, setCopyState] = useState<CopyState>("idle");
-  const [feedback] = useState(() => copyFeedback(writeClipboard, setCopyState));
+export function CodeBlock({ code, label, copyTooltip, errorRange, lineNumbers, className }: CodeBlockProps) {
   const startLine = errorRange?.start.line;
   const startColumn = errorRange?.start.column;
   const endLine = errorRange?.end.line;
@@ -43,11 +20,6 @@ export function CodeBlock({ code, label, errorRange, lineNumbers, className }: C
   const scrollerRef = useRef<HTMLDivElement>(null);
   const markRef = useRef<HTMLElement>(null);
   const showLineNumbers = lineNumbers ?? lines.length > 1;
-  const button = COPY_BUTTON[copyState];
-  const copy = useCallback(() => void feedback.copy(code), [feedback, code]);
-
-  useEffect(() => feedback.attach(), [feedback]);
-
   const markedLine = lines.find((line) => line.marked !== undefined)?.number;
   const overflows = useOverflow(scrollerRef);
 
@@ -58,20 +30,7 @@ export function CodeBlock({ code, label, errorRange, lineNumbers, className }: C
   }, [lines]);
 
   return (
-    <figure className={cn("rounded-control border-rule bg-pane flex min-w-0 flex-col border", className)}>
-      <div className="border-rule flex h-9 items-center justify-between gap-3 border-b pr-1 pl-3">
-        <figcaption className="text-ink-muted truncate text-xs">{label}</figcaption>
-        <Button
-          variant="quiet"
-          size="sm"
-          icon={button.icon}
-          onPress={copy}
-          className={cn(copyState === "failed" && "text-danger")}
-        >
-          {button.label}
-        </Button>
-        <output className="sr-only">{copyState === "idle" ? "" : button.label}</output>
-      </div>
+    <CopyPanel label={label} text={code} copyTooltip={copyTooltip} className={className}>
       <div
         ref={scrollerRef}
         // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scroller with overflow must take focus so keyboard users can scroll long code, and WebKit does not make scroll containers focusable by itself; a landmark role would name the code a second time after the caption
@@ -93,13 +52,14 @@ export function CodeBlock({ code, label, errorRange, lineNumbers, className }: C
           </code>
         </pre>
       </div>
-    </figure>
+    </CopyPanel>
   );
 }
 
 export interface CodeBlockProps {
   code: string;
   label: string;
+  copyTooltip?: string | undefined;
   errorRange?: TextRange;
   lineNumbers?: boolean;
   className?: string;
@@ -142,15 +102,6 @@ function useOverflow(ref: RefObject<HTMLElement | null>): boolean {
 
 function noOverflowOnServer(): boolean {
   return false;
-}
-
-async function writeClipboard(text: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch (error) {
-    console.error("Could not copy the text to the clipboard:", error);
-    throw error;
-  }
 }
 
 function CodeLineRow({ line, lineNumber, markRef }: CodeLineRowProps) {

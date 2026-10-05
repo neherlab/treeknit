@@ -2,15 +2,15 @@ export type CopyState = "idle" | "copied" | "failed";
 
 export const COPY_FEEDBACK_MS = 2000;
 
-export interface CopyFeedback {
-  copy(text: string): Promise<void>;
+export interface CopyFeedback<T> {
+  copy(content: T): Promise<void>;
   attach(): () => void;
 }
 
-export function copyFeedback(
-  write: (text: string) => Promise<void>,
+export function copyFeedback<T>(
+  write: (content: T) => Promise<void>,
   onStateChange: (state: CopyState) => void,
-): CopyFeedback {
+): CopyFeedback<T> {
   let reset: ReturnType<typeof setTimeout> | undefined;
   let latestRequest = 0;
   let attached = false;
@@ -34,12 +34,12 @@ export function copyFeedback(
   }
 
   return {
-    async copy(text) {
+    async copy(content) {
       latestRequest += 1;
       const request = latestRequest;
 
       try {
-        await write(text);
+        await write(content);
       } catch {
         show(request, "failed");
 
