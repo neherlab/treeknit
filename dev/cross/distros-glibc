@@ -1,0 +1,86 @@
+# Linux images with glibc 2.17 or newer, for dev/cross/test-distros: the cross
+# toolchain of x86_64-unknown-linux-gnu links against glibc 2.17
+# (dev/cross/check prints the newest glibc symbol version the binary needs).
+# The oldest releases come first in each family, because old glibc, libgcc and
+# libm versions are the ones that break a binary.
+# One image reference per line; '#' starts a comment.
+
+debian/eol:jessie  # 8, glibc 2.19
+debian/eol:stretch # 9
+debian:10.0
+debian:11.0
+debian:12.0
+debian:13.0
+debian:stable
+debian:testing
+debian:sid
+debian:latest
+
+ubuntu:14.04 # glibc 2.19
+ubuntu:16.04
+ubuntu:18.04
+ubuntu:20.04
+ubuntu:22.04
+ubuntu:24.04
+ubuntu:26.04
+ubuntu:latest
+
+amazonlinux:1 # glibc 2.17
+amazonlinux:2
+amazonlinux:2023
+amazonlinux:2.0.20180622.1
+amazonlinux:2.0.20190115
+amazonlinux:2.0.20191217.0
+amazonlinux:2.0.20200207.1
+amazonlinux:2.0.20210126.0
+amazonlinux:2.0.20220121.0
+amazonlinux:2.0.20230119.1
+amazonlinux:2.0.20240131.0
+amazonlinux:2.0.20250428.0
+amazonlinux:2016.09.0.20161028
+amazonlinux:2017.12.0.20171212.2
+amazonlinux:latest
+
+centos:7 # glibc 2.17
+centos:7.2.1511
+centos:7.5.1804
+centos:7.9.2009
+centos:8
+centos:8.1.1911
+centos:8.4.2105
+
+fedora:23
+fedora:27
+fedora:30
+fedora:33
+fedora:36
+fedora:39
+fedora:41
+fedora:42
+fedora:43
+fedora:44
+fedora:latest
+
+oraclelinux:7 # glibc 2.17
+oraclelinux:7.2
+oraclelinux:8
+oraclelinux:8.0
+oraclelinux:8.6
+oraclelinux:8.9
+oraclelinux:9
+oraclelinux:10
+
+registry.access.redhat.com/rhel7:7.0-21 # glibc 2.17
+registry.access.redhat.com/ubi8/ubi
+registry.access.redhat.com/ubi9/ubi
+registry.access.redhat.com/ubi10/ubi
+
+opensuse/archive:13.2 # glibc 2.19
+opensuse/leap:15.2
+opensuse/leap:15.6
+opensuse/leap:16.0
+opensuse/leap:latest
+opensuse/tumbleweed:latest
+
+archlinux:20191006
+archlinux:latest

@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+#
+# Usage: $0 [options] <bin> <target> [-- <args>...]
+#
+# Run a Linux x86_64 binary that dev/cross/build put into .out/ in many Linux
+# distribution images, in parallel, to show that it starts on old and unusual
+# systems. Runs on the host and needs Docker. Portable to the bash 3.2 of
+# macOS.
+#
+# The target selects the images:
+#   x86_64-unknown-linux-gnu   dev/cross/distros-glibc (glibc 2.17 or newer)
+#   x86_64-unknown-linux-musl  dev/cross/distros-other (older glibc, musl,
+#                              uClibc, or no C library)
+#
+# Without arguments, each image runs the binary on a simulated case from
+# fixtures/sim/ with a fixed seed, and the script then checks that every image
+# wrote the same MCCs.json: the glibc binary takes libm from the image, so a
+# libm that rounds differently would change the result. With arguments after
+# --, each image runs the binary with these arguments instead, and only the
+# exit status counts.
+#
+# Each container sees the repository read-only as its working directory, and
+# a writable directory /out, which is tmp/cross/distros/<target>/<image>/ on
+# the host; the log of each image goes next to it as <image>.log. Containers
+# run as the current user, without network access and without capabilities.
+#
+# Options:
+#   -h, --help        Show this help
+#   --image=<ref>     Run in this image only, instead of the list (repeatable)
+#
+# Examples:
+#   $0 treeknit x86_64-unknown-linux-gnu
+#   $0 --image=centos:5 treeknit x86_64-unknown-linux-musl -- --help
+#
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+example="fixtures/sim/sim_k2_n50_r0.02"
+
+# Print the image references of a list file, without comments and blank lines.
+read_images() {
+  sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^$/d' "${1}"
+}
+
+# Print a file name for an image reference.
+image_slug() {
+  printf '%s' "${1}" | tr '/:@' '---'
+}
+
+# Run the binary in one image; the output directory of the image is /out.
+run_one() {
+  local image="${1}" bin="${2}" target="${3}" out="${4}"
+  shift 4
+  rm -rf "${out}"
+  mkdir -p "${out}"
+  docker run --rm --pull=always --platform=linux/amd64 \
+    --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges \
+    --user="$(id -u):$(id -g)" \
+    --volume="${root}:/workdir:ro" --volume="${root}/${out}:/out" --workdir=/workdir \
+    --entrypoint="/workdir/.out/${bin}-${target}" \
+    "${image}" "$@"
+}
+
+main() {
+  local images=() bin="" target="" args=() custom=""
+  while (($# > 0)); do
+    case "${1}" in
+    -h | --help)
+      sed -n '2,${/^#/!q; s/^# \?//p}' "${BASH_SOURCE[0]}" | sed "s|\$0|${0##*/}|g"
+      exit 0
+      ;;
+    --image=*) images+=("${1#--image=}") ;;
+    --)
+      shift
+      args=("$@")
+      custom=1
+      break
+      ;;
+    -*)
+      printf 'Unknown option: %s\n' "${1}" >&2
+      exit 1
+      ;;
+    *)
+      if [[ -z "${bin}" ]]; then
+        bin="${1}"
+      elif [[ -z "${target}" ]]; then
+        target="${1}"
+      else
+        printf 'Unexpected argument: %s; pass binary arguments after --\n' "${1}" >&2
+        exit 1
+      fi
+      ;;
+    esac
+    shift
+  done
+  if [[ -z "${target}" ]]; then
+    printf 'Binary and target required; see --help\n' >&2
+    exit 1
+  fi
+
+  local list
+  case "${target}" in
+  x86_64-unknown-linux-gnu) list="dev/cross/distros-glibc" ;;
+  x86_64-unknown-linux-musl) list="dev/cross/distros-other" ;;
+  *)
+    printf 'No image list for %s; the images are Linux x86_64 images for the gnu and musl targets\n' "${target}" >&2
+    exit 1
+    ;;
+  esac
+  cd "${root}"
+  if [[ ! -x ".out/${bin}-${target}" ]]; then
+    printf 'No executable .out/%s-%s; build it with dev/cross/build\n' "${bin}" "${target}" >&2
+    exit 1
+  fi
+  if ((${#images[@]} == 0)); then
+    local listed image
+    listed="$(read_images "${list}")"
+    while IFS= read -r image; do
+      images+=("${image}")
+    done <<<"${listed}"
+  fi
+  if [[ -z "${custom}" ]]; then
+    args=("${example}/tree1.nwk" "${example}/tree2.nwk" --seed=1 --outdir=/out)
+  fi
+
+  local dir="tmp/cross/distros/${target}"
+  mkdir -p "${dir}"
+  local pids=() outs=() i
+  for i in "${!images[@]}"; do
+    outs+=("${dir}/$(image_slug "${images[${i}]}")")
+    run_one "${images[${i}]}" "${bin}" "${target}" "${outs[${i}]}" ${args[@]+"${args[@]}"} >"${outs[${i}]}.log" 2>&1 &
+    pids+=("$!")
+  done
+  printf 'Running .out/%s-%s in %s images in parallel; logs in %s/\n' "${bin}" "${target}" "${#images[@]}" "${dir}" >&2
+
+  local failed=0 reference=""
+  for i in "${!pids[@]}"; do
+    if ! wait "${pids[${i}]}"; then
+      printf 'FAIL %s (%s.log)\n' "${images[${i}]}" "${outs[${i}]}" >&2
+      failed=$((failed + 1))
+    elif [[ -n "${custom}" ]]; then
+      printf 'PASS %s\n' "${images[${i}]}" >&2
+    elif [[ ! -f "${outs[${i}]}/MCCs.json" ]]; then
+      printf 'FAIL %s: no %s/MCCs.json\n' "${images[${i}]}" "${outs[${i}]}" >&2
+      failed=$((failed + 1))
+    elif [[ -z "${reference}" ]]; then
+      reference="${outs[${i}]}/MCCs.json"
+      printf 'PASS %s\n' "${images[${i}]}" >&2
+    elif cmp -s "${reference}" "${outs[${i}]}/MCCs.json"; then
+      printf 'PASS %s\n' "${images[${i}]}" >&2
+    else
+      printf 'FAIL %s: %s/MCCs.json differs from %s\n' "${images[${i}]}" "${outs[${i}]}" "${reference}" >&2
+      failed=$((failed + 1))
+    fi
+  done
+  if ((failed > 0)); then
+    printf '%s of %s images failed\n' "${failed}" "${#images[@]}" >&2
+    exit 1
+  fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi

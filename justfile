@@ -189,6 +189,14 @@ test-ts: _js
     node --test "dev/lints/oxlint/__tests__/test_*.ts" "dev/lints/oxlint-anti-slop/**/*.test.ts" || status=1
     exit "${status}"
 
+# Cross-compile the CLI for a Linux x86_64 target and run it on a simulated case in many Linux distribution images (host only, needs Docker): just test-distros <dev|release|prod> <x86_64-unknown-linux-gnu|x86_64-unknown-linux-musl> [--image=<ref>] [-- CLI args]
+[arg("mode", pattern="dev|release|prod")]
+[arg("target", pattern="x86_64-unknown-linux-(gnu|musl)")]
+[group("test")]
+test-distros mode target *args:
+    CROSS_COMPILE={{ quote(target) }} dev/docker/run dev/cross/build --profile={{ quote(cargo_profile(mode)) }} treeknit {{ quote(target) }}
+    dev/cross/test-distros treeknit {{ quote(target) }} "${@:3}"
+
 # List Rust tests without running them
 [group("test")]
 test-list-rs *args:
