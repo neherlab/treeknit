@@ -201,6 +201,10 @@ describe("minimap", () => {
     expect(minimapShown({ ...LARGE, size: { width: 900, height: 400 } })).toBe(true);
   });
 
+  test("follows a resized drawing at once, with no earlier measurement to keep", () => {
+    expect(minimapSize({ ...LARGE, size: { width: 900, height: 600 } })).toStrictEqual({ width: 112, height: 600 });
+  });
+
   test("is a strip 112 px across, as long as the drawing along the leaf axis", () => {
     expect(minimapSize(LARGE)).toStrictEqual({ width: 112, height: 800 });
     expect(minimapSize(NARROW)).toStrictEqual({ width: 500, height: 112 });

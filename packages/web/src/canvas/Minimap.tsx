@@ -2,7 +2,7 @@ import { type LayersList, OrthographicView } from "@deck.gl/core";
 import { PolygonLayer } from "@deck.gl/layers";
 import { DeckGL } from "@deck.gl/react";
 import { cn } from "cn";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { mergeProps, useMove, usePress } from "react-aria";
 import { useErrorBoundary } from "react-error-boundary";
 
@@ -11,8 +11,6 @@ import { useDrawingColors } from "./drawingColors";
 import type { TreeView } from "./useTreeView";
 import {
   type CanvasFrame,
-  type CanvasSize,
-  type LeafAxis,
   minimapLeafAt,
   minimapLeafOffset,
   minimapSize,
@@ -20,7 +18,7 @@ import {
   visibleWorldRect,
 } from "./viewState";
 
-const MINIMAP_VIEW = new OrthographicView({ id: "minimap", flipY: true });
+const MINIMAP_VIEW_ID = "minimap";
 
 const WINDOW_FILL_OPACITY = 0.12;
 
@@ -38,15 +36,11 @@ export function Minimap({ view, frame, layers }: MinimapProps) {
   const { viewState, actions } = view;
   const { leafAxis } = frame;
   const along = leafAxis === "y" ? 1 : 0;
-  const planned = useMemo(() => minimapSize(frame), [frame]);
-  const [measured, setMeasured] = useState<{ leafAxis: LeafAxis; size: CanvasSize } | undefined>(undefined);
-  const size = measured?.leafAxis === leafAxis ? measured.size : planned;
+  const size = useMemo(() => minimapSize(frame), [frame]);
 
-  const measure = useCallback(
-    (next: CanvasSize) => {
-      setMeasured({ leafAxis, size: next });
-    },
-    [leafAxis],
+  const views = useMemo(
+    () => new OrthographicView({ id: MINIMAP_VIEW_ID, flipY: true, width: size.width, height: size.height }),
+    [size],
   );
 
   const { pressProps } = usePress({
@@ -91,14 +85,13 @@ export function Minimap({ view, frame, layers }: MinimapProps) {
       )}
     >
       <DeckGL
-        views={MINIMAP_VIEW}
+        views={views}
         viewState={miniViewState}
         controller={false}
         layers={allLayers}
-        width={planned.width}
-        height={planned.height}
+        width={size.width}
+        height={size.height}
         style={IN_FLOW}
-        onResize={measure}
         onError={showBoundary}
       />
     </div>
