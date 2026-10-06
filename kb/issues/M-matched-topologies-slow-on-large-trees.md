@@ -36,6 +36,7 @@ The cause comes from reading the code. No profile confirms it yet.
 - Compute the clades and the leaf index of the destination tree once per MCC, or once per call of `propagate_splits`, and update them when `insert_split` adds a node. An added node changes only the clade of the new node, which is the union of the clades of its children
 - Skip a split that the destination tree already has before calling `insert_split`, by looking up the clade restricted to the MCC in a set of the restricted clades of the destination tree
 - Keep the results unchanged: the same splits in the same order, so the resolved trees, the MCCs, and the output files stay byte-identical
+- The same per-split recomputation and the LCA walk make resolution and ARG construction cubic on deep trees ([`M-resolution-and-arg-cubic-on-deep-trees.md`](M-resolution-and-arg-cubic-on-deep-trees.md)); [`tree-query-indices.md`](../proposals/tree-query-indices.md) compares index designs for both
 
 ## Validation
 

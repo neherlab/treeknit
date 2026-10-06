@@ -29,6 +29,7 @@ Neither the Newick reader ([newick.rs](../../packages/treeknit-io/src/newick.rs)
 
 ## Fix direction
 
+- Find naive MCCs with canonical subtree identifiers, which treat a unary node as a node and need no memo or recursion ([`naive-mccs-by-subtree-hashing.md`](../proposals/naive-mccs-by-subtree-hashing.md))
 - Key the memo by the matched node of every tree, not by the tree-0 node alone, or drop the memo and measure the cost on large trees
 - Alternatively, splice unary nodes out of input trees when reading them. That changes the topology TreeKnit.jl compares (it keeps unary nodes), so it needs a recorded decision
 
