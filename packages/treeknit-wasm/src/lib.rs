@@ -8,8 +8,10 @@ use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, Validatio
 use treeknit_io::display::{
   self, ArgView, AuspicePair, AuspiceTrees, ConstellationTable, DrawingRules, PairView, Scale, TreeVersion,
 };
+use treeknit_io::examples::{self, ExampleInfo};
 use treeknit_io::figure::FigureOptions;
 use treeknit_io::inspect::{self, Overlap, TreeInspection};
+use treeknit_io::launch::{self, LaunchKeyInfo, LaunchParse, LinkEntry, LinkLimits, LinkSource};
 use treeknit_io::output::{
   self, Archive, AuspiceFiles, FigureDownload, FigureFile, FileEntry, OutputFile, OutputOptions, WebFile,
 };
@@ -110,6 +112,75 @@ pub fn tree_labels(
 ) -> Vec<String> {
   let _log = log_capture::discard();
   analysis::tree_labels(&file_names, &existing_labels)
+}
+
+/// The launch of the key-value pairs `entries` of a link, in their order: its input, settings, and
+/// run, every error at its key, and the keys that are neither launch keys nor `viewKeys`, the
+/// keys of the display.
+#[wasm_bindgen(js_name = parseLaunch)]
+#[expect(
+  clippy::needless_pass_by_value,
+  reason = "wasm-bindgen takes JavaScript arrays only by value"
+)]
+pub fn parse_launch(
+  entries: Vec<Ts<LinkEntry>>,
+  #[wasm_bindgen(js_name = viewKeys)] view_keys: Vec<String>,
+) -> Result<Ts<LaunchParse>, JsError> {
+  let _log = log_capture::discard();
+  let entries = entries
+    .iter()
+    .enumerate()
+    .map(|(i, e)| from_js(&format!("entries[{i}]"), e))
+    .collect::<Result<Vec<_>, _>>()?;
+  to_js(&launch::parse_launch(&LinkEntry::pairs(&entries), &view_keys))
+}
+
+/// The text of a downloaded tree or session file: decompressed when gzip-compressed; throws when
+/// it is not UTF-8 text or is a web page.
+#[wasm_bindgen(js_name = decodeTreeBytes)]
+pub fn decode_tree_bytes(bytes: &[u8]) -> Result<String, JsError> {
+  let _log = log_capture::discard();
+  launch::decode_tree_bytes(bytes).map_err(|e| JsError::new(&e))
+}
+
+/// The built-in examples with their trees, in the order of the Examples menu.
+#[wasm_bindgen]
+pub fn examples() -> Result<Vec<Ts<ExampleInfo>>, JsError> {
+  let _log = log_capture::discard();
+  examples::example_infos().iter().map(to_js).collect()
+}
+
+/// Every key of links besides the keys of the display, with its value and description.
+#[wasm_bindgen(js_name = launchKeys)]
+pub fn launch_keys() -> Result<Vec<Ts<LaunchKeyInfo>>, JsError> {
+  let _log = log_capture::discard();
+  launch::launch_keys().iter().map(to_js).collect()
+}
+
+/// The limits of downloads and links.
+#[wasm_bindgen(js_name = linkLimits)]
+pub fn link_limits() -> Result<Ts<LinkLimits>, JsError> {
+  let _log = log_capture::discard();
+  to_js(&launch::link_limits())
+}
+
+/// The key-value pairs of the canonical link of `source`, or `undefined` when a tree has no
+/// address or a label cannot be written.
+#[wasm_bindgen(js_name = launchPairs)]
+pub fn launch_pairs(source: &Ts<LinkSource>) -> Result<Option<Vec<Ts<LinkEntry>>>, JsError> {
+  let _log = log_capture::discard();
+  let source = from_js("source", source)?;
+  launch::launch_pairs(&source.request, &source.addresses, &Settings::default(), source.run)
+    .map(|pairs| LinkEntry::of_pairs(pairs).iter().map(to_js).collect())
+    .transpose()
+}
+
+/// The inline session of `request`: its session file, gzip-compressed and base64-encoded, as a
+/// `data:` location for the fragment of a link.
+#[wasm_bindgen(js_name = inlineSession)]
+pub fn inline_session(request: &Ts<AnalysisRequest>) -> Result<String, JsError> {
+  let _log = log_capture::discard();
+  Ok(launch::inline_session(&from_js("request", request)?))
 }
 
 /// The TreeKnit version and the source repository.

@@ -33,6 +33,47 @@ export interface Bezier {
 export type Figure = { kind: "pair"; pair: number } | { kind: "arg" };
 
 /**
+ * A key of a link that TreeKnit does not read.
+ */
+export interface IgnoredKey {
+    key: string;
+    /**
+     * The launch or display key it most likely misspells, within edit distance 2; none for keys
+     * shorter than 4 characters.
+     */
+    suggestion: string | null;
+    /**
+     * The key follows a tree or session location with a `?`, so it is most likely part of that
+     * location's query: `&` inside a location must be written `%26`.
+     */
+    afterLocationQuery: boolean;
+}
+
+/**
+ * A key of links with its value and description.
+ */
+export interface LaunchKeyInfo {
+    key: string;
+    /**
+     * For a flag, the key that sets the other value.
+     */
+    opposite: string | null;
+    /**
+     * The form of the value, such as `<number>`; `None` for a key without a value.
+     */
+    value: string | null;
+    description: string;
+}
+
+/**
+ * A key-value pair of a link, as the web app passes it; a flag has an empty value.
+ */
+export interface LinkEntry {
+    key: string;
+    value: string;
+}
+
+/**
  * A labeled tree in Newick format.
  */
 export interface TreeText {
@@ -322,6 +363,22 @@ export interface Block {
 }
 
 /**
+ * A setting value of a link for each field of `Settings`; `None` keeps the value of the base.
+ */
+export interface SettingsPatch {
+    gamma: number | null;
+    seqLengths: number[] | null;
+    nMcmcIt: number | null;
+    resolve: ResolveMode | null;
+    preResolve: boolean | null;
+    rounds: number | null;
+    finalRound: boolean | null;
+    likelihood: boolean | null;
+    naive: boolean | null;
+    seed: number | null;
+}
+
+/**
  * A tree laid out for drawing, with the MCCs of one pair.
  */
 export interface DrawTree {
@@ -330,6 +387,36 @@ export interface DrawTree {
      * One node per tree node, indexed from 0 in preorder; node 0 is the root.
      */
     nodes: DrawNode[];
+}
+
+/**
+ * A tree of a link with its label: given in the link, or from the file name of its location.
+ */
+export interface LaunchTree {
+    label: string;
+    location: LinkLocation;
+}
+
+/**
+ * A tree of an example as the web app lists it.
+ */
+export interface ExampleTreeInfo {
+    /**
+     * File name, such as `ha.nwk`.
+     */
+    file: string;
+    /**
+     * Label of the tree, as in a link.
+     */
+    label: string;
+    /**
+     * Path of the tree file relative to the repository root; `None` for an inline tree.
+     */
+    path: string | null;
+    /**
+     * The Newick text of an inline tree; `None` for a tree file.
+     */
+    newick: string | null;
 }
 
 /**
@@ -431,6 +518,20 @@ export interface FileEntry {
      * The figure the file holds; `null` in TypeScript (`None`) for the other files.
      */
     figure: Figure | null;
+}
+
+/**
+ * An example as the web app lists it.
+ */
+export interface ExampleInfo {
+    id: string;
+    name: string;
+    group: ExampleGroup;
+    /**
+     * Title of the group in the Examples menu.
+     */
+    groupName: string;
+    trees: ExampleTreeInfo[];
 }
 
 /**
@@ -1139,6 +1240,22 @@ export interface DrawingRules {
 }
 
 /**
+ * The input, the settings, and the run of a link.
+ */
+export interface Launch {
+    input: LaunchInput;
+    /**
+     * The settings of the link, applied by [`apply`] to the defaults or to the settings of the
+     * session file.
+     */
+    settings: SettingsPatch;
+    /**
+     * The link asks to run the analysis once the input has loaded.
+     */
+    run: boolean;
+}
+
+/**
  * The labels of an Auspice branch.
  */
 export interface AuspiceBranchLabels {
@@ -1147,6 +1264,21 @@ export interface AuspiceBranchLabels {
      */
     MCC: string;
 }
+
+/**
+ * The limits of downloads and links; see the constants of the same names.
+ */
+export interface LinkLimits {
+    fetchTimeoutSeconds: number;
+    maxDownloadBytes: number;
+    maxLinkChars: number;
+    longLinkChars: number;
+}
+
+/**
+ * The menu group of an example.
+ */
+export type ExampleGroup = "small" | "real" | "simulated";
 
 /**
  * The node where an MCC starts in each tree of a pair: the node whose branch above is the
@@ -1398,6 +1530,11 @@ export interface AuspiceNumber {
 }
 
 /**
+ * The window that posts the session file of `from=`.
+ */
+export type MessageSource = "opener" | "parent";
+
+/**
  * Trees to compare, and the settings of the analysis.
  */
 export interface AnalysisRequest {
@@ -1421,6 +1558,24 @@ export type AuspiceSchema = "v2";
 export type TreeVersion = "input" | "resolved" | "imputed";
 
 /**
+ * What [`parse_launch`] read from a link.
+ */
+export interface LaunchParse {
+    /**
+     * The launch; `None` when the link has no launch keys or its input cannot load.
+     */
+    launch: Launch | null;
+    /**
+     * Every problem, at the key it concerns.
+     */
+    errors: ValidationError[];
+    /**
+     * Keys that are neither launch keys nor keys of the display, in their order.
+     */
+    ignored: IgnoredKey[];
+}
+
+/**
  * What the download panel of Auspice offers besides the trees.
  */
 export interface AuspiceSharing {
@@ -1432,9 +1587,37 @@ export interface AuspiceSharing {
 }
 
 /**
+ * What the web app writes a link of: a request, where a link gets each of its trees again, and
+ * whether the link runs the analysis (see [`launch_pairs`]).
+ */
+export interface LinkSource {
+    request: AnalysisRequest;
+    /**
+     * One address per tree; `None` for a tree that a link cannot get again.
+     */
+    addresses: (TreeAddress | null)[];
+    run: boolean;
+}
+
+/**
  * When leaf labels are drawn.
  */
 export type LabelMode = "auto" | "on" | "off";
+
+/**
+ * Where a file of a link is.
+ */
+export type LinkLocation = { kind: "url"; url: string; fetch: string } | { kind: "data"; text: string };
+
+/**
+ * Where a link can get a tree of the workspace again.
+ */
+export type TreeAddress = { kind: "example"; id: string; file: string } | { kind: "url"; url: string } | { kind: "data" };
+
+/**
+ * Where the trees of a launch come from.
+ */
+export type LaunchInput = { kind: "example"; id: string } | { kind: "trees"; trees: LaunchTree[] } | { kind: "session"; location: LinkLocation } | { kind: "message"; source: MessageSource };
 
 export type ResolveMode = "none" | "strict" | "liberal" | "matched";
 
@@ -1522,6 +1705,12 @@ export class Session {
 }
 
 /**
+ * The text of a downloaded tree or session file: decompressed when gzip-compressed; throws when
+ * it is not UTF-8 text or is a web page.
+ */
+export function decodeTreeBytes(bytes: Uint8Array): string;
+
+/**
  * The settings that a request without settings uses: the defaults of the command line.
  */
 export function defaultSettings(): Settings;
@@ -1532,9 +1721,36 @@ export function defaultSettings(): Settings;
 export function drawingRules(): DrawingRules;
 
 /**
+ * The built-in examples with their trees, in the order of the Examples menu.
+ */
+export function examples(): ExampleInfo[];
+
+/**
+ * The inline session of `request`: its session file, gzip-compressed and base64-encoded, as a
+ * `data:` location for the fragment of a link.
+ */
+export function inlineSession(request: AnalysisRequest): string;
+
+/**
  * Leaf, node, and polytomy counts, branch lengths, warnings, and parse error of one tree.
  */
 export function inspectTree(label: string, text: string): TreeInspection;
+
+/**
+ * Every key of links besides the keys of the display, with its value and description.
+ */
+export function launchKeys(): LaunchKeyInfo[];
+
+/**
+ * The key-value pairs of the canonical link of `source`, or `undefined` when a tree has no
+ * address or a label cannot be written.
+ */
+export function launchPairs(source: LinkSource): LinkEntry[] | undefined;
+
+/**
+ * The limits of downloads and links.
+ */
+export function linkLimits(): LinkLimits;
 
 /**
  * Leaf overlap of the trees and of each pair, with the pairs that block a run.
@@ -1545,6 +1761,13 @@ export function overlap(trees: TreeText[]): Overlap;
  * The drawing colors of the light and the dark theme.
  */
 export function palette(): Palette;
+
+/**
+ * The launch of the key-value pairs `entries` of a link, in their order: its input, settings, and
+ * run, every error at its key, and the keys that are neither launch keys nor `viewKeys`, the
+ * keys of the display.
+ */
+export function parseLaunch(entries: LinkEntry[], viewKeys: string[]): LaunchParse;
 
 /**
  * The request of a session file (`treeknit_request.json`); throws with the messages when its
@@ -1591,11 +1814,18 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_session_free: (a: number, b: number) => void;
+    readonly decodeTreeBytes: (a: number, b: number) => [number, number, number, number];
     readonly defaultSettings: () => [number, number, number];
     readonly drawingRules: () => [number, number, number];
+    readonly examples: () => [number, number, number, number];
+    readonly inlineSession: (a: any) => [number, number, number, number];
     readonly inspectTree: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly launchKeys: () => [number, number, number, number];
+    readonly launchPairs: (a: any) => [number, number, number, number];
+    readonly linkLimits: () => [number, number, number];
     readonly overlap: (a: number, b: number) => [number, number, number];
     readonly palette: () => [number, number, number];
+    readonly parseLaunch: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly readRequest: (a: number, b: number) => [number, number, number];
     readonly requestFile: (a: any) => [number, number, number];
     readonly session_argFigure: (a: number, b: any) => [number, number, number];

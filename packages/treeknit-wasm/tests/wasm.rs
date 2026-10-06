@@ -942,6 +942,86 @@ mod tests {
   }
 
   /// The two-tree example: X moved between the trees.
+  #[wasm_bindgen_test]
+  fn parse_launch_returns_the_launch_and_the_ignored_keys() {
+    let entries = [
+      ("example", "5-leaves"),
+      ("gamma", "3"),
+      ("run", ""),
+      ("view", "mccs"),
+      ("gama", "1"),
+    ]
+    .map(|(key, value)| ts(&json!({"key": key, "value": value})))
+    .to_vec();
+    let parsed = treeknit_wasm::parse_launch(entries, vec!["view".to_owned()]).unwrap();
+    let expected = json!({
+        "launch": {
+            "input": {"kind": "example", "id": "5-leaves"},
+            "settings": {
+                "gamma": 3, "seqLengths": null, "nMcmcIt": null, "resolve": null, "preResolve": null,
+                "rounds": null, "finalRound": null, "likelihood": null, "naive": null, "seed": null,
+            },
+            "run": true,
+        },
+        "errors": [],
+        "ignored": [{"key": "gama", "suggestion": "gamma", "afterLocationQuery": false}],
+    });
+    assert_eq!(expected, plain(&parsed.js_value()));
+  }
+
+  #[wasm_bindgen_test]
+  fn decode_tree_bytes_rejects_a_web_page() {
+    let error = treeknit_wasm::decode_tree_bytes(b"<!doctype html><p>404</p>").unwrap_err();
+    assert_eq!("a web page, not a tree file", message(error));
+    assert_eq!("(A,B);", treeknit_wasm::decode_tree_bytes(b"(A,B);").unwrap());
+  }
+
+  #[wasm_bindgen_test]
+  fn examples_list_the_catalog() {
+    let examples = plain_list(&treeknit_wasm::examples().unwrap());
+    let small = json!({
+        "id": "5-leaves", "name": "5 leaves", "group": "small", "groupName": "Small",
+        "trees": [
+            {"file": "ha.nwk", "label": "ha", "path": null, "newick": "((A,B),(C,(D,X)));"},
+            {"file": "na.nwk", "label": "na", "path": null, "newick": "((A,(B,X)),(C,D));"},
+        ],
+    });
+    assert_eq!(small, examples[0]);
+  }
+
+  #[wasm_bindgen_test]
+  fn launch_pairs_write_the_example_and_its_inline_session_reads_back() {
+    let source = json!({
+        "request": two_trees(),
+        "addresses": [
+            {"kind": "example", "id": "5-leaves", "file": "ha.nwk"},
+            {"kind": "example", "id": "5-leaves", "file": "na.nwk"},
+        ],
+        "run": true,
+    });
+    let pairs = treeknit_wasm::launch_pairs(&ts(&source)).unwrap().unwrap();
+    assert_eq!(
+      json!([{"key": "example", "value": "5-leaves"}, {"key": "run", "value": ""}]),
+      plain_list(&pairs)
+    );
+    let unaddressed = json!({"request": two_trees(), "addresses": [null, null], "run": false});
+    assert!(treeknit_wasm::launch_pairs(&ts(&unaddressed)).unwrap().is_none());
+    let inline = treeknit_wasm::inline_session(&ts(&two_trees())).unwrap();
+    let entries = vec![ts(&json!({"key": "session", "value": inline}))];
+    let parsed = plain(&treeknit_wasm::parse_launch(entries, vec![]).unwrap().js_value());
+    let text = parsed["launch"]["input"]["location"]["text"].as_str().unwrap();
+    let request = plain(&treeknit_wasm::read_request(text).unwrap().js_value());
+    assert_eq!(two_trees()["trees"], request["trees"]);
+  }
+
+  #[wasm_bindgen_test]
+  fn link_limits_are_those_of_the_command_line() {
+    let expected = json!({
+        "fetchTimeoutSeconds": 60, "maxDownloadBytes": 64 * 1024 * 1024, "maxLinkChars": 32_000, "longLinkChars": 2_000,
+    });
+    assert_eq!(expected, plain(&treeknit_wasm::link_limits().unwrap().js_value()));
+  }
+
   fn two_trees() -> Value {
     json!({
         "trees": [

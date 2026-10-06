@@ -121,17 +121,17 @@ pub struct LabeledToken<'a> {
 
 /// The location of `value`: an `https:` URL, rewritten to the address that serves the file to
 /// other sites (see [`fetch_url`]), or a `data:` text, decoded.
-pub fn parse_location(value: &str) -> Result<Location, String> {
+pub fn parse_location(value: &str) -> Result<LinkLocation, String> {
   let scheme = value.split_once(':').map(|(s, _)| s.to_ascii_lowercase());
   match scheme.as_deref() {
     Some("https") => {
       check_https(value)?;
-      Ok(Location::Url {
+      Ok(LinkLocation::Url {
         url: value.to_owned(),
         fetch: fetch_url(value),
       })
     },
-    Some("data") => Ok(Location::Data {
+    Some("data") => Ok(LinkLocation::Data {
       text: decode_data_url(value)?,
     }),
     Some("http") => Err(format!(
@@ -415,6 +415,38 @@ pub fn launch_keys() -> Vec<LaunchKeyInfo> {
   keys
 }
 
+/// A key-value pair of a link, as the web app passes it; a flag has an empty value.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct LinkEntry {
+  pub key: String,
+  pub value: String,
+}
+
+impl LinkEntry {
+  /// The pairs of `entries`.
+  pub fn pairs(entries: &[LinkEntry]) -> Vec<(String, String)> {
+    entries.iter().map(|e| (e.key.clone(), e.value.clone())).collect()
+  }
+
+  /// The entries of `pairs`.
+  pub fn of_pairs(pairs: Vec<(String, String)>) -> Vec<LinkEntry> {
+    pairs.into_iter().map(|(key, value)| LinkEntry { key, value }).collect()
+  }
+}
+
+/// What the web app writes a link of: a request, where a link gets each of its trees again, and
+/// whether the link runs the analysis (see [`launch_pairs`]).
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LinkSource {
+  pub request: AnalysisRequest,
+  /// One address per tree; `None` for a tree that a link cannot get again.
+  pub addresses: Vec<Option<TreeAddress>>,
+  pub run: bool,
+}
+
 /// The limits of downloads and links; see the constants of the same names.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
@@ -462,7 +494,7 @@ pub enum LaunchInput {
   /// Trees one by one (`tree=...`), at least two.
   Trees { trees: Vec<LaunchTree> },
   /// A session file (`session=<location>`).
-  Session { location: Location },
+  Session { location: LinkLocation },
   /// A session file posted by another window (`from=opener` or `from=parent`).
   Message { source: MessageSource },
 }
@@ -473,14 +505,14 @@ pub enum LaunchInput {
 #[serde(rename_all = "camelCase")]
 pub struct LaunchTree {
   pub label: String,
-  pub location: Location,
+  pub location: LinkLocation,
 }
 
 /// Where a file of a link is.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(tag = "kind", rename_all = "camelCase")]
-pub enum Location {
+pub enum LinkLocation {
   /// An `https:` URL as the link gives it, and the address to read it from ([`fetch_url`]).
   Url { url: String, fetch: String },
   /// The decoded text of a `data:` location.
@@ -808,7 +840,7 @@ fn setting_key(key: &str) -> Option<(&'static SettingKey, Option<bool>)> {
 
 /// Labels of the trees of a link: the given labels, and for the others `analysis::tree_labels`
 /// of the file names of their locations, with the given labels as existing labels.
-fn link_labels(trees: &[(Option<String>, Location)]) -> Vec<String> {
+fn link_labels(trees: &[(Option<String>, LinkLocation)]) -> Vec<String> {
   let given: Vec<String> = trees.iter().filter_map(|(label, _)| label.clone()).collect();
   let names: Vec<String> = trees
     .iter()
@@ -822,10 +854,10 @@ fn link_labels(trees: &[(Option<String>, Location)]) -> Vec<String> {
     .collect()
 }
 
-fn location_file_name(location: &Location) -> String {
+fn location_file_name(location: &LinkLocation) -> String {
   match location {
-    Location::Url { url, .. } => url_file_name(url),
-    Location::Data { .. } => String::new(),
+    LinkLocation::Url { url, .. } => url_file_name(url),
+    LinkLocation::Data { .. } => String::new(),
   }
 }
 
@@ -1207,14 +1239,14 @@ mod tests {
     )
   }
 
-  fn url(u: &str) -> Location {
-    Location::Url {
+  fn url(u: &str) -> LinkLocation {
+    LinkLocation::Url {
       url: u.to_owned(),
       fetch: fetch_url(u),
     }
   }
 
-  fn tree(label: &str, location: Location) -> LaunchTree {
+  fn tree(label: &str, location: LinkLocation) -> LaunchTree {
     LaunchTree {
       label: label.to_owned(),
       location,
@@ -1284,13 +1316,13 @@ mod tests {
         tree("c", url("https://x/c/")),
         tree(
           "tree",
-          Location::Data {
+          LinkLocation::Data {
             text: "(A,B);".to_owned(),
           },
         ),
         tree(
           "tree_2",
-          Location::Data {
+          LinkLocation::Data {
             text: "(A,C);".to_owned(),
           },
         ),
@@ -1570,14 +1602,14 @@ mod tests {
   #[case::base64_spaces(  "data:;base64,KChBLEIpLEMpOz8 ",        "((A,B),C);?>")]
   #[trace]
   fn data_locations_are_decoded(#[case] value: &str, #[case] text: &str) {
-    assert_eq!(Ok(Location::Data { text: text.to_owned() }), parse_location(value));
+    assert_eq!(Ok(LinkLocation::Data { text: text.to_owned() }), parse_location(value));
   }
 
   #[test]
   fn gzip_data_is_decompressed() {
     let encoded = general_purpose::STANDARD.encode(gzip(b"((A,B),C);"));
     assert_eq!(
-      Ok(Location::Data {
+      Ok(LinkLocation::Data {
         text: "((A,B),C);".to_owned()
       }),
       parse_location(&format!("data:application/gzip;base64,{encoded}"))
@@ -1842,7 +1874,7 @@ mod tests {
         ..Settings::default()
       },
     );
-    let Ok(Location::Data { text }) = parse_location(&inline_session(&r)) else {
+    let Ok(LinkLocation::Data { text }) = parse_location(&inline_session(&r)) else {
       panic!("the inline session is a data: location");
     };
     assert_eq!(Ok(r), analysis::read_request(&text));
@@ -1987,14 +2019,14 @@ mod tests {
         .into_iter()
         .zip(&original.trees)
         .map(|(t, o)| match t.location {
-          Location::Url { url, .. } => (
+          LinkLocation::Url { url, .. } => (
             TreeText {
               label: t.label,
               newick: o.newick.clone(),
             },
             Some(TreeAddress::Url { url }),
           ),
-          Location::Data { text } => (
+          LinkLocation::Data { text } => (
             TreeText {
               label: t.label,
               newick: text,
@@ -2072,7 +2104,7 @@ mod tests {
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(11);
     for _ in 0..200 {
       let (r, _) = random_request(&mut rng);
-      let Ok(Location::Data { text }) = parse_location(&inline_session(&r)) else {
+      let Ok(LinkLocation::Data { text }) = parse_location(&inline_session(&r)) else {
         panic!("the inline session is a data: location");
       };
       assert_eq!(Ok(r), analysis::read_request(&text));

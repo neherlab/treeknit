@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use treeknit_core::{Options, Resolution};
 use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
 use treeknit_io::examples;
-use treeknit_io::launch::{self, LaunchInput, Location, SettingsPatch, TreeAddress};
+use treeknit_io::launch::{self, LaunchInput, LinkLocation, SettingsPatch, TreeAddress};
 use treeknit_io::output::{self, OutputFile, OutputOptions};
 use treeknit_io::schema::{KeyValue, SETTING_KEYS};
 use treeknit_io::{run, schema};
@@ -549,7 +549,7 @@ struct TreeArg {
 
 enum TreeArgKind {
   File(PathBuf),
-  Location(Result<Location, String>),
+  Location(Result<LinkLocation, String>),
 }
 
 impl TreeArg {
@@ -586,7 +586,7 @@ impl TreeArg {
   fn name(&self) -> String {
     match &self.tree {
       TreeArgKind::File(path) => path.display().to_string(),
-      TreeArgKind::Location(Ok(Location::Url { url, .. })) => url.clone(),
+      TreeArgKind::Location(Ok(LinkLocation::Url { url, .. })) => url.clone(),
       TreeArgKind::Location(_) => "data: tree".to_owned(),
     }
   }
@@ -602,8 +602,8 @@ impl TreeArg {
   fn address(&self) -> Option<TreeAddress> {
     match &self.tree {
       TreeArgKind::File(_) | TreeArgKind::Location(Err(_)) => None,
-      TreeArgKind::Location(Ok(Location::Url { url, .. })) => Some(TreeAddress::Url { url: url.clone() }),
-      TreeArgKind::Location(Ok(Location::Data { .. })) => Some(TreeAddress::Data),
+      TreeArgKind::Location(Ok(LinkLocation::Url { url, .. })) => Some(TreeAddress::Url { url: url.clone() }),
+      TreeArgKind::Location(Ok(LinkLocation::Data { .. })) => Some(TreeAddress::Data),
     }
   }
 }
@@ -624,7 +624,7 @@ fn tree_arg_labels(trees: &[TreeArg]) -> Vec<String> {
   let names: Vec<String> = trees
     .iter()
     .filter_map(|t| match (&t.label, &t.tree) {
-      (None, TreeArgKind::Location(Ok(Location::Url { url, .. }))) => Some(launch::url_file_name(url)),
+      (None, TreeArgKind::Location(Ok(LinkLocation::Url { url, .. }))) => Some(launch::url_file_name(url)),
       (None, TreeArgKind::Location(_)) => Some(String::new()),
       _ => None,
     })
@@ -656,15 +656,15 @@ fn read_file(path: &Path) -> Result<String, String> {
 }
 
 /// The text at `location`: downloaded with `fetch` from its address, or the text of `data:`.
-fn read_location(location: &Location, fetch: Fetch<'_>) -> Result<String, String> {
+fn read_location(location: &LinkLocation, fetch: Fetch<'_>) -> Result<String, String> {
   match location {
-    Location::Url { url, fetch: address } => {
+    LinkLocation::Url { url, fetch: address } => {
       log::info!("reading {url}");
       fetch(address)
         .and_then(|bytes| launch::decode_tree_bytes(&bytes))
         .map_err(|e| format!("cannot read {url}: {e}"))
     },
-    Location::Data { text } => Ok(text.clone()),
+    LinkLocation::Data { text } => Ok(text.clone()),
   }
 }
 
@@ -766,15 +766,15 @@ fn link_input(url: &str, fetch: Fetch<'_>) -> Result<Input> {
       let addresses = trees
         .iter()
         .map(|t| match &t.location {
-          Location::Url { url, .. } => Some(TreeAddress::Url { url: url.clone() }),
-          Location::Data { .. } => Some(TreeAddress::Data),
+          LinkLocation::Url { url, .. } => Some(TreeAddress::Url { url: url.clone() }),
+          LinkLocation::Data { .. } => Some(TreeAddress::Data),
         })
         .collect();
       let names = trees
         .iter()
         .map(|t| match &t.location {
-          Location::Url { url, .. } => url.clone(),
-          Location::Data { .. } => format!("data: tree {}", t.label),
+          LinkLocation::Url { url, .. } => url.clone(),
+          LinkLocation::Data { .. } => format!("data: tree {}", t.label),
         })
         .collect();
       let request = AnalysisRequest {
