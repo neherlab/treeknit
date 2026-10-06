@@ -31,7 +31,7 @@ thread_local! {
 #[wasm_bindgen]
 extern "C" {
   #[wasm_bindgen(js_namespace = console, js_name = error)]
-  fn console_error(message: &str);
+  pub(crate) fn console_error(message: &str);
 }
 
 impl Log for Capture {

@@ -5,6 +5,8 @@ use js_sys::{Error, Function, JSON};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::cell::{OnceCell, RefCell};
+use std::panic::{self, PanicHookInfo};
+use std::sync::Once;
 use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
 use treeknit_io::display::{
   self, ArgView, AuspicePair, AuspiceTrees, ConstellationTable, DrawingRules, PairView, Scale, TreeVersion,
@@ -25,13 +27,31 @@ use treeknit_io::version::AppVersion;
 use tsify::{Ts, Tsify};
 use wasm_bindgen::prelude::*;
 
-/// Set up the module: panics go to the console, and the log of the Rust code is captured for the
-/// diagnostics and `log.txt` of each run. When another logger is installed, the module still
-/// loads: the failure goes to the console, and each run reports it as a warning.
+/// Installs the panic hook once, so that a second `start` keeps it.
+static PANIC_HOOK: Once = Once::new();
+
+thread_local! {
+  /// The function that receives the text of a panic; see `set_panic_sink`.
+  static PANIC_SINK: RefCell<Option<Function>> = const { RefCell::new(None) };
+}
+
+/// Set up the module: the text of a panic goes to the console and to the sink of
+/// `setPanicSink`, and the log of the Rust code is captured for the diagnostics and `log.txt` of
+/// each run. When another logger is installed, the module still loads: the failure goes to the
+/// console, and each run reports it as a warning.
 #[wasm_bindgen(start)]
 pub fn start() {
-  console_error_panic_hook::set_once();
+  PANIC_HOOK.call_once(|| panic::set_hook(Box::new(on_panic)));
   log_capture::install();
+}
+
+/// Pass the text of each later panic, with its location, to `sink`. The hook calls `sink` and
+/// returns, and the call that panicked then throws a `WebAssembly.RuntimeError` without the text,
+/// so the caller attaches the text it received. Replaces an earlier sink.
+#[wasm_bindgen(js_name = setPanicSink)]
+pub fn set_panic_sink(#[wasm_bindgen(unchecked_param_type = "(text: string) => void")] sink: &Function) {
+  let _log = log_capture::discard();
+  PANIC_SINK.with_borrow_mut(|current| *current = Some(sink.clone()));
 }
 
 /// The settings that a request without settings uses: the defaults of the command line.
@@ -584,6 +604,18 @@ fn to_js<T: Serialize + Tsify>(value: &T) -> Result<Ts<T>, JsError> {
   let text = serde_json::to_string(value).map_err(|e| JsError::new(&e.to_string()))?;
   let js = JSON::parse(&text).map_err(|e| JsError::new(&js_message(&e)))?;
   Ok(Ts::new_unchecked(js))
+}
+
+/// Write the text of a panic to the console, then pass it to the sink, if one is set. The hook
+/// returns, so a later panic in the same instance calls it again.
+fn on_panic(info: &PanicHookInfo<'_>) {
+  console_error_panic_hook::hook(info);
+  let text = JsValue::from(info.to_string());
+  PANIC_SINK.with_borrow(|sink| {
+    if let Some(Err(e)) = sink.as_ref().map(|sink| sink.call1(&JsValue::UNDEFINED, &text)) {
+      log_capture::console_error(&format!("the panic sink failed: {}", js_message(&e)));
+    }
+  });
 }
 
 fn js_message(e: &JsValue) -> String {

@@ -16,14 +16,16 @@ import {
   readSession,
   sessionFile,
   Session,
+  setPanicSink,
   settingsSchema,
   treeLabels,
   validate,
   version,
 } from "@neherlab/treeknit-wasm";
 import type { AnalysisRequest, Progress } from "@neherlab/treeknit-wasm";
-import { expose, transfer } from "comlink";
+import { expose, transfer, transferHandlers } from "comlink";
 
+import { panicTextHandler, PendingPanicText } from "./panicText";
 import { ProgressThrottle } from "./progressThrottle";
 import type { SessionArgs, WorkerApi } from "./protocol";
 
@@ -51,6 +53,9 @@ class AnalysisWorker implements WorkerApi {
 
   init(module: WebAssembly.Module): void {
     initSync({ module });
+    setPanicSink((text) => {
+      pendingPanicText.record(text);
+    });
   }
 
   run(request: AnalysisRequest, onProgress: (progress: Progress) => Promise<void>) {
@@ -130,6 +135,16 @@ class AnalysisWorker implements WorkerApi {
     return this.#session;
   }
 }
+
+const pendingPanicText = new PendingPanicText();
+
+const throwHandler = transferHandlers.get("throw");
+
+if (throwHandler === undefined) {
+  throw new Error("comlink has no transfer handler for thrown values.");
+}
+
+transferHandlers.set("throw", panicTextHandler(throwHandler, pendingPanicText));
 
 expose(new AnalysisWorker());
 

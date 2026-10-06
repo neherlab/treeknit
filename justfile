@@ -178,7 +178,7 @@ test-integration-rs *args:
 [group("test")]
 [script]
 test-wasm *args:
-    test=(cargo test --locked -p treeknit-wasm --target=wasm32-unknown-unknown --test=wasm)
+    test=(cargo test --locked -p treeknit-wasm --target=wasm32-unknown-unknown --test=wasm --test=panic)
     "${test[@]}" --no-run "$@"
     CARGO_TERM_QUIET=false "${test[@]}" "$@"
 

@@ -1715,7 +1715,8 @@ export class Session {
     /**
      * Validate and run `request`, calling `onProgress` with each `Progress`. Throws an `Error`
      * named `ValidationError` when the request does not validate, the error that `onProgress`
-     * throws (after the run completes without further progress calls), and an `Error` otherwise.
+     * throws (after the run completes without further progress calls), and an `Error` otherwise,
+     * also when `onProgress` starts another run. Exports that `onProgress` calls log into the run.
      */
     static run(request: AnalysisRequest, onProgress: (progress: Progress) => void): Session;
     /**
@@ -1812,14 +1813,22 @@ export function readSession(text: string): AnalysisRequest;
 export function sessionFile(request: AnalysisRequest): OutputFile;
 
 /**
+ * Pass the text of each later panic, with its location, to `sink`. The hook calls `sink` and
+ * returns, and the call that panicked then throws a `WebAssembly.RuntimeError` without the text,
+ * so the caller attaches the text it received. Replaces an earlier sink.
+ */
+export function setPanicSink(sink: (text: string) => void): void;
+
+/**
  * Defaults, ranges, applicability, and help of every setting, for `k` trees and `settings`.
  */
 export function settingsSchema(k: TreeCount, settings: Settings): SettingsSchema;
 
 /**
- * Set up the module: panics go to the console, and the log of the Rust code is captured for the
- * diagnostics and `log.txt` of each run. When another logger is installed, the module still
- * loads: the failure goes to the console, and each run reports it as a warning.
+ * Set up the module: the text of a panic goes to the console and to the sink of
+ * `setPanicSink`, and the log of the Rust code is captured for the diagnostics and `log.txt` of
+ * each run. When another logger is installed, the module still loads: the failure goes to the
+ * console, and each run reports it as a warning.
  */
 export function start(): void;
 
@@ -1874,6 +1883,7 @@ export interface InitOutput {
     readonly session_run: (a: any, b: any) => [number, number, number];
     readonly session_summary: (a: number) => [number, number, number];
     readonly session_zip: (a: number) => [number, number, number, number];
+    readonly setPanicSink: (a: any) => void;
     readonly settingsSchema: (a: any, b: any) => [number, number, number];
     readonly start: () => void;
     readonly treeLabels: (a: number, b: number, c: number, d: number) => [number, number];
