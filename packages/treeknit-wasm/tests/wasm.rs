@@ -330,6 +330,56 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
+  fn session_run_log_keeps_its_records_when_progress_calls_an_export() {
+    let on_progress = Closure::<dyn FnMut(JsValue)>::new(|_progress: JsValue| {
+      treeknit_wasm::inspect_tree("t", "(A,B);").unwrap();
+    });
+    let session = Session::run(&ts(&two_trees()), on_progress.as_ref().unchecked_ref()).unwrap();
+    // Oracle: the run logs its version line before its first progress call.
+    assert!(session.file_text("log.txt").unwrap().contains("[INFO] TreeKnit "));
+  }
+
+  #[wasm_bindgen_test]
+  fn session_run_started_from_a_progress_callback_throws_and_the_outer_run_succeeds() {
+    let nested: Rc<RefCell<Vec<String>>> = Rc::default();
+    let sink = Rc::clone(&nested);
+    let on_progress = Closure::<dyn FnMut(JsValue)>::new(move |_progress: JsValue| {
+      let message = match Session::run(&ts(&two_trees()), &Function::new_no_args("")) {
+        Ok(_) => "accepted".to_owned(),
+        Err(e) => Error::from(e).message().into(),
+      };
+      sink.borrow_mut().push(message);
+    });
+    let session = Session::run(&ts(&two_trees()), on_progress.as_ref().unchecked_ref()).unwrap();
+    let nested = nested.borrow();
+    assert_eq!(
+      BTreeSet::from(["a run is already in progress"]),
+      nested.iter().map(String::as_str).collect::<BTreeSet<_>>()
+    );
+    assert!(session.file_text("log.txt").unwrap().contains("[INFO] TreeKnit "));
+  }
+
+  #[wasm_bindgen_test]
+  fn session_run_succeeds_after_runs_that_failed() {
+    let one_tree = json!({"trees": [{"label": "ha", "newick": "((A,B),(C,D));"}]});
+    let invalid = Session::run(&ts(&one_tree), &Function::new_no_args(""))
+      .err()
+      .map(Error::from);
+    let failing_progress = Closure::<dyn FnMut(JsValue) -> Result<(), JsValue>>::new(|_progress: JsValue| {
+      Err(js_sys::RangeError::new("stop").into())
+    });
+    let stopped = Session::run(&ts(&two_trees()), failing_progress.as_ref().unchecked_ref())
+      .err()
+      .map(Error::from);
+    assert_eq!(
+      (Some("ValidationError".to_owned()), Some("RangeError".to_owned())),
+      (invalid.map(|e| e.name().into()), stopped.map(|e| e.name().into()))
+    );
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    assert!(session.file_text("log.txt").unwrap().contains("[INFO] TreeKnit "));
+  }
+
+  #[wasm_bindgen_test]
   fn session_files_list_every_output_with_its_size() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let files = plain_list(&session.files().unwrap());

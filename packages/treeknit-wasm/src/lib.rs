@@ -230,13 +230,15 @@ pub struct Session {
 impl Session {
   /// Validate and run `request`, calling `onProgress` with each `Progress`. Throws an `Error`
   /// named `ValidationError` when the request does not validate, the error that `onProgress`
-  /// throws (after the run completes without further progress calls), and an `Error` otherwise.
+  /// throws (after the run completes without further progress calls), and an `Error` otherwise,
+  /// also when `onProgress` starts another run. Exports that `onProgress` calls log into the run.
   #[wasm_bindgen]
   pub fn run(
     request: &Ts<AnalysisRequest>,
     #[wasm_bindgen(js_name = onProgress, unchecked_param_type = "(progress: Progress) => void")] on_progress: &Function,
   ) -> Result<Session, JsValue> {
     let _log = log_capture::discard();
+    let _run = log_capture::begin_run().ok_or_else(|| JsError::new("a run is already in progress"))?;
     let request = parse_js("request", request).map_err(|message| validation_error(&[malformed(message)]))?;
     let unavailable = log_capture::unavailable();
     log::info!("TreeKnit {}", env!("TREEKNIT_LONG_VERSION"));
