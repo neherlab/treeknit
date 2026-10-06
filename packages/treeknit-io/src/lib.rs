@@ -4,6 +4,7 @@ pub mod analysis;
 pub mod arg;
 pub mod auspice;
 pub mod display;
+pub mod examples;
 pub mod figure;
 pub mod inspect;
 pub mod mccs;
