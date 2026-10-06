@@ -301,17 +301,36 @@ impl<'g> EnergyState<'g> {
     e
   }
 
-  /// Kept leaves whose term may depend on whether `j` is kept, in the current state.
-  fn candidates(&self, j: usize, out: &mut Vec<usize>) {
-    for (k, c) in self.g.colors.iter().enumerate() {
+  /// Update the counts of the ancestors of `j`, whose state `j` just changed, and add to `out`
+  /// the kept leaves other than `j` whose term may depend on whether `j` is kept.
+  ///
+  /// Those are the kept leaf children of the ancestors of `j` and the only kept leaf below each
+  /// child with exactly one, before or after the flip. Only the child on the path to `j` changes
+  /// its count, and it needs no check: a kept leaf other than `j` alone below it is a leaf child
+  /// of a lower ancestor or alone below one of its other children, which the walk visits.
+  fn flip_ancestors(&mut self, j: usize, add: bool, out: &mut Vec<usize>) {
+    let g = self.g;
+    for (k, c) in g.colors.iter().enumerate() {
+      let mut below = None;
       let mut a = Some(c.leaf_anc[j]);
       while let Some(v) = a {
-        out.extend(c.leaf_children[v].iter().copied().filter(|&x| self.conf.contains(x)));
+        if add {
+          self.count[k][v] += 1;
+        } else {
+          self.count[k][v] -= 1;
+        }
+        out.extend(
+          c.leaf_children[v]
+            .iter()
+            .copied()
+            .filter(|&x| x != j && self.conf.contains(x)),
+        );
         for &ch in &c.children[v] {
-          if self.count[k][ch] == 1 {
+          if Some(ch) != below && self.count[k][ch] == 1 {
             out.push(self.single_kept(k, ch));
           }
         }
+        below = Some(v);
         a = c.parent[v];
       }
     }
@@ -348,11 +367,9 @@ impl<'g> EnergyState<'g> {
     let mut anc = std::mem::take(&mut self.anc);
     cand.clear();
     cand.push(j);
-    self.candidates(j, &mut cand);
     let add = !self.conf.contains(j);
     self.conf.toggle(j);
-    self.update_counts(j, add);
-    self.candidates(j, &mut cand);
+    self.flip_ancestors(j, add, &mut cand);
     self.flips += 1;
     let (flips, stamp) = (self.flips, &mut self.stamp);
     cand.retain(|&i| std::mem::replace(&mut stamp[i], flips) != flips);
