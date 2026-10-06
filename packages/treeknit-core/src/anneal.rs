@@ -96,20 +96,25 @@ impl<R: Rng> Chain<'_, R> {
     let mut f = self.free_energy(st);
     let mut fmin = f;
     let mut best = ConfSet::single(st.conf().clone());
+    // The current configuration is in `best` and unchanged since; a rejected step keeps it so.
+    let mut listed = true;
     for _ in 0..m {
       let leaf = self.rng.gen_range(0..self.g.n);
       st.flip(leaf);
       let fnew = self.free_energy(st);
       if fnew < f || (-(fnew - f) / t).exp() > self.rng.r#gen::<f64>() {
         f = fnew;
+        listed = false;
       } else {
         st.undo();
       }
       if f < fmin {
         fmin = f;
         best = ConfSet::single(st.conf().clone());
-      } else if f == fmin {
+        listed = true;
+      } else if f == fmin && !listed {
         best.push(st.conf().clone());
+        listed = true;
       }
     }
     (best, fmin)
