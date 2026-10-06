@@ -18,7 +18,7 @@ export function contentSecurityPolicy(devServer: boolean, inlineScripts: readonl
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",
-    "connect-src 'self'",
+    "connect-src 'self' https:",
     "worker-src 'self'",
     "object-src 'none'",
     "base-uri 'none'",

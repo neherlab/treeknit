@@ -54,6 +54,9 @@ export const analysisKeys = {
   palette: () => ["palette"] as const,
   drawingRules: () => ["drawingRules"] as const,
   version: () => ["version"] as const,
+  examples: () => ["examples"] as const,
+  launchKeys: () => ["launchKeys"] as const,
+  linkLimits: () => ["linkLimits"] as const,
   inspectTree: (textId: number) => ["inspectTree", textId] as const,
   overlap: (textIds: readonly number[]) => ["overlap", textIds] as const,
   validate: (textIds: readonly number[], labels: readonly string[], settings: Settings | null | undefined) =>
@@ -97,6 +100,32 @@ export function useDrawingRules(): DrawingRules {
   const client = useAnalysisClient();
 
   return useSuspenseQuery({ queryKey: analysisKeys.drawingRules(), queryFn: async () => client.drawingRules() }).data;
+}
+
+export function useExamples(): Answer<StatelessResult<"examples">> {
+  const client = useAnalysisClient();
+
+  return useQuery({ queryKey: analysisKeys.examples(), queryFn: async () => client.examples(), staleTime: Infinity });
+}
+
+export function useLaunchKeys(): Answer<StatelessResult<"launchKeys">> {
+  const client = useAnalysisClient();
+
+  return useQuery({
+    queryKey: analysisKeys.launchKeys(),
+    queryFn: async () => client.launchKeys(),
+    staleTime: Infinity,
+  });
+}
+
+export function useLinkLimits(): Answer<StatelessResult<"linkLimits">> {
+  const client = useAnalysisClient();
+
+  return useQuery({
+    queryKey: analysisKeys.linkLimits(),
+    queryFn: async () => client.linkLimits(),
+    staleTime: Infinity,
+  });
 }
 
 export function useVersion(): Answer<StatelessResult<"version">> {

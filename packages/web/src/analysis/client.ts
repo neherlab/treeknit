@@ -28,6 +28,13 @@ export interface AnalysisClient {
   readRequest(...args: StatelessArgs<"readRequest">): StatelessResult<"readRequest">;
   requestFile(...args: StatelessArgs<"requestFile">): StatelessResult<"requestFile">;
   treeLabels(...args: StatelessArgs<"treeLabels">): StatelessResult<"treeLabels">;
+  parseLaunch(...args: StatelessArgs<"parseLaunch">): StatelessResult<"parseLaunch">;
+  decodeTreeBytes(...args: StatelessArgs<"decodeTreeBytes">): StatelessResult<"decodeTreeBytes">;
+  examples(): StatelessResult<"examples">;
+  launchKeys(): StatelessResult<"launchKeys">;
+  linkLimits(): StatelessResult<"linkLimits">;
+  launchPairs(...args: StatelessArgs<"launchPairs">): StatelessResult<"launchPairs">;
+  inlineSession(...args: StatelessArgs<"inlineSession">): StatelessResult<"inlineSession">;
   version(): StatelessResult<"version">;
   palette(): StatelessResult<"palette">;
   drawingRules(): StatelessResult<"drawingRules">;
@@ -123,6 +130,34 @@ export class WorkerAnalysisClient implements AnalysisClient {
 
   async treeLabels(...args: StatelessArgs<"treeLabels">): StatelessResult<"treeLabels"> {
     return this.#stateless((remote) => remote.treeLabels(...args));
+  }
+
+  async parseLaunch(...args: StatelessArgs<"parseLaunch">): StatelessResult<"parseLaunch"> {
+    return this.#stateless((remote) => remote.parseLaunch(...args));
+  }
+
+  async decodeTreeBytes(...args: StatelessArgs<"decodeTreeBytes">): StatelessResult<"decodeTreeBytes"> {
+    return this.#stateless((remote) => remote.decodeTreeBytes(...args));
+  }
+
+  async examples(): StatelessResult<"examples"> {
+    return this.#stateless((remote) => remote.examples());
+  }
+
+  async launchKeys(): StatelessResult<"launchKeys"> {
+    return this.#stateless((remote) => remote.launchKeys());
+  }
+
+  async linkLimits(): StatelessResult<"linkLimits"> {
+    return this.#stateless((remote) => remote.linkLimits());
+  }
+
+  async launchPairs(...args: StatelessArgs<"launchPairs">): StatelessResult<"launchPairs"> {
+    return this.#stateless((remote) => remote.launchPairs(...args));
+  }
+
+  async inlineSession(...args: StatelessArgs<"inlineSession">): StatelessResult<"inlineSession"> {
+    return this.#stateless((remote) => remote.inlineSession(...args));
   }
 
   async version(): StatelessResult<"version"> {

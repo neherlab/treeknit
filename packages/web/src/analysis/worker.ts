@@ -1,10 +1,17 @@
 import {
+  decodeTreeBytes,
   defaultSettings,
   drawingRules,
+  examples,
   initSync,
+  inlineSession,
   inspectTree,
+  launchKeys,
+  launchPairs,
+  linkLimits,
   overlap,
   palette,
+  parseLaunch,
   readRequest,
   requestFile,
   Session,
@@ -28,6 +35,13 @@ class AnalysisWorker implements WorkerApi {
   readonly readRequest = readRequest;
   readonly requestFile = requestFile;
   readonly treeLabels = treeLabels;
+  readonly parseLaunch = parseLaunch;
+  readonly decodeTreeBytes = decodeTreeBytes;
+  readonly examples = examples;
+  readonly launchKeys = launchKeys;
+  readonly linkLimits = linkLimits;
+  readonly launchPairs = launchPairs;
+  readonly inlineSession = inlineSession;
   readonly version = version;
   readonly palette = palette;
   readonly drawingRules = drawingRules;

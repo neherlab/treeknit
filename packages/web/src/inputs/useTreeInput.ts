@@ -1,8 +1,9 @@
+import type { ExampleInfo } from "@neherlab/treeknit-wasm";
 import { useCallback, useMemo, useState } from "react";
 import { type DropItem, isFileDropItem, isTextDropItem } from "react-aria-components";
 
 import { useAnalysisClient } from "../analysis/context";
-import type { Example } from "../analysis/example";
+import { loadExample } from "../analysis/example";
 import { useWorkspaceStore } from "../workspace/context";
 import type { NewTree } from "../workspace/store";
 import {
@@ -20,7 +21,7 @@ const PLAIN_TEXT = "text/plain";
 export interface TreeInput {
   addFiles(files: readonly File[]): Promise<void>;
   addPasted(newick: string, label: string): Promise<void>;
-  addExample(example: Example): Promise<void>;
+  addExample(example: ExampleInfo): Promise<void>;
   addDropped(items: readonly DropItem[]): Promise<void>;
   openSessionFile(file: File): Promise<void>;
   replaceFile(treeId: string, file: File): Promise<void>;
@@ -145,11 +146,14 @@ export function useTreeInput(): TreeInputState {
         setError(null);
 
         try {
-          const trees = await example.load();
+          const trees = await loadExample(example);
 
           report(
             await addTrees(
-              trees.map(({ fileName, newick }) => ({ newick, source: { kind: "example", name: fileName } })),
+              trees.map(({ fileName, newick }) => ({
+                newick,
+                source: { kind: "example", name: fileName, id: example.id },
+              })),
             ),
           );
         } catch (cause) {

@@ -1,84 +1,59 @@
-import { entries, groupBy, map, pipe, sortBy } from "remeda";
+import type { ExampleInfo } from "@neherlab/treeknit-wasm";
 
-const REAL_TREE_FILES = import.meta.glob<string>("../../../../data/*/*.nwk", {
-  query: "?raw",
-  import: "default",
-});
+const REPOSITORY_ROOT = "../../../../";
 
-const SIMULATED_TREE_FILES = import.meta.glob<string>("../../../../fixtures/sim/*/*.nwk", {
-  query: "?raw",
-  import: "default",
-});
+const TREE_FILES = {
+  ...import.meta.glob<string>("../../../../data/*/*.nwk", { query: "?raw", import: "default" }),
+  ...import.meta.glob<string>("../../../../fixtures/sim/*/*.nwk", { query: "?raw", import: "default" }),
+} satisfies TreeFileReaders;
 
-export const EXAMPLE_GROUPS: readonly ExampleGroup[] = [
-  {
-    id: "small",
-    name: "Small",
-    examples: [{ id: "small/5-leaves", name: "5 leaves", load: () => Promise.resolve(smallTrees()) }],
-  },
-  {
-    id: "real",
-    name: "Real data (influenza A/H3N2)",
-    examples: directoryExamples("real", REAL_TREE_FILES),
-  },
-  {
-    id: "simulated",
-    name: "Simulated (ARGTools)",
-    examples: directoryExamples("simulated", SIMULATED_TREE_FILES),
-  },
-];
-
-export function directoryExamples(group: string, files: TreeFileReaders): Example[] {
-  return pipe(
-    entries(files),
-    groupBy(([path]) => pathParts(path).directory),
-    entries(),
-    sortBy(([directory]) => directory),
-    map(([directory, treeFiles]) => ({
-      id: `${group}/${directory}`,
-      name: directory,
-      load: async () => readTreeFiles(treeFiles),
+export async function loadExample(example: ExampleInfo, files: TreeFileReaders = TREE_FILES): Promise<ExampleTree[]> {
+  return Promise.all(
+    example.trees.map(async ({ file, label, path, newick }) => ({
+      fileName: file,
+      label,
+      newick: newick ?? (await readTreeFile(path, files)),
     })),
   );
+}
+
+export function exampleGroups(examples: readonly ExampleInfo[]): ExampleGroup[] {
+  return Array.from(
+    Map.groupBy(examples, ({ group }) => group),
+    ([id, members]) => ({
+      id,
+      name: members[0]?.groupName ?? id,
+      examples: members,
+    }),
+  );
+}
+
+export function exampleTreePaths(files: TreeFileReaders = TREE_FILES): string[] {
+  return Object.keys(files)
+    .map((key) => key.slice(REPOSITORY_ROOT.length))
+    .toSorted();
 }
 
 export interface ExampleGroup {
   id: string;
   name: string;
-  examples: readonly Example[];
-}
-
-export interface Example {
-  id: string;
-  name: string;
-  load: () => Promise<ExampleTree[]>;
+  examples: readonly ExampleInfo[];
 }
 
 export interface ExampleTree {
   fileName: string;
+  label: string;
   newick: string;
 }
 
 export type TreeFileReaders = Record<string, () => Promise<string>>;
 
-function smallTrees(): ExampleTree[] {
-  return [
-    { fileName: "ha.nwk", newick: "((A,B),(C,(D,X)));" },
-    { fileName: "na.nwk", newick: "((A,(B,X)),(C,D));" },
-  ];
-}
+async function readTreeFile(path: string | null, files: TreeFileReaders): Promise<string> {
+  const read = path === null ? undefined : files[`${REPOSITORY_ROOT}${path}`];
 
-async function readTreeFiles(treeFiles: readonly (readonly [string, () => Promise<string>])[]): Promise<ExampleTree[]> {
-  return Promise.all(
-    sortBy(treeFiles, ([path]) => path).map(async ([path, read]) => ({
-      fileName: pathParts(path).file,
-      newick: await read(),
-    })),
-  );
-}
+  if (read === undefined) {
+    throw new Error(`The example tree file ${path ?? "(none)"} is not part of this build.`);
+  }
 
-function pathParts(path: string) {
-  const parts = path.split("/");
-
-  return { directory: parts.at(-2) ?? "", file: parts.at(-1) ?? path };
+  return read();
 }

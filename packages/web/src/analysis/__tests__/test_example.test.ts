@@ -1,108 +1,88 @@
+import type { ExampleInfo } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
-import { directoryExamples, EXAMPLE_GROUPS, type TreeFileReaders } from "../example";
+import { exampleGroups, exampleTreePaths, loadExample, type TreeFileReaders } from "../example";
 
-describe("directoryExamples", () => {
-  test("makes one example per case directory, sorted by directory name", () => {
-    const files: TreeFileReaders = {
-      "../fixtures/sim/sim_k2_n50_r0.1/tree1.nwk": readsAs("(A,B);"),
-      "../fixtures/sim/sim_k2_n100_r0.01/tree2.nwk": readsAs("(A,B);"),
-      "../fixtures/sim/sim_k2_n100_r0.01/tree1.nwk": readsAs("(A,B);"),
-      "../fixtures/sim/sim_k2_n50_r0.1/tree2.nwk": readsAs("(A,B);"),
-    };
+const SMALL: ExampleInfo = {
+  id: "5-leaves",
+  name: "5 leaves",
+  group: "small",
+  groupName: "Small",
+  trees: [
+    { file: "ha.nwk", label: "ha", path: null, newick: "((A,B),(C,(D,X)));" },
+    { file: "na.nwk", label: "na", path: null, newick: "((A,(B,X)),(C,D));" },
+  ],
+};
 
-    expect(directoryExamples("simulated", files).map(({ id, name }) => ({ id, name }))).toStrictEqual([
-      { id: "simulated/sim_k2_n100_r0.01", name: "sim_k2_n100_r0.01" },
-      { id: "simulated/sim_k2_n50_r0.1", name: "sim_k2_n50_r0.1" },
+const REAL: ExampleInfo = {
+  id: "h3n2-2017",
+  name: "h3n2-2017",
+  group: "real",
+  groupName: "Real data (influenza A/H3N2)",
+  trees: [
+    { file: "ha.nwk", label: "ha", path: "data/h3n2-2017/ha.nwk", newick: null },
+    { file: "na.nwk", label: "na", path: "data/h3n2-2017/na.nwk", newick: null },
+  ],
+};
+
+describe("loadExample", () => {
+  test("gives the inline trees of an example with their file names and labels", async () => {
+    await expect(loadExample(SMALL, {})).resolves.toStrictEqual([
+      { fileName: "ha.nwk", label: "ha", newick: "((A,B),(C,(D,X)));" },
+      { fileName: "na.nwk", label: "na", newick: "((A,(B,X)),(C,D));" },
     ]);
   });
 
-  test("prefixes each example id with its group", () => {
-    const files: TreeFileReaders = {
-      "../data/h3n2-2017/ha.nwk": readsAs("(A,B);"),
-      "../data/h3n2-2017/na.nwk": readsAs("(A,B);"),
-    };
-
-    expect(directoryExamples("real", files).map(({ id, name }) => ({ id, name }))).toStrictEqual([
-      { id: "real/h3n2-2017", name: "h3n2-2017" },
-    ]);
-  });
-
-  test("loads the trees of its directory in file name order, with their file names", async () => {
-    const files: TreeFileReaders = {
-      "../fixtures/sim/case_b/tree1.nwk": readsAs("(E,F);"),
-      "../fixtures/sim/case_a/tree3.nwk": readsAs("(C,D);"),
-      "../fixtures/sim/case_a/tree1.nwk": readsAs("((A,B),C);"),
-      "../fixtures/sim/case_a/tree2.nwk": readsAs("(A,(B,C));"),
-    };
-
-    const [caseA] = directoryExamples("simulated", files);
-
-    await expect(caseA?.load()).resolves.toStrictEqual([
-      { fileName: "tree1.nwk", newick: "((A,B),C);" },
-      { fileName: "tree2.nwk", newick: "(A,(B,C));" },
-      { fileName: "tree3.nwk", newick: "(C,D);" },
-    ]);
-  });
-
-  test("reads no file until an example is loaded", async () => {
+  test("reads the tree files of an example by their repository paths, and no other file", async () => {
     const read: string[] = [];
 
     const recordsRead = (path: string) => () => {
       read.push(path);
 
-      return Promise.resolve("(A,B);");
+      return Promise.resolve(`(${path});`);
     };
 
-    const [first] = directoryExamples("simulated", {
-      "../fixtures/sim/case_a/tree1.nwk": recordsRead("case_a/tree1"),
-      "../fixtures/sim/case_a/tree2.nwk": recordsRead("case_a/tree2"),
-      "../fixtures/sim/case_b/tree1.nwk": recordsRead("case_b/tree1"),
+    const files: TreeFileReaders = {
+      "../../../../data/h3n2-2017/ha.nwk": recordsRead("ha"),
+      "../../../../data/h3n2-2017/na.nwk": recordsRead("na"),
+      "../../../../data/h3n2-2012-2018/ha.nwk": recordsRead("other"),
+    };
+
+    const trees = await loadExample(REAL, files);
+
+    expect({ trees: trees.map(({ newick }) => newick), read: read.toSorted() }).toStrictEqual({
+      trees: ["(ha);", "(na);"],
+      read: ["ha", "na"],
     });
-
-    expect(read).toStrictEqual([]);
-
-    await first?.load();
-
-    expect(read.toSorted()).toStrictEqual(["case_a/tree1", "case_a/tree2"]);
   });
 
-  test("makes no examples without files", () => {
-    expect(directoryExamples("simulated", {})).toStrictEqual([]);
+  test("fails for a tree file that the build does not hold", async () => {
+    await expect(loadExample(REAL, {})).rejects.toThrow(
+      "The example tree file data/h3n2-2017/ha.nwk is not part of this build.",
+    );
   });
 });
 
-describe("example groups", () => {
-  test("offers every tree set of data/ as a real-data example", () => {
-    const real = EXAMPLE_GROUPS.find(({ id }) => id === "real");
+describe("exampleGroups", () => {
+  test("groups the examples in their order under the titles of the catalog", () => {
+    const groups = exampleGroups([SMALL, REAL, { ...REAL, id: "h3n2-2012-2018" }]);
 
-    expect(real?.examples.map(({ id }) => id)).toStrictEqual([
-      "real/h3n2-2012-2018",
-      "real/h3n2-2017",
-      "real/h3n2-2017-2018",
-      "real/h3n2-2k-4-segments",
-      "real/h3n2-new-york-1999-2004",
+    expect(groups.map(({ id, name, examples }) => ({ id, name, ids: examples.map((e) => e.id) }))).toStrictEqual([
+      { id: "small", name: "Small", ids: ["5-leaves"] },
+      { id: "real", name: "Real data (influenza A/H3N2)", ids: ["h3n2-2017", "h3n2-2012-2018"] },
     ]);
-  });
-
-  test("loads the small example as the files ha.nwk and na.nwk", async () => {
-    const small = EXAMPLE_GROUPS.find(({ id }) => id === "small")?.examples[0];
-
-    await expect(small?.load()).resolves.toStrictEqual([
-      { fileName: "ha.nwk", newick: "((A,B),(C,(D,X)));" },
-      { fileName: "na.nwk", newick: "((A,(B,X)),(C,D));" },
-    ]);
-  });
-
-  test("gives groups and examples distinct ids, because they share one menu collection", () => {
-    const groupIds = EXAMPLE_GROUPS.map(({ id }) => id);
-    const exampleIds = EXAMPLE_GROUPS.flatMap(({ examples }) => examples.map(({ id }) => id));
-    const ids = [...groupIds, ...exampleIds];
-
-    expect(new Set(ids).size).toBe(ids.length);
   });
 });
 
-function readsAs(newick: string): () => Promise<string> {
-  return () => Promise.resolve(newick);
-}
+describe("exampleTreePaths", () => {
+  test("bundles the tree files of data/ and fixtures/sim/, which the Rust catalog lists one by one", () => {
+    const paths = exampleTreePaths();
+
+    expect([
+      paths.includes("data/h3n2-2017/ha.nwk"),
+      paths.includes("data/h3n2-2k-4-segments/pb2.nwk"),
+      paths.includes("fixtures/sim/sim_k3_n50_r0.1/tree3.nwk"),
+      paths.every((path) => /^(data|fixtures\/sim)\/[^/]+\/[^/]+\.nwk$/u.test(path)),
+    ]).toStrictEqual([true, true, true, true]);
+  });
+});

@@ -20,6 +20,7 @@ import { TextField } from "../ui/TextField";
 import { useWorkspaceStore } from "../workspace/context";
 import { type FieldErrors, fieldMessage, seqLengthField, treeField } from "../workspace/fieldErrors";
 import type { WorkspaceTree } from "../workspace/store";
+import { sourceOrigin } from "../workspace/treeSource";
 import { treeFacts } from "./treeFacts";
 import { TREE_STATUS_LABELS, type TreeStatus, type TreeStatusKind, treeStatus } from "./treeStatus";
 
@@ -47,6 +48,7 @@ export function TreeRow({
   const actions = useSettingsActions();
   const status = treeStatus(inspection, errors.byField.get(treeField(index, "newick")) ?? []);
   const facts = treeFacts(inspection, missing);
+  const origin = sourceOrigin(tree.source);
 
   const rename = useCallback((label: string) => store.getState().renameTree(tree.id, label), [store, tree.id]);
   const commitSeqLength = useCallback((value: number) => actions.setSeqLength(tree.id, value), [actions, tree.id]);
@@ -98,6 +100,7 @@ export function TreeRow({
           </Menu>
           <IconButton label="Remove tree" icon={RemoveIcon} onPress={remove} />
         </div>
+        {origin === undefined ? null : <p className="text-ink-muted px-0.5 text-xs wrap-anywhere">From {origin}</p>}
         {facts.length === 0 ? null : (
           <p className="text-ink-muted flex flex-wrap gap-x-3 px-0.5 text-xs">
             {facts.map((fact) => (

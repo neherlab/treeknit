@@ -4,17 +4,18 @@ import PasteIcon from "~icons/lucide/clipboard-paste";
 import FilePlusIcon from "~icons/lucide/file-plus";
 import FlaskIcon from "~icons/lucide/flask-conical";
 
-import { EXAMPLE_GROUPS } from "../analysis/example";
+import { exampleGroups } from "../analysis/example";
+import { useExamples } from "../analysis/queries";
 import { Button } from "../ui/Button";
 import { Menu, MenuItem, MenuSection } from "../ui/Menu";
 import { PasteTreeDialog } from "./PasteTreeDialog";
 import { TREE_FILE_TYPES } from "./treeFiles";
 import type { TreeInput } from "./useTreeInput";
 
-const EXAMPLES = new Map(EXAMPLE_GROUPS.flatMap(({ examples }) => examples.map((example) => [example.id, example])));
-
 export function TreeActions({ input, variant = "secondary", size = "sm" }: TreeActionsProps) {
   const [pasting, setPasting] = useState(false);
+  const { data: examples } = useExamples();
+  const groups = useMemo(() => exampleGroups(examples ?? []), [examples]);
 
   const selectFiles = useCallback(
     (files: FileList | null) => {
@@ -36,22 +37,28 @@ export function TreeActions({ input, variant = "secondary", size = "sm" }: TreeA
 
   const addExample = useCallback(
     (key: Key) => {
-      const example = EXAMPLES.get(String(key));
+      const example = examples?.find(({ id }) => id === key);
 
       if (example !== undefined) {
         void input.addExample(example);
       }
     },
-    [input],
+    [input, examples],
   );
 
   const examplesTrigger = useMemo(
     () => (
-      <Button variant={variant} size={size} icon={FlaskIcon} tooltip="Add an example dataset">
+      <Button
+        variant={variant}
+        size={size}
+        icon={FlaskIcon}
+        tooltip="Add an example dataset"
+        isDisabled={examples === undefined}
+      >
         Examples
       </Button>
     ),
-    [size, variant],
+    [size, variant, examples],
   );
 
   return (
@@ -65,8 +72,8 @@ export function TreeActions({ input, variant = "secondary", size = "sm" }: TreeA
         Paste tree
       </Button>
       <Menu aria-label="Examples" onAction={addExample} trigger={examplesTrigger}>
-        {EXAMPLE_GROUPS.map((group) => (
-          <MenuSection key={group.id} title={group.name}>
+        {groups.map((group) => (
+          <MenuSection key={group.id} id={`group:${group.id}`} title={group.name}>
             {group.examples.map((example) => (
               <MenuItem key={example.id} id={example.id}>
                 {example.name}
