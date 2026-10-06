@@ -143,10 +143,10 @@ mod tests {
     let f = fail("all-errors", &[HA, "(A,B"], &args);
     let expected = format!(
       "{}:1:5: tree \"t1\": Newick parse error: expected ',' or ')' at byte 4\n\
-      --seq-lengths should look like \"1500 2000\", got \"x 1\": invalid float literal\n\
+      --seq-lengths should look like 1500,2000, got \"x 1\": invalid float literal\n\
       former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, \
-      --resolve-all-rounds, --no-pre-resolve, --match-topologies) cannot be combined with \
-      --resolve, --pre-resolve or --no-final-round; see --help-resolve\n\
+      --resolve-all-rounds, --match-topologies) cannot be combined with --resolve, --pre-resolve, \
+      --no-final-round or --final-round; see --help-resolve\n\
       gamma must be a non-negative number, got -1",
       f.dir.path().join("t1.nwk").display()
     );
@@ -662,11 +662,11 @@ mod tests {
   }
 
   #[rstest]
-  #[case::tree_file("request-tree", &["ha.nwk"], "the argument '--request <FILE>' cannot be used with '[TREES]...'")]
-  #[case::gamma("request-gamma", &["--gamma", "3"], "the argument '--request <FILE>' cannot be used with '--gamma <GAMMA>'")]
+  #[case::tree_file("request-tree", &["ha.nwk"], "the argument '--request <FILE>' cannot be used with '[TREE]...'")]
+  #[case::example("request-example", &["--example", "5-leaves"], "the argument '--request <FILE>' cannot be used with '--example <ID>'")]
   #[case::former("request-former", &["--better-MCCs"], "the argument '--request <FILE>' cannot be used with '--better-MCCs'")]
   #[trace]
-  fn request_with_tree_files_or_analysis_options_is_a_usage_error(
+  fn request_with_tree_files_or_former_options_is_a_usage_error(
     #[case] name: &str,
     #[case] args: &[&str],
     #[case] message: &str,
@@ -813,5 +813,227 @@ mod tests {
     assert!(d["1"]["imputed"].as_array().unwrap().iter().any(|e| e["leaf"] == "P"));
     let imputed = std::fs::read_to_string(out.join("seg0_imputed.nwk")).unwrap();
     assert!(imputed.contains('P'));
+  }
+
+  /// Run `treeknit` with `args` and the output directory `out`, expecting success, and return its
+  /// standard output.
+  fn run_stdout(args: &[&str], out: &Path) -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .args(args)
+      .arg("-o")
+      .arg(out)
+      .args(["--verbosity-level", "-1"])
+      .output()
+      .unwrap();
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    String::from_utf8(output.stdout).unwrap()
+  }
+
+  fn parameters(out: &Path) -> serde_json::Value {
+    serde_json::from_str(&std::fs::read_to_string(out.join("parameters.json")).unwrap()).unwrap()
+  }
+
+  fn text(path: &Path) -> String {
+    std::fs::read_to_string(path).unwrap()
+  }
+
+  #[test]
+  fn labeled_tree_arguments_name_the_output_trees() {
+    let dir = TempDir::new("labeled");
+    let paths = write_trees(dir.path(), &[("seg4", HA), ("a=b", NA)]);
+    let out = dir.path().join("out");
+    // The second path holds a `/` before its `=`, so it is a path without a label.
+    run(
+      &[&format!("HA={}", paths[0].display()), paths[1].to_str().unwrap()],
+      &out,
+    );
+    let present = ["HA_resolved.nwk", "a=b_resolved.nwk"].map(|f| out.join(f).exists());
+    assert_eq!([true, true], present);
+  }
+
+  #[rstest]
+  #[case::commas("lengths-commas", "1701,1410")]
+  #[case::spaces("lengths-spaces", "1701 1410")]
+  #[trace]
+  fn sequence_lengths_take_commas_or_spaces(#[case] name: &str, #[case] lengths: &str) {
+    let dir = TempDir::new(name);
+    let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
+    let out = dir.path().join("out");
+    run(
+      &[
+        paths[0].to_str().unwrap(),
+        paths[1].to_str().unwrap(),
+        "--seq-lengths",
+        lengths,
+      ],
+      &out,
+    );
+    assert_eq!(serde_json::json!([1701.0, 1410.0]), parameters(&out)["seq_lengths"]);
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::pre_resolve(    "pair-1", &["--no-pre-resolve", "--pre-resolve"],    "pre_resolve",            true)]
+  #[case::no_pre_resolve( "pair-2", &["--pre-resolve", "--no-pre-resolve"],    "pre_resolve",            false)]
+  #[case::final_round(    "pair-3", &["--no-final-round", "--final-round"],    "final_unresolved_round", true)]
+  #[case::no_final_round( "pair-4", &["--final-round", "--no-final-round"],    "final_unresolved_round", false)]
+  #[case::likelihood(     "pair-5", &["--no-likelihood", "--likelihood"],      "likelihood_sort",        true)]
+  #[case::no_likelihood(  "pair-6", &["--likelihood", "--no-likelihood"],      "likelihood_sort",        false)]
+  #[case::naive(          "pair-7", &["--no-naive", "--naive"],                "naive",                  true)]
+  #[case::no_naive(       "pair-8", &["--naive", "--no-naive"],                "naive",                  false)]
+  #[trace]
+  fn the_last_of_a_flag_and_its_opposite_wins(#[case] name: &str, #[case] flags: &[&str], #[case] key: &str, #[case] expected: bool) {
+    let dir = TempDir::new(name);
+    let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
+    let out = dir.path().join("out");
+    let mut args = vec![paths[0].to_str().unwrap(), paths[1].to_str().unwrap()];
+    args.extend(flags);
+    run(&args, &out);
+    assert_eq!(serde_json::json!(expected), parameters(&out)[key]);
+  }
+
+  #[test]
+  fn no_pre_resolve_is_a_current_option_without_a_warning() {
+    let dir = TempDir::new("no-pre-resolve");
+    let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
+    let out = dir.path().join("out");
+    run(
+      &[
+        paths[0].to_str().unwrap(),
+        paths[1].to_str().unwrap(),
+        "--no-pre-resolve",
+      ],
+      &out,
+    );
+    assert_eq!(
+      (serde_json::json!(false), false),
+      (
+        parameters(&out)["pre_resolve"].clone(),
+        text(&out.join("log.txt")).contains("deprecated")
+      )
+    );
+  }
+
+  #[test]
+  fn example_gives_the_mccs_of_its_tree_files() {
+    let dir = TempDir::new("example");
+    let from_example = dir.path().join("example");
+    run(&["--example", "h3n2-2017"], &from_example);
+    let data = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/h3n2-2017");
+    let from_files = dir.path().join("files");
+    run(&[&format!("{data}/ha.nwk"), &format!("{data}/na.nwk")], &from_files);
+    assert_eq!(mccs(&from_files), mccs(&from_example));
+  }
+
+  #[test]
+  fn unknown_example_suggests_the_closest_id() {
+    let dir = TempDir::new("example-unknown");
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .args(["--example", "h3n2-2071", "-o"])
+      .arg(dir.path().join("out"))
+      .args(["--verbosity-level", "-1"])
+      .output()
+      .unwrap();
+    let expected = "Error: there is no example \"h3n2-2071\"; did you mean \"h3n2-2017\"? (see --list-examples)\n";
+    assert_eq!(
+      (Some(1), expected),
+      (output.status.code(), String::from_utf8(output.stderr).unwrap().as_str())
+    );
+  }
+
+  #[test]
+  fn list_examples_prints_every_id() {
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .arg("--list-examples")
+      .output()
+      .unwrap();
+    let ids: Vec<String> = String::from_utf8(output.stdout)
+      .unwrap()
+      .lines()
+      .filter_map(|l| l.split_whitespace().next().map(str::to_owned))
+      .collect();
+    let expected: Vec<String> = treeknit_io::examples::EXAMPLES
+      .iter()
+      .map(|e| e.id.to_owned())
+      .collect();
+    assert_eq!(expected, ids);
+  }
+
+  #[test]
+  fn analysis_options_change_the_settings_of_a_session_file() {
+    let dir = TempDir::new("request-options");
+    let request = write_request(
+      dir.path(),
+      &serde_json::json!({"gamma": 3, "resolve": "strict", "seed": 5}),
+    );
+    let out = dir.path().join("out");
+    run(
+      &["--request", request.to_str().unwrap(), "--seed", "7", "--no-likelihood"],
+      &out,
+    );
+    let p = parameters(&out);
+    let written: serde_json::Value = serde_json::from_str(&text(&out.join("treeknit_request.json"))).unwrap();
+    let log = text(&out.join("log.txt"));
+    let expected = (
+      serde_json::json!([3.0, "strict", 7, false]),
+      serde_json::json!([7, false]),
+      (true, true),
+    );
+    let actual = (
+      serde_json::json!([p["gamma"], p["resolution"], p["seed"], p["likelihood_sort"]]),
+      serde_json::json!([written["settings"]["seed"], written["settings"]["likelihood"]]),
+      (
+        log.contains("--seed changes the setting of the input"),
+        log.contains("--no-likelihood changes the setting of the input"),
+      ),
+    );
+    assert_eq!(expected, actual);
+  }
+
+  #[test]
+  fn printed_link_of_an_example_names_it_and_runs_the_same_analysis() {
+    let dir = TempDir::new("print-example");
+    let first = dir.path().join("first");
+    let link = run_stdout(&["--example", "5-leaves", "--gamma", "3", "--print-link"], &first);
+    assert_eq!(
+      "https://neherlab.github.io/treeknit-rs/?example=5-leaves&gamma=3&run\n",
+      link
+    );
+    let second = dir.path().join("second");
+    run(&["--link", link.trim()], &second);
+    assert_eq!(mccs(&first), mccs(&second));
+  }
+
+  #[test]
+  fn printed_link_of_tree_files_holds_an_inline_session_that_runs_the_same_analysis() {
+    let dir = TempDir::new("print-files");
+    let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
+    let first = dir.path().join("first");
+    let link = run_stdout(
+      &[
+        paths[0].to_str().unwrap(),
+        paths[1].to_str().unwrap(),
+        "--seed",
+        "9",
+        "--print-link",
+      ],
+      &first,
+    );
+    let prefix = "https://neherlab.github.io/treeknit-rs/?run#session=data:application/gzip;base64,";
+    assert!(link.starts_with(prefix), "{link}");
+    let second = dir.path().join("second");
+    run(&["--link", link.trim()], &second);
+    let written = ["first", "second"].map(|d| dir.path().join(d).join("treeknit_request.json").exists());
+    assert_eq!((mccs(&first), [true, true]), (mccs(&second), written));
+  }
+
+  #[test]
+  fn link_with_data_trees_runs_them_with_their_labels() {
+    let dir = TempDir::new("link-data");
+    let out = dir.path().join("out");
+    let link = "https://neherlab.github.io/treeknit-rs/?tree=HA=data:,((A,B),(C,(D,X)));&tree=NA=data:,((A,(B,X)),(C,D));&run&view=mccs";
+    run(&["--link", link], &out);
+    let present = ["HA_resolved.nwk", "NA_resolved.nwk"].map(|f| out.join(f).exists());
+    assert_eq!([true, true], present);
   }
 }

@@ -80,6 +80,9 @@ serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["float_roundtrip", "preserve_order"] }
 simplelog = "=0.12.2"
 tsify = "=0.5.8"
+# HTTPS through rustls with ring and the compiled-in Mozilla root certificates of webpki-roots, so
+# the static musl and the Windows binaries need no certificate store of the system.
+ureq = { version = "=3.4.2", default-features = false, features = ["rustls"] }
 wasm-bindgen = "=0.2.129"
 wasm-bindgen-test = "=0.3.79"
 # Deflate through the pure-Rust zlib-rs backend, so the archive builds for wasm32-unknown-unknown.

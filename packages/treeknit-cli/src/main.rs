@@ -2,17 +2,21 @@
 //! segment trees.
 
 use anyhow::{Context, Result, bail};
-use clap::{Parser, ValueEnum};
+use clap::parser::ValueSource;
+use clap::{ArgMatches, CommandFactory, FromArgMatches, Parser, ValueEnum};
 use simplelog::{ColorChoice, CombinedLogger, ConfigBuilder, LevelFilter, TermLogger, TerminalMode, WriteLogger};
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use treeknit_core::{Options, Resolution};
 use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
+use treeknit_io::examples;
+use treeknit_io::launch::{self, LaunchInput, Location, SettingsPatch, TreeAddress};
 use treeknit_io::output::{self, OutputFile, OutputOptions};
+use treeknit_io::schema::{KeyValue, SETTING_KEYS};
 use treeknit_io::{run, schema};
 
 const FORMER_OPTIONS_HELP: &str = "\
@@ -20,14 +24,24 @@ Former options are still accepted with their TreeKnit.jl meaning, and reproduce 
 results: the method preset depends on the number of trees (--better-MCCs for two,
 --better-trees for more), and --rounds counts all rounds (with --better-MCCs and more than
 two trees, the default 2 means one resolving round and a final one without). They cannot be
-mixed with --resolve, --pre-resolve or --no-final-round. Closest current equivalents:
+mixed with --resolve, --pre-resolve, --no-final-round or --final-round. Closest current
+equivalents:
   --better-trees         --resolve none --pre-resolve
   --better-MCCs          --resolve strict --pre-resolve
   --liberal-resolve      --resolve liberal (in the --better-MCCs preset)
   --no-resolve           --resolve none
   --match-topologies     --resolve matched
-  --no-pre-resolve       the default
   --resolve-all-rounds   resolve in the final round too";
+
+/// Heading of the options that choose the trees.
+const INPUT_HEADING: &str = "Input";
+
+/// Heading of the analysis options: the settings of [`SETTING_KEYS`], with the names of the keys
+/// of links.
+const ANALYSIS_HEADING: &str = "Analysis";
+
+/// Heading of the options that choose the output.
+const OUTPUT_HEADING: &str = "Output";
 
 /// The text of `--help-resolve`: the resolution modes, the final round, and pre-resolution
 /// with the words of the web app (`treeknit_io::schema`), then the former options.
@@ -67,6 +81,18 @@ fn resolve_value(mode: analysis::ResolveMode) -> String {
     .to_owned()
 }
 
+/// The text of `--list-examples`: the id, the group, and the trees of each example.
+fn example_list() -> String {
+  examples::EXAMPLES
+    .iter()
+    .map(|e| {
+      let labels = e.labels().join(", ");
+      format!("{:<26} {:<30} {labels}", e.id, e.group.name())
+    })
+    .collect::<Vec<_>>()
+    .join("\n")
+}
+
 /// How trees are resolved (see --help-resolve).
 #[derive(ValueEnum, Clone, Copy, Debug)]
 enum ResolveMode {
@@ -93,63 +119,125 @@ impl From<ResolveMode> for analysis::ResolveMode {
 #[command(
   name = "treeknit",
   version = env!("TREEKNIT_LONG_VERSION"),
-  after_help = "Use --help-resolve for details on how trees are resolved."
+  after_help = "Use --help-resolve for details on how trees are resolved. The analysis options have the names of \
+                the keys of web app links: --gamma 3 is gamma=3."
 )]
 struct Cli {
-  /// Newick files, one tree per segment (at least two).
-  #[arg(required_unless_present_any = ["help_resolve", "help_defaults", "request"])]
+  /// Trees, one per segment (at least two): Newick files, gzip-compressed or not, or https:
+  /// addresses. `<label>=<tree>` labels a tree; by default, the file name labels it.
+  #[arg(
+    required_unless_present_any = ["help_resolve", "help_defaults", "request", "example", "link", "list_examples"],
+    value_name = "TREE",
+    help_heading = INPUT_HEADING,
+  )]
   trees: Vec<PathBuf>,
 
   /// Run the trees and settings of a session file (`treeknit_request.json`, saved by the web
-  /// app) instead of tree files and analysis options.
+  /// app), a path or an https: address. Analysis options change its settings.
   #[arg(
     long,
     value_name = "FILE",
     value_hint = clap::ValueHint::FilePath,
     conflicts_with_all = [
-      "trees", "gamma", "seq_lengths", "n_mcmc_it", "resolve", "pre_resolve", "rounds", "no_final_round",
-      "no_likelihood", "naive", "seed", "better_trees", "better_mccs", "no_pre_resolve", "no_resolve",
-      "liberal_resolve", "match_topologies", "resolve_all_rounds",
+      "trees", "example", "link", "better_trees", "better_mccs", "no_resolve", "liberal_resolve", "match_topologies",
+      "resolve_all_rounds",
     ],
+    help_heading = INPUT_HEADING,
   )]
   request: Option<PathBuf>,
 
+  /// Run a built-in example (see --list-examples). Analysis options change its settings.
+  #[arg(
+    long,
+    value_name = "ID",
+    conflicts_with_all = [
+      "trees", "link", "better_trees", "better_mccs", "no_resolve", "liberal_resolve", "match_topologies",
+      "resolve_all_rounds",
+    ],
+    help_heading = INPUT_HEADING,
+  )]
+  example: Option<String>,
+
+  /// Run the trees and settings of a link of the web app. Analysis options change its settings.
+  #[arg(
+    long,
+    value_name = "URL",
+    conflicts_with_all = [
+      "trees", "better_trees", "better_mccs", "no_resolve", "liberal_resolve", "match_topologies",
+      "resolve_all_rounds",
+    ],
+    help_heading = INPUT_HEADING,
+  )]
+  link: Option<String>,
+
+  /// List the built-in examples.
+  #[arg(long, help_heading = INPUT_HEADING)]
+  list_examples: bool,
+
   /// Output directory.
-  #[arg(short, long, default_value = output::RESULTS_DIR)]
+  #[arg(short, long, default_value = output::RESULTS_DIR, help_heading = OUTPUT_HEADING)]
   outdir: PathBuf,
 
   /// Cost γ of a reassortment (removing an MCC).
-  #[arg(short, long, default_value_t = Settings::default().gamma)]
+  #[arg(short, long, default_value_t = Settings::default().gamma, help_heading = ANALYSIS_HEADING)]
   gamma: f64,
 
-  /// Sequence lengths of the segments, e.g. "1500 2000" (used by the likelihood tie-break).
-  #[arg(long, value_name = "LENGTHS")]
+  /// Sequence lengths of the segments, e.g. 1500,2000 (used by the likelihood tie-break).
+  #[arg(long, value_name = "LENGTHS", help_heading = ANALYSIS_HEADING)]
   seq_lengths: Option<String>,
 
   /// MCMC steps per leaf.
-  #[arg(long, default_value_t = Settings::default().n_mcmc_it)]
+  #[arg(long, default_value_t = Settings::default().n_mcmc_it, help_heading = ANALYSIS_HEADING)]
   n_mcmc_it: u64,
 
   /// How trees are resolved: matched, strict, liberal or none (see --help-resolve).
-  #[arg(long, value_enum, value_name = "MODE")]
+  #[arg(long, value_enum, value_name = "MODE", help_heading = ANALYSIS_HEADING)]
   resolve: Option<ResolveMode>,
 
   /// Before inference, add to each tree the splits of other trees compatible with all trees.
-  #[arg(long)]
+  #[arg(long, overrides_with = "no_pre_resolve", help_heading = ANALYSIS_HEADING)]
   pre_resolve: bool,
 
+  /// Do not pre-resolve the trees (the default).
+  #[arg(long, overrides_with = "pre_resolve", help_heading = ANALYSIS_HEADING)]
+  no_pre_resolve: bool,
+
   // No clap default: without the flag, the former options take the rounds of their preset.
-  #[arg(long, help = format!("Rounds of pair inference [default: {}]", Settings::default().rounds))]
+  #[arg(
+    long,
+    help = format!("Rounds of pair inference [default: {}]", Settings::default().rounds),
+    help_heading = ANALYSIS_HEADING,
+  )]
   rounds: Option<u64>,
 
   /// With strict or liberal resolution and more than two trees, skip the final round that
   /// re-infers MCCs without resolution.
-  #[arg(long)]
+  #[arg(long, overrides_with = "final_round", help_heading = ANALYSIS_HEADING)]
   no_final_round: bool,
 
+  /// Run the final round without resolution (the default).
+  #[arg(long, overrides_with = "no_final_round", help_heading = ANALYSIS_HEADING)]
+  final_round: bool,
+
   /// Seed of the random number generator.
-  #[arg(long, default_value_t = Settings::default().seed)]
+  #[arg(long, default_value_t = Settings::default().seed, help_heading = ANALYSIS_HEADING)]
   seed: u64,
+
+  /// Naive MCCs (γ → ∞).
+  #[arg(long, overrides_with = "no_naive", help_heading = ANALYSIS_HEADING)]
+  naive: bool,
+
+  /// Infer MCCs (the default).
+  #[arg(long, overrides_with = "naive", help_heading = ANALYSIS_HEADING)]
+  no_naive: bool,
+
+  /// Do not break ties between configurations with branch lengths.
+  #[arg(long, overrides_with = "likelihood", help_heading = ANALYSIS_HEADING)]
+  no_likelihood: bool,
+
+  /// Break ties between configurations with branch lengths (the default).
+  #[arg(long, overrides_with = "no_likelihood", help_heading = ANALYSIS_HEADING)]
+  likelihood: bool,
 
   /// Worker threads for independent tree pairs (0: all cores).
   #[arg(long, default_value_t = 0)]
@@ -167,26 +255,29 @@ struct Cli {
   #[arg(long)]
   help_resolve: bool,
 
-  /// Naive MCCs (γ → ∞).
-  #[arg(long)]
-  naive: bool,
-
-  /// Do not break ties between configurations with branch lengths.
-  #[arg(long)]
-  no_likelihood: bool,
-
   /// Write trees with leaves missing from them placed by imputation (`*_imputed.nwk`).
-  #[arg(long)]
+  #[arg(long, help_heading = OUTPUT_HEADING)]
   impute: bool,
 
   /// Write auspice JSON files for tanglegram visualisation.
-  #[arg(long)]
+  #[arg(long, help_heading = OUTPUT_HEADING)]
   auspice_view: bool,
 
   /// Write SVG figures: a tanglegram of the resolved trees of each pair
   /// (`tanglegram_<a>_<b>.svg`) and, for two trees, the ARG (`ARG/arg.svg`).
-  #[arg(long)]
+  #[arg(long, help_heading = OUTPUT_HEADING)]
   plot: bool,
+
+  /// After the run, print the link of the web app that runs the same analysis, and write the
+  /// session file into the output directory.
+  #[arg(
+    long,
+    conflicts_with_all = [
+      "better_trees", "better_mccs", "no_resolve", "liberal_resolve", "match_topologies", "resolve_all_rounds",
+    ],
+    help_heading = OUTPUT_HEADING,
+  )]
+  print_link: bool,
 
   /// Accepted for compatibility; independent pairs always run in parallel (see --threads).
   #[arg(long, hide = true)]
@@ -200,8 +291,6 @@ struct Cli {
   #[arg(long = "better-MCCs", hide = true)]
   better_mccs: bool,
   #[arg(long, hide = true)]
-  no_pre_resolve: bool,
-  #[arg(long, hide = true)]
   no_resolve: bool,
   #[arg(long, hide = true)]
   liberal_resolve: bool,
@@ -212,9 +301,14 @@ struct Cli {
 }
 
 fn main() -> Result<()> {
-  let cli = Cli::parse();
+  let matches = Cli::command().get_matches();
+  let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
   if cli.help_resolve || cli.help_defaults {
     println!("{}", resolve_help());
+    return Ok(());
+  }
+  if cli.list_examples {
+    println!("{}", example_list());
     return Ok(());
   }
   // The log stays in memory until the input passes validation, so that a run with invalid input
@@ -226,10 +320,7 @@ fn main() -> Result<()> {
   }
 
   log::info!("TreeKnit {}", env!("TREEKNIT_LONG_VERSION"));
-  let input = match &cli.request {
-    Some(path) => request_input(path)?,
-    None => tree_file_input(&cli),
-  };
+  let input = read_input(&cli, &http_get)?;
   log::info!("results directory: {}", cli.outdir.display());
   let output_options = OutputOptions {
     extensions: input.extensions.clone(),
@@ -239,9 +330,13 @@ fn main() -> Result<()> {
   };
 
   let k = input.texts.len();
-  let opts = match &input.request {
-    Some(r) => analysis::options(&r.settings, k, true),
-    None => options(&cli, k),
+  let settings = (!uses_former_options(&cli)).then(|| run_settings(&cli, &matches, &input));
+  let opts = match &settings {
+    Some((s, errors)) => match analysis::options(s, k, true) {
+      Ok(o) if errors.is_empty() => Ok(o),
+      result => Err(errors.iter().cloned().chain(result.err().unwrap_or_default()).collect()),
+    },
+    None => former_options_checked(&cli, k),
   };
   // A file that cannot be read stops the run with its read error, and the checks of the other
   // trees still run.
@@ -249,6 +344,8 @@ fn main() -> Result<()> {
     Ok(prepared) if input.read_errors.is_empty() => prepared,
     result => fail(&input.with_read_errors(result.err().unwrap_or_default()), &input.source)?,
   };
+  let settings = settings.map(|(s, _)| s);
+  let seed = settings.as_ref().map_or(cli.seed, |s| s.seed);
   run::report_overlap(&parsed.trees, &parsed.taxa);
   fs::create_dir_all(&cli.outdir).with_context(|| format!("creating {}", cli.outdir.display()))?;
   let log_path = cli.outdir.join(output::LOG_FILE);
@@ -257,13 +354,17 @@ fn main() -> Result<()> {
     .with_context(|| format!("writing {}", log_path.display()))?;
   log_options(&opts, parsed.trees.len());
   log::debug!("parameters: {opts:?}");
-  write_file(&cli.outdir, &output::parameters_file(&opts, input.seed))?;
-  if let Some(r) = &input.request {
+  write_file(&cli.outdir, &output::parameters_file(&opts, seed))?;
+  let request = settings.map(|settings| AnalysisRequest {
+    trees: input.texts.clone(),
+    settings,
+  });
+  if let Some(r) = request.as_ref().filter(|_| input.session || cli.print_link) {
     write_file(&cli.outdir, &output::request_file(r))?;
   }
 
   let start = Instant::now();
-  let result = run::run(parsed, &opts, input.seed, &|_| {});
+  let result = run::run(parsed, &opts, seed, &|_| {});
   log::info!(
     "found {:?} MCCs (runtime {:.2}s)",
     result.pairs().iter().map(|p| p.mccs.len()).collect::<Vec<_>>(),
@@ -274,25 +375,87 @@ fn main() -> Result<()> {
   for file in output::output_files(&result, &output_options)? {
     write_file(&cli.outdir, &file)?;
   }
+  if let Some(r) = request.as_ref().filter(|_| cli.print_link) {
+    match share_link(r, &input.addresses) {
+      Ok(link) => println!("{link}"),
+      Err(length) => log::warn!(
+        "the link would have {length} characters, more than {}; share the session file {} instead",
+        launch::MAX_LINK_CHARS,
+        cli.outdir.join(output::REQUEST_FILE).display()
+      ),
+    }
+  }
   Ok(())
 }
 
-/// The trees of a run with what the command line needs to report on them and to name their
-/// output files.
+/// Reads the bytes at an `https:` address, or the error with the reason.
+type Fetch<'a> = &'a dyn Fn(&str) -> Result<Vec<u8>, String>;
+
+/// The bytes at the `https:` address `url`, with the limits of the web app: an answer within
+/// [`launch::FETCH_TIMEOUT_SECONDS`] and at most [`launch::MAX_DOWNLOAD_BYTES`].
+fn http_get(url: &str) -> Result<Vec<u8>, String> {
+  let agent: ureq::Agent = ureq::Agent::config_builder()
+    .timeout_global(Some(Duration::from_secs(launch::FETCH_TIMEOUT_SECONDS.into())))
+    .build()
+    .into();
+  let limit = u64::try_from(launch::MAX_DOWNLOAD_BYTES).unwrap_or(u64::MAX);
+  agent
+    .get(launch::request_url(url))
+    .call()
+    .and_then(|mut response| response.body_mut().with_config().limit(limit).read_to_vec())
+    .map_err(|e| http_error(&e))
+}
+
+/// The reason of a failed download, in the words of the web app.
+fn http_error(e: &ureq::Error) -> String {
+  match e {
+    ureq::Error::StatusCode(code) => {
+      let reason = ureq::http::StatusCode::from_u16(*code)
+        .ok()
+        .and_then(|s| s.canonical_reason());
+      reason.map_or_else(|| format!("{code}"), |r| format!("{code} {r}"))
+    },
+    ureq::Error::Timeout(_) => format!("no answer within {} seconds", launch::FETCH_TIMEOUT_SECONDS),
+    ureq::Error::BodyExceedsLimit(_) => format!("the file is larger than {} MiB", launch::MAX_DOWNLOAD_BYTES >> 20),
+    other => other.to_string(),
+  }
+}
+
+/// The trees of a run with what the command line needs to report on them, to name their output
+/// files, and to write their link.
 struct Input {
   texts: Vec<TreeText>,
   /// Where the trees and settings come from, for error messages.
   source: Source,
   /// Extension of each tree's output files.
   extensions: Vec<String>,
-  seed: u64,
-  /// The session file, whose settings replace the analysis options.
-  request: Option<AnalysisRequest>,
+  /// The settings before the analysis options: the defaults, or the settings of the session file
+  /// or of the link.
+  base: Settings,
+  /// Where a link gets each tree again.
+  addresses: Vec<Option<TreeAddress>>,
+  /// The trees come with their labels and settings (a session file, an example, or a link), so the
+  /// results directory receives their session file.
+  session: bool,
   /// The index and the error of each input file that cannot be read; its tree has an empty text.
   read_errors: Vec<(usize, ValidationError)>,
 }
 
 impl Input {
+  /// The trees and settings of `request`, read from `source`, with the output names of the web app.
+  fn of_request(request: AnalysisRequest, source: Source, addresses: Vec<Option<TreeAddress>>) -> Self {
+    let k = request.trees.len();
+    Input {
+      texts: request.trees,
+      source,
+      extensions: OutputOptions::web(k).extensions,
+      base: request.settings,
+      addresses,
+      session: true,
+      read_errors: Vec::new(),
+    }
+  }
+
   /// The read errors, then `errors` without the errors of the Newick text of the files that
   /// cannot be read, which are about their empty text.
   fn with_read_errors(&self, errors: Vec<ValidationError>) -> Vec<ValidationError> {
@@ -311,33 +474,57 @@ impl Input {
   }
 }
 
-/// The trees of the positional tree files, labeled by path, with the seed of `--seed`, and the
-/// error of each file that cannot be read.
-fn tree_file_input(cli: &Cli) -> Input {
+/// Where the trees and the settings of a run come from.
+enum Source {
+  /// The name of each tree: its file path or its address; the settings come from the options.
+  Trees(Vec<String>),
+  /// The session file, example, or link that holds the trees and the settings, by name.
+  Named(String),
+}
+
+/// The input that the options of `cli` name, read with `fetch` from `https:` addresses.
+fn read_input(cli: &Cli, fetch: Fetch<'_>) -> Result<Input> {
+  if let Some(id) = &cli.example {
+    example_input(id)
+  } else if let Some(path) = &cli.request {
+    session_input(path, fetch)
+  } else if let Some(url) = &cli.link {
+    link_input(url, fetch)
+  } else {
+    Ok(tree_input(&cli.trees, fetch))
+  }
+}
+
+/// The trees of the tree arguments: files and `https:` or `data:` locations, each with an
+/// optional `<label>=`. Unlabeled files are labeled by path (`path_labels`) and unlabeled
+/// locations by file name (`analysis::tree_labels`), next to the given labels.
+fn tree_input(args: &[PathBuf], fetch: Fetch<'_>) -> Input {
   log::info!(
     "input trees: {}",
-    cli
-      .trees
+    args
       .iter()
       .map(|p| p.display().to_string())
       .collect::<Vec<_>>()
       .join(" ")
   );
+  let trees: Vec<TreeArg> = args.iter().map(|a| TreeArg::of(a)).collect();
+  let labels = tree_arg_labels(&trees);
   let mut read_errors = Vec::new();
-  let texts = cli
-    .trees
+  let texts = trees
     .iter()
-    .zip(path_labels(&cli.trees))
+    .zip(labels)
     .enumerate()
-    .map(|(i, (path, label))| {
-      let newick = fs::read_to_string(path).unwrap_or_else(|e| {
-        let error = ValidationError {
-          field: Some(format!("trees[{i}]")),
-          message: format!("cannot read the file: {e}"),
-          line: None,
-          column: None,
-        };
-        read_errors.push((i, error));
+    .map(|(i, (tree, label))| {
+      let newick = tree.read(fetch).unwrap_or_else(|message| {
+        read_errors.push((
+          i,
+          ValidationError {
+            field: Some(format!("trees[{i}]")),
+            message,
+            line: None,
+            column: None,
+          },
+        ));
         String::new()
       });
       TreeText { label, newick }
@@ -345,40 +532,383 @@ fn tree_file_input(cli: &Cli) -> Input {
     .collect();
   Input {
     texts,
-    source: Source::TreeFiles(cli.trees.clone()),
-    extensions: cli.trees.iter().map(|p| extension(p)).collect(),
-    seed: cli.seed,
-    request: None,
+    source: Source::Trees(trees.iter().map(TreeArg::name).collect()),
+    extensions: trees.iter().map(TreeArg::extension).collect(),
+    base: Settings::default(),
+    addresses: trees.iter().map(TreeArg::address).collect(),
+    session: false,
     read_errors,
   }
 }
 
-/// The trees and settings of the session file at `path`. Its trees keep their labels, and their
-/// output files get the extensions of the web app.
-fn request_input(path: &Path) -> Result<Input> {
+/// A tree argument: a file or a location, with the label it gives.
+struct TreeArg {
+  label: Option<String>,
+  tree: TreeArgKind,
+}
+
+enum TreeArgKind {
+  File(PathBuf),
+  Location(Result<Location, String>),
+}
+
+impl TreeArg {
+  /// The tree argument `arg`: `[<label>=]<file or location>`, with the label rule of links
+  /// (`launch::split_label`); a location starts with `https:`, `http:`, or `data:`.
+  fn of(arg: &Path) -> Self {
+    let Some(text) = arg.to_str() else {
+      return TreeArg {
+        label: None,
+        tree: TreeArgKind::File(arg.to_path_buf()),
+      };
+    };
+    let token = launch::split_label(text);
+    let tree = if is_location(token.rest) {
+      TreeArgKind::Location(launch::parse_location(token.rest))
+    } else {
+      TreeArgKind::File(PathBuf::from(token.rest))
+    };
+    TreeArg {
+      label: token.label.map(str::to_owned),
+      tree,
+    }
+  }
+
+  /// The Newick text, or the reason it cannot be read.
+  fn read(&self, fetch: Fetch<'_>) -> Result<String, String> {
+    match &self.tree {
+      TreeArgKind::File(path) => read_file(path).map_err(|e| format!("cannot read the file: {e}")),
+      TreeArgKind::Location(Ok(location)) => read_location(location, fetch),
+      TreeArgKind::Location(Err(e)) => Err(e.clone()),
+    }
+  }
+
+  fn name(&self) -> String {
+    match &self.tree {
+      TreeArgKind::File(path) => path.display().to_string(),
+      TreeArgKind::Location(Ok(Location::Url { url, .. })) => url.clone(),
+      TreeArgKind::Location(_) => "data: tree".to_owned(),
+    }
+  }
+
+  /// The extension of the output trees: that of the input file, or `.nwk` for a location.
+  fn extension(&self) -> String {
+    match &self.tree {
+      TreeArgKind::File(path) => extension(path),
+      TreeArgKind::Location(_) => ".nwk".to_owned(),
+    }
+  }
+
+  fn address(&self) -> Option<TreeAddress> {
+    match &self.tree {
+      TreeArgKind::File(_) | TreeArgKind::Location(Err(_)) => None,
+      TreeArgKind::Location(Ok(Location::Url { url, .. })) => Some(TreeAddress::Url { url: url.clone() }),
+      TreeArgKind::Location(Ok(Location::Data { .. })) => Some(TreeAddress::Data),
+    }
+  }
+}
+
+/// Labels of the tree arguments: the given labels; files without one by path, next to the given
+/// labels; locations without one by the file name of their address (`tree` for `data:`), next to
+/// all of those.
+fn tree_arg_labels(trees: &[TreeArg]) -> Vec<String> {
+  let given: Vec<String> = trees.iter().filter_map(|t| t.label.clone()).collect();
+  let files: Vec<PathBuf> = trees
+    .iter()
+    .filter_map(|t| match (&t.label, &t.tree) {
+      (None, TreeArgKind::File(path)) => Some(path.clone()),
+      _ => None,
+    })
+    .collect();
+  let file_labels = path_labels(&files, &given);
+  let names: Vec<String> = trees
+    .iter()
+    .filter_map(|t| match (&t.label, &t.tree) {
+      (None, TreeArgKind::Location(Ok(Location::Url { url, .. }))) => Some(launch::url_file_name(url)),
+      (None, TreeArgKind::Location(_)) => Some(String::new()),
+      _ => None,
+    })
+    .collect();
+  let taken: Vec<String> = given.iter().chain(&file_labels).cloned().collect();
+  let mut file_labels = file_labels.into_iter();
+  let mut location_labels = analysis::tree_labels(&names, &taken).into_iter();
+  trees
+    .iter()
+    .map(|t| match (&t.label, &t.tree) {
+      (Some(label), _) => label.clone(),
+      (None, TreeArgKind::File(_)) => file_labels.next().unwrap_or_default(),
+      (None, TreeArgKind::Location(_)) => location_labels.next().unwrap_or_default(),
+    })
+    .collect()
+}
+
+/// Whether a tree argument is a location rather than a path: it starts with `https:`, `http:`
+/// (rejected with a reason), or `data:`.
+fn is_location(text: &str) -> bool {
+  let lower = text.get(..6).unwrap_or(text).to_ascii_lowercase();
+  ["https:", "http:", "data:"].iter().any(|s| lower.starts_with(s))
+}
+
+/// The text of the file at `path`, decompressed when it is gzip-compressed.
+fn read_file(path: &Path) -> Result<String, String> {
+  let bytes = fs::read(path).map_err(|e| e.to_string())?;
+  launch::decode_tree_bytes(&bytes)
+}
+
+/// The text at `location`: downloaded with `fetch` from its address, or the text of `data:`.
+fn read_location(location: &Location, fetch: Fetch<'_>) -> Result<String, String> {
+  match location {
+    Location::Url { url, fetch: address } => {
+      log::info!("reading {url}");
+      fetch(address)
+        .and_then(|bytes| launch::decode_tree_bytes(&bytes))
+        .map_err(|e| format!("cannot read {url}: {e}"))
+    },
+    Location::Data { text } => Ok(text.clone()),
+  }
+}
+
+/// The trees and settings of the session file at `path`, a file or a location. Its trees keep
+/// their labels, and their output files get the extensions of the web app.
+fn session_input(path: &Path, fetch: Fetch<'_>) -> Result<Input> {
   log::info!("session file: {}", path.display());
-  let text = fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-  let source = Source::Request(path.to_path_buf());
+  let name = path.display().to_string();
+  let text = match path.to_str().filter(|p| is_location(p)) {
+    Some(location) => launch::parse_location(location).and_then(|l| read_location(&l, fetch)),
+    None => read_file(path),
+  };
+  let text = text.map_err(|e| anyhow::anyhow!("reading {name}: {e}"))?;
+  let source = Source::Named(name);
   let request = match analysis::read_request(&text) {
     Ok(r) => r,
     Err(errors) => fail(&errors, &source)?,
   };
-  Ok(Input {
-    texts: request.trees.clone(),
-    source,
-    extensions: OutputOptions::web(request.trees.len()).extensions,
-    seed: request.settings.seed,
-    request: Some(request),
-    read_errors: Vec::new(),
-  })
+  Ok(Input::of_request(request, source, Vec::new()))
 }
 
-/// Where the trees and the settings of a run come from.
-enum Source {
-  /// The input file of each tree; the settings come from the flags.
-  TreeFiles(Vec<PathBuf>),
-  /// The session file that holds the trees and the settings.
-  Request(PathBuf),
+/// The trees of the example `id`, with the default settings.
+fn example_input(id: &str) -> Result<Input> {
+  let Some(example) = examples::example(id) else {
+    let parsed = launch::parse_launch(&[("example".to_owned(), id.to_owned())], &[]);
+    let message = parsed.errors.first().map_or("no such example", |e| e.message.as_str());
+    bail!("{message} (see --list-examples)");
+  };
+  log::info!("example: {id}");
+  let request = AnalysisRequest {
+    trees: example.tree_texts(),
+    settings: Settings::default(),
+  };
+  let addresses = example
+    .trees
+    .iter()
+    .map(|t| {
+      Some(TreeAddress::Example {
+        id: id.to_owned(),
+        file: t.file.to_owned(),
+      })
+    })
+    .collect();
+  Ok(Input::of_request(
+    request,
+    Source::Named(format!("example {id}")),
+    addresses,
+  ))
+}
+
+/// The trees and settings of the link `url` of the web app. Its settings apply to the defaults
+/// or to the settings of its session file; keys of the display are ignored.
+fn link_input(url: &str, fetch: Fetch<'_>) -> Result<Input> {
+  log::info!("link: {url}");
+  let parsed = launch::parse_launch(&launch::link_pairs(url), &[]);
+  if !parsed.ignored.is_empty() {
+    let keys: Vec<String> = parsed
+      .ignored
+      .iter()
+      .map(|k| match &k.suggestion {
+        Some(s) => format!("{} (did you mean {s}?)", k.key),
+        None => k.key.clone(),
+      })
+      .collect();
+    log::info!("keys of the link that the command line ignores: {}", keys.join(", "));
+  }
+  if !parsed.errors.is_empty() {
+    fail(&parsed.errors, &Source::Named("link".to_owned()))?;
+  }
+  let Some(link) = parsed.launch else {
+    bail!("the link names no trees: it needs example=, tree=, or session=");
+  };
+  let mut input = match link.input {
+    LaunchInput::Example { id } => example_input(&id)?,
+    LaunchInput::Trees { trees } => {
+      let mut read_errors = Vec::new();
+      let texts = trees
+        .iter()
+        .enumerate()
+        .map(|(i, t)| {
+          let newick = read_location(&t.location, fetch).unwrap_or_else(|message| {
+            read_errors.push((
+              i,
+              ValidationError {
+                field: Some(format!("trees[{i}]")),
+                message,
+                line: None,
+                column: None,
+              },
+            ));
+            String::new()
+          });
+          TreeText {
+            label: t.label.clone(),
+            newick,
+          }
+        })
+        .collect();
+      let addresses = trees
+        .iter()
+        .map(|t| match &t.location {
+          Location::Url { url, .. } => Some(TreeAddress::Url { url: url.clone() }),
+          Location::Data { .. } => Some(TreeAddress::Data),
+        })
+        .collect();
+      let names = trees
+        .iter()
+        .map(|t| match &t.location {
+          Location::Url { url, .. } => url.clone(),
+          Location::Data { .. } => format!("data: tree {}", t.label),
+        })
+        .collect();
+      let request = AnalysisRequest {
+        trees: texts,
+        settings: Settings::default(),
+      };
+      Input {
+        read_errors,
+        ..Input::of_request(request, Source::Trees(names), addresses)
+      }
+    },
+    LaunchInput::Session { location } => {
+      let source = Source::Named("session file of the link".to_owned());
+      let text = read_location(&location, fetch).map_err(|e| anyhow::anyhow!("{e}"))?;
+      let request = match analysis::read_request(&text) {
+        Ok(r) => r,
+        Err(errors) => fail(&errors, &source)?,
+      };
+      Input::of_request(request, source, Vec::new())
+    },
+    LaunchInput::Message { .. } => {
+      bail!("from= receives the trees from another page of the browser; open this link in the web app")
+    },
+  };
+  input.base = launch::apply(&input.base, &link.settings);
+  Ok(input)
+}
+
+/// The settings of the run: the analysis options given on the command line applied to the
+/// settings of the input, with the error of `--seq-lengths`, which leaves the sequence lengths of
+/// the input. The log names each option that changes the settings of a session file, an example,
+/// or a link.
+fn run_settings(cli: &Cli, matches: &ArgMatches, input: &Input) -> (Settings, Vec<ValidationError>) {
+  let (patch, errors) = match options_patch(cli, matches, cli.seq_lengths.as_deref().map(parse_lengths)) {
+    (patch, Some(Err(e))) => (patch, vec![e]),
+    (patch, _) => (patch, Vec::new()),
+  };
+  if input.session {
+    for key in patch_keys(&patch) {
+      log::info!("--{key} changes the setting of the input");
+    }
+  }
+  (launch::apply(&input.base, &patch), errors)
+}
+
+/// The analysis options given on the command line as a patch of the settings, with the sequence
+/// lengths `lengths` when they parse; the parse result comes back. Each flag and its opposite
+/// override each other, so at most one is set.
+fn options_patch(
+  cli: &Cli,
+  matches: &ArgMatches,
+  lengths: Option<Result<Vec<f64>, ValidationError>>,
+) -> (SettingsPatch, Option<Result<Vec<f64>, ValidationError>>) {
+  let given = |id: &str| matches.value_source(id) == Some(ValueSource::CommandLine);
+  let pair = |on: bool, off: bool| {
+    if on {
+      Some(true)
+    } else if off {
+      Some(false)
+    } else {
+      None
+    }
+  };
+  let patch = SettingsPatch {
+    gamma: given("gamma").then_some(cli.gamma),
+    seq_lengths: lengths.clone().and_then(Result::ok),
+    n_mcmc_it: given("n_mcmc_it").then_some(cli.n_mcmc_it),
+    resolve: cli.resolve.map(Into::into),
+    pre_resolve: pair(cli.pre_resolve, cli.no_pre_resolve),
+    rounds: cli.rounds,
+    final_round: pair(cli.final_round, cli.no_final_round),
+    likelihood: pair(cli.likelihood, cli.no_likelihood),
+    naive: pair(cli.naive, cli.no_naive),
+    seed: given("seed").then_some(cli.seed),
+  };
+  (patch, lengths)
+}
+
+/// The keys of the settings that `patch` sets, as the options that set them: `gamma`,
+/// `no-final-round`.
+fn patch_keys(patch: &SettingsPatch) -> Vec<&'static str> {
+  let flag = |value: Option<bool>, key: &'static str, opposite: Option<&'static str>, key_sets: bool| {
+    value.map(|v| if v == key_sets { key } else { opposite.unwrap_or(key) })
+  };
+  SETTING_KEYS
+    .iter()
+    .filter_map(|s| {
+      let set = |v: bool| v.then_some(s.key);
+      match (s.setting, s.value) {
+        (schema::SettingName::Gamma, _) => set(patch.gamma.is_some()),
+        (schema::SettingName::SeqLengths, _) => set(patch.seq_lengths.is_some()),
+        (schema::SettingName::NMcmcIt, _) => set(patch.n_mcmc_it.is_some()),
+        (schema::SettingName::Resolve, _) => set(patch.resolve.is_some()),
+        (schema::SettingName::Rounds, _) => set(patch.rounds.is_some()),
+        (schema::SettingName::Seed, _) => set(patch.seed.is_some()),
+        (schema::SettingName::PreResolve, KeyValue::Flag { key_sets }) => {
+          flag(patch.pre_resolve, s.key, s.opposite, key_sets)
+        },
+        (schema::SettingName::FinalRound, KeyValue::Flag { key_sets }) => {
+          flag(patch.final_round, s.key, s.opposite, key_sets)
+        },
+        (schema::SettingName::Likelihood, KeyValue::Flag { key_sets }) => {
+          flag(patch.likelihood, s.key, s.opposite, key_sets)
+        },
+        (schema::SettingName::Naive, KeyValue::Flag { key_sets }) => flag(patch.naive, s.key, s.opposite, key_sets),
+        (
+          schema::SettingName::PreResolve
+          | schema::SettingName::FinalRound
+          | schema::SettingName::Likelihood
+          | schema::SettingName::Naive,
+          _,
+        ) => None,
+      }
+    })
+    .collect()
+}
+
+/// The link of the web app that runs `request` (`run` included), whose trees have `addresses`:
+/// the canonical link when every tree has an address, otherwise an inline session in the
+/// fragment; or the length of that link when it is longer than [`launch::MAX_LINK_CHARS`].
+fn share_link(request: &AnalysisRequest, addresses: &[Option<TreeAddress>]) -> Result<String, usize> {
+  if let Some(pairs) = launch::launch_pairs(request, addresses, &Settings::default(), true) {
+    return Ok(launch::web_link(&pairs, &[]));
+  }
+  let link = launch::web_link(
+    &[("run".to_owned(), String::new())],
+    &[("session".to_owned(), launch::inline_session(request))],
+  );
+  let length = link.chars().count();
+  if length > launch::MAX_LINK_CHARS {
+    Err(length)
+  } else {
+    Ok(link)
+  }
 }
 
 /// Write `file` at its path below `dir`, creating its parent directories.
@@ -390,28 +920,28 @@ fn write_file(dir: &Path, file: &OutputFile) -> Result<()> {
   fs::write(&path, &file.text).with_context(|| format!("writing {}", path.display()))
 }
 
-/// Stop with every validation error, one per line. For tree files, an error of a tree starts
-/// with the path of its input file, and with the line and column in the file when it has them.
-/// For a session file, every error starts with the path of the session file and the field of the
+/// Stop with every validation error, one per line. For tree arguments, an error of a tree starts
+/// with its path or address, and with the line and column in the file when it has them. For a
+/// session file, an example, or a link, every error starts with its name and the field of the
 /// error, and an error in a tree's Newick text gives the line and column in that text.
 fn fail<T>(errors: &[ValidationError], source: &Source) -> Result<T> {
   let lines: Vec<String> = errors
     .iter()
     .map(|e| match source {
-      Source::TreeFiles(paths) => {
-        let path = e.field.as_deref().and_then(tree_index).and_then(|i| paths.get(i));
-        match (path, e.line, e.column) {
-          (Some(p), Some(line), Some(column)) => format!("{}:{line}:{column}: {e}", p.display()),
-          (Some(p), ..) => format!("{}: {e}", p.display()),
+      Source::Trees(names) => {
+        let name = e.field.as_deref().and_then(tree_index).and_then(|i| names.get(i));
+        match (name, e.line, e.column) {
+          (Some(n), Some(line), Some(column)) => format!("{n}:{line}:{column}: {e}"),
+          (Some(n), ..) => format!("{n}: {e}"),
           (None, ..) => e.to_string(),
         }
       },
-      Source::Request(path) => match (&e.field, e.line, e.column) {
+      Source::Named(name) => match (&e.field, e.line, e.column) {
         (Some(field), Some(line), Some(column)) => {
-          format!("{}: {field}: line {line}, column {column}: {e}", path.display())
+          format!("{name}: {field}: line {line}, column {column}: {e}")
         },
-        (Some(field), ..) => format!("{}: {field}: {e}", path.display()),
-        (None, ..) => format!("{}: {e}", path.display()),
+        (Some(field), ..) => format!("{name}: {field}: {e}"),
+        (None, ..) => format!("{name}: {e}"),
       },
     })
     .collect();
@@ -423,9 +953,9 @@ fn tree_index(field: &str) -> Option<usize> {
   field.strip_prefix("trees[")?.split_once(']')?.0.parse().ok()
 }
 
-/// Options of the flags for `k` trees, or every error of the flags and of the shared settings
-/// checks. Independent pairs run in parallel.
-fn options(cli: &Cli, k: usize) -> Result<Options, Vec<ValidationError>> {
+/// Options of the former options for `k` trees, or every error of the flags and of the shared
+/// settings checks. Independent pairs run in parallel.
+fn former_options_checked(cli: &Cli, k: usize) -> Result<Options, Vec<ValidationError>> {
   let mut errors = Vec::new();
   let seq_lengths = match cli.seq_lengths.as_deref().map(parse_lengths).transpose() {
     Ok(v) => v,
@@ -434,33 +964,12 @@ fn options(cli: &Cli, k: usize) -> Result<Options, Vec<ValidationError>> {
       None
     },
   };
-  if !uses_former_options(cli) {
-    let s = Settings {
-      gamma: cli.gamma,
-      seq_lengths,
-      n_mcmc_it: cli.n_mcmc_it,
-      resolve: cli.resolve.map_or_else(analysis::ResolveMode::default, Into::into),
-      pre_resolve: cli.pre_resolve,
-      rounds: cli.rounds.unwrap_or_else(|| Settings::default().rounds),
-      final_round: !cli.no_final_round,
-      likelihood: !cli.no_likelihood,
-      naive: cli.naive,
-      seed: cli.seed,
-    };
-    return match analysis::options(&s, k, true) {
-      Ok(o) if errors.is_empty() => Ok(o),
-      result => {
-        errors.extend(result.err().unwrap_or_default());
-        Err(errors)
-      },
-    };
-  }
-  if cli.resolve.is_some() || cli.pre_resolve || cli.no_final_round {
+  if cli.resolve.is_some() || cli.pre_resolve || cli.no_final_round || cli.final_round {
     errors.push(ValidationError {
       field: None,
       message: "former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, \
-                --resolve-all-rounds, --no-pre-resolve, --match-topologies) cannot be combined with \
-                --resolve, --pre-resolve or --no-final-round; see --help-resolve"
+                --resolve-all-rounds, --match-topologies) cannot be combined with --resolve, --pre-resolve, \
+                --no-final-round or --final-round; see --help-resolve"
         .to_owned(),
       line: None,
       column: None,
@@ -494,14 +1003,16 @@ fn options(cli: &Cli, k: usize) -> Result<Options, Vec<ValidationError>> {
   Ok(o)
 }
 
-/// Sequence lengths of `--seq-lengths`, numbers separated by whitespace.
+/// Sequence lengths of `--seq-lengths`: numbers separated by commas or whitespace, so the value of
+/// a link (`1701,1410`) works as well as `"1701 1410"`.
 fn parse_lengths(s: &str) -> Result<Vec<f64>, ValidationError> {
-  s.split_whitespace()
+  s.split(|c: char| c == ',' || c.is_whitespace())
+    .filter(|v| !v.is_empty())
     .map(str::parse::<f64>)
     .collect::<Result<Vec<_>, _>>()
     .map_err(|e| ValidationError {
       field: Some("settings.seqLengths".to_owned()),
-      message: format!("--seq-lengths should look like \"1500 2000\", got {s:?}: {e}"),
+      message: format!("--seq-lengths should look like 1500,2000, got {s:?}: {e}"),
       line: None,
       column: None,
     })
@@ -525,7 +1036,6 @@ fn uses_former_options(cli: &Cli) -> bool {
     || cli.no_resolve
     || cli.liberal_resolve
     || cli.resolve_all_rounds
-    || cli.no_pre_resolve
     || cli.match_topologies
 }
 
@@ -540,7 +1050,6 @@ fn former_options(cli: &Cli, k: usize, rounds_flag: Option<usize>) -> Options {
     (cli.no_resolve, "--no-resolve"),
     (cli.liberal_resolve, "--liberal-resolve"),
     (cli.resolve_all_rounds, "--resolve-all-rounds"),
-    (cli.no_pre_resolve, "--no-pre-resolve"),
     (cli.match_topologies, "--match-topologies"),
   ] {
     if used {
@@ -614,20 +1123,23 @@ fn former_options(cli: &Cli, k: usize, rounds_flag: Option<usize>) -> Options {
   o
 }
 
-/// Labels of the command line for tree files: the file stem, or, when stems collide, the stem
-/// and the parent directory (`a/ha.nwk` and `b/ha.nwk` give `ha_a` and `ha_b`). Labels collide
-/// when their `analysis::label_key` is equal, as in the label check, so `a/HA.nwk` and
-/// `b/ha.nwk` also get the parent directory; the label check reports a collision that remains.
-/// The web app labels trees by file name only (`treeknit_io::analysis::tree_labels`), because it
-/// has no directories.
-fn path_labels(paths: &[PathBuf]) -> Vec<String> {
+/// Labels of the command line for tree files: the file stem, or, when stems collide with each
+/// other or with the labels `taken`, the stem and the parent directory (`a/ha.nwk` and
+/// `b/ha.nwk` give `ha_a` and `ha_b`). Labels collide when their `analysis::label_key` is equal,
+/// as in the label check, so `a/HA.nwk` and `b/ha.nwk` also get the parent directory; the label
+/// check reports a collision that remains. The web app labels trees by file name only
+/// (`treeknit_io::analysis::tree_labels`), because it has no directories.
+fn path_labels(paths: &[PathBuf], taken: &[String]) -> Vec<String> {
   let stem = |p: &Path| {
     p.file_stem()
       .map(|s| s.to_string_lossy().into_owned())
       .unwrap_or_default()
   };
   let mut labels: Vec<String> = paths.iter().map(|p| stem(p)).collect();
-  let unique = |v: &[String]| v.iter().map(|l| analysis::label_key(l)).collect::<BTreeSet<_>>().len() == v.len();
+  let unique = |v: &[String]| {
+    let keys: Vec<String> = v.iter().chain(taken).map(|l| analysis::label_key(l)).collect();
+    keys.iter().collect::<BTreeSet<_>>().len() == keys.len()
+  };
   if !unique(&labels) {
     labels = paths
       .iter()
@@ -730,4 +1242,167 @@ fn rayon_threads(n: usize) -> Result<()> {
     .num_threads(n)
     .build_global()
     .context("configuring threads")
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use pretty_assertions::assert_eq;
+  use std::collections::BTreeMap;
+  use std::iter;
+
+  const HA: &str = "((A,B),(C,(D,X)));";
+  const NA: &str = "((A,(B,X)),(C,D));";
+
+  fn cli(args: &[&str]) -> Cli {
+    Cli::try_parse_from(iter::once("treeknit").chain(args.iter().copied())).unwrap()
+  }
+
+  /// A fake of `http_get` that serves `files` by address and answers 404 otherwise.
+  fn server(files: &[(&str, &str)]) -> impl Fn(&str) -> Result<Vec<u8>, String> + use<> {
+    let files: BTreeMap<String, Vec<u8>> = files
+      .iter()
+      .map(|(url, text)| ((*url).to_owned(), text.as_bytes().to_vec()))
+      .collect();
+    move |url| {
+      files
+        .get(url)
+        .cloned()
+        .ok_or_else(|| http_error(&ureq::Error::StatusCode(404)))
+    }
+  }
+
+  fn trees(trees: &[(&str, &str)]) -> Vec<TreeText> {
+    trees
+      .iter()
+      .map(|(label, newick)| TreeText {
+        label: (*label).to_owned(),
+        newick: (*newick).to_owned(),
+      })
+      .collect()
+  }
+
+  fn url(u: &str) -> Option<TreeAddress> {
+    Some(TreeAddress::Url { url: u.to_owned() })
+  }
+
+  #[test]
+  fn setting_keys_are_the_analysis_options() {
+    // A renamed flag fails here instead of breaking the links that name it.
+    let command = Cli::command();
+    let options: BTreeSet<&str> = command
+      .get_arguments()
+      .filter(|a| a.get_help_heading() == Some(ANALYSIS_HEADING))
+      .filter_map(|a| a.get_long())
+      .collect();
+    let keys: BTreeSet<&str> = SETTING_KEYS
+      .iter()
+      .flat_map(|s| iter::once(s.key).chain(s.opposite))
+      .collect();
+    assert_eq!(keys, options);
+  }
+
+  #[test]
+  fn https_tree_arguments_are_labeled_like_link_trees() {
+    let fetch = server(&[("https://x/seg4.nwk", HA), ("https://x/na.nwk", NA)]);
+    let input = read_input(&cli(&["HA=https://x/seg4.nwk", "https://x/na.nwk"]), &fetch).unwrap();
+    let expected = (
+      trees(&[("HA", HA), ("na", NA)]),
+      vec![url("https://x/seg4.nwk"), url("https://x/na.nwk")],
+      vec![".nwk".to_owned(), ".nwk".to_owned()],
+    );
+    assert_eq!(expected, (input.texts, input.addresses, input.extensions));
+  }
+
+  #[test]
+  fn github_file_pages_are_read_from_their_raw_files() {
+    let fetch = server(&[
+      ("https://raw.githubusercontent.com/o/r/main/ha.nwk", HA),
+      ("https://raw.githubusercontent.com/o/r/main/na.nwk", NA),
+    ]);
+    let args = [
+      "https://github.com/o/r/blob/main/ha.nwk",
+      "https://github.com/o/r/blob/main/na.nwk",
+    ];
+    let input = read_input(&cli(&args), &fetch).unwrap();
+    assert_eq!(trees(&[("ha", HA), ("na", NA)]), input.texts);
+  }
+
+  #[test]
+  fn session_file_at_an_address_is_read() {
+    let session = format!(
+      r#"{{"trees": [{{"label": "ha", "newick": "{HA}"}}, {{"label": "na", "newick": "{NA}"}}], "settings": {{"gamma": 3}}}}"#
+    );
+    let fetch = server(&[("https://x/s.json", &session)]);
+    let input = read_input(&cli(&["--request", "https://x/s.json"]), &fetch).unwrap();
+    let expected = (trees(&[("ha", HA), ("na", NA)]), 3.0_f64.to_bits(), true);
+    assert_eq!(expected, (input.texts, input.base.gamma.to_bits(), input.session));
+  }
+
+  #[test]
+  fn link_with_https_trees_is_read_and_its_printed_link_reads_back() {
+    let fetch = server(&[("https://x/seg4.nwk", HA), ("https://x/na.nwk", NA)]);
+    let link =
+      "https://neherlab.github.io/treeknit-rs/?tree=HA=https://x/seg4.nwk&tree=https://x/na.nwk&gamma=3&view=mccs";
+    let input = read_input(&cli(&["--link", link]), &fetch).unwrap();
+    assert_eq!(trees(&[("HA", HA), ("na", NA)]), input.texts);
+    let request = AnalysisRequest {
+      trees: input.texts.clone(),
+      settings: input.base.clone(),
+    };
+    let printed = share_link(&request, &input.addresses).unwrap();
+    assert_eq!(
+      "https://neherlab.github.io/treeknit-rs/?tree=HA=https://x/seg4.nwk&tree=https://x/na.nwk&gamma=3&run",
+      printed
+    );
+    let again = read_input(&cli(&["--link", &printed]), &fetch).unwrap();
+    assert_eq!((request.trees, request.settings), (again.texts, again.base));
+  }
+
+  #[test]
+  fn missing_address_is_a_read_error_with_its_status() {
+    let fetch = server(&[("https://x/na.nwk", NA)]);
+    let input = read_input(&cli(&["https://x/ha.nwk", "https://x/na.nwk"]), &fetch).unwrap();
+    let expected = vec![(
+      0,
+      ValidationError {
+        field: Some("trees[0]".to_owned()),
+        message: "cannot read https://x/ha.nwk: 404 Not Found".to_owned(),
+        line: None,
+        column: None,
+      },
+    )];
+    assert_eq!(expected, input.read_errors);
+  }
+
+  #[test]
+  fn http_errors_name_the_status_and_the_limits() {
+    let actual = [
+      http_error(&ureq::Error::StatusCode(404)),
+      http_error(&ureq::Error::StatusCode(599)),
+      http_error(&ureq::Error::BodyExceedsLimit(1)),
+      http_error(&ureq::Error::HostNotFound),
+    ];
+    let expected = [
+      "404 Not Found",
+      "599",
+      "the file is larger than 64 MiB",
+      "host not found",
+    ];
+    assert_eq!(expected.map(str::to_owned), actual);
+  }
+
+  #[test]
+  fn labeled_and_unlabeled_tree_arguments_share_the_labels() {
+    // The explicit label "ha" is taken, so the files are labeled by path with their directory; a
+    // `/` before the first `=` makes `c/a=b.nwk` a path; a data: tree gets the label `tree`.
+    let args = [
+      PathBuf::from("ha=a/na.nwk"),
+      PathBuf::from("b/ha.nwk"),
+      PathBuf::from("data:,(A,B);"),
+      PathBuf::from("c/a=b.nwk"),
+    ];
+    let parsed: Vec<TreeArg> = args.iter().map(|a| TreeArg::of(a)).collect();
+    assert_eq!(vec!["ha", "ha_b", "tree", "a=b_c"], tree_arg_labels(&parsed));
+  }
 }

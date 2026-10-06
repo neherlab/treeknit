@@ -46,6 +46,21 @@ pub const MAX_TEXT_BYTES: usize = MAX_TEXT_MIB * 1024 * 1024;
 /// [`MAX_TEXT_BYTES`] in MiB.
 const MAX_TEXT_MIB: usize = 256;
 
+/// Longest time that reading a file of a link may take, in seconds, so that a wrong address
+/// cannot hang the web app or the command line.
+pub const FETCH_TIMEOUT_SECONDS: u32 = 60;
+
+/// Largest file that a link may download, counted while it arrives, so that a wrong address
+/// cannot exhaust the memory of a browser tab: a Newick tree of 100,000 leaves is about 5 MB.
+pub const MAX_DOWNLOAD_BYTES: usize = 64 * 1024 * 1024;
+
+/// Longest link to write: Chrome's address bar shows at most 32 kB of a URL.
+pub const MAX_LINK_CHARS: usize = 32_000;
+
+/// Link length above which chat apps (Slack allows 4,000 characters per message), link
+/// shorteners (Bitly allows 2,048), and QR codes may break a link.
+pub const LONG_LINK_CHARS: usize = 2_000;
+
 /// Keys that name an input; a link has at most one kind of them.
 const INPUT_KEYS: [&str; 4] = ["example", "tree", "session", "from"];
 
@@ -322,6 +337,31 @@ pub fn web_app_url() -> String {
   }
 }
 
+/// The limits of downloads and links, for the web app.
+pub fn link_limits() -> LinkLimits {
+  LinkLimits {
+    fetch_timeout_seconds: FETCH_TIMEOUT_SECONDS,
+    max_download_bytes: MAX_DOWNLOAD_BYTES,
+    max_link_chars: MAX_LINK_CHARS,
+    long_link_chars: LONG_LINK_CHARS,
+  }
+}
+
+/// `url` with every character that a URI cannot hold percent-encoded (spaces, non-ASCII
+/// characters, `"`, `<`, `>`, ...), as browsers send it: links keep such characters readable,
+/// and an HTTP client needs them encoded.
+pub fn request_url(url: &str) -> String {
+  let mut out = String::with_capacity(url.len());
+  for c in url.chars() {
+    if c.is_ascii_alphanumeric() || "-._~:/?#[]@!$&'()*+,;=%".contains(c) {
+      out.push(c);
+    } else {
+      push_percent_encoded(&mut out, c);
+    }
+  }
+  out
+}
+
 /// Every key of links that is not a key of the display, with its value and a one-line
 /// description, for the help of the web app: the inputs, the settings, `run`, and `v`.
 pub fn launch_keys() -> Vec<LaunchKeyInfo> {
@@ -373,6 +413,17 @@ pub fn launch_keys() -> Vec<LaunchKeyInfo> {
     format!("Version of the link format; without it, version {FORMAT_VERSION}."),
   ));
   keys
+}
+
+/// The limits of downloads and links; see the constants of the same names.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct LinkLimits {
+  pub fetch_timeout_seconds: u32,
+  pub max_download_bytes: usize,
+  pub max_link_chars: usize,
+  pub long_link_chars: usize,
 }
 
 /// What [`parse_launch`] read from a link.
@@ -981,17 +1032,22 @@ fn encode_component(text: &str, key: bool) -> String {
       || c.is_control()
       || !c.is_ascii();
     if encode {
-      let mut buf = [0; 4];
-      for byte in c.encode_utf8(&mut buf).bytes() {
-        out.push('%');
-        out.push(char::from(HEX_DIGITS[usize::from(byte >> 4)]));
-        out.push(char::from(HEX_DIGITS[usize::from(byte & 0x0f)]));
-      }
+      push_percent_encoded(&mut out, c);
     } else {
       out.push(c);
     }
   }
   out
+}
+
+/// Append the UTF-8 bytes of `c` to `out`, percent-encoded.
+fn push_percent_encoded(out: &mut String, c: char) {
+  let mut buf = [0; 4];
+  for byte in c.encode_utf8(&mut buf).bytes() {
+    out.push('%');
+    out.push(char::from(HEX_DIGITS[usize::from(byte >> 4)]));
+    out.push(char::from(HEX_DIGITS[usize::from(byte & 0x0f)]));
+  }
 }
 
 /// The id of the example whose trees `request` has in its order with its labels.
@@ -1602,6 +1658,14 @@ mod tests {
     );
     assert_eq!(vec!["example"], read("https://h/p/help?example=a#help-cite"));
     assert_eq!(Vec::<String>::new(), read("https://h/p/"));
+  }
+
+  #[test]
+  fn request_url_encodes_what_a_uri_cannot_hold() {
+    assert_eq!(
+      "https://x/a%20b/%C3%A9.nwk?q=1&r=%22#f",
+      request_url("https://x/a b/é.nwk?q=1&r=\"#f")
+    );
   }
 
   #[test]
