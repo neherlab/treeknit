@@ -27,6 +27,7 @@ const DEFAULT_SEARCH: WorkspaceSearch = {
   version: "resolved",
   x: "div",
   labels: "auto",
+  trees: "both",
 };
 
 function parseUrl(query: string): WorkspaceSearch {
@@ -53,6 +54,7 @@ describe("workspaceSearchSchema", () => {
       version: "imputed",
       x: "depth",
       labels: "off",
+      trees: "both",
       mcc: 4,
       leaf: "A/New York/392/2004",
       node: { side: "left", name: "NODE_3" },
@@ -327,7 +329,14 @@ describe("withSelectionPair", () => {
 });
 
 describe("searchAfterRun", () => {
-  const SHOWN: Omit<WorkspaceSearch, "view"> = { pair: 2, version: "imputed", x: "depth", labels: "off", leaf: "A" };
+  const SHOWN: Omit<WorkspaceSearch, "view"> = {
+    pair: 2,
+    version: "imputed",
+    x: "depth",
+    labels: "off",
+    trees: "both",
+    leaf: "A",
+  };
 
   const SUMMARY: Summary = {
     pairs: [],
@@ -355,5 +364,25 @@ describe("searchAfterRun", () => {
     const search: WorkspaceSearch = { ...SHOWN, view: "files" };
 
     expect(searchAfterRun(search, outcome, stored)).toStrictEqual(search);
+  });
+});
+
+describe("the Auspice parameters", () => {
+  test.each([
+    ["trees=left", { trees: "left", auspice: undefined }],
+    ["trees=right", { trees: "right", auspice: undefined }],
+    ["trees=all", { trees: "both", auspice: undefined }],
+    ["auspice=c%3Dlargest_mcc%26legend%3Dopen", { trees: "both", auspice: "c=largest_mcc&legend=open" }],
+    ["auspice=", { trees: "both", auspice: undefined }],
+  ] as const)("read %s", (query, expected) => {
+    const { trees, auspice } = parseUrl(query);
+
+    expect({ trees, auspice }).toStrictEqual(expected);
+  });
+
+  test("keep the shown trees and the Auspice choices when the search resolves", () => {
+    const search: WorkspaceSearch = { ...DEFAULT_SEARCH, view: "auspice", trees: "right", auspice: "c=imputed" };
+
+    expect(resolveWorkspaceSearch(search, TWO_TREE_RESULT)).toStrictEqual(search);
   });
 });

@@ -1,4 +1,4 @@
-import type { LabelMode, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
+import type { AuspiceTrees, LabelMode, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
 import { stringifySearchWith } from "@tanstack/react-router";
 import { isDeepEqual, omit } from "remeda";
 import * as z from "zod";
@@ -25,6 +25,8 @@ export const X_SCALES = everyVariantOf<Scale>()(["div", "depth"]);
 
 export const LABEL_MODES = everyVariantOf<LabelMode>()(["auto", "on", "off"]);
 
+export const AUSPICE_TREES = everyVariantOf<AuspiceTrees>()(["both", "left", "right"]);
+
 export const NODE_SIDES = ["left", "right", "arg"] as const;
 
 export type NodeSide = (typeof NODE_SIDES)[number];
@@ -48,6 +50,7 @@ export const WORKSPACE_SEARCH_DEFAULTS = {
   version: "resolved",
   x: "div",
   labels: "auto",
+  trees: "both",
 } as const;
 
 const integerSchema = z.union([
@@ -66,6 +69,8 @@ export const workspaceSearchSchema = z.object({
   version: choice(TREE_VERSIONS, WORKSPACE_SEARCH_DEFAULTS.version),
   x: choice(X_SCALES, WORKSPACE_SEARCH_DEFAULTS.x),
   labels: choice(LABEL_MODES, WORKSPACE_SEARCH_DEFAULTS.labels),
+  trees: choice(AUSPICE_TREES, WORKSPACE_SEARCH_DEFAULTS.trees),
+  auspice: optional(z.string().min(1)),
   mcc: optional(nonNegativeIntegerSchema),
   leaf: optional(z.string().min(1)),
   node: optional(z.union([nodeRefSchema, nodeRefTextSchema])),

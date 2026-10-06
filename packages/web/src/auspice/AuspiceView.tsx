@@ -1,4 +1,4 @@
-import type { AuspiceFiles } from "@neherlab/treeknit-wasm";
+import type { AuspiceFiles, AuspicePair, AuspiceTrees } from "@neherlab/treeknit-wasm";
 import { AnnotatedTitle } from "auspice/src/components/controls/annotatedTitle";
 import ChooseBranchLabelling from "auspice/src/components/controls/choose-branch-labelling";
 import ChooseLayout from "auspice/src/components/controls/choose-layout";
@@ -12,18 +12,22 @@ import { ControlsContainer } from "auspice/src/components/controls/styles";
 import { ToggleFocus } from "auspice/src/components/controls/toggle-focus";
 import ToggleTangle from "auspice/src/components/controls/toggle-tangle";
 import Tree from "auspice/src/components/tree";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { I18nextProvider } from "react-i18next";
 import { Provider } from "react-redux";
 import { ThemeProvider } from "styled-components";
 
 import { useMeasuredSize } from "../canvas/useMeasuredSize";
 import type { MeasuredSize } from "../canvas/viewState";
+import { focusApplies, focusDone, useFocusRequest } from "../drawing/focus";
+import type { Selection } from "../drawing/selection";
 import { usePaneOpen } from "../shell/paneStore";
 import { CollapsiblePane } from "../ui/CollapsiblePane";
 import { AuspiceHeader } from "./AuspiceHeader";
 import { AUSPICE_I18N } from "./i18n";
 import { SIDEBAR_WIDTH_PX, sidebarOverlays, treeSize } from "./layout";
+import { type AppliedMarks, mccFilterValue, NO_MARKS, syncSelection, zoomToMcc } from "./linking";
+import type { AuspiceStore } from "./store";
 import { type AuspiceInput, useAuspiceStore } from "./useAuspiceStore";
 
 const SIDEBAR = <AuspiceSidebar />;
@@ -38,8 +42,11 @@ const SIDEBAR_THEME = {
   alternateBackground: "#888",
 };
 
-export default function AuspiceView({ files, treeLabels, axisTitle, ...input }: AuspiceViewProps) {
+export default function AuspiceView({ files, treeLabels, axisTitle, selection, pair, ...input }: AuspiceViewProps) {
   const store = useAuspiceStore(input);
+
+  useSelectionMarks(store, selection, input.datasets);
+  useMccFocus(store, pair, input.datasets, input.trees);
 
   return (
     <I18nextProvider i18n={AUSPICE_I18N}>
@@ -56,9 +63,40 @@ export interface AuspiceViewProps extends AuspiceInput {
   files: AuspiceFiles | undefined;
   treeLabels: readonly string[];
   axisTitle: string | undefined;
+  selection: Selection;
+  pair: number;
 }
 
-function AuspiceLayout({ files, treeLabels, axisTitle }: Omit<AuspiceViewProps, keyof AuspiceInput>) {
+function useSelectionMarks(store: AuspiceStore, selection: Selection, datasets: AuspicePair): void {
+  const applied = useRef<AppliedMarks>(NO_MARKS);
+
+  useEffect(() => {
+    applied.current = syncSelection(store, applied.current, selection, (mcc) => mccFilterValue(datasets.left, mcc));
+  }, [store, selection, datasets]);
+}
+
+function useMccFocus(store: AuspiceStore, pair: number, datasets: AuspicePair, trees: AuspiceTrees): void {
+  const request = useFocusRequest();
+
+  useEffect(() => {
+    if (request?.target.kind !== "mcc" || !focusApplies(request, pair)) {
+      return;
+    }
+
+    const root = datasets.mcc_roots[request.target.mcc];
+
+    // oxlint-disable-next-line react-you-might-not-need-an-effect/no-event-handler -- a focus request from another view waits in the focus store until the Auspice view of its pair is mounted; applying it dispatches to the Auspice store, which must not change during render
+    if (root !== undefined) {
+      zoomToMcc(store, root, trees);
+    }
+
+    focusDone(request.id);
+  }, [store, request, pair, datasets, trees]);
+}
+
+type LayoutProps = Pick<AuspiceViewProps, "files" | "treeLabels" | "axisTitle">;
+
+function AuspiceLayout({ files, treeLabels, axisTitle }: LayoutProps) {
   const [size, setSize] = useState<MeasuredSize | null>(null);
   const { areaRef, canvasRef } = useMeasuredSize(setSize, { beforePaint: true });
   const isOverlay = size !== null && sidebarOverlays(size.areaWidth);
@@ -87,12 +125,7 @@ function AuspiceLayout({ files, treeLabels, axisTitle }: Omit<AuspiceViewProps, 
   );
 }
 
-function SizedTree({
-  size,
-  files,
-  treeLabels,
-  axisTitle,
-}: { size: MeasuredSize | null } & Omit<AuspiceViewProps, keyof AuspiceInput>) {
+function SizedTree({ size, files, treeLabels, axisTitle }: { size: MeasuredSize | null } & LayoutProps) {
   const fitted = size === null ? null : treeSize(size.canvas);
 
   if (fitted === null) {

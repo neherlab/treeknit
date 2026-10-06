@@ -35,7 +35,15 @@ export function ToggleButtonGroup({
   );
 }
 
-export function ToggleButton({ label, tooltip, icon: Icon, iconOnly = false, ...props }: ToggleButtonProps) {
+export function ToggleButton({
+  label,
+  tooltip,
+  unavailableReason,
+  icon: Icon,
+  iconOnly = false,
+  className,
+  ...props
+}: ToggleButtonProps) {
   const button = (
     <AriaToggleButton
       {...props}
@@ -47,16 +55,19 @@ export function ToggleButton({ label, tooltip, icon: Icon, iconOnly = false, ...
         "data-selected:bg-ink data-selected:text-ground data-selected:font-semibold",
         "data-disabled:text-ink-muted data-disabled:cursor-not-allowed",
         iconOnly ? "w-7" : "px-2.5",
+        unavailableReason !== undefined &&
+          "text-ink-muted/60 data-hovered:text-ink-muted/60 cursor-not-allowed data-hovered:bg-transparent",
         focusRing,
+        className,
       )}
     >
       {Icon === undefined ? null : <Icon aria-hidden />}
-      {iconOnly ? null : label}
+      {iconOnly ? null : <span className="min-w-0 truncate">{label}</span>}
     </AriaToggleButton>
   );
 
-  if (tooltip !== undefined) {
-    return <TooltipTrigger tooltip={tooltip}>{button}</TooltipTrigger>;
+  if (unavailableReason !== undefined || tooltip !== undefined) {
+    return <TooltipTrigger tooltip={unavailableReason ?? tooltip}>{button}</TooltipTrigger>;
   }
 
   if (!iconOnly) {
@@ -73,7 +84,9 @@ export function ToggleButton({ label, tooltip, icon: Icon, iconOnly = false, ...
 export interface ToggleButtonProps extends Pick<AriaToggleButtonProps, "isDisabled"> {
   id: Key;
   label: string;
-  tooltip?: string;
+  tooltip?: string | undefined;
+  unavailableReason?: string | undefined;
+  className?: string;
   icon?: ComponentType<SVGProps<SVGSVGElement>>;
   iconOnly?: boolean;
 }

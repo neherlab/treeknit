@@ -25,6 +25,7 @@ export const AUSPICE_ENTRIES = [
   "auspice/src/components/info/filtersSummary",
   "auspice/src/components/tree",
   "auspice/src/components/tree/phyloTree/helpers",
+  "auspice/src/middleware/changeURL",
   "auspice/src/middleware/performanceFlags",
   "auspice/src/middleware/scatterplot",
   "auspice/src/reducers/browserDimensions",
@@ -37,6 +38,7 @@ export const AUSPICE_ENTRIES = [
   "auspice/src/reducers/notifications",
   "auspice/src/reducers/tree",
   "auspice/src/reducers/tree/treeToo",
+  "auspice/src/util/globals",
 ] as const;
 
 const SHARED_PACKAGES = ["react", "react-dom"];

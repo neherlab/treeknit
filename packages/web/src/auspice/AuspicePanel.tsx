@@ -5,15 +5,22 @@ import RetryIcon from "~icons/lucide/rotate-ccw";
 
 import { useAuspiceFiles, useAuspiceView } from "../analysis/queries";
 import { lazyCanvas, useLazyCanvas } from "../canvas/lazyCanvas";
-import { PairSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
+import { ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
+import { LeafSearch } from "../drawing/LeafSearch";
 import { shownScaleNotice } from "../drawing/scale";
 import { useDrawingSearch } from "../drawing/useDrawingSearch";
 import { Button } from "../ui/Button";
 import { InlineNotice } from "../ui/InlineNotice";
 import { ProgressBar } from "../ui/ProgressBar";
 import { useWorkspace } from "../workspace/context";
+import { selectPair } from "../workspace/search";
 import type { RunResult } from "../workspace/store";
+import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
+import { leafNames, shownTreeLabels } from "./datasets";
+import { parseAuspiceQuery, withAuspiceQuery } from "./query";
+import type { ShownTrees } from "./strip";
+import { TreeStrip } from "./TreeStrip";
 
 const AUSPICE_VIEW = lazyCanvas(async () => import("./AuspiceView"));
 
@@ -31,18 +38,49 @@ export function AuspicePanel() {
 
 function Auspice({ result }: { result: RunResult }) {
   const [AuspiceView, reloadAuspiceView] = useLazyCanvas(AUSPICE_VIEW);
-  const { search, select, clearOnEscape, choosePair, chooseVersion, chooseScale } = useDrawingSearch();
-  const { pair, version, x } = search;
+  const { search, selection, select, clearOnEscape, chooseVersion, chooseScale } = useDrawingSearch();
+  const { update } = useWorkspaceSearch();
+  const { pair, version, x, trees } = search;
   const query = useAuspiceView(result.sessionId, pair, version, x);
-  const files = useAuspiceFiles(result.sessionId, pair, version, x, "both").data;
+  const files = useAuspiceFiles(result.sessionId, pair, version, x, trees).data;
   const pairs = result.summary.pairs;
   const labels = pairs[pair]?.labels;
+  const treeLabels = useMemo(() => result.request.trees.map(({ label }) => label), [result.request.trees]);
+  const shown = useMemo(() => ({ pair, trees }), [pair, trees]);
+  const shownLabels = useMemo(() => shownTreeLabels(labels, trees), [labels, trees]);
+  const urlQuery = useMemo(() => parseAuspiceQuery(search.auspice), [search.auspice]);
+  const names = useMemo(() => (query.data === undefined ? [] : leafNames(query.data, trees)), [query.data, trees]);
+
+  const chooseShown = useCallback(
+    (next: ShownTrees) => {
+      update((written) => ({
+        ...(next.pair === written.pair ? written : selectPair(written, next.pair)),
+        trees: next.trees,
+      }));
+    },
+    [update],
+  );
+
+  const writeQuery = useCallback(
+    (text: string) => {
+      update((written) => withAuspiceQuery(written, text), { replace: true });
+    },
+    [update],
+  );
+
+  const findLeaf = useCallback(
+    (name: string) => {
+      select({ leaf: name });
+    },
+    [select],
+  );
 
   const toolbar = (
     <>
-      <PairSelect pairs={pairs} value={pair} onChange={choosePair} />
+      <TreeStrip labels={treeLabels} pairs={pairs} shown={shown} onChange={chooseShown} />
       <VersionToggle value={version} onChange={chooseVersion} />
       <ScaleToggle value={x} onChange={chooseScale} />
+      <LeafSearch names={names} onSelect={findLeaf} />
     </>
   );
 
@@ -64,12 +102,17 @@ function Auspice({ result }: { result: RunResult }) {
             <KeyedAuspiceView datasets={datasets}>
               {(key) => (
                 <AuspiceView
-                  key={key}
+                  key={`${String(key)}:${trees}`}
                   datasets={datasets}
                   labels={labels}
+                  trees={trees}
+                  query={urlQuery}
+                  selection={selection}
+                  pair={pair}
                   onSelect={select}
+                  onQuery={writeQuery}
                   files={files}
-                  treeLabels={labels}
+                  treeLabels={shownLabels}
                   axisTitle={datasets.axis_title}
                 />
               )}

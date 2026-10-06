@@ -46,8 +46,12 @@ export interface AuspiceNode {
 }
 
 export interface AuspiceControlsState {
+  defaults: AuspiceControlDefaults;
   colorBy: string;
   layout: string;
+  tipLabelKey: string | symbol;
+  selectedBranchLabel: string;
+  showAllBranchLabels: boolean;
   distanceMeasure: string;
   focus: string | null;
   branchLengthsToDisplay: string;
@@ -71,6 +75,7 @@ export interface AuspiceSelectedNode {
   idx: number;
   isBranch: boolean;
   treeId: AuspiceTreeId;
+  existingFilterState?: "active" | "inactive" | null | undefined;
 }
 
 export interface AuspicePublication {
@@ -82,3 +87,10 @@ export interface AuspicePublication {
 }
 
 export type ObservedMutations = Readonly<Record<string, number>>;
+
+export interface AuspiceControlDefaults {
+  colorBy: string;
+  layout: string;
+  tipLabelKey: string | symbol;
+  selectedBranchLabel: string;
+}

@@ -76,8 +76,11 @@ function dataset(tree: AuspiceNode): AuspiceDataset {
     meta: {
       title: "TreeKnit: a and b",
       panels: ["tree"],
-      colorings: [{ key: "mcc", title: "MCC (a and b)", type: "categorical", scale: MCC_SCALE }],
-      filters: ["mcc"],
+      colorings: [
+        { key: "mcc", title: "MCC (a and b)", type: "categorical", scale: MCC_SCALE },
+        { key: "largest_mcc", title: "Largest MCCs", type: "categorical", scale: MCC_SCALE },
+      ],
+      filters: ["mcc", "largest_mcc"],
       display_defaults: { color_by: "mcc", branch_label: "MCC" },
       sharing: { entropy: false },
     },

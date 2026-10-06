@@ -43,6 +43,7 @@ const SEARCH: WorkspaceSearch = {
   version: "resolved",
   x: "div",
   labels: "auto",
+  trees: "both",
   mcc: 1,
   leaf: "X",
   node: { side: "left", name: "NODE_1" },
@@ -133,8 +134,8 @@ describe("workspace availability", () => {
       noResult: resolveWorkspaceSearch(SEARCH, workspaceAvailability(2, null, NOTHING_LOADED)),
     }).toStrictEqual({
       kept: SEARCH,
-      cleared: { view: "tanglegram", pair: 0, version: "resolved", x: "div", labels: "auto" },
-      noResult: { view: "overview", pair: 0, version: "resolved", x: "div", labels: "auto" },
+      cleared: { view: "tanglegram", pair: 0, version: "resolved", x: "div", labels: "auto", trees: "both" },
+      noResult: { view: "overview", pair: 0, version: "resolved", x: "div", labels: "auto", trees: "both" },
     });
   });
 });
