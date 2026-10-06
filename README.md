@@ -35,7 +35,7 @@ Main options:
 | `--plot` | SVG figures: a tanglegram per pair and, for two trees, the ARG |
 | `--seed`, `--threads` | reproducibility and parallelism |
 | `-v`, `--verbosity-level` | logging detail |
-| `--request treeknit_request.json` | run the trees and settings of a session file saved by the web app, instead of tree files and analysis options |
+| `--session treeknit_session.json` | run the trees and settings of a session file saved by the web app, instead of tree files and analysis options |
 
 Output in the results directory:
 
@@ -51,7 +51,7 @@ Output in the results directory:
 | `tanglegram_<a>_<b>.svg` | with `--plot`: the tanglegram of the resolved trees of each pair, with MCC colors and reassortment branches marked |
 | `ARG/arg.svg` | with `--plot`, two trees with a built ARG: the ARG, colored by segment, with reassortments as dashed curves |
 | `parameters.json`, `log.txt` | parameters and log of the run |
-| `treeknit_request.json` | with `--request`: the trees and settings that ran |
+| `treeknit_session.json` | with `--session`: the trees and settings that ran |
 
 ## Resolving trees
 

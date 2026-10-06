@@ -170,7 +170,7 @@ export interface LaunchEnvironment {
 
 export type LaunchClient = Pick<
   AnalysisClient,
-  "parseLaunch" | "decodeTreeBytes" | "examples" | "readRequest" | "applySettings" | "linkLimits"
+  "parseLaunch" | "decodeTreeBytes" | "examples" | "readSession" | "applySettings" | "linkLimits"
 >;
 
 export interface ReceivedSession {
@@ -349,7 +349,7 @@ async function openSession(
   let request: AnalysisRequest;
 
   try {
-    request = await client.readRequest(text);
+    request = await client.readSession(text);
   } catch (cause) {
     throw new LaunchLoadError([`The session file could not be opened: ${messageOf(cause)}`]);
   }

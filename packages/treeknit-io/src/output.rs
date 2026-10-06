@@ -25,8 +25,8 @@ use zip::{CompressionMethod, DateTime, System, ZipWriter};
 pub const RESULTS_DIR: &str = "treeknit_results";
 
 /// File name of the session file: the analysis request that the web app saves and the command
-/// line runs with `--request`.
-pub const REQUEST_FILE: &str = "treeknit_request.json";
+/// line runs with `--session`.
+pub const SESSION_FILE: &str = "treeknit_session.json";
 
 /// File name of the core options and the seed of a run.
 pub const PARAMETERS_FILE: &str = "parameters.json";
@@ -361,7 +361,7 @@ pub fn web_files(
   seed: u64,
   records: &[Diagnostic],
 ) -> Result<Vec<WebFile>, MissingFile> {
-  let mut files = vec![WebFile::Text(request_file(request))];
+  let mut files = vec![WebFile::Text(session_file(request))];
   for (kind, path) in run_files(run, &OutputOptions::web(run.trees.len())) {
     files.push(match kind {
       FileKind::Figure { figure, .. } => WebFile::Figure(FigureFile { path, figure }),
@@ -385,7 +385,7 @@ pub fn output_paths(labels: &[String], options: &OutputOptions) -> Vec<String> {
     .into_iter()
     .map(|kind| kind.path(&labels, options))
     .collect();
-  paths.extend([PARAMETERS_FILE, LOG_FILE, REQUEST_FILE].map(str::to_owned));
+  paths.extend([PARAMETERS_FILE, LOG_FILE, SESSION_FILE].map(str::to_owned));
   paths
 }
 
@@ -738,15 +738,15 @@ impl From<ZipError> for ArchiveError {
   }
 }
 
-/// The session file of `request`, `treeknit_request.json`: its trees and settings as pretty
-/// JSON, which `analysis::read_request` reads back.
-pub fn request_file(request: &AnalysisRequest) -> OutputFile {
+/// The session file of `request`, `treeknit_session.json`: its trees and settings as pretty
+/// JSON, which `analysis::read_session` reads back.
+pub fn session_file(request: &AnalysisRequest) -> OutputFile {
   #[expect(
     clippy::expect_used,
     reason = "a request has string keys and serde_json writes a non-finite number as null"
   )]
   let json = serde_json::to_string_pretty(request).expect("a request serializes to JSON");
-  OutputFile::new(REQUEST_FILE.to_owned(), format!("{json}\n"))
+  OutputFile::new(SESSION_FILE.to_owned(), format!("{json}\n"))
 }
 
 /// Results directory of `command_line`, next to the extracted `treeknit_results/`, so that the
@@ -758,7 +758,7 @@ pub const COMMAND_LINE_RESULTS_DIR: &str = "treeknit_results_cli";
 /// `treeknit_results_cli/`, and the flags of `OutputOptions::web`.
 pub fn command_line() -> String {
   let flags = OutputOptions::web(0).flags().join(" ");
-  format!("treeknit --request {RESULTS_DIR}/{REQUEST_FILE} --outdir {COMMAND_LINE_RESULTS_DIR} {flags}")
+  format!("treeknit --session {RESULTS_DIR}/{SESSION_FILE} --outdir {COMMAND_LINE_RESULTS_DIR} {flags}")
 }
 
 /// Path of a tree file: `<dir><label><suffix><ext>`, such as `ARG/ha_liberal_resolved.nwk`.
@@ -962,7 +962,7 @@ mod tests {
 
   #[test]
   fn output_paths_list_every_file_that_a_run_writes() {
-    let fixed = [PARAMETERS_FILE, LOG_FILE, REQUEST_FILE];
+    let fixed = [PARAMETERS_FILE, LOG_FILE, SESSION_FILE];
     let t = "((A,B),(C,D));";
     for trees in [&[("ha", HA), ("na", NA)][..], &[("ha", t), ("na", t), ("pb2", t)]] {
       let options = OutputOptions {
@@ -1085,7 +1085,7 @@ mod tests {
       .collect();
     let plain = |path| (path, None);
     let expected = vec![
-      plain("treeknit_request.json"),
+      plain("treeknit_session.json"),
       plain("MCCs.json"),
       plain("MCCs.dat"),
       plain("ha_resolved.nwk"),
@@ -1112,7 +1112,7 @@ mod tests {
         WebFile::Figure(_) => None,
       })
       .collect();
-    assert_eq!(&request_file(&request), texts[0]);
+    assert_eq!(&session_file(&request), texts[0]);
     assert_eq!(text(&files_of(&trees, &all_files(2)), "MCCs.json"), texts[1].text);
   }
 
@@ -1363,7 +1363,7 @@ mod tests {
   }
 
   #[test]
-  fn request_file_round_trips_through_read_request() {
+  fn session_file_round_trips_through_read_session() {
     let request = AnalysisRequest {
       trees: vec![
         TreeText {
@@ -1381,19 +1381,19 @@ mod tests {
         ..Settings::default()
       },
     };
-    let file = request_file(&request);
+    let file = session_file(&request);
     assert_eq!(
-      ("treeknit_request.json", "application/json"),
+      ("treeknit_session.json", "application/json"),
       (file.path.as_str(), file.media_type.as_str())
     );
     assert!(file.text.ends_with("}\n"));
-    assert_eq!(Ok(request), analysis::read_request(&file.text));
+    assert_eq!(Ok(request), analysis::read_session(&file.text));
   }
 
   #[test]
   fn command_line_runs_the_session_file_of_the_extracted_archive() {
     assert_eq!(
-      "treeknit --request treeknit_results/treeknit_request.json --outdir treeknit_results_cli --impute --auspice-view \
+      "treeknit --session treeknit_results/treeknit_session.json --outdir treeknit_results_cli --impute --auspice-view \
        --plot",
       command_line()
     );

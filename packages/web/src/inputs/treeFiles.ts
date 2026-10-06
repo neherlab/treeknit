@@ -43,7 +43,7 @@ function addedTrees(added: number): string {
 }
 
 export function sessionFailure(name: string, cause: unknown): string {
-  return `${name} is not a TreeKnit session file: ${causeMessage(cause)}. Open a treeknit_request.json file.`;
+  return `${name} is not a TreeKnit session file: ${causeMessage(cause)}. Open a treeknit_session.json file.`;
 }
 
 export function batchRejection(sessionNames: readonly string[], treeCount: number): string | null {

@@ -393,19 +393,19 @@ mod tests {
   }
 
   #[test]
-  fn request_of_the_two_tree_case_keeps_the_bytes_and_adds_the_session_file() {
+  fn session_of_the_two_tree_case_keeps_the_bytes_and_adds_the_session_file() {
     // Oracle: the captured output directory of `output_files_keep_their_bytes`, whose trees carry
     // the labels of their file stems.
     let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/outputs/two");
     let dir = TempDir::new("bytes-request");
     let tree = |name: &str| serde_json::json!({"label": name, "newick": std::fs::read_to_string(data.join(format!("input/{name}.nwk"))).unwrap()});
     let request = serde_json::json!({"trees": [tree("ha"), tree("na")]});
-    let path = dir.path().join("treeknit_request.json");
+    let path = dir.path().join("treeknit_session.json");
     std::fs::write(&path, request.to_string()).unwrap();
     let out = dir.path().join("out");
-    run(&["--request", path.to_str().unwrap()], &out);
+    run(&["--session", path.to_str().unwrap()], &out);
     let mut written = readable(files_below(&out));
-    let session: serde_json::Value = serde_json::from_str(&written.remove("treeknit_request.json").unwrap()).unwrap();
+    let session: serde_json::Value = serde_json::from_str(&written.remove("treeknit_session.json").unwrap()).unwrap();
     assert_eq!(request["trees"], session["trees"]);
     assert_eq!(readable(files_below(&data.join("expected"))), written);
   }
@@ -458,7 +458,7 @@ mod tests {
     let dir = TempDir::new("web-file-set");
     let results = dir.path().join(treeknit_io::output::RESULTS_DIR);
     std::fs::create_dir_all(&results).unwrap();
-    let request = write_request(&results, &serde_json::json!({"seed": 3}));
+    let request = write_session(&results, &serde_json::json!({"seed": 3}));
     let command = treeknit_io::output::command_line();
     let args: Vec<&str> = command.split(' ').skip(1).collect();
     let out = dir.path().join("treeknit_results_cli");
@@ -473,8 +473,8 @@ mod tests {
       .unwrap()
       .map(|e| e.unwrap().file_name())
       .collect();
-    assert_eq!(vec![std::ffi::OsString::from("treeknit_request.json")], extracted);
-    let parsed = treeknit_io::analysis::read_request(&std::fs::read_to_string(&request).unwrap()).unwrap();
+    assert_eq!(vec![std::ffi::OsString::from("treeknit_session.json")], extracted);
+    let parsed = treeknit_io::analysis::read_session(&std::fs::read_to_string(&request).unwrap()).unwrap();
     let opts = treeknit_io::analysis::options(&parsed.settings, 2, true).unwrap();
     let texts = treeknit_io::analysis::parse_trees(&parsed.trees).unwrap();
     let run = treeknit_io::run::run(texts, &opts, parsed.settings.seed, &|_| {});
@@ -537,11 +537,11 @@ mod tests {
   }
 
   #[test]
-  fn request_with_plot_gives_the_figures_of_the_tree_files() {
+  fn session_with_plot_gives_the_figures_of_the_tree_files() {
     let dir = TempDir::new("plot-request");
-    let request = write_request(dir.path(), &serde_json::json!({}));
-    let from_request = dir.path().join("from-request");
-    run(&["--request", request.to_str().unwrap(), "--plot"], &from_request);
+    let request = write_session(dir.path(), &serde_json::json!({}));
+    let from_session = dir.path().join("from-session");
+    run(&["--session", request.to_str().unwrap(), "--plot"], &from_session);
     let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
     let from_files = dir.path().join("from-files");
     run(
@@ -556,7 +556,7 @@ mod tests {
     };
     let expected = figures(&from_files);
     assert_eq!(2, expected.len());
-    assert_eq!(expected, figures(&from_request));
+    assert_eq!(expected, figures(&from_session));
   }
 
   #[rustfmt::skip]
@@ -586,25 +586,25 @@ mod tests {
   }
 
   /// Write a session file with the trees `HA` and `NA`, labeled `ha` and `na`, and `settings`.
-  fn write_request(dir: &Path, settings: &serde_json::Value) -> PathBuf {
+  fn write_session(dir: &Path, settings: &serde_json::Value) -> PathBuf {
     let request = serde_json::json!({
       "trees": [{"label": "ha", "newick": HA}, {"label": "na", "newick": NA}],
       "settings": settings,
     });
-    let path = dir.join("treeknit_request.json");
+    let path = dir.join("treeknit_session.json");
     std::fs::write(&path, request.to_string()).unwrap();
     path
   }
 
   #[test]
-  fn request_gives_the_mccs_of_the_tree_files_with_the_same_settings() {
-    let dir = TempDir::new("request-same");
-    let request = write_request(
+  fn session_gives_the_mccs_of_the_tree_files_with_the_same_settings() {
+    let dir = TempDir::new("session-same");
+    let request = write_session(
       dir.path(),
       &serde_json::json!({"gamma": 3, "resolve": "strict", "seed": 5}),
     );
-    let from_request = dir.path().join("from-request");
-    run(&["--request", request.to_str().unwrap()], &from_request);
+    let from_session = dir.path().join("from-session");
+    run(&["--session", request.to_str().unwrap()], &from_session);
     let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
     let from_files = dir.path().join("from-files");
     let (a, b) = (paths[0].to_str().unwrap(), paths[1].to_str().unwrap());
@@ -612,17 +612,17 @@ mod tests {
       &[a, b, "--gamma", "3", "--resolve", "strict", "--seed", "5"],
       &from_files,
     );
-    assert_eq!(mccs(&from_files), mccs(&from_request));
+    assert_eq!(mccs(&from_files), mccs(&from_session));
   }
 
   #[test]
-  fn request_writes_the_session_file_and_trees_named_by_label() {
-    let dir = TempDir::new("request-files");
-    let request = write_request(dir.path(), &serde_json::json!({}));
+  fn session_writes_the_session_file_and_trees_named_by_label() {
+    let dir = TempDir::new("session-files");
+    let request = write_session(dir.path(), &serde_json::json!({}));
     let out = dir.path().join("out");
-    run(&["--request", request.to_str().unwrap(), "--impute"], &out);
+    run(&["--session", request.to_str().unwrap(), "--impute"], &out);
     let written: serde_json::Value =
-      serde_json::from_str(&std::fs::read_to_string(out.join("treeknit_request.json")).unwrap()).unwrap();
+      serde_json::from_str(&std::fs::read_to_string(out.join("treeknit_session.json")).unwrap()).unwrap();
     let expected = serde_json::json!({
       "trees": [{"label": "ha", "newick": HA}, {"label": "na", "newick": NA}],
       "settings": {
@@ -638,18 +638,18 @@ mod tests {
     assert_eq!(vec![true, true, true], present);
   }
 
-  /// Path of the session file of `run_request` for the test `name`.
-  fn request_path(name: &str) -> PathBuf {
-    TempDir::path_of(name).join("treeknit_request.json")
+  /// Path of the session file of `run_session` for the test `name`.
+  fn session_path(name: &str) -> PathBuf {
+    TempDir::path_of(name).join("treeknit_session.json")
   }
 
   /// Run `treeknit` with `args` in the directory of a session file, returning the exit code and
   /// the error output.
-  fn run_request(name: &str, settings: &serde_json::Value, args: &[&str]) -> (Option<i32>, String) {
+  fn run_session(name: &str, settings: &serde_json::Value, args: &[&str]) -> (Option<i32>, String) {
     let dir = TempDir::new(name);
-    let request = write_request(dir.path(), settings);
+    let request = write_session(dir.path(), settings);
     let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
-      .arg("--request")
+      .arg("--session")
       .arg(&request)
       .args(args)
       .arg("-o")
@@ -662,23 +662,23 @@ mod tests {
   }
 
   #[rstest]
-  #[case::tree_file("request-tree", &["ha.nwk"], "the argument '--request <FILE>' cannot be used with '[TREE]...'")]
-  #[case::example("request-example", &["--example", "5-leaves"], "the argument '--request <FILE>' cannot be used with '--example <ID>'")]
-  #[case::former("request-former", &["--better-MCCs"], "the argument '--request <FILE>' cannot be used with '--better-MCCs'")]
+  #[case::tree_file("session-tree", &["ha.nwk"], "the argument '--session <FILE>' cannot be used with '[TREE]...'")]
+  #[case::example("session-example", &["--example", "5-leaves"], "the argument '--session <FILE>' cannot be used with '--example <ID>'")]
+  #[case::former("session-former", &["--better-MCCs"], "the argument '--session <FILE>' cannot be used with '--better-MCCs'")]
   #[trace]
-  fn request_with_tree_files_or_former_options_is_a_usage_error(
+  fn session_with_tree_files_or_former_options_is_a_usage_error(
     #[case] name: &str,
     #[case] args: &[&str],
     #[case] message: &str,
   ) {
-    let (code, stderr) = run_request(name, &serde_json::json!({}), args);
+    let (code, stderr) = run_session(name, &serde_json::json!({}), args);
     assert_eq!((Some(2), true), (code, stderr.contains(message)), "{stderr}");
   }
 
   #[test]
-  fn request_with_invalid_settings_exits_with_their_message_and_field() {
-    let (code, stderr) = run_request("request-invalid", &serde_json::json!({"gamma": -1}), &[]);
-    let request = request_path("request-invalid");
+  fn session_with_invalid_settings_exits_with_their_message_and_field() {
+    let (code, stderr) = run_session("session-invalid", &serde_json::json!({"gamma": -1}), &[]);
+    let request = session_path("session-invalid");
     let expected = format!(
       "Error: {}: settings.gamma: gamma must be a non-negative number, got -1\n",
       request.display()
@@ -687,29 +687,29 @@ mod tests {
   }
 
   #[test]
-  fn request_with_a_seed_above_the_largest_exact_integer_names_the_field() {
+  fn session_with_a_seed_above_the_largest_exact_integer_names_the_field() {
     let seed = treeknit_io::analysis::MAX_SEED + 1;
-    let (code, stderr) = run_request("request-seed", &serde_json::json!({ "seed": seed }), &[]);
+    let (code, stderr) = run_session("session-seed", &serde_json::json!({ "seed": seed }), &[]);
     let expected = format!(
       "Error: {}: settings.seed: the seed {seed} of the session file is above 9007199254740991, the \
        largest integer a JavaScript number holds exactly\n",
-      request_path("request-seed").display()
+      session_path("session-seed").display()
     );
     assert_eq!((Some(1), expected), (code, stderr));
   }
 
   #[test]
-  fn request_with_an_invalid_tree_names_the_file_the_field_and_the_position() {
-    let name = "request-tree-error";
+  fn session_with_an_invalid_tree_names_the_file_the_field_and_the_position() {
+    let name = "session-tree-error";
     let dir = TempDir::new(name);
     let request = serde_json::json!({
       "trees": [{"label": "ha", "newick": HA}, {"label": "na", "newick": "((A,B),\n(C,D)x y);"}],
     });
-    let path = dir.path().join("treeknit_request.json");
+    let path = dir.path().join("treeknit_session.json");
     std::fs::write(&path, request.to_string()).unwrap();
     let out = dir.path().join("out");
     let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
-      .arg("--request")
+      .arg("--session")
       .arg(&path)
       .arg("-o")
       .arg(&out)
@@ -731,13 +731,13 @@ mod tests {
   }
 
   #[test]
-  fn request_with_a_wrong_structure_names_the_file() {
-    let (code, stderr) = run_request("request-structure", &serde_json::json!({"gama": 1}), &[]);
+  fn session_with_a_wrong_structure_names_the_file() {
+    let (code, stderr) = run_session("session-structure", &serde_json::json!({"gama": 1}), &[]);
     assert_eq!(
       (Some(1), true),
       (
         code,
-        stderr.contains("treeknit_request.json: not a TreeKnit session file: unknown field `gama`")
+        stderr.contains("treeknit_session.json: not a TreeKnit session file: unknown field `gama`")
       ),
       "{stderr}"
     );
@@ -961,18 +961,18 @@ mod tests {
 
   #[test]
   fn analysis_options_change_the_settings_of_a_session_file() {
-    let dir = TempDir::new("request-options");
-    let request = write_request(
+    let dir = TempDir::new("session-options");
+    let request = write_session(
       dir.path(),
       &serde_json::json!({"gamma": 3, "resolve": "strict", "seed": 5}),
     );
     let out = dir.path().join("out");
     run(
-      &["--request", request.to_str().unwrap(), "--seed", "7", "--no-likelihood"],
+      &["--session", request.to_str().unwrap(), "--seed", "7", "--no-likelihood"],
       &out,
     );
     let p = parameters(&out);
-    let written: serde_json::Value = serde_json::from_str(&text(&out.join("treeknit_request.json"))).unwrap();
+    let written: serde_json::Value = serde_json::from_str(&text(&out.join("treeknit_session.json"))).unwrap();
     let log = text(&out.join("log.txt"));
     let expected = (
       serde_json::json!([3.0, "strict", 7, false]),
@@ -1023,7 +1023,7 @@ mod tests {
     assert!(link.starts_with(prefix), "{link}");
     let second = dir.path().join("second");
     run(&["--link", link.trim()], &second);
-    let written = ["first", "second"].map(|d| dir.path().join(d).join("treeknit_request.json").exists());
+    let written = ["first", "second"].map(|d| dir.path().join(d).join("treeknit_session.json").exists());
     assert_eq!((mccs(&first), [true, true]), (mccs(&second), written));
   }
 

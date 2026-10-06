@@ -422,7 +422,7 @@ class FakeLaunchClient implements LaunchClient {
     return Promise.resolve([SMALL]);
   }
 
-  readRequest(text: string): Promise<AnalysisRequest> {
+  readSession(text: string): Promise<AnalysisRequest> {
     return text === SESSION_TEXT ? Promise.resolve(SESSION) : Promise.reject(new Error("not a TreeKnit session file"));
   }
 

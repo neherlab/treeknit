@@ -13,8 +13,8 @@ import {
   overlap,
   palette,
   parseLaunch,
-  readRequest,
-  requestFile,
+  readSession,
+  sessionFile,
   Session,
   settingsSchema,
   treeLabels,
@@ -33,8 +33,8 @@ class AnalysisWorker implements WorkerApi {
   readonly inspectTree = inspectTree;
   readonly overlap = overlap;
   readonly validate = validate;
-  readonly readRequest = readRequest;
-  readonly requestFile = requestFile;
+  readonly readSession = readSession;
+  readonly sessionFile = sessionFile;
   readonly treeLabels = treeLabels;
   readonly parseLaunch = parseLaunch;
   readonly decodeTreeBytes = decodeTreeBytes;

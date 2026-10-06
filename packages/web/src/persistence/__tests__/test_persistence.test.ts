@@ -716,7 +716,7 @@ class Tab {
     this.persistence = new WorkspacePersistence({
       storage,
       channel,
-      requestFile: async (request) => this.files.requestFile(request),
+      sessionFile: async (request) => this.files.sessionFile(request),
     });
     this.persistence.subscribe(() => {
       const { enabled } = this.persistence.state;
@@ -750,7 +750,7 @@ class SessionFiles {
     this.#failNext = true;
   }
 
-  async requestFile(request: AnalysisRequest): Promise<OutputFile> {
+  async sessionFile(request: AnalysisRequest): Promise<OutputFile> {
     this.requested += 1;
     await this.#held?.promise;
 
@@ -760,7 +760,7 @@ class SessionFiles {
       throw new Error("internal error");
     }
 
-    return { path: "treeknit_request.json", mediaType: "application/json", text: sessionFileText(request) };
+    return { path: "treeknit_session.json", mediaType: "application/json", text: sessionFileText(request) };
   }
 }
 

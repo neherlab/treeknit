@@ -25,8 +25,8 @@ export interface AnalysisClient {
   inspectTree(...args: StatelessArgs<"inspectTree">): StatelessResult<"inspectTree">;
   overlap(...args: StatelessArgs<"overlap">): StatelessResult<"overlap">;
   validate(...args: StatelessArgs<"validate">): StatelessResult<"validate">;
-  readRequest(...args: StatelessArgs<"readRequest">): StatelessResult<"readRequest">;
-  requestFile(...args: StatelessArgs<"requestFile">): StatelessResult<"requestFile">;
+  readSession(...args: StatelessArgs<"readSession">): StatelessResult<"readSession">;
+  sessionFile(...args: StatelessArgs<"sessionFile">): StatelessResult<"sessionFile">;
   treeLabels(...args: StatelessArgs<"treeLabels">): StatelessResult<"treeLabels">;
   parseLaunch(...args: StatelessArgs<"parseLaunch">): StatelessResult<"parseLaunch">;
   decodeTreeBytes(...args: StatelessArgs<"decodeTreeBytes">): StatelessResult<"decodeTreeBytes">;
@@ -121,12 +121,12 @@ export class WorkerAnalysisClient implements AnalysisClient {
     return this.#stateless((remote) => remote.validate(...args));
   }
 
-  async readRequest(...args: StatelessArgs<"readRequest">): StatelessResult<"readRequest"> {
-    return this.#stateless((remote) => remote.readRequest(...args));
+  async readSession(...args: StatelessArgs<"readSession">): StatelessResult<"readSession"> {
+    return this.#stateless((remote) => remote.readSession(...args));
   }
 
-  async requestFile(...args: StatelessArgs<"requestFile">): StatelessResult<"requestFile"> {
-    return this.#stateless((remote) => remote.requestFile(...args));
+  async sessionFile(...args: StatelessArgs<"sessionFile">): StatelessResult<"sessionFile"> {
+    return this.#stateless((remote) => remote.sessionFile(...args));
   }
 
   async treeLabels(...args: StatelessArgs<"treeLabels">): StatelessResult<"treeLabels"> {

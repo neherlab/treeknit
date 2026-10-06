@@ -1775,15 +1775,15 @@ export function palette(): Palette;
 export function parseLaunch(entries: LinkEntry[], viewKeys: string[]): LaunchParse;
 
 /**
- * The request of a session file (`treeknit_request.json`); throws with the messages when its
+ * The request of a session file (`treeknit_session.json`); throws with the messages when its
  * JSON structure is invalid.
  */
-export function readRequest(text: string): AnalysisRequest;
+export function readSession(text: string): AnalysisRequest;
 
 /**
- * The session file of a request, `treeknit_request.json`.
+ * The session file of a request, `treeknit_session.json`.
  */
-export function requestFile(request: AnalysisRequest): OutputFile;
+export function sessionFile(request: AnalysisRequest): OutputFile;
 
 /**
  * Defaults, ranges, applicability, and help of every setting, for `k` trees and `settings`.
@@ -1832,8 +1832,8 @@ export interface InitOutput {
     readonly overlap: (a: number, b: number) => [number, number, number];
     readonly palette: () => [number, number, number];
     readonly parseLaunch: (a: number, b: number, c: number, d: number) => [number, number, number];
-    readonly readRequest: (a: number, b: number) => [number, number, number];
-    readonly requestFile: (a: any) => [number, number, number];
+    readonly readSession: (a: number, b: number) => [number, number, number];
+    readonly sessionFile: (a: any) => [number, number, number];
     readonly session_argFigure: (a: number, b: any) => [number, number, number];
     readonly session_argView: (a: number, b: any) => [number, number, number];
     readonly session_auspiceFiles: (a: number, b: number, c: any, d: any, e: any) => [number, number, number];

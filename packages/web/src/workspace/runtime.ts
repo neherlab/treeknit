@@ -22,13 +22,13 @@ export async function startWorkspace(client: AnalysisClient, queryClient: QueryC
   const persistence = new WorkspacePersistence({
     storage: storageOrNull() ?? unavailableStorage(),
     channel: broadcastChannel(),
-    requestFile: async (request) => client.requestFile(request),
+    sessionFile: async (request) => client.sessionFile(request),
   });
 
   const [defaults, restored] = await Promise.all([
     client.defaultSettings(),
     persistence.restore(async (stored): Promise<RestoredWorkspace> => ({
-      request: await client.readRequest(stored.sessionFile),
+      request: await client.readSession(stored.sessionFile),
       sources: stored.sources,
     })),
   ]);

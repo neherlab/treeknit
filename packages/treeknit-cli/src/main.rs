@@ -126,13 +126,13 @@ struct Cli {
   /// Trees, one per segment (at least two): Newick files, gzip-compressed or not, or https:
   /// addresses. `<label>=<tree>` labels a tree; by default, the file name labels it.
   #[arg(
-    required_unless_present_any = ["help_resolve", "help_defaults", "request", "example", "link", "list_examples"],
+    required_unless_present_any = ["help_resolve", "help_defaults", "session", "example", "link", "list_examples"],
     value_name = "TREE",
     help_heading = INPUT_HEADING,
   )]
   trees: Vec<PathBuf>,
 
-  /// Run the trees and settings of a session file (`treeknit_request.json`, saved by the web
+  /// Run the trees and settings of a session file (`treeknit_session.json`, saved by the web
   /// app), a path or an https: address. Analysis options change its settings.
   #[arg(
     long,
@@ -144,7 +144,7 @@ struct Cli {
     ],
     help_heading = INPUT_HEADING,
   )]
-  request: Option<PathBuf>,
+  session: Option<PathBuf>,
 
   /// Run a built-in example (see --list-examples). Analysis options change its settings.
   #[arg(
@@ -360,7 +360,7 @@ fn main() -> Result<()> {
     settings,
   });
   if let Some(r) = request.as_ref().filter(|_| input.session || cli.print_link) {
-    write_file(&cli.outdir, &output::request_file(r))?;
+    write_file(&cli.outdir, &output::session_file(r))?;
   }
 
   let start = Instant::now();
@@ -381,7 +381,7 @@ fn main() -> Result<()> {
       Err(length) => log::warn!(
         "the link would have {length} characters, more than {}; share the session file {} instead",
         launch::MAX_LINK_CHARS,
-        cli.outdir.join(output::REQUEST_FILE).display()
+        cli.outdir.join(output::SESSION_FILE).display()
       ),
     }
   }
@@ -486,7 +486,7 @@ enum Source {
 fn read_input(cli: &Cli, fetch: Fetch<'_>) -> Result<Input> {
   if let Some(id) = &cli.example {
     example_input(id)
-  } else if let Some(path) = &cli.request {
+  } else if let Some(path) = &cli.session {
     session_input(path, fetch)
   } else if let Some(url) = &cli.link {
     link_input(url, fetch)
@@ -679,7 +679,7 @@ fn session_input(path: &Path, fetch: Fetch<'_>) -> Result<Input> {
   };
   let text = text.map_err(|e| anyhow::anyhow!("reading {name}: {e}"))?;
   let source = Source::Named(name);
-  let request = match analysis::read_request(&text) {
+  let request = match analysis::read_session(&text) {
     Ok(r) => r,
     Err(errors) => fail(&errors, &source)?,
   };
@@ -789,7 +789,7 @@ fn link_input(url: &str, fetch: Fetch<'_>) -> Result<Input> {
     LaunchInput::Session { location } => {
       let source = Source::Named("session file of the link".to_owned());
       let text = read_location(&location, fetch).map_err(|e| anyhow::anyhow!("{e}"))?;
-      let request = match analysis::read_request(&text) {
+      let request = match analysis::read_session(&text) {
         Ok(r) => r,
         Err(errors) => fail(&errors, &source)?,
       };
@@ -1334,7 +1334,7 @@ mod tests {
       r#"{{"trees": [{{"label": "ha", "newick": "{HA}"}}, {{"label": "na", "newick": "{NA}"}}], "settings": {{"gamma": 3}}}}"#
     );
     let fetch = server(&[("https://x/s.json", &session)]);
-    let input = read_input(&cli(&["--request", "https://x/s.json"]), &fetch).unwrap();
+    let input = read_input(&cli(&["--session", "https://x/s.json"]), &fetch).unwrap();
     let expected = (trees(&[("ha", HA), ("na", NA)]), 3.0_f64.to_bits(), true);
     assert_eq!(expected, (input.texts, input.base.gamma.to_bits(), input.session));
   }

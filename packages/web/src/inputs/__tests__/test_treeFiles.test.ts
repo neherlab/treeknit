@@ -12,7 +12,7 @@ import {
 describe("tree files", () => {
   test("routes JSON files to the session file reader and everything else to the trees", () => {
     expect(
-      ["treeknit_request.json", "SESSION.JSON", "ha.nwk", "na.tree", "json.txt"].map(isSessionFileName),
+      ["treeknit_session.json", "SESSION.JSON", "ha.nwk", "na.tree", "json.txt"].map(isSessionFileName),
     ).toStrictEqual([true, true, false, false, false]);
   });
 
@@ -24,20 +24,20 @@ describe("tree files", () => {
     }).toStrictEqual({
       add: "The trees could not be added: worker stopped. Try again.",
       read: "ha.nwk could not be read: permission denied. Check the file and add it again.",
-      session: "notes.json is not a TreeKnit session file: missing field `trees`. Open a treeknit_request.json file.",
+      session: "notes.json is not a TreeKnit session file: missing field `trees`. Open a treeknit_session.json file.",
     });
   });
 
   test("accepts trees alone or one session file alone", () => {
     expect({
       trees: batchRejection([], 3),
-      session: batchRejection(["treeknit_request.json"], 0),
+      session: batchRejection(["treeknit_session.json"], 0),
     }).toStrictEqual({ trees: null, session: null });
   });
 
   test("rejects a session file together with trees, naming the session file", () => {
-    expect(batchRejection(["treeknit_request.json"], 2)).toBe(
-      "treeknit_request.json was not opened together with trees, because a session file replaces the trees. Nothing was added. Open the session file on its own, or add only the trees.",
+    expect(batchRejection(["treeknit_session.json"], 2)).toBe(
+      "treeknit_session.json was not opened together with trees, because a session file replaces the trees. Nothing was added. Open the session file on its own, or add only the trees.",
     );
   });
 

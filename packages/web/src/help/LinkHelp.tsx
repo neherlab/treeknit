@@ -31,7 +31,7 @@ const LINK_EXAMPLES: readonly LinkExample[] = [
     opens: true,
   },
   {
-    query: "?session=https://zenodo.org/records/123/files/treeknit_request.json&seed=7&run&view=mccs",
+    query: "?session=https://zenodo.org/records/123/files/treeknit_session.json&seed=7&run&view=mccs",
     effect: "Runs a session file from Zenodo with another seed and shows the MCC table.",
     opens: false,
   },

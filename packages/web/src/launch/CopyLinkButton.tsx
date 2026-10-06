@@ -113,8 +113,8 @@ function CopyNotice({ outcome, onDismiss }: { outcome: CopyOutcome; onDismiss: (
   );
 }
 
-async function saveSessionFile(client: Pick<AnalysisClient, "requestFile">, request: AnalysisRequest): Promise<void> {
-  const file = await client.requestFile(request);
+async function saveSessionFile(client: Pick<AnalysisClient, "sessionFile">, request: AnalysisRequest): Promise<void> {
+  const file = await client.sessionFile(request);
 
   downloadFile({ name: file.path, mediaType: file.mediaType, content: file.text });
 }

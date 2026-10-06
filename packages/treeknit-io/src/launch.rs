@@ -253,7 +253,7 @@ pub fn launch_pairs(
 /// `data:` location for the fragment of a link. A session compresses better than its trees one
 /// by one, because the trees share their leaf names.
 pub fn inline_session(request: &AnalysisRequest) -> String {
-  let text = output::request_file(request).text;
+  let text = output::session_file(request).text;
   let mut encoder = GzEncoder::new(Vec::new(), Compression::best());
   #[expect(clippy::expect_used, reason = "writing to a Vec cannot fail")]
   encoder
@@ -387,7 +387,7 @@ pub fn launch_keys() -> Vec<LaunchKeyInfo> {
       Some("<location>"),
       format!(
         "A session file ({}) at an https: address or as a data: text.",
-        output::REQUEST_FILE
+        output::SESSION_FILE
       ),
     ),
     key(
@@ -1877,7 +1877,7 @@ mod tests {
     let Ok(LinkLocation::Data { text }) = parse_location(&inline_session(&r)) else {
       panic!("the inline session is a data: location");
     };
-    assert_eq!(Ok(r), analysis::read_request(&text));
+    assert_eq!(Ok(r), analysis::read_session(&text));
   }
 
   #[test]
@@ -1893,7 +1893,7 @@ mod tests {
         .collect(),
       settings: Settings::default(),
     };
-    assert!(inline_session(&r).len() * 4 < output::request_file(&r).text.len());
+    assert!(inline_session(&r).len() * 4 < output::session_file(&r).text.len());
   }
 
   /// A random label that the label check accepts, sometimes the label that a file name gives.
@@ -2107,7 +2107,7 @@ mod tests {
       let Ok(LinkLocation::Data { text }) = parse_location(&inline_session(&r)) else {
         panic!("the inline session is a data: location");
       };
-      assert_eq!(Ok(r), analysis::read_request(&text));
+      assert_eq!(Ok(r), analysis::read_session(&text));
     }
   }
 }

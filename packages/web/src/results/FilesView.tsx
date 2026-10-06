@@ -45,7 +45,7 @@ function SessionFiles({ sessionId }: SessionFilesProps) {
   });
 
   const sessionFile = useMutation({
-    mutationFn: async () => client.requestFile(request),
+    mutationFn: async () => client.sessionFile(request),
     onSuccess: ({ path, mediaType, text }) => {
       downloadFile({ name: path, mediaType, content: text });
     },

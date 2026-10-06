@@ -43,7 +43,7 @@ export interface PersistenceState {
 export interface PersistenceServices {
   storage: RecordStorage;
   channel: PersistenceChannel | null;
-  requestFile: (request: AnalysisRequest) => Promise<OutputFile>;
+  sessionFile: (request: AnalysisRequest) => Promise<OutputFile>;
 }
 
 interface Enabling {
@@ -200,7 +200,7 @@ export class WorkspacePersistence {
 
   async #enable(enabling: Enabling, epoch: number): Promise<void> {
     const written = enabling.latest;
-    const file = await this.#services.requestFile(written.request);
+    const file = await this.#services.sessionFile(written.request);
 
     if (epoch !== this.#epoch) {
       return;
@@ -236,7 +236,7 @@ export class WorkspacePersistence {
     }
 
     try {
-      const file = await this.#services.requestFile(snapshot.request);
+      const file = await this.#services.sessionFile(snapshot.request);
 
       if (epoch !== this.#epoch || generation !== this.#generation) {
         return;

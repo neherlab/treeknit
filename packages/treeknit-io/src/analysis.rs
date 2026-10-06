@@ -359,11 +359,11 @@ pub fn options(s: &Settings, k: usize, parallel: bool) -> Result<Options, Vec<Va
   Ok(o)
 }
 
-/// The request of a session file (`treeknit_request.json`), or the error of its JSON structure:
+/// The request of a session file (`treeknit_session.json`), or the error of its JSON structure:
 /// wrong types, missing required or unknown fields, and a seed above [`MAX_SEED`], which no
 /// JavaScript number holds exactly. The other rules of [`validate`] are not applied, so a session
 /// file with a broken tree or an out-of-range setting still loads and can be fixed.
-pub fn read_request(text: &str) -> Result<AnalysisRequest, Vec<ValidationError>> {
+pub fn read_session(text: &str) -> Result<AnalysisRequest, Vec<ValidationError>> {
   let request: AnalysisRequest = serde_json::from_str(text).map_err(|e| {
     vec![ValidationError {
       field: None,
@@ -977,11 +977,11 @@ mod tests {
   }
 
   #[test]
-  fn read_request_loads_counts_beyond_32_bits_and_validation_reports_them() {
+  fn read_session_loads_counts_beyond_32_bits_and_validation_reports_them() {
     // Oracle: 2^32 is one above the largest usize of wasm32, so it must load as a number and fail
     // only the range check, on every target.
     let text = r#"{"trees": [], "settings": {"nMcmcIt": 4294967296, "rounds": 4294967296}}"#;
-    let request = read_request(text).unwrap();
+    let request = read_session(text).unwrap();
     let expected = vec![
       error("settings.rounds", "rounds must be at most 4294967294, got 4294967296"),
       error(
@@ -1041,7 +1041,7 @@ mod tests {
   }
 
   #[test]
-  fn read_request_loads_a_request_that_fails_validation() {
+  fn read_session_loads_a_request_that_fails_validation() {
     // Structure only: the broken tree and the negative gamma stay for the user to fix.
     let text = r#"{"trees": [{"label": "ha", "newick": "((A,B"}], "settings": {"gamma": -1}}"#;
     let expected = AnalysisRequest {
@@ -1051,7 +1051,7 @@ mod tests {
         ..Settings::default()
       },
     };
-    assert_eq!(Ok(expected), read_request(text));
+    assert_eq!(Ok(expected), read_session(text));
   }
 
   #[rustfmt::skip]
@@ -1061,25 +1061,25 @@ mod tests {
   #[case::unknown_field(r#"{"trees": [], "tree": []}"#,                    "not a TreeKnit session file: unknown field `tree`, expected `trees` or `settings` at line 1 column 20")]
   #[case::wrong_type(   r#"{"trees": [{"label": 1, "newick": "(A,B);"}]}"#, "not a TreeKnit session file: invalid type: integer `1`, expected a string at line 1 column 22")]
   #[trace]
-  fn read_request_rejects_a_wrong_structure(#[case] text: &str, #[case] message: &str) {
+  fn read_session_rejects_a_wrong_structure(#[case] text: &str, #[case] message: &str) {
     let expected = vec![ValidationError { field: None, message: message.to_owned(), line: None, column: None }];
-    assert_eq!(Err(expected), read_request(text));
+    assert_eq!(Err(expected), read_session(text));
   }
 
   #[test]
-  fn read_request_rejects_a_seed_above_the_javascript_limit() {
+  fn read_session_rejects_a_seed_above_the_javascript_limit() {
     let text = r#"{"trees": [], "settings": {"seed": 9007199254740992}}"#;
     let expected = vec![error(
       "settings.seed",
       "the seed 9007199254740992 of the session file is above 9007199254740991, the largest integer a JavaScript number holds exactly",
     )];
-    assert_eq!(Err(expected), read_request(text));
+    assert_eq!(Err(expected), read_session(text));
   }
 
   #[test]
-  fn read_request_accepts_the_largest_seed() {
+  fn read_session_accepts_the_largest_seed() {
     let text = r#"{"trees": [], "settings": {"seed": 9007199254740991}}"#;
-    assert_eq!(Ok(MAX_SEED), read_request(text).map(|r| r.settings.seed));
+    assert_eq!(Ok(MAX_SEED), read_session(text).map(|r| r.settings.seed));
   }
 
   fn strings(v: &[&str]) -> Vec<String> {

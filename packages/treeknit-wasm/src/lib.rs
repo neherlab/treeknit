@@ -80,22 +80,22 @@ pub fn validate(request: &Ts<AnalysisRequest>) -> Result<Vec<Ts<ValidationError>
     .collect()
 }
 
-/// The request of a session file (`treeknit_request.json`); throws with the messages when its
+/// The request of a session file (`treeknit_session.json`); throws with the messages when its
 /// JSON structure is invalid.
-#[wasm_bindgen(js_name = readRequest)]
-pub fn read_request(text: &str) -> Result<Ts<AnalysisRequest>, JsError> {
+#[wasm_bindgen(js_name = readSession)]
+pub fn read_session(text: &str) -> Result<Ts<AnalysisRequest>, JsError> {
   let _log = log_capture::discard();
-  match analysis::read_request(text) {
+  match analysis::read_session(text) {
     Ok(request) => to_js(&request),
     Err(errors) => Err(JsError::new(&messages(&errors))),
   }
 }
 
-/// The session file of a request, `treeknit_request.json`.
-#[wasm_bindgen(js_name = requestFile)]
-pub fn request_file(request: &Ts<AnalysisRequest>) -> Result<Ts<OutputFile>, JsError> {
+/// The session file of a request, `treeknit_session.json`.
+#[wasm_bindgen(js_name = sessionFile)]
+pub fn session_file(request: &Ts<AnalysisRequest>) -> Result<Ts<OutputFile>, JsError> {
   let _log = log_capture::discard();
-  to_js(&output::request_file(&from_js("request", request)?))
+  to_js(&output::session_file(&from_js("request", request)?))
 }
 
 /// Labels for trees loaded from `fileNames`: the file name without its last extension, with the

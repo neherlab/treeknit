@@ -89,7 +89,7 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
-  fn read_request_returns_the_plain_request_with_default_settings() {
+  fn read_session_returns_the_plain_request_with_default_settings() {
     let text = r#"{"trees": [{"label": "ha", "newick": "((A,B"}], "settings": {"gamma": -1}}"#;
     let expected = json!({
         "trees": [{"label": "ha", "newick": "((A,B"}],
@@ -98,15 +98,15 @@ mod tests {
             "rounds": 1, "finalRound": true, "likelihood": true, "naive": false, "seed": 1,
         },
     });
-    assert_eq!(expected, plain(&treeknit_wasm::read_request(text).unwrap().js_value()));
+    assert_eq!(expected, plain(&treeknit_wasm::read_session(text).unwrap().js_value()));
   }
 
   #[wasm_bindgen_test]
-  fn read_request_loads_counts_beyond_32_bits_for_validation_to_report() {
+  fn read_session_loads_counts_beyond_32_bits_for_validation_to_report() {
     // Oracle: 2^32 is one above the largest usize of wasm32; the command line on a 64-bit host
     // loads it too and reports the same field error.
     let text = r#"{"trees": [], "settings": {"nMcmcIt": 4294967296}}"#;
-    let request = treeknit_wasm::read_request(text).unwrap();
+    let request = treeknit_wasm::read_session(text).unwrap();
     let plain_request = plain(&request.js_value());
     assert_eq!(json!(1_u64 << 32), plain_request["settings"]["nMcmcIt"]);
     let errors = plain_list(&treeknit_wasm::validate(&request).unwrap());
@@ -120,24 +120,24 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
-  fn read_request_throws_the_structure_error() {
+  fn read_session_throws_the_structure_error() {
     let expected = "not a TreeKnit session file: missing field `trees` at line 1 column 2";
-    match treeknit_wasm::read_request("{}") {
+    match treeknit_wasm::read_session("{}") {
       Ok(_) => panic!("expected error {expected:?}"),
       Err(e) => assert_eq!(expected, message(e)),
     }
   }
 
   #[wasm_bindgen_test]
-  fn request_file_returns_the_plain_session_file() {
+  fn session_file_returns_the_plain_session_file() {
     let request = json!({"trees": [{"label": "ha", "newick": "(A,B);"}], "settings": {"seed": 7}});
-    let file = plain(&treeknit_wasm::request_file(&ts(&request)).unwrap().js_value());
+    let file = plain(&treeknit_wasm::session_file(&ts(&request)).unwrap().js_value());
     assert_eq!(
-      (json!("treeknit_request.json"), json!("application/json")),
+      (json!("treeknit_session.json"), json!("application/json")),
       (file["path"].clone(), file["mediaType"].clone())
     );
     let text = file["text"].as_str().unwrap();
-    let back = plain(&treeknit_wasm::read_request(text).unwrap().js_value());
+    let back = plain(&treeknit_wasm::read_session(text).unwrap().js_value());
     assert_eq!(
       (json!("ha"), json!(7)),
       (back["trees"][0]["label"].clone(), back["settings"]["seed"].clone())
@@ -300,7 +300,7 @@ mod tests {
       .map(|f| f["path"].as_str().unwrap())
       .collect();
     let expected = vec![
-      "treeknit_request.json",
+      "treeknit_session.json",
       "MCCs.json",
       "MCCs.dat",
       "ha_resolved.nwk",
@@ -491,7 +491,7 @@ mod tests {
   fn session_file_texts_hold_the_request_and_the_log() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let request = plain(
-      &treeknit_wasm::read_request(&session.file_text("treeknit_request.json").unwrap())
+      &treeknit_wasm::read_session(&session.file_text("treeknit_session.json").unwrap())
         .unwrap()
         .js_value(),
     );
@@ -557,7 +557,7 @@ mod tests {
       .map(|f| {
         let path = f["path"].as_str().unwrap();
         native.iter().find(|n| n.path == path).cloned().unwrap_or_else(|| {
-          assert!([output::REQUEST_FILE, output::LOG_FILE].contains(&path), "{path}");
+          assert!([output::SESSION_FILE, output::LOG_FILE].contains(&path), "{path}");
           OutputFile::new(path.to_owned(), session.file_text(path).unwrap())
         })
       })
@@ -578,7 +578,7 @@ mod tests {
   fn session_command_line_runs_the_session_file() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     assert_eq!(
-      "treeknit --request treeknit_results/treeknit_request.json --outdir treeknit_results_cli --impute --auspice-view \
+      "treeknit --session treeknit_results/treeknit_session.json --outdir treeknit_results_cli --impute --auspice-view \
        --plot",
       session.command_line()
     );
@@ -1034,7 +1034,7 @@ mod tests {
     let entries = vec![ts(&json!({"key": "session", "value": inline}))];
     let parsed = plain(&treeknit_wasm::parse_launch(entries, vec![]).unwrap().js_value());
     let text = parsed["launch"]["input"]["location"]["text"].as_str().unwrap();
-    let request = plain(&treeknit_wasm::read_request(text).unwrap().js_value());
+    let request = plain(&treeknit_wasm::read_session(text).unwrap().js_value());
     assert_eq!(two_trees()["trees"], request["trees"]);
   }
 

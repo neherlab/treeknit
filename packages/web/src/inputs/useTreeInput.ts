@@ -89,7 +89,7 @@ export function useTreeInput(): TreeInputState {
 
     const openSessionFile = async (file: File): Promise<void> => {
       try {
-        const request = await client.readRequest(await file.text());
+        const request = await client.readSession(await file.text());
 
         store.getState().loadRequest(request);
         setError(null);

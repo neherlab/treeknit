@@ -19,8 +19,8 @@ Stateless functions:
 - `inspectTree(label, text): TreeInspection`: leaf, internal node, and polytomy counts, branch lengths (`all`, `some`, `none`), parser warnings, and the parse error with line and column
 - `overlap(trees): Overlap`: total leaves, each tree's leaves and missing leaves, each pair's shared leaves and whether it blocks a run, and the trees that do not parse
 - `validate(request): ValidationError[]`: every problem with the trees and the settings
-- `readRequest(text): AnalysisRequest`: the request of a session file; throws when its JSON structure is invalid
-- `requestFile(request): OutputFile`: the session file `treeknit_request.json`
+- `readSession(text): AnalysisRequest`: the request of a session file; throws when its JSON structure is invalid
+- `sessionFile(request): OutputFile`: the session file `treeknit_session.json`
 - `treeLabels(fileNames, existingLabels): string[]`: labels for loaded files, unique against the existing labels
 - `version(): AppVersion`: the TreeKnit version and the repository URL
 - `palette(): Palette`: the drawing colors of the light and the dark theme
@@ -30,7 +30,7 @@ Stateless functions:
 
 - `Session.run(request, onProgress): Session`: validates and runs the request on one thread, calling `onProgress` with each `Progress` (`phase` `pairs`, `matching`, or `done`; `fraction` from 0 to 1, never decreasing, and 1 only at `done`). An error that `onProgress` throws stops further progress calls and is thrown after the run
 - `summary(): Summary`: per pair the labels, the tree indices, the MCCs as leaf names, and the counts of imputed and ambiguously attached leaves; the ARG outcome (`status` `built` with the reassortment count, or `failed` with the message; `null` for more than two trees); `noReassortment`, whether the run shows that the trees have no reassortment; the diagnostics
-- `files(): FileEntry[]`: every output file with its command-line path, its download name (the last path segment), media type, and size in bytes: `treeknit_request.json` (the request that ran), the files of `treeknit --impute --auspice-view --plot` with the tree extension `.nwk`, `parameters.json`, and `log.txt`. A figure names the figure it holds and has the size `null` until its text is first read
+- `files(): FileEntry[]`: every output file with its command-line path, its download name (the last path segment), media type, and size in bytes: `treeknit_session.json` (the request that ran), the files of `treeknit --impute --auspice-view --plot` with the tree extension `.nwk`, `parameters.json`, and `log.txt`. A figure names the figure it holds and has the size `null` until its text is first read
 - `fileText(path): string`: the text of a listed file; throws `no file <path>` for any other path. A figure is rendered with the default options on first use and kept
 - `zip(): Uint8Array`: every listed file under `treeknit_results/`; a figure not yet read is rendered into the archive and not kept
 - `commandLine(): string`: the command that writes the same files from the extracted archive into `treeknit_results_cli/`, next to the extracted `treeknit_results/`

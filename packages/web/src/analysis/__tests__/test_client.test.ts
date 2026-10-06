@@ -269,7 +269,7 @@ describe("analysis client", () => {
     const host = new FakeHost({
       utility: [
         fakeApi({
-          readRequest: () => {
+          readSession: () => {
             throw new Error("missing field `trees`");
           },
         }),
@@ -280,7 +280,7 @@ describe("analysis client", () => {
     const client = new WorkerAnalysisClient(host);
 
     const message = await client
-      .readRequest("{}")
+      .readSession("{}")
       .catch((error: unknown) => (error instanceof Error ? error.message : ""));
 
     expect({ message, terminated: host.terminatedNames() }).toStrictEqual({
@@ -467,8 +467,8 @@ function fakeApi(overrides: Partial<FakeApi>): FakeApi {
     inspectTree: missing,
     overlap: missing,
     validate: missing,
-    readRequest: missing,
-    requestFile: missing,
+    readSession: missing,
+    sessionFile: missing,
     treeLabels: missing,
     parseLaunch: missing,
     decodeTreeBytes: missing,
