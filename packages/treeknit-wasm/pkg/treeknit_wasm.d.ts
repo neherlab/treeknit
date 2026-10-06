@@ -1249,6 +1249,13 @@ export interface DrawingRules {
 }
 
 /**
+ * The index of a pair of trees in pipeline order. A plain `usize` parameter would take a
+ * JavaScript number through ToInt32 without a check, so that `NaN`, `0.9`, and 2^32 select pair
+ * 0; serde rejects every number that is not a count.
+ */
+export type PairIndex = number;
+
+/**
  * The input field that a [`ValidationError`] concerns.
  */
 export type Field = { kind: "trees" } | { kind: "tree"; index: number } | { kind: "treeLabel"; index: number } | { kind: "treeNewick"; index: number } | { kind: "setting"; key: SettingKey } | { kind: "seqLength"; index: number } | { kind: "figureOption"; key: FigureOptionKey } | { kind: "linkKey"; key: string } | { kind: "linkTree"; index: number };
@@ -1303,6 +1310,11 @@ export interface AuspiceMccRoot {
     left: string | null;
     right: string | null;
 }
+
+/**
+ * The number of trees of a request, checked by serde as [`PairIndex`] is.
+ */
+export type TreeCount = number;
 
 /**
  * The rectangular branch above a node: from (parent x, parent y) to (parent x, node y) to
@@ -1662,12 +1674,12 @@ export class Session {
      * and the shown `trees`: the name of its SVG figure and the datasets of `auspiceView` as JSON
      * files.
      */
-    auspiceFiles(pair: number, version: TreeVersion, scale: Scale, trees: AuspiceTrees): AuspiceFiles;
+    auspiceFiles(pair: PairIndex, version: TreeVersion, scale: Scale, trees: AuspiceTrees): AuspiceFiles;
     /**
      * The trees of pair `pair` (pipeline order) in `version` as Auspice datasets, with `div` from
      * `scale`: the trees of `pairView`, colored by MCC.
      */
-    auspiceView(pair: number, version: TreeVersion, scale: Scale): AuspicePair;
+    auspiceView(pair: PairIndex, version: TreeVersion, scale: Scale): AuspicePair;
     /**
      * The command that reproduces the file set of the run from the extracted archive.
      */
@@ -1683,7 +1695,7 @@ export class Session {
      * other figures get a name of their own. Throws an `Error` named `ValidationError` when
      * `options` are invalid.
      */
-    figure(pair: number, version: TreeVersion, options: FigureOptions): FigureDownload;
+    figure(pair: PairIndex, version: TreeVersion, options: FigureOptions): FigureDownload;
     /**
      * The text of the listed file at `path`. A figure is rendered with the default options on
      * first use and kept.
@@ -1699,7 +1711,7 @@ export class Session {
      * `depth` when `scale` is `div` and a tree of the pair has no branch lengths: `PairView.scale`
      * tells which.
      */
-    pairView(pair: number, version: TreeVersion, scale: Scale): PairView;
+    pairView(pair: PairIndex, version: TreeVersion, scale: Scale): PairView;
     /**
      * Validate and run `request`, calling `onProgress` with each `Progress`. Throws an `Error`
      * named `ValidationError` when the request does not validate, the error that `onProgress`
@@ -1802,7 +1814,7 @@ export function sessionFile(request: AnalysisRequest): OutputFile;
 /**
  * Defaults, ranges, applicability, and help of every setting, for `k` trees and `settings`.
  */
-export function settingsSchema(k: number, settings: Settings): SettingsSchema;
+export function settingsSchema(k: TreeCount, settings: Settings): SettingsSchema;
 
 /**
  * Set up the module: panics go to the console, and the log of the Rust code is captured for the
@@ -1819,7 +1831,8 @@ export function start(): void;
 export function treeLabels(fileNames: string[], existingLabels: string[]): string[];
 
 /**
- * Every problem with the trees and the settings of the request; none when it runs.
+ * Every problem with the trees and the settings of the request; none when it runs. A request
+ * whose structure is malformed gives one error for the request as a whole.
  */
 export function validate(request: AnalysisRequest): ValidationError[];
 
@@ -1850,18 +1863,18 @@ export interface InitOutput {
     readonly sessionFile: (a: any) => [number, number, number];
     readonly session_argFigure: (a: number, b: any) => [number, number, number];
     readonly session_argView: (a: number, b: any) => [number, number, number];
-    readonly session_auspiceFiles: (a: number, b: number, c: any, d: any, e: any) => [number, number, number];
-    readonly session_auspiceView: (a: number, b: number, c: any, d: any) => [number, number, number];
+    readonly session_auspiceFiles: (a: number, b: any, c: any, d: any, e: any) => [number, number, number];
+    readonly session_auspiceView: (a: number, b: any, c: any, d: any) => [number, number, number];
     readonly session_commandLine: (a: number) => [number, number];
     readonly session_constellation: (a: number) => [number, number, number];
-    readonly session_figure: (a: number, b: number, c: any, d: any) => [number, number, number];
+    readonly session_figure: (a: number, b: any, c: any, d: any) => [number, number, number];
     readonly session_fileText: (a: number, b: number, c: number) => [number, number, number, number];
     readonly session_files: (a: number) => [number, number, number, number];
-    readonly session_pairView: (a: number, b: number, c: any, d: any) => [number, number, number];
+    readonly session_pairView: (a: number, b: any, c: any, d: any) => [number, number, number];
     readonly session_run: (a: any, b: any) => [number, number, number];
     readonly session_summary: (a: number) => [number, number, number];
     readonly session_zip: (a: number) => [number, number, number, number];
-    readonly settingsSchema: (a: number, b: any) => [number, number, number];
+    readonly settingsSchema: (a: any, b: any) => [number, number, number];
     readonly start: () => void;
     readonly treeLabels: (a: number, b: number, c: number, d: number) => [number, number];
     readonly validate: (a: any) => [number, number, number, number];

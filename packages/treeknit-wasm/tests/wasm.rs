@@ -112,7 +112,9 @@ mod tests {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let options = ts(&json!({"width": "wide"}));
     let errors: Vec<(String, String)> = [
-      session.figure(0, &ts(&json!("resolved")), &options).unwrap_err(),
+      session
+        .figure(&ts(&json!(0)), &ts(&json!("resolved")), &options)
+        .unwrap_err(),
       session.arg_figure(&options).unwrap_err(),
     ]
     .into_iter()
@@ -432,7 +434,9 @@ mod tests {
       "fileName": "tanglegram_ha_na_imputed_depth_w640_row20_labels-off.svg",
       "text": figure::tanglegram_svg(&view, &custom).unwrap(),
     });
-    let figure = session.figure(0, &ts(&json!("imputed")), &ts(&json!(custom))).unwrap();
+    let figure = session
+      .figure(&ts(&json!(0)), &ts(&json!("imputed")), &ts(&json!(custom)))
+      .unwrap();
     assert_eq!(expected, plain(&figure.js_value()));
     let arg = display::arg_view(&r, Scale::Depth).unwrap();
     let expected = json!({
@@ -471,7 +475,7 @@ mod tests {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let pair = plain(
       &session
-        .figure(0, &ts(&json!("resolved")), &ts(&json!({})))
+        .figure(&ts(&json!(0)), &ts(&json!("resolved")), &ts(&json!({})))
         .unwrap()
         .js_value(),
     );
@@ -488,7 +492,9 @@ mod tests {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let options = ts(&json!({"width": 0, "rowHeight": -2}));
     let errors: Vec<(String, String)> = [
-      session.figure(0, &ts(&json!("resolved")), &options).unwrap_err(),
+      session
+        .figure(&ts(&json!(0)), &ts(&json!("resolved")), &options)
+        .unwrap_err(),
       session.arg_figure(&options).unwrap_err(),
     ]
     .into_iter()
@@ -507,13 +513,21 @@ mod tests {
   #[wasm_bindgen_test]
   fn session_figure_of_an_unknown_pair_or_a_missing_arg_throws() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
-    let error = Error::from(session.figure(1, &ts(&json!("resolved")), &ts(&json!({}))).unwrap_err());
+    let error = Error::from(
+      session
+        .figure(&ts(&json!(1)), &ts(&json!("resolved")), &ts(&json!({})))
+        .unwrap_err(),
+    );
     assert_eq!("no pair 1: the run has 1 pair", String::from(error.message()));
     let t = "((A,B),(C,D));";
     let three =
       json!({"trees": [{"label": "ha", "newick": t}, {"label": "na", "newick": t}, {"label": "pb2", "newick": t}]});
     let session = Session::run(&ts(&three), &Function::new_no_args("")).unwrap();
-    let error = Error::from(session.figure(3, &ts(&json!("resolved")), &ts(&json!({}))).unwrap_err());
+    let error = Error::from(
+      session
+        .figure(&ts(&json!(3)), &ts(&json!("resolved")), &ts(&json!({})))
+        .unwrap_err(),
+    );
     assert_eq!("no pair 3: the run has 3 pairs", String::from(error.message()));
     let error = Error::from(session.arg_figure(&ts(&json!({}))).unwrap_err());
     assert_eq!(
@@ -627,7 +641,7 @@ mod tests {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let view = plain(
       &session
-        .pair_view(0, &ts(&json!("resolved")), &ts(&json!("div")))
+        .pair_view(&ts(&json!(0)), &ts(&json!("resolved")), &ts(&json!("div")))
         .unwrap()
         .js_value(),
     );
@@ -687,7 +701,7 @@ mod tests {
     let session = Session::run(&ts(&request), &Function::new_no_args("")).unwrap();
     let view = plain(
       &session
-        .pair_view(0, &ts(&json!("imputed")), &ts(&json!("depth")))
+        .pair_view(&ts(&json!(0)), &ts(&json!("imputed")), &ts(&json!("depth")))
         .unwrap()
         .js_value(),
     );
@@ -717,22 +731,66 @@ mod tests {
   #[wasm_bindgen_test]
   fn session_pair_view_of_an_unknown_pair_throws() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
-    match session.pair_view(1, &ts(&json!("resolved")), &ts(&json!("div"))) {
+    match session.pair_view(&ts(&json!(1)), &ts(&json!("resolved")), &ts(&json!("div"))) {
       Ok(_) => panic!("expected an error"),
       Err(e) => assert_eq!("no pair 1: the run has 1 pair", message(e)),
     }
-    match session.pair_view(0, &ts(&json!("final")), &ts(&json!("div"))) {
+    match session.pair_view(&ts(&json!(0)), &ts(&json!("final")), &ts(&json!("div"))) {
       Ok(_) => panic!("expected an error"),
       Err(e) => assert!(message(e).starts_with("invalid version: unknown variant `final`")),
     }
   }
 
   #[wasm_bindgen_test]
+  fn pair_and_tree_count_reject_numbers_that_are_not_counts() {
+    // Oracle: serde_json's `usize` on wasm32 (u32) rejects a fraction, a negative number, a
+    // number above u32::MAX, and `null`, which `JSON.stringify` writes for NaN.
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let numbers = [1.5, -1.0, 4_294_967_296.0, f64::NAN];
+    let pair_errors: Vec<String> = numbers
+      .iter()
+      .map(|&x| {
+        let pair = Ts::new_unchecked(JsValue::from_f64(x));
+        match session.pair_view(&pair, &ts(&json!("input")), &ts(&json!("div"))) {
+          Ok(_) => "accepted".to_owned(),
+          Err(e) => message(e),
+        }
+      })
+      .collect();
+    let count_errors: Vec<String> = numbers
+      .iter()
+      .map(|&x| {
+        let k = Ts::new_unchecked(JsValue::from_f64(x));
+        match treeknit_wasm::settings_schema(&k, &ts(&json!({}))) {
+          Ok(_) => "accepted".to_owned(),
+          Err(e) => message(e),
+        }
+      })
+      .collect();
+    let rejections = [
+      "invalid type: floating point `1.5`, expected usize at line 1 column 3",
+      "invalid value: integer `-1`, expected usize at line 1 column 2",
+      "invalid value: integer `4294967296`, expected usize at line 1 column 10",
+      "invalid type: null, expected usize at line 1 column 4",
+    ];
+    let expected = (
+      rejections.map(|r| format!("invalid pair: {r}")).to_vec(),
+      rejections.map(|r| format!("invalid k: {r}")).to_vec(),
+    );
+    assert_eq!(expected, (pair_errors, count_errors));
+  }
+
+  #[wasm_bindgen_test]
   fn session_auspice_view_of_the_two_tree_example_has_the_leaves_of_the_pair_view() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let (version, scale) = (ts(&json!("resolved")), ts(&json!("div")));
-    let pair = plain(&session.pair_view(0, &version, &scale).unwrap().js_value());
-    let auspice = plain(&session.auspice_view(0, &version, &scale).unwrap().js_value());
+    let pair = plain(&session.pair_view(&ts(&json!(0)), &version, &scale).unwrap().js_value());
+    let auspice = plain(
+      &session
+        .auspice_view(&ts(&json!(0)), &version, &scale)
+        .unwrap()
+        .js_value(),
+    );
     for side in ["left", "right"] {
       let drawn: Vec<&Value> = pair[side]["nodes"]
         .as_array()
@@ -759,7 +817,7 @@ mod tests {
   #[wasm_bindgen_test]
   fn session_auspice_view_of_an_unknown_pair_throws() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
-    match session.auspice_view(1, &ts(&json!("resolved")), &ts(&json!("div"))) {
+    match session.auspice_view(&ts(&json!(1)), &ts(&json!("resolved")), &ts(&json!("div"))) {
       Ok(_) => panic!("expected an error"),
       Err(e) => assert_eq!("no pair 1: the run has 1 pair", message(e)),
     }
@@ -769,10 +827,15 @@ mod tests {
   fn session_auspice_files_hold_the_datasets_of_the_auspice_view() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let (version, scale) = (ts(&json!("imputed")), ts(&json!("depth")));
-    let auspice = plain(&session.auspice_view(0, &version, &scale).unwrap().js_value());
+    let auspice = plain(
+      &session
+        .auspice_view(&ts(&json!(0)), &version, &scale)
+        .unwrap()
+        .js_value(),
+    );
     let files = plain(
       &session
-        .auspice_files(0, &version, &scale, &ts(&json!("right")))
+        .auspice_files(&ts(&json!(0)), &version, &scale, &ts(&json!("right")))
         .unwrap()
         .js_value(),
     );
@@ -926,7 +989,7 @@ mod tests {
 
   #[wasm_bindgen_test]
   fn settings_schema_returns_plain_rules_for_the_settings() {
-    let schema = treeknit_wasm::settings_schema(2, &ts(&json!({"naive": true}))).unwrap();
+    let schema = treeknit_wasm::settings_schema(&ts(&json!(2)), &ts(&json!({"naive": true}))).unwrap();
     let schema = plain(&schema.js_value());
     let expected = json!({
         "default": 2, "min": 0, "minExclusive": false, "max": null, "step": null, "integer": false,
@@ -950,7 +1013,7 @@ mod tests {
   #[wasm_bindgen_test]
   fn settings_schema_names_malformed_settings() {
     let expected = "invalid settings: foo: unknown field `foo`";
-    match treeknit_wasm::settings_schema(2, &ts(&json!({"foo": 1}))) {
+    match treeknit_wasm::settings_schema(&ts(&json!(2)), &ts(&json!({"foo": 1}))) {
       Ok(_) => panic!("expected error {expected:?}"),
       Err(e) => assert!(message(e).starts_with(expected)),
     }

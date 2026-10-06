@@ -1,8 +1,8 @@
 mod log_capture;
 
 use js_sys::{Error, Function, JSON};
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use std::cell::{OnceCell, RefCell};
 use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
 use treeknit_io::display::{
@@ -42,8 +42,9 @@ pub fn default_settings() -> Result<Ts<Settings>, JsError> {
 
 /// Defaults, ranges, applicability, and help of every setting, for `k` trees and `settings`.
 #[wasm_bindgen(js_name = settingsSchema)]
-pub fn settings_schema(k: usize, settings: &Ts<Settings>) -> Result<Ts<SettingsSchema>, JsError> {
+pub fn settings_schema(k: &Ts<TreeCount>, settings: &Ts<Settings>) -> Result<Ts<SettingsSchema>, JsError> {
   let _log = log_capture::discard();
+  let k = from_js("k", k)?.0;
   to_js(&schema::settings_schema(k, &from_js("settings", settings)?))
 }
 
@@ -343,8 +344,14 @@ impl Session {
   /// `depth` when `scale` is `div` and a tree of the pair has no branch lengths: `PairView.scale`
   /// tells which.
   #[wasm_bindgen(js_name = pairView)]
-  pub fn pair_view(&self, pair: usize, version: &Ts<TreeVersion>, scale: &Ts<Scale>) -> Result<Ts<PairView>, JsError> {
+  pub fn pair_view(
+    &self,
+    pair: &Ts<PairIndex>,
+    version: &Ts<TreeVersion>,
+    scale: &Ts<Scale>,
+  ) -> Result<Ts<PairView>, JsError> {
     let _log = log_capture::discard();
+    let pair = from_js("pair", pair)?.0;
     let version = from_js("version", version)?;
     let scale = from_js("scale", scale)?;
     let view = display::pair_view(&self.run, pair, version, scale).ok_or_else(|| no_pair(&self.run, pair))?;
@@ -356,11 +363,12 @@ impl Session {
   #[wasm_bindgen(js_name = auspiceView)]
   pub fn auspice_view(
     &self,
-    pair: usize,
+    pair: &Ts<PairIndex>,
     version: &Ts<TreeVersion>,
     scale: &Ts<Scale>,
   ) -> Result<Ts<AuspicePair>, JsError> {
     let _log = log_capture::discard();
+    let pair = from_js("pair", pair)?.0;
     let version = from_js("version", version)?;
     let scale = from_js("scale", scale)?;
     let view = display::auspice_view(&self.run, pair, version, scale).ok_or_else(|| no_pair(&self.run, pair))?;
@@ -373,12 +381,13 @@ impl Session {
   #[wasm_bindgen(js_name = auspiceFiles)]
   pub fn auspice_files(
     &self,
-    pair: usize,
+    pair: &Ts<PairIndex>,
     version: &Ts<TreeVersion>,
     scale: &Ts<Scale>,
     trees: &Ts<AuspiceTrees>,
   ) -> Result<Ts<AuspiceFiles>, JsError> {
     let _log = log_capture::discard();
+    let pair = from_js("pair", pair)?.0;
     let version = from_js("version", version)?;
     let scale = from_js("scale", scale)?;
     let trees = from_js("trees", trees)?;
@@ -412,11 +421,12 @@ impl Session {
   #[wasm_bindgen]
   pub fn figure(
     &self,
-    pair: usize,
+    pair: &Ts<PairIndex>,
     version: &Ts<TreeVersion>,
     options: &Ts<FigureOptions>,
   ) -> Result<Ts<FigureDownload>, JsValue> {
     let _log = log_capture::discard();
+    let pair = from_js("pair", pair)?.0;
     let version = from_js("version", version)?;
     let options = parse_js("options", options).map_err(|message| validation_error(&[malformed(message)]))?;
     let figure = output::pair_figure(&self.run, pair, version, &options)
@@ -440,6 +450,18 @@ impl Session {
     Ok(to_js(&figure)?)
   }
 }
+
+/// The index of a pair of trees in pipeline order. A plain `usize` parameter would take a
+/// JavaScript number through ToInt32 without a check, so that `NaN`, `0.9`, and 2^32 select pair
+/// 0; serde rejects every number that is not a count.
+#[derive(Clone, Copy, Debug, Deserialize, Tsify)]
+#[serde(transparent)]
+pub struct PairIndex(usize);
+
+/// The number of trees of a request, checked by serde as [`PairIndex`] is.
+#[derive(Clone, Copy, Debug, Deserialize, Tsify)]
+#[serde(transparent)]
+pub struct TreeCount(usize);
 
 /// The error for a pair index that `run` does not have.
 fn no_pair(run: &RunResult, pair: usize) -> JsError {
