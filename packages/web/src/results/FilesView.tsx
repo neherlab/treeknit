@@ -45,14 +45,17 @@ function SessionFiles({ sessionId }: SessionFilesProps) {
   });
 
   const sessionFile = useMutation({
-    mutationFn: async () => client.sessionFile(request),
+    mutationFn: async () => client.stateless(async (api) => api.sessionFile(request)),
     onSuccess: ({ path, mediaType, text }) => {
       downloadFile({ name: path, mediaType, content: text });
     },
   });
 
   const entry = useMutation({
-    mutationFn: async ({ file }: FileRow) => ({ file, text: await client.fileText(sessionId, file.path) }),
+    mutationFn: async ({ file }: FileRow) => ({
+      file,
+      text: await client.inSession(sessionId, async (session) => session.fileText(file.path)),
+    }),
     onSuccess: async ({ file, text }) => {
       downloadFile({ name: file.fileName, mediaType: file.mediaType, content: text });
 

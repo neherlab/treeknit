@@ -10,6 +10,7 @@ import {
   type RestoredWorkspace,
   selectRequest,
   type WorkspaceData,
+  type WorkspaceServices,
   type WorkspaceStore,
 } from "./store";
 
@@ -22,18 +23,18 @@ export async function startWorkspace(client: AnalysisClient, queryClient: QueryC
   const persistence = new WorkspacePersistence({
     storage: storageOrNull() ?? unavailableStorage(),
     channel: broadcastChannel(),
-    sessionFile: async (request) => client.sessionFile(request),
+    sessionFile: async (request) => client.stateless(async (api) => api.sessionFile(request)),
   });
 
   const [defaults, restored] = await Promise.all([
-    client.defaultSettings(),
+    client.stateless(async (api) => api.defaultSettings()),
     persistence.restore(async (stored): Promise<RestoredWorkspace> => ({
-      request: await client.readSession(stored.sessionFile),
+      request: await client.stateless(async (api) => api.readSession(stored.sessionFile)),
       sources: stored.sources,
     })),
   ]);
 
-  const store = createWorkspaceStore(client, { defaults, restored });
+  const store = createWorkspaceStore(workspaceServices(client), { defaults, restored });
 
   store.subscribe((state, previous) => {
     if (state.trees !== previous.trees || state.settings !== previous.settings) {
@@ -63,6 +64,20 @@ export async function startWorkspace(client: AnalysisClient, queryClient: QueryC
 
 export function workspaceSnapshot(state: WorkspaceData): WorkspaceSnapshot {
   return { request: selectRequest(state), sources: state.trees.map(({ source }) => source) };
+}
+
+function workspaceServices(client: AnalysisClient): WorkspaceServices {
+  return {
+    async treeLabels(...args) {
+      return client.stateless(async (api) => api.treeLabels(...args));
+    },
+    async settingsSchema(...args) {
+      return client.stateless(async (api) => api.settingsSchema(...args));
+    },
+    cancel() {
+      client.cancel();
+    },
+  };
 }
 
 function storageOrNull(): RecordStorage | null {

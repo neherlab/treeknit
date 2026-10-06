@@ -42,7 +42,7 @@ function Arg({ result }: { result: RunResult }) {
   const findLeaf = useFindLeaf(data, argLeafRows, select, view.actions);
 
   const figure = useFigureDownload(result.sessionId, ARG_FIGURE, async (client, sessionId) =>
-    client.argFigure(sessionId, figureOptions(search)),
+    client.inSession(sessionId, async (session) => session.argFigure(figureOptions(search))),
   );
 
   const toolbar = (

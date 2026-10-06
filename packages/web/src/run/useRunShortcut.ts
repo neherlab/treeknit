@@ -1,5 +1,5 @@
 import type { ValidationError } from "@neherlab/treeknit-wasm";
-import { useQueryClient } from "@tanstack/react-query";
+import { CancelledError, useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useEffect, useEffectEvent } from "react";
 import { useFormContext } from "react-hook-form";
 
@@ -29,7 +29,9 @@ export function useRunShortcut(workspace: RefObject<HTMLElement | null>): void {
         staleTime: "static",
       });
     } catch (error) {
-      console.error("The run shortcut could not check the trees and settings", error);
+      if (!(error instanceof CancelledError)) {
+        console.error("The run shortcut could not check the trees and settings", error);
+      }
 
       return;
     }

@@ -3,6 +3,7 @@ import { isDeepEqual } from "remeda";
 import { match } from "ts-pattern";
 
 import type { AnalysisClient } from "../analysis/client";
+import type { StatelessArgs, StatelessResult } from "../analysis/protocol";
 import { type SearchRecord, VIEW_KEYS } from "../workspace/search";
 import { queryRecord } from "../workspace/searchQuery";
 import { selectRequest, selectStale, type WorkspaceData, type WorkspaceStore } from "../workspace/store";
@@ -53,15 +54,23 @@ export function linkRecord(pairs: readonly LinkEntry[]): SearchRecord {
   return queryRecord(pairs.map(({ key, value }) => ({ key, value: value === "" ? true : value })));
 }
 
+export function linkPairsClient(client: AnalysisClient): LinkPairsClient {
+  return {
+    async launchPairs(...args) {
+      return client.stateless(async (api) => api.launchPairs(...args));
+    },
+  };
+}
+
 export class AddressBarSync {
   readonly #store: WorkspaceStore;
-  readonly #client: Pick<AnalysisClient, "launchPairs">;
+  readonly #client: LinkPairsClient;
   readonly #page: AddressBarPage;
   #written: LinkSource | null = null;
   #sequence = 0;
   #stop: (() => void) | null = null;
 
-  constructor(store: WorkspaceStore, client: Pick<AnalysisClient, "launchPairs">, page: AddressBarPage) {
+  constructor(store: WorkspaceStore, client: LinkPairsClient, page: AddressBarPage) {
     this.#store = store;
     this.#client = client;
     this.#page = page;
@@ -103,6 +112,10 @@ export class AddressBarSync {
       await this.#page.write(pairs ?? null);
     }
   }
+}
+
+export interface LinkPairsClient {
+  launchPairs(...args: StatelessArgs<"launchPairs">): StatelessResult<"launchPairs">;
 }
 
 export interface AddressBarPage {

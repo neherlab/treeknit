@@ -12,6 +12,7 @@ import { match } from "ts-pattern";
 
 import type { AnalysisClient } from "../analysis/client";
 import type { ExampleTree } from "../analysis/example";
+import type { StatelessArgs, StatelessResult } from "../analysis/protocol";
 import { VIEW_KEYS } from "../workspace/search";
 import type { QueryEntry } from "../workspace/searchQuery";
 import type { WorkspaceStore } from "../workspace/store";
@@ -160,6 +161,29 @@ export type LaunchStatus =
   | { kind: "failed"; problems: readonly string[] }
   | { kind: "loaded" };
 
+export function launchClient(client: AnalysisClient): LaunchClient {
+  return {
+    async parseLaunch(...args) {
+      return client.stateless(async (api) => api.parseLaunch(...args));
+    },
+    async decodeTreeBytes(...args) {
+      return client.stateless(async (api) => api.decodeTreeBytes(...args));
+    },
+    async examples() {
+      return client.stateless(async (api) => api.examples());
+    },
+    async readSession(...args) {
+      return client.stateless(async (api) => api.readSession(...args));
+    },
+    async applySettings(...args) {
+      return client.stateless(async (api) => api.applySettings(...args));
+    },
+    async linkLimits() {
+      return client.stateless(async (api) => api.linkLimits());
+    },
+  };
+}
+
 export interface LaunchEnvironment {
   client: LaunchClient;
   fetchFile: FetchFile;
@@ -168,10 +192,14 @@ export interface LaunchEnvironment {
   run: (keepView: boolean) => Promise<void>;
 }
 
-export type LaunchClient = Pick<
-  AnalysisClient,
-  "parseLaunch" | "decodeTreeBytes" | "examples" | "readSession" | "applySettings" | "linkLimits"
->;
+export interface LaunchClient {
+  parseLaunch(...args: StatelessArgs<"parseLaunch">): StatelessResult<"parseLaunch">;
+  decodeTreeBytes(...args: StatelessArgs<"decodeTreeBytes">): StatelessResult<"decodeTreeBytes">;
+  examples(): StatelessResult<"examples">;
+  readSession(...args: StatelessArgs<"readSession">): StatelessResult<"readSession">;
+  applySettings(...args: StatelessArgs<"applySettings">): StatelessResult<"applySettings">;
+  linkLimits(): StatelessResult<"linkLimits">;
+}
 
 export interface ReceivedSession {
   text: string;

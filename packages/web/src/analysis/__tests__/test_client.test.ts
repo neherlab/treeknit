@@ -1,9 +1,9 @@
-import type { AnalysisRequest, Progress, Summary } from "@neherlab/treeknit-wasm";
-import { expose } from "comlink";
+import type { AnalysisRequest, AppVersion, Progress, Summary } from "@neherlab/treeknit-wasm";
+import { expose, proxy } from "comlink";
 import { describe, expect, test } from "vitest";
 
 import { type AnalysisWorker, CANCELLED_MESSAGE, SessionUnavailableError, WorkerAnalysisClient } from "../client";
-import type { WorkerApi } from "../protocol";
+import type { SessionApi, StatelessApi } from "../protocol";
 
 const REQUEST: AnalysisRequest = {
   trees: [
@@ -14,14 +14,20 @@ const REQUEST: AnalysisRequest = {
 
 const EMPTY_WASM_MODULE = new WebAssembly.Module(new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]));
 
+const LABELS = ["a"];
+
 const PROGRESS: Progress = { phase: "pairs", fraction: 0.5, round: 1, rounds: 1, pair: 1, pairs: 1 };
 
 describe("analysis client", () => {
   test("answers stateless calls from the utility worker and compiles the module once", async () => {
-    const host = new FakeHost({ utility: [fakeApi({ treeLabels: () => ["ha", "na_2"] })], job: [succeeding("one")] });
+    const host = new FakeHost({
+      utility: [fakeApi({ stateless: { treeLabels: () => ["ha", "na_2"] } })],
+      job: [succeeding("one")],
+    });
+
     const client = new WorkerAnalysisClient(host);
 
-    const labels = await client.treeLabels(["ha.nwk", "na.nwk"], ["na"]);
+    const labels = await client.stateless(async (api) => api.treeLabels(["ha.nwk", "na.nwk"], ["na"]));
     const outcome = await client.startRun(REQUEST, ignoreProgress).outcome;
 
     expect({ labels, outcome: outcome.status, compiled: host.compiled }).toStrictEqual({
@@ -37,13 +43,13 @@ describe("analysis client", () => {
     const client = new WorkerAnalysisClient(host);
 
     const first = await client.startRun(REQUEST, ignoreProgress).outcome;
-    const firstLine = await client.commandLine(sessionId(first));
+    const firstLine = await commandLine(client, sessionId(first));
     const second = await client.startRun(REQUEST, ignoreProgress).outcome;
-    const secondLine = await client.commandLine(sessionId(second));
+    const secondLine = await commandLine(client, sessionId(second));
 
     expect({
       lines: [firstLine, secondLine],
-      firstGone: await client.commandLine(sessionId(first)).catch(errorName),
+      firstGone: await commandLine(client, sessionId(first)).catch(errorName),
       terminated: host.terminatedNames(),
     }).toStrictEqual({
       lines: ["first", "second"],
@@ -68,7 +74,7 @@ describe("analysis client", () => {
     expect({
       outcome,
       terminated: host.terminatedNames(),
-      kept: await client.commandLine(sessionId(first)),
+      kept: await commandLine(client, sessionId(first)),
     }).toStrictEqual({
       outcome: { status: "failed", kind: "cancelled", message: CANCELLED_MESSAGE },
       terminated: ["treeknit-job#1"],
@@ -96,8 +102,8 @@ describe("analysis client", () => {
     expect({
       outcome: (await handle.outcome).status,
       progress,
-      kept: await client.commandLine(sessionId(first)),
-      lateSession: await client.commandLine(handle.runId).catch(errorName),
+      kept: await commandLine(client, sessionId(first)),
+      lateSession: await commandLine(client, handle.runId).catch(errorName),
     }).toStrictEqual({ outcome: "failed", progress: [], kept: "kept", lateSession: "SessionUnavailableError" });
     client.dispose();
   });
@@ -174,14 +180,16 @@ describe("analysis client", () => {
 
   test("a utility worker that cannot be constructed rejects the call with a start error and starts again", async () => {
     const host = new FakeHost({
-      utility: [fakeApi({ version: () => ({ version: "0.5.0", repository: "r", releases: "r/releases" }) })],
+      utility: [
+        fakeApi({ stateless: { version: () => ({ version: "0.5.0", repository: "r", releases: "r/releases" }) } }),
+      ],
       job: [],
     });
 
     host.refuseStart("treeknit-utility");
     const client = new WorkerAnalysisClient(host);
-    const refused = await client.version().catch(errorName);
-    const answered = await client.version();
+    const refused = await version(client).catch(errorName);
+    const answered = await version(client);
 
     expect({ refused, answered }).toStrictEqual({
       refused: "WorkerStartError",
@@ -209,16 +217,16 @@ describe("analysis client", () => {
   test("replaces the utility worker after a WebAssembly trap", async () => {
     const host = new FakeHost({
       utility: [
-        fakeApi({ version: trap }),
-        fakeApi({ version: () => ({ version: "0.5.0", repository: "r", releases: "r/releases" }) }),
+        fakeApi({ stateless: { version: trap } }),
+        fakeApi({ stateless: { version: () => ({ version: "0.5.0", repository: "r", releases: "r/releases" }) } }),
       ],
       job: [],
     });
 
     const client = new WorkerAnalysisClient(host);
 
-    const trapped = await client.version().catch(errorName);
-    const answered = await client.version();
+    const trapped = await version(client).catch(errorName);
+    const answered = await version(client);
 
     expect({ trapped, answered, terminated: host.terminatedNames() }).toStrictEqual({
       trapped: "RuntimeError",
@@ -228,34 +236,189 @@ describe("analysis client", () => {
     client.dispose();
   });
 
-  test("rejects the other calls of a replaced utility worker with the error that replaced it", async () => {
-    const host = new FakeHost({
-      utility: [fakeApi({ version: trap, palette: async () => Promise.withResolvers<never>().promise }), fakeApi({})],
-      job: [],
-    });
+  test("rejects a call queued behind a trapped call with the trap, and the worker never receives it", async () => {
+    const received: string[] = [];
 
-    const client = new WorkerAnalysisClient(host);
-    const waiting = client.palette().catch(errorName);
-    const trapped = await client.version().catch(errorName);
-
-    expect({ trapped, waiting: await waiting }).toStrictEqual({ trapped: "RuntimeError", waiting: "RuntimeError" });
-    client.dispose();
-  });
-
-  test("replaces a utility worker that stops while idle, so the next call does not fail", async () => {
     const host = new FakeHost({
       utility: [
-        fakeApi({ version: () => ({ version: "0.5.0", repository: "first", releases: "first/releases" }) }),
-        fakeApi({ version: () => ({ version: "0.5.0", repository: "second", releases: "second/releases" }) }),
+        fakeApi({
+          stateless: {
+            version: trap,
+            treeLabels: () => {
+              received.push("treeLabels");
+
+              return LABELS;
+            },
+          },
+        }),
+        fakeApi({}),
       ],
       job: [],
     });
 
     const client = new WorkerAnalysisClient(host);
-    const first = await client.version();
+    const trapped = version(client).catch((error: unknown) => error);
+    const queued = labels(client).catch((error: unknown) => error);
+    const rejected = await queued;
+
+    await host.delivered("treeknit-utility#0");
+
+    expect({ same: rejected === (await trapped), name: errorName(rejected), received }).toStrictEqual({
+      same: true,
+      name: "RuntimeError",
+      received: [],
+    });
+    client.dispose();
+  });
+
+  test("passes the arguments of stateless and session calls to the worker", async () => {
+    const calls: unknown[][] = [];
+
+    const host = new FakeHost({
+      utility: [fakeApi({ stateless: { treeLabels: (...args) => record(calls, args, LABELS) } })],
+      job: [succeeding("x", { fileText: (...args) => record(calls, args, "text") })],
+    });
+
+    const client = new WorkerAnalysisClient(host);
+    const answered = await client.stateless(async (api) => api.treeLabels(["ha.nwk"], ["na"]));
+    const outcome = await client.startRun(REQUEST, ignoreProgress).outcome;
+    const text = await client.inSession(sessionId(outcome), async (session) => session.fileText("MCCs.json"));
+
+    expect({ answered, text, calls }).toStrictEqual({
+      answered: LABELS,
+      text: "text",
+      calls: [[["ha.nwk"], ["na"]], ["MCCs.json"]],
+    });
+    client.dispose();
+  });
+
+  test("rejects a call aborted while queued with the abort reason, and the worker never receives it", async () => {
+    const slow = new SlowCall();
+    const received: string[] = [];
+    const host = new FakeHost({ utility: [fakeApi({ stateless: slow.withLabels(received) })], job: [] });
+    const client = new WorkerAnalysisClient(host);
+    const controller = new AbortController();
+    const reason = { stale: true };
+
+    const first = version(client);
+    await slow.started;
+    const queued = labels(client, controller.signal);
+
+    controller.abort(reason);
+    const rejected = await queued.catch((error: unknown) => error);
+
+    slow.finish();
+    const answered = await first;
+
+    await host.delivered("treeknit-utility#0");
+
+    expect({ same: rejected === reason, first: answered.repository, received }).toStrictEqual({
+      same: true,
+      first: "slow",
+      received: [],
+    });
+    client.dispose();
+  });
+
+  test("rejects a call whose signal is already aborted without reaching the worker", async () => {
+    const received: string[] = [];
+    const host = new FakeHost({ utility: [fakeApi({ stateless: new SlowCall().withLabels(received) })], job: [] });
+    const client = new WorkerAnalysisClient(host);
+    const reason = { stale: true };
+
+    const rejected = await client
+      .stateless(async (api) => api.treeLabels(["a.nwk"], []), { signal: AbortSignal.abort(reason) })
+      .catch((error: unknown) => error);
+
+    await host.delivered("treeknit-utility#0");
+
+    expect({ same: rejected === reason, received }).toStrictEqual({ same: true, received: [] });
+    client.dispose();
+  });
+
+  test("rejects a call aborted while the worker starts, and the worker never receives it", async () => {
+    const gate = Promise.withResolvers<undefined>();
+    const received: string[] = [];
+
+    const host = new FakeHost({
+      utility: [{ ...fakeApi({ stateless: new SlowCall().withLabels(received) }), init: async () => gate.promise }],
+      job: [],
+    });
+
+    const client = new WorkerAnalysisClient(host);
+    const controller = new AbortController();
+    const reason = { stale: true };
+    const aborted = labels(client, controller.signal);
+
+    controller.abort(reason);
+    const rejected = await aborted.catch((error: unknown) => error);
+
+    gate.resolve(undefined);
+    const answered = await labels(client);
+
+    expect({ same: rejected === reason, answered, received }).toStrictEqual({
+      same: true,
+      answered: LABELS,
+      received: ["treeLabels"],
+    });
+    client.dispose();
+  });
+
+  test("keeps the result of a call aborted while it runs", async () => {
+    const slow = new SlowCall();
+    const host = new FakeHost({ utility: [fakeApi({ stateless: slow.withLabels([]) })], job: [] });
+    const client = new WorkerAnalysisClient(host);
+    const controller = new AbortController();
+
+    const running = client.stateless(async (api) => api.version(), { signal: controller.signal });
+    await slow.started;
+    controller.abort({ stale: true });
+    slow.finish();
+
+    expect((await running).repository).toBe("slow");
+    client.dispose();
+  });
+
+  test("rejects a queued call with the reason that stops the worker", async () => {
+    const slow = new SlowCall();
+    const received: string[] = [];
+    const host = new FakeHost({ utility: [fakeApi({ stateless: slow.withLabels(received) })], job: [] });
+    const client = new WorkerAnalysisClient(host);
+
+    const running = version(client).catch(errorMessage);
+    await slow.started;
+    const queued = labels(client).catch(errorMessage);
+
+    client.dispose();
+    const stopped = { running: await running, queued: await queued };
+
+    await host.delivered("treeknit-utility#0");
+
+    expect({ ...stopped, received }).toStrictEqual({
+      running: "The analysis worker was stopped.",
+      queued: "The analysis worker was stopped.",
+      received: [],
+    });
+  });
+
+  test("replaces a utility worker that stops while idle, so the next call does not fail", async () => {
+    const host = new FakeHost({
+      utility: [
+        fakeApi({
+          stateless: { version: () => ({ version: "0.5.0", repository: "first", releases: "first/releases" }) },
+        }),
+        fakeApi({
+          stateless: { version: () => ({ version: "0.5.0", repository: "second", releases: "second/releases" }) },
+        }),
+      ],
+      job: [],
+    });
+
+    const client = new WorkerAnalysisClient(host);
+    const first = await version(client);
 
     host.raiseError("treeknit-utility#0");
-    const second = await client.version();
+    const second = await version(client);
 
     expect({ first: first.repository, second: second.repository, terminated: host.terminatedNames() }).toStrictEqual({
       first: "first",
@@ -269,8 +432,10 @@ describe("analysis client", () => {
     const host = new FakeHost({
       utility: [
         fakeApi({
-          readSession: () => {
-            throw new Error("missing field `trees`");
+          stateless: {
+            readSession: () => {
+              throw new Error("missing field `trees`");
+            },
           },
         }),
       ],
@@ -280,7 +445,7 @@ describe("analysis client", () => {
     const client = new WorkerAnalysisClient(host);
 
     const message = await client
-      .readSession("{}")
+      .stateless(async (api) => api.readSession("{}"))
       .catch((error: unknown) => (error instanceof Error ? error.message : ""));
 
     expect({ message, terminated: host.terminatedNames() }).toStrictEqual({
@@ -291,7 +456,7 @@ describe("analysis client", () => {
   });
 
   test("clears the session and notifies listeners when the session worker traps", async () => {
-    const host = new FakeHost({ utility: [fakeApi({})], job: [{ ...succeeding("x"), commandLine: trap }] });
+    const host = new FakeHost({ utility: [fakeApi({})], job: [succeeding("x", { commandLine: trap })] });
     const client = new WorkerAnalysisClient(host);
     const lost: number[] = [];
 
@@ -299,8 +464,8 @@ describe("analysis client", () => {
       lost.push(id);
     });
     const outcome = await client.startRun(REQUEST, ignoreProgress).outcome;
-    const trapped = await client.commandLine(sessionId(outcome)).catch(errorName);
-    const after = await client.commandLine(sessionId(outcome)).catch(errorName);
+    const trapped = await commandLine(client, sessionId(outcome)).catch(errorName);
+    const after = await commandLine(client, sessionId(outcome)).catch(errorName);
 
     expect({ trapped, after, lost, terminated: host.terminatedNames() }).toStrictEqual({
       trapped: "RuntimeError",
@@ -322,7 +487,7 @@ describe("analysis client", () => {
     const outcome = await client.startRun(REQUEST, ignoreProgress).outcome;
 
     host.raiseError("treeknit-job#0");
-    const after = await client.summary(sessionId(outcome)).catch(errorName);
+    const after = await client.inSession(sessionId(outcome), async (session) => session.summary()).catch(errorName);
 
     expect({ lost, after }).toStrictEqual({ lost: [sessionId(outcome)], after: "SessionUnavailableError" });
     client.dispose();
@@ -331,20 +496,30 @@ describe("analysis client", () => {
   test("rejects session calls before any run", async () => {
     const client = new WorkerAnalysisClient(new FakeHost({ utility: [fakeApi({})], job: [] }));
 
-    await expect(client.files(1)).rejects.toBeInstanceOf(SessionUnavailableError);
+    await expect(client.inSession(1, async (session) => session.files())).rejects.toBeInstanceOf(
+      SessionUnavailableError,
+    );
     client.dispose();
   });
 });
 
-type FakeApi = {
-  [Name in keyof WorkerApi]: (
-    ...args: Parameters<WorkerApi[Name]>
-  ) => ReturnType<WorkerApi[Name]> | Promise<ReturnType<WorkerApi[Name]>>;
+type Faked<Api> = {
+  [Name in keyof Api]?: Api[Name] extends (...args: infer Args) => infer Result
+    ? (...args: Args) => Result | Promise<Result>
+    : never;
 };
+
+interface FakeApi {
+  init: () => undefined | Promise<undefined>;
+  run: (request: AnalysisRequest, onProgress: (progress: Progress) => Promise<void>) => Summary | Promise<Summary>;
+  stateless: Faked<StatelessApi>;
+  session: Faked<SessionApi>;
+}
 
 class FakeHost {
   readonly #apis: Record<"utility" | "job", (FakeApi | undefined)[]>;
   readonly #ports = new Map<string, MessagePort>();
+  readonly #workerPorts = new Map<string, MessagePort>();
   readonly #terminated: string[] = [];
   readonly #refused = new Set<string>();
   #compileFailure: Error | undefined;
@@ -370,6 +545,7 @@ class FakeHost {
     }
 
     this.#ports.set(key, port1);
+    this.#workerPorts.set(key, port2);
 
     return {
       postMessage: port1.postMessage.bind(port1),
@@ -403,6 +579,27 @@ class FakeHost {
     this.#ports.get(key)?.dispatchEvent(new Event("error"));
   }
 
+  async delivered(key: string): Promise<undefined> {
+    const sender = this.#ports.get(key);
+    const receiver = this.#workerPorts.get(key);
+
+    if (sender === undefined || receiver === undefined) {
+      throw new Error(`no worker ${key}`);
+    }
+
+    const { promise, resolve } = Promise.withResolvers<undefined>();
+
+    receiver.addEventListener("message", function onMessage(event: MessageEvent<unknown>) {
+      if (event.data === null) {
+        receiver.removeEventListener("message", onMessage);
+        resolve(undefined);
+      }
+    });
+    sender.postMessage(null, []);
+
+    return promise;
+  }
+
   terminatedNames(): string[] {
     return [...this.#terminated];
   }
@@ -422,7 +619,7 @@ class PendingRun {
 
         return this.#result.promise;
       },
-      commandLine: () => "pending",
+      session: { commandLine: () => "pending" },
     });
   }
 
@@ -439,11 +636,39 @@ class PendingRun {
   }
 }
 
-function succeeding(name: string): FakeApi {
+class SlowCall {
+  readonly #started = Promise.withResolvers<undefined>();
+  readonly #result = Promise.withResolvers<undefined>();
+
+  get started(): Promise<undefined> {
+    return this.#started.promise;
+  }
+
+  finish(): void {
+    this.#result.resolve(undefined);
+  }
+
+  withLabels(received: string[]): Faked<StatelessApi> {
+    return {
+      version: async () => {
+        this.#started.resolve(undefined);
+        await this.#result.promise;
+
+        return { version: "0.5.0", repository: "slow", releases: "slow/releases" };
+      },
+      treeLabels: () => {
+        received.push("treeLabels");
+
+        return LABELS;
+      },
+    };
+  }
+}
+
+function succeeding(name: string, session: Faked<SessionApi> = {}): FakeApi {
   return fakeApi({
     run: () => summaryNamed(name),
-    summary: () => summaryNamed(name),
-    commandLine: () => name,
+    session: { summary: () => summaryNamed(name), commandLine: () => name, ...session },
   });
 }
 
@@ -456,46 +681,33 @@ function failingRun(name: string, message: string): FakeApi {
 }
 
 function fakeApi(overrides: Partial<FakeApi>): FakeApi {
-  const missing = () => {
-    throw new Error("not faked");
-  };
-
   return {
     init: () => undefined,
-    defaultSettings: missing,
-    settingsSchema: missing,
-    inspectTree: missing,
-    overlap: missing,
-    validate: missing,
-    readSession: missing,
-    sessionFile: missing,
-    treeLabels: missing,
-    parseLaunch: missing,
-    decodeTreeBytes: missing,
-    examples: missing,
-    launchKeys: missing,
-    linkLimits: missing,
-    launchPairs: missing,
-    inlineSession: missing,
-    applySettings: missing,
-    version: missing,
-    palette: missing,
-    drawingRules: missing,
-    run: missing,
-    summary: missing,
-    files: missing,
-    fileText: missing,
-    zip: missing,
-    commandLine: missing,
-    pairView: missing,
-    auspiceView: missing,
-    auspiceFiles: missing,
-    argView: missing,
-    constellation: missing,
-    figure: missing,
-    argFigure: missing,
+    run: () => {
+      throw new Error("not faked");
+    },
     ...overrides,
+    stateless: proxy({ ...overrides.stateless }),
+    session: proxy({ ...overrides.session }),
   };
+}
+
+async function commandLine(client: WorkerAnalysisClient, id: number): Promise<string> {
+  return client.inSession(id, async (session) => session.commandLine());
+}
+
+async function labels(client: WorkerAnalysisClient, signal?: AbortSignal): Promise<string[]> {
+  return client.stateless(async (api) => api.treeLabels(["a.nwk"], []), { signal });
+}
+
+async function version(client: WorkerAnalysisClient): Promise<AppVersion> {
+  return client.stateless(async (api) => api.version());
+}
+
+function record<T>(calls: unknown[][], args: unknown[], result: T): T {
+  calls.push(args);
+
+  return result;
 }
 
 function trap(): never {
@@ -521,6 +733,10 @@ function sessionId(outcome: { status: string; sessionId?: number }): number {
 
 function errorName(error: unknown): string {
   return error instanceof Error ? error.name : "not an error";
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "not an error";
 }
 
 function ignoreProgress(): undefined {

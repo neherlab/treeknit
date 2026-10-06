@@ -24,12 +24,16 @@ export function CopyLinkButton() {
 
   const copy = useCallback(async () => {
     const link = shownLink(store.getState());
-    const [pairs, limits] = await Promise.all([client.launchPairs(link), client.linkLimits()]);
+
+    const [pairs, limits] = await client.stateless(async (api) =>
+      Promise.all([api.launchPairs(link), api.linkLimits()]),
+    );
+
     const pageUrl = `${window.location.origin}${window.location.pathname}`;
 
     const text =
       pairs === undefined
-        ? inlineSessionLink(pageUrl, written, await client.inlineSession(link.request))
+        ? inlineSessionLink(pageUrl, written, await client.stateless(async (api) => api.inlineSession(link.request)))
         : window.location.href;
 
     const check = copyCheck(text, limits);
@@ -113,8 +117,8 @@ function CopyNotice({ outcome, onDismiss }: { outcome: CopyOutcome; onDismiss: (
   );
 }
 
-async function saveSessionFile(client: Pick<AnalysisClient, "sessionFile">, request: AnalysisRequest): Promise<void> {
-  const file = await client.sessionFile(request);
+async function saveSessionFile(client: AnalysisClient, request: AnalysisRequest): Promise<void> {
+  const file = await client.stateless(async (api) => api.sessionFile(request));
 
   downloadFile({ name: file.path, mediaType: file.mediaType, content: file.text });
 }

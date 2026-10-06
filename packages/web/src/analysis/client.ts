@@ -2,7 +2,7 @@ import type { AnalysisRequest, Progress, Summary } from "@neherlab/treeknit-wasm
 import { type Endpoint, proxy, type Remote, wrap } from "comlink";
 import { doNothing } from "remeda";
 
-import type { SessionArgs, SessionResult, StatelessArgs, StatelessResult, WorkerApi } from "./protocol";
+import type { SessionApi, StatelessApi, WorkerApi } from "./protocol";
 
 export const RESULTS_LOST_MESSAGE = "The results were lost because of an internal error. Run again.";
 
@@ -19,40 +19,20 @@ export interface RunHandle {
   outcome: Promise<RunOutcome>;
 }
 
+export interface CallOptions {
+  signal?: AbortSignal | undefined;
+}
+
 export interface AnalysisClient {
-  defaultSettings(): StatelessResult<"defaultSettings">;
-  settingsSchema(...args: StatelessArgs<"settingsSchema">): StatelessResult<"settingsSchema">;
-  inspectTree(...args: StatelessArgs<"inspectTree">): StatelessResult<"inspectTree">;
-  overlap(...args: StatelessArgs<"overlap">): StatelessResult<"overlap">;
-  validate(...args: StatelessArgs<"validate">): StatelessResult<"validate">;
-  readSession(...args: StatelessArgs<"readSession">): StatelessResult<"readSession">;
-  sessionFile(...args: StatelessArgs<"sessionFile">): StatelessResult<"sessionFile">;
-  treeLabels(...args: StatelessArgs<"treeLabels">): StatelessResult<"treeLabels">;
-  parseLaunch(...args: StatelessArgs<"parseLaunch">): StatelessResult<"parseLaunch">;
-  decodeTreeBytes(...args: StatelessArgs<"decodeTreeBytes">): StatelessResult<"decodeTreeBytes">;
-  examples(): StatelessResult<"examples">;
-  launchKeys(): StatelessResult<"launchKeys">;
-  linkLimits(): StatelessResult<"linkLimits">;
-  launchPairs(...args: StatelessArgs<"launchPairs">): StatelessResult<"launchPairs">;
-  inlineSession(...args: StatelessArgs<"inlineSession">): StatelessResult<"inlineSession">;
-  applySettings(...args: StatelessArgs<"applySettings">): StatelessResult<"applySettings">;
-  version(): StatelessResult<"version">;
-  palette(): StatelessResult<"palette">;
-  drawingRules(): StatelessResult<"drawingRules">;
+  stateless<T>(operation: (api: Remote<StatelessApi>) => Promise<T>, options?: CallOptions): Promise<T>;
+  inSession<T>(
+    sessionId: number,
+    operation: (session: Remote<SessionApi>) => Promise<T>,
+    options?: CallOptions,
+  ): Promise<T>;
   startRun(request: AnalysisRequest, onProgress: (progress: Progress) => void): RunHandle;
   cancel(): void;
-  summary(sessionId: number): SessionResult<"summary">;
-  files(sessionId: number): SessionResult<"files">;
-  fileText(sessionId: number, ...args: SessionArgs<"fileText">): SessionResult<"fileText">;
-  zip(sessionId: number): SessionResult<"zip">;
-  commandLine(sessionId: number): SessionResult<"commandLine">;
-  pairView(sessionId: number, ...args: SessionArgs<"pairView">): SessionResult<"pairView">;
-  auspiceView(sessionId: number, ...args: SessionArgs<"auspiceView">): SessionResult<"auspiceView">;
-  auspiceFiles(sessionId: number, ...args: SessionArgs<"auspiceFiles">): SessionResult<"auspiceFiles">;
-  argView(sessionId: number, ...args: SessionArgs<"argView">): SessionResult<"argView">;
-  constellation(sessionId: number): SessionResult<"constellation">;
-  figure(sessionId: number, ...args: SessionArgs<"figure">): SessionResult<"figure">;
-  argFigure(sessionId: number, ...args: SessionArgs<"argFigure">): SessionResult<"argFigure">;
+  zip(sessionId: number, options?: CallOptions): Promise<Uint8Array>;
   onSessionLost(listener: (sessionId: number) => void): () => void;
   dispose(): void;
 }
@@ -101,80 +81,16 @@ export class WorkerAnalysisClient implements AnalysisClient {
     this.#utility = this.#connectUtility();
   }
 
-  async defaultSettings(): StatelessResult<"defaultSettings"> {
-    return this.#stateless((remote) => remote.defaultSettings());
+  async stateless<T>(operation: (api: Remote<StatelessApi>) => Promise<T>, options: CallOptions = {}): Promise<T> {
+    return this.#onUtility(async (remote) => operation(remote.stateless), options.signal);
   }
 
-  async settingsSchema(...args: StatelessArgs<"settingsSchema">): StatelessResult<"settingsSchema"> {
-    return this.#stateless((remote) => remote.settingsSchema(...args));
-  }
-
-  async inspectTree(...args: StatelessArgs<"inspectTree">): StatelessResult<"inspectTree"> {
-    return this.#stateless((remote) => remote.inspectTree(...args));
-  }
-
-  async overlap(...args: StatelessArgs<"overlap">): StatelessResult<"overlap"> {
-    return this.#stateless((remote) => remote.overlap(...args));
-  }
-
-  async validate(...args: StatelessArgs<"validate">): StatelessResult<"validate"> {
-    return this.#stateless((remote) => remote.validate(...args));
-  }
-
-  async readSession(...args: StatelessArgs<"readSession">): StatelessResult<"readSession"> {
-    return this.#stateless((remote) => remote.readSession(...args));
-  }
-
-  async sessionFile(...args: StatelessArgs<"sessionFile">): StatelessResult<"sessionFile"> {
-    return this.#stateless((remote) => remote.sessionFile(...args));
-  }
-
-  async treeLabels(...args: StatelessArgs<"treeLabels">): StatelessResult<"treeLabels"> {
-    return this.#stateless((remote) => remote.treeLabels(...args));
-  }
-
-  async parseLaunch(...args: StatelessArgs<"parseLaunch">): StatelessResult<"parseLaunch"> {
-    return this.#stateless((remote) => remote.parseLaunch(...args));
-  }
-
-  async decodeTreeBytes(...args: StatelessArgs<"decodeTreeBytes">): StatelessResult<"decodeTreeBytes"> {
-    return this.#stateless((remote) => remote.decodeTreeBytes(...args));
-  }
-
-  async examples(): StatelessResult<"examples"> {
-    return this.#stateless((remote) => remote.examples());
-  }
-
-  async launchKeys(): StatelessResult<"launchKeys"> {
-    return this.#stateless((remote) => remote.launchKeys());
-  }
-
-  async linkLimits(): StatelessResult<"linkLimits"> {
-    return this.#stateless((remote) => remote.linkLimits());
-  }
-
-  async launchPairs(...args: StatelessArgs<"launchPairs">): StatelessResult<"launchPairs"> {
-    return this.#stateless((remote) => remote.launchPairs(...args));
-  }
-
-  async inlineSession(...args: StatelessArgs<"inlineSession">): StatelessResult<"inlineSession"> {
-    return this.#stateless((remote) => remote.inlineSession(...args));
-  }
-
-  async applySettings(...args: StatelessArgs<"applySettings">): StatelessResult<"applySettings"> {
-    return this.#stateless((remote) => remote.applySettings(...args));
-  }
-
-  async version(): StatelessResult<"version"> {
-    return this.#stateless((remote) => remote.version());
-  }
-
-  async palette(): StatelessResult<"palette"> {
-    return this.#stateless((remote) => remote.palette());
-  }
-
-  async drawingRules(): StatelessResult<"drawingRules"> {
-    return this.#stateless((remote) => remote.drawingRules());
+  async inSession<T>(
+    sessionId: number,
+    operation: (session: Remote<SessionApi>) => Promise<T>,
+    options: CallOptions = {},
+  ): Promise<T> {
+    return this.#onSession(sessionId, async (remote) => operation(remote.session), options.signal);
   }
 
   startRun(request: AnalysisRequest, onProgress: (progress: Progress) => void): RunHandle {
@@ -202,52 +118,8 @@ export class WorkerAnalysisClient implements AnalysisClient {
     run.settle({ status: "failed", kind: "cancelled", message: CANCELLED_MESSAGE });
   }
 
-  async summary(sessionId: number): SessionResult<"summary"> {
-    return this.#inSession(sessionId, (remote) => remote.summary());
-  }
-
-  async files(sessionId: number): SessionResult<"files"> {
-    return this.#inSession(sessionId, (remote) => remote.files());
-  }
-
-  async fileText(sessionId: number, ...args: SessionArgs<"fileText">): SessionResult<"fileText"> {
-    return this.#inSession(sessionId, (remote) => remote.fileText(...args));
-  }
-
-  async zip(sessionId: number): SessionResult<"zip"> {
-    return this.#inSession(sessionId, (remote) => remote.zip());
-  }
-
-  async commandLine(sessionId: number): SessionResult<"commandLine"> {
-    return this.#inSession(sessionId, (remote) => remote.commandLine());
-  }
-
-  async pairView(sessionId: number, ...args: SessionArgs<"pairView">): SessionResult<"pairView"> {
-    return this.#inSession(sessionId, (remote) => remote.pairView(...args));
-  }
-
-  async auspiceView(sessionId: number, ...args: SessionArgs<"auspiceView">): SessionResult<"auspiceView"> {
-    return this.#inSession(sessionId, (remote) => remote.auspiceView(...args));
-  }
-
-  async auspiceFiles(sessionId: number, ...args: SessionArgs<"auspiceFiles">): SessionResult<"auspiceFiles"> {
-    return this.#inSession(sessionId, (remote) => remote.auspiceFiles(...args));
-  }
-
-  async argView(sessionId: number, ...args: SessionArgs<"argView">): SessionResult<"argView"> {
-    return this.#inSession(sessionId, (remote) => remote.argView(...args));
-  }
-
-  async constellation(sessionId: number): SessionResult<"constellation"> {
-    return this.#inSession(sessionId, (remote) => remote.constellation());
-  }
-
-  async figure(sessionId: number, ...args: SessionArgs<"figure">): SessionResult<"figure"> {
-    return this.#inSession(sessionId, (remote) => remote.figure(...args));
-  }
-
-  async argFigure(sessionId: number, ...args: SessionArgs<"argFigure">): SessionResult<"argFigure"> {
-    return this.#inSession(sessionId, (remote) => remote.argFigure(...args));
+  async zip(sessionId: number, options: CallOptions = {}): Promise<Uint8Array> {
+    return this.#onSession(sessionId, async (remote) => remote.zip(), options.signal);
   }
 
   onSessionLost(listener: (sessionId: number) => void): () => void {
@@ -321,11 +193,11 @@ export class WorkerAnalysisClient implements AnalysisClient {
     }
   }
 
-  async #stateless<T>(operation: (remote: Remote<WorkerApi>) => Promise<T>): Promise<T> {
+  async #onUtility<T>(operation: (remote: Remote<WorkerApi>) => Promise<T>, signal?: AbortSignal): Promise<T> {
     const connection = this.#utility;
 
     try {
-      return await connection.call(operation);
+      return await connection.call(operation, signal);
     } catch (error) {
       if (isWorkerFailure(error)) {
         this.#replaceUtility(connection, asError(error));
@@ -335,7 +207,11 @@ export class WorkerAnalysisClient implements AnalysisClient {
     }
   }
 
-  async #inSession<T>(sessionId: number, operation: (remote: Remote<WorkerApi>) => Promise<T>): Promise<T> {
+  async #onSession<T>(
+    sessionId: number,
+    operation: (remote: Remote<WorkerApi>) => Promise<T>,
+    signal?: AbortSignal,
+  ): Promise<T> {
     const session = this.#session;
 
     if (session?.id !== sessionId) {
@@ -343,7 +219,7 @@ export class WorkerAnalysisClient implements AnalysisClient {
     }
 
     try {
-      return await session.connection.call(operation);
+      return await session.connection.call(operation, signal);
     } catch (error) {
       if (isWorkerFailure(error)) {
         this.#lose(session);
@@ -395,8 +271,11 @@ class Connection {
   readonly #failed: Promise<never>;
   readonly #ready: Promise<Remote<WorkerApi>>;
   readonly #fail: (error: Error) => void;
+  readonly #queue: QueuedCall[] = [];
   #started = false;
   #closed = false;
+  #draining = false;
+  #stopped: Error | undefined;
   #crashListener: (() => void) | undefined;
 
   constructor(start: () => AnalysisWorker, module: Promise<WebAssembly.Module>) {
@@ -416,14 +295,42 @@ class Connection {
     this.#ready.catch(doNothing());
   }
 
-  async call<T>(operation: (remote: Remote<WorkerApi>) => Promise<T>): Promise<T> {
-    const remote = await this.#ready;
-
-    try {
-      return await Promise.race([operation(remote), this.#failed]);
-    } catch (error) {
-      throw asError(error);
+  async call<T>(operation: (remote: Remote<WorkerApi>) => Promise<T>, signal?: AbortSignal): Promise<T> {
+    if (this.#stopped !== undefined) {
+      throw this.#stopped;
     }
+
+    signal?.throwIfAborted();
+
+    const { promise, resolve, reject } = Promise.withResolvers<T>();
+
+    const entry: QueuedCall = {
+      start: async (remote) => {
+        try {
+          resolve(await Promise.race([operation(remote), this.#failed]));
+
+          return undefined;
+        } catch (error) {
+          const failure = asError(error);
+
+          reject(failure);
+
+          return failure;
+        }
+      },
+      reject,
+      signal,
+      abort: () => {
+        this.#remove(entry);
+        reject(signal?.reason);
+      },
+    };
+
+    signal?.addEventListener("abort", entry.abort, { once: true });
+    this.#queue.push(entry);
+    void this.#drain();
+
+    return promise;
   }
 
   onCrash(listener: () => void): void {
@@ -436,8 +343,59 @@ class Connection {
     }
 
     this.#closed = true;
+    this.#stop(reason);
     this.#fail(reason);
     this.#worker?.terminate();
+  }
+
+  async #drain(): Promise<void> {
+    if (this.#draining) {
+      return;
+    }
+
+    this.#draining = true;
+
+    try {
+      const remote = await this.#ready;
+
+      for (let entry = this.#next(); entry !== undefined; entry = this.#next()) {
+        entry.signal?.removeEventListener("abort", entry.abort);
+        const failure = await entry.start(remote);
+
+        if (isWorkerFailure(failure)) {
+          this.#stop(failure);
+        }
+      }
+    } catch (error) {
+      this.#stop(asError(error));
+    } finally {
+      this.#draining = false;
+    }
+  }
+
+  #next(): QueuedCall | undefined {
+    return this.#stopped === undefined ? this.#queue.shift() : undefined;
+  }
+
+  #remove(entry: QueuedCall): void {
+    const index = this.#queue.indexOf(entry);
+
+    if (index !== -1) {
+      this.#queue.splice(index, 1);
+    }
+  }
+
+  #stop(error: Error): void {
+    if (this.#stopped !== undefined) {
+      return;
+    }
+
+    this.#stopped = error;
+
+    for (const entry of this.#queue.splice(0)) {
+      entry.signal?.removeEventListener("abort", entry.abort);
+      entry.reject(error);
+    }
   }
 
   async #init(
@@ -469,7 +427,10 @@ class Connection {
     }
 
     if (this.#started) {
-      this.#fail(new WorkerCrashError());
+      const crash = new WorkerCrashError();
+
+      this.#stop(crash);
+      this.#fail(crash);
       this.#crashListener?.();
     } else {
       this.#fail(new WorkerStartError("The analysis worker could not start."));
@@ -481,6 +442,13 @@ interface ActiveRun {
   runId: number;
   connection: Connection;
   settle: (outcome: RunOutcome) => void;
+}
+
+interface QueuedCall {
+  start: (remote: Remote<WorkerApi>) => Promise<Error | undefined>;
+  reject: (reason: Error) => void;
+  signal: AbortSignal | undefined;
+  abort: () => void;
 }
 
 interface SessionWorker {
@@ -505,7 +473,7 @@ function openWorker(start: () => AnalysisWorker): AnalysisWorker | WorkerStartEr
   }
 }
 
-function isWorkerFailure(cause: unknown): boolean {
+function isWorkerFailure(cause: unknown): cause is Error {
   return (
     cause instanceof WorkerStartError ||
     cause instanceof WorkerCrashError ||

@@ -1,55 +1,20 @@
-import {
-  applySettings,
-  decodeTreeBytes,
-  defaultSettings,
-  drawingRules,
-  examples,
-  initSync,
-  inlineSession,
-  inspectTree,
-  launchKeys,
-  launchPairs,
-  linkLimits,
-  overlap,
-  palette,
-  parseLaunch,
-  readSession,
-  sessionFile,
-  Session,
-  setPanicSink,
-  settingsSchema,
-  treeLabels,
-  validate,
-  version,
-} from "@neherlab/treeknit-wasm";
+import * as wasm from "@neherlab/treeknit-wasm";
+import { initSync, Session, setPanicSink } from "@neherlab/treeknit-wasm";
 import type { AnalysisRequest, Progress } from "@neherlab/treeknit-wasm";
-import { expose, transfer, transferHandlers } from "comlink";
+import { expose, proxy, type ProxyMarked, transfer, transferHandlers } from "comlink";
+import { omit } from "remeda";
 
 import { panicTextHandler, PendingPanicText } from "./panicText";
 import { ProgressThrottle } from "./progressThrottle";
-import type { SessionArgs, WorkerApi } from "./protocol";
+import { type SessionApi, WORKER_ONLY_EXPORTS, type WorkerApi } from "./protocol";
 
 class AnalysisWorker implements WorkerApi {
-  readonly defaultSettings = defaultSettings;
-  readonly settingsSchema = settingsSchema;
-  readonly inspectTree = inspectTree;
-  readonly overlap = overlap;
-  readonly validate = validate;
-  readonly readSession = readSession;
-  readonly sessionFile = sessionFile;
-  readonly treeLabels = treeLabels;
-  readonly parseLaunch = parseLaunch;
-  readonly decodeTreeBytes = decodeTreeBytes;
-  readonly examples = examples;
-  readonly launchKeys = launchKeys;
-  readonly linkLimits = linkLimits;
-  readonly launchPairs = launchPairs;
-  readonly inlineSession = inlineSession;
-  readonly applySettings = applySettings;
-  readonly version = version;
-  readonly palette = palette;
-  readonly drawingRules = drawingRules;
+  readonly stateless = proxy(omit(wasm, WORKER_ONLY_EXPORTS));
   #session: Session | undefined;
+
+  get session(): SessionApi & ProxyMarked {
+    return proxy(this.#current());
+  }
 
   init(module: WebAssembly.Module): void {
     initSync({ module });
@@ -77,54 +42,10 @@ class AnalysisWorker implements WorkerApi {
     return session.summary();
   }
 
-  summary() {
-    return this.#current().summary();
-  }
-
-  files() {
-    return this.#current().files();
-  }
-
-  fileText(...args: SessionArgs<"fileText">) {
-    return this.#current().fileText(...args);
-  }
-
   zip() {
     const bytes = this.#current().zip();
 
     return transfer(bytes, [bytes.buffer]);
-  }
-
-  commandLine() {
-    return this.#current().commandLine();
-  }
-
-  pairView(...args: SessionArgs<"pairView">) {
-    return this.#current().pairView(...args);
-  }
-
-  auspiceView(...args: SessionArgs<"auspiceView">) {
-    return this.#current().auspiceView(...args);
-  }
-
-  auspiceFiles(...args: SessionArgs<"auspiceFiles">) {
-    return this.#current().auspiceFiles(...args);
-  }
-
-  argView(...args: SessionArgs<"argView">) {
-    return this.#current().argView(...args);
-  }
-
-  constellation() {
-    return this.#current().constellation();
-  }
-
-  figure(...args: SessionArgs<"figure">) {
-    return this.#current().figure(...args);
-  }
-
-  argFigure(...args: SessionArgs<"argFigure">) {
-    return this.#current().argFigure(...args);
   }
 
   #current(): Session {

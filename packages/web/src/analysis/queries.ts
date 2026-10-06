@@ -17,12 +17,13 @@ import {
   useSuspenseQuery,
   type UseQueryResult,
 } from "@tanstack/react-query";
+import type { Remote } from "comlink";
 import { useMemo } from "react";
 import { isDeepEqual } from "remeda";
 
 import type { AnalysisClient } from "./client";
 import { useAnalysisClient } from "./context";
-import type { SessionArgs, SessionResult, StatelessArgs, StatelessResult } from "./protocol";
+import type { SessionApi, SessionArgs, SessionResult, StatelessArgs, StatelessResult } from "./protocol";
 
 type Answer<Result> = UseQueryResult<Awaited<Result>>;
 
@@ -81,31 +82,47 @@ export const analysisKeys = {
 export function useDefaultSettings(): Answer<StatelessResult<"defaultSettings">> {
   const client = useAnalysisClient();
 
-  return useQuery({ queryKey: analysisKeys.defaultSettings(), queryFn: async () => client.defaultSettings() });
+  return useQuery({
+    queryKey: analysisKeys.defaultSettings(),
+    queryFn: async ({ signal }) => client.stateless(async (api) => api.defaultSettings(), { signal }),
+  });
 }
 
 export function usePalette(): Answer<StatelessResult<"palette">> {
   const client = useAnalysisClient();
 
-  return useQuery({ queryKey: analysisKeys.palette(), queryFn: async () => client.palette() });
+  return useQuery({
+    queryKey: analysisKeys.palette(),
+    queryFn: async ({ signal }) => client.stateless(async (api) => api.palette(), { signal }),
+  });
 }
 
 export function useSuspensePalette(): Palette {
   const client = useAnalysisClient();
 
-  return useSuspenseQuery({ queryKey: analysisKeys.palette(), queryFn: async () => client.palette() }).data;
+  return useSuspenseQuery({
+    queryKey: analysisKeys.palette(),
+    queryFn: async ({ signal }) => client.stateless(async (api) => api.palette(), { signal }),
+  }).data;
 }
 
 export function useDrawingRules(): DrawingRules {
   const client = useAnalysisClient();
 
-  return useSuspenseQuery({ queryKey: analysisKeys.drawingRules(), queryFn: async () => client.drawingRules() }).data;
+  return useSuspenseQuery({
+    queryKey: analysisKeys.drawingRules(),
+    queryFn: async ({ signal }) => client.stateless(async (api) => api.drawingRules(), { signal }),
+  }).data;
 }
 
 export function useExamples(): Answer<StatelessResult<"examples">> {
   const client = useAnalysisClient();
 
-  return useQuery({ queryKey: analysisKeys.examples(), queryFn: async () => client.examples(), staleTime: Infinity });
+  return useQuery({
+    queryKey: analysisKeys.examples(),
+    queryFn: async ({ signal }) => client.stateless(async (api) => api.examples(), { signal }),
+    staleTime: Infinity,
+  });
 }
 
 export function useLaunchKeys(): Answer<StatelessResult<"launchKeys">> {
@@ -113,7 +130,7 @@ export function useLaunchKeys(): Answer<StatelessResult<"launchKeys">> {
 
   return useQuery({
     queryKey: analysisKeys.launchKeys(),
-    queryFn: async () => client.launchKeys(),
+    queryFn: async ({ signal }) => client.stateless(async (api) => api.launchKeys(), { signal }),
     staleTime: Infinity,
   });
 }
@@ -123,7 +140,7 @@ export function useLinkLimits(): Answer<StatelessResult<"linkLimits">> {
 
   return useQuery({
     queryKey: analysisKeys.linkLimits(),
-    queryFn: async () => client.linkLimits(),
+    queryFn: async ({ signal }) => client.stateless(async (api) => api.linkLimits(), { signal }),
     staleTime: Infinity,
   });
 }
@@ -131,7 +148,10 @@ export function useLinkLimits(): Answer<StatelessResult<"linkLimits">> {
 export function useVersion(): Answer<StatelessResult<"version">> {
   const client = useAnalysisClient();
 
-  return useQuery({ queryKey: analysisKeys.version(), queryFn: async () => client.version() });
+  return useQuery({
+    queryKey: analysisKeys.version(),
+    queryFn: async ({ signal }) => client.stateless(async (api) => api.version(), { signal }),
+  });
 }
 
 export function useInspectTrees(trees: readonly IdentifiedText[]): (TreeInspection | undefined)[] {
@@ -140,7 +160,7 @@ export function useInspectTrees(trees: readonly IdentifiedText[]): (TreeInspecti
   return useQueries({
     queries: trees.map(({ textId, newick }) => ({
       queryKey: analysisKeys.inspectTree(textId),
-      queryFn: async () => client.inspectTree(UNLABELLED, newick),
+      queryFn: async ({ signal }) => client.stateless(async (api) => api.inspectTree(UNLABELLED, newick), { signal }),
       gcTime: INPUT_QUERY_GC_MS,
     })),
     combine: inspectionData,
@@ -153,7 +173,10 @@ export function useOverlap(trees: readonly IdentifiedText[]): Answer<StatelessRe
 
   return useQuery({
     queryKey: analysisKeys.overlap(textIds),
-    queryFn: async () => client.overlap(trees.map(({ newick }) => ({ label: UNLABELLED, newick }))),
+    queryFn: async ({ signal }) =>
+      client.stateless(async (api) => api.overlap(trees.map(({ newick }) => ({ label: UNLABELLED, newick }))), {
+        signal,
+      }),
     gcTime: INPUT_QUERY_GC_MS,
   });
 }
@@ -165,7 +188,7 @@ export function validationQuery(client: AnalysisClient, request: AnalysisRequest
       request.trees.map(({ label }) => label),
       request.settings,
     ),
-    queryFn: async () => client.validate(request),
+    queryFn: async ({ signal }) => client.stateless(async (api) => api.validate(request), { signal }),
     gcTime: INPUT_QUERY_GC_MS,
   });
 }
@@ -192,7 +215,7 @@ export function useSettingsSchema(...args: StatelessArgs<"settingsSchema">): Ans
 
   return useQuery({
     queryKey: analysisKeys.settingsSchema(...args),
-    queryFn: async () => client.settingsSchema(...args),
+    queryFn: async ({ signal }) => client.stateless(async (api) => api.settingsSchema(...args), { signal }),
     placeholderData: keepPreviousData,
     gcTime: INPUT_QUERY_GC_MS,
   });
@@ -203,7 +226,7 @@ export function useSessionFiles(sessionId: number | null): Answer<SessionResult<
 
   return useQuery({
     queryKey: sessionKey(sessionId, analysisKeys.files),
-    queryFn: sessionQuery(sessionId, async (id) => client.files(id)),
+    queryFn: sessionQuery(client, sessionId, async (session) => session.files()),
   });
 }
 
@@ -212,7 +235,7 @@ export function useCommandLine(sessionId: number | null): Answer<SessionResult<"
 
   return useQuery({
     queryKey: sessionKey(sessionId, analysisKeys.commandLine),
-    queryFn: sessionQuery(sessionId, async (id) => client.commandLine(id)),
+    queryFn: sessionQuery(client, sessionId, async (session) => session.commandLine()),
   });
 }
 
@@ -225,7 +248,7 @@ export function usePairView(
 
   return useQuery({
     queryKey,
-    queryFn: sessionQuery(sessionId, async (id) => client.pairView(id, ...args)),
+    queryFn: sessionQuery(client, sessionId, async (session) => session.pairView(...args)),
     placeholderData: (previous, previousQuery) =>
       sharesScope(
         previousQuery?.queryKey,
@@ -245,7 +268,7 @@ export function useAuspiceView(
 
   return useQuery({
     queryKey,
-    queryFn: sessionQuery(sessionId, async (id) => client.auspiceView(id, ...args)),
+    queryFn: sessionQuery(client, sessionId, async (session) => session.auspiceView(...args)),
     placeholderData: (previous, previousQuery) =>
       sharesScope(
         previousQuery?.queryKey,
@@ -264,7 +287,7 @@ export function useAuspiceFiles(
 
   return useQuery({
     queryKey: sessionKey(sessionId, (id) => analysisKeys.auspiceFiles(id, ...args)),
-    queryFn: sessionQuery(sessionId, async (id) => client.auspiceFiles(id, ...args)),
+    queryFn: sessionQuery(client, sessionId, async (session) => session.auspiceFiles(...args)),
   });
 }
 
@@ -274,7 +297,7 @@ export function useArgView(sessionId: number | null, ...args: SessionArgs<"argVi
 
   return useQuery({
     queryKey,
-    queryFn: sessionQuery(sessionId, async (id) => (await client.argView(id, ...args)) ?? null),
+    queryFn: sessionQuery(client, sessionId, async (session) => (await session.argView(...args)) ?? null),
     placeholderData: (previous, previousQuery) =>
       sharesScope(previousQuery?.queryKey, sessionKey(sessionId, analysisKeys.argViewScope)) ? previous : undefined,
   });
@@ -285,7 +308,7 @@ export function useConstellation(sessionId: number | null): Answer<SessionResult
 
   return useQuery({
     queryKey: sessionKey(sessionId, analysisKeys.constellation),
-    queryFn: sessionQuery(sessionId, async (id) => client.constellation(id)),
+    queryFn: sessionQuery(client, sessionId, async (session) => session.constellation()),
   });
 }
 
@@ -308,10 +331,11 @@ function sessionKey<Key extends QueryKey>(
 }
 
 function sessionQuery<T>(
+  client: AnalysisClient,
   sessionId: number | null,
-  load: (sessionId: number) => Promise<T>,
-): (() => Promise<T>) | SkipToken {
-  return sessionId === null ? skipToken : async () => load(sessionId);
+  operation: (session: Remote<SessionApi>) => Promise<T>,
+): ((context: { signal: AbortSignal }) => Promise<T>) | SkipToken {
+  return sessionId === null ? skipToken : async ({ signal }) => client.inSession(sessionId, operation, { signal });
 }
 
 function inspectionData(results: readonly UseQueryResult<TreeInspection>[]): (TreeInspection | undefined)[] {

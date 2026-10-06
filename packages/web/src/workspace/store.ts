@@ -1,10 +1,11 @@
-import type { AnalysisRequest, Progress, Settings, SettingsSchema, Summary, TreeText } from "@neherlab/treeknit-wasm";
+import type { AnalysisRequest, Progress, Settings, Summary, TreeText } from "@neherlab/treeknit-wasm";
 import { doNothing, isDeepEqual } from "remeda";
 import { match } from "ts-pattern";
 import { immer } from "zustand/middleware/immer";
 import { createStore, type StoreApi } from "zustand/vanilla";
 
 import { type FailureKind, RESULTS_LOST_MESSAGE, type RunOutcome } from "../analysis/client";
+import type { StatelessArgs, StatelessResult } from "../analysis/protocol";
 import { type Clock, monotonicClock } from "../run/clock";
 import { SESSION_SOURCE, sourceFileName, type TreeSource } from "./treeSource";
 
@@ -85,8 +86,8 @@ export type WorkspaceState = WorkspaceData & WorkspaceActions;
 export type WorkspaceStore = StoreApi<WorkspaceState>;
 
 export interface WorkspaceServices {
-  treeLabels(fileNames: string[], existingLabels: string[]): Promise<string[]>;
-  settingsSchema(k: number, settings: Settings): Promise<SettingsSchema>;
+  treeLabels(...args: StatelessArgs<"treeLabels">): StatelessResult<"treeLabels">;
+  settingsSchema(...args: StatelessArgs<"settingsSchema">): StatelessResult<"settingsSchema">;
   cancel(): void;
 }
 

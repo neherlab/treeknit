@@ -15,10 +15,10 @@ import { createAnalysisClient } from "./analysis/browserHost";
 import { AnalysisClientContext } from "./analysis/context";
 import { loadExample } from "./analysis/example";
 import { createQueryClient } from "./analysis/queryClient";
-import { AddressBarSync, linkSearch } from "./launch/addressBar";
+import { AddressBarSync, linkPairsClient, linkSearch } from "./launch/addressBar";
 import { LaunchContext } from "./launch/context";
 import { linkEntries } from "./launch/entries";
-import { LinkLaunch } from "./launch/LinkLaunch";
+import { launchClient, LinkLaunch } from "./launch/LinkLaunch";
 import { receiveSession } from "./launch/message";
 import { windowPortal } from "./launch/windowPortal";
 import { basePath, hashRouteHref, PAGES } from "./pages";
@@ -48,7 +48,7 @@ if (root !== null) {
 
   const launch = new LinkLaunch(
     {
-      client,
+      client: launchClient(client),
       fetchFile: fetch,
       loadExample: async (example) => loadExample(example),
       receiveSession: async (source) =>
@@ -101,7 +101,7 @@ if (root !== null) {
   const runtime = await workspace.catch(() => null);
 
   if (runtime !== null) {
-    const addressBar = new AddressBarSync(runtime.store, client, {
+    const addressBar = new AddressBarSync(runtime.store, linkPairsClient(client), {
       onWorkspace: () => router.state.location.pathname === PAGES.workspace,
       write: async (pairs) =>
         router.navigate({

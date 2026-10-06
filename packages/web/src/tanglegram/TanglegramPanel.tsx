@@ -56,7 +56,7 @@ function Tanglegram({ result }: { result: RunResult }) {
   const findLeaf = useFindLeaf(data, leafRowsOf, select, view.actions);
 
   const figure = useFigureDownload(result.sessionId, { kind: "pair", pair }, async (client, sessionId) =>
-    client.figure(sessionId, pair, version, figureOptions(search)),
+    client.inSession(sessionId, async (session) => session.figure(pair, version, figureOptions(search))),
   );
 
   useFocusedRows(data, pair, view);
