@@ -1,3 +1,4 @@
+mod finite;
 mod log_capture;
 
 use js_sys::{Error, Function, JSON};
@@ -566,7 +567,18 @@ fn parse_js<T: DeserializeOwned + Tsify>(name: &str, value: &Ts<T>) -> Result<T,
   Ok(parsed)
 }
 
+/// The JavaScript value of `value`. A NaN or infinite number is an error that names the type and
+/// the field, such as `treeknit_io::display::PairView: non-finite number NaN at left.nodes[3].xDiv`,
+/// because `serde_json` would write it as `null`, which the TypeScript type `number` does not admit.
 fn to_js<T: Serialize + Tsify>(value: &T) -> Result<Ts<T>, JsError> {
+  finite::check_finite(value).map_err(|e| {
+    let name = std::any::type_name::<T>();
+    if e.path().iter().next().is_none() {
+      JsError::new(&format!("{name}: {}", e.inner()))
+    } else {
+      JsError::new(&format!("{name}: {} at {}", e.inner(), e.path()))
+    }
+  })?;
   let text = serde_json::to_string(value).map_err(|e| JsError::new(&e.to_string()))?;
   let js = JSON::parse(&text).map_err(|e| JsError::new(&js_message(&e)))?;
   Ok(Ts::new_unchecked(js))
