@@ -48,6 +48,20 @@ RUN set -euxo pipefail >/dev/null \
 && /install-osxcross "${OSX_CROSS_PATH}" \
 && rm /install-osxcross
 
+# The osxcross wrapper behind the aarch64-apple-darwin names of clang passes
+# `-arch aarch64` to clang, which accepts only Apple's name `arm64`, so no C code
+# compiles for aarch64. The wrapper reads the architecture from the name it is
+# called by, so each of these names becomes a script that calls the same tool
+# under its arm64-apple-darwin name. The clang++-stdc++ name needs libstdc++,
+# which the macOS 11.1 SDK lacks, and fails under both names.
+RUN set -euxo pipefail >/dev/null \
+&& for tool in cc c++ clang clang++ clang++-libc++; do \
+  name="${OSX_CROSS_PATH}/bin/aarch64-apple-darwin20.2-${tool}"; \
+  rm "${name}"; \
+  printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "${OSX_CROSS_PATH}/bin/arm64-apple-darwin20.2-${tool}" >"${name}"; \
+  chmod +x "${name}"; \
+done
+
 # The oldest macOS that rustc supports on x86_64; on aarch64, rustc raises it to
 # its minimum, 11.0. ld64 loads libtapi and libxar from the osxcross library
 # directory.
