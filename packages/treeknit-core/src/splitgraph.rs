@@ -215,8 +215,14 @@ pub struct EnergyState<'g> {
   /// Mismatching tree pairs of each kept leaf (0 for removed leaves).
   term: Vec<u32>,
   energy: usize,
-  /// Undo information for the last flip: the leaf and the previous terms.
-  last: Option<(usize, Vec<(usize, u32)>)>,
+  /// The leaf of the last flip, for [`EnergyState::undo`].
+  flipped: Option<usize>,
+  /// The terms before the last flip of the leaves it changed.
+  old: Vec<(usize, u32)>,
+  /// Buffer of the leaves whose terms a flip recomputes.
+  cand: Vec<usize>,
+  /// Buffer of the first non-trivial ancestor of a leaf in each color.
+  anc: Vec<usize>,
 }
 
 impl<'g> EnergyState<'g> {
@@ -233,11 +239,16 @@ impl<'g> EnergyState<'g> {
       count,
       term: vec![0; g.n],
       energy: 0,
-      last: None,
+      flipped: None,
+      old: vec![],
+      cand: vec![],
+      anc: vec![0; g.k()],
     };
+    let mut anc = std::mem::take(&mut s.anc);
     for i in 0..g.n {
-      s.term[i] = s.leaf_term(i);
+      s.term[i] = s.leaf_term(i, &mut anc);
     }
+    s.anc = anc;
     s.energy = s.term.iter().map(|&x| x as usize).sum();
     s
   }
@@ -264,12 +275,15 @@ impl<'g> EnergyState<'g> {
     a
   }
 
-  fn leaf_term(&self, i: usize) -> u32 {
+  /// Term of leaf `i`; `anc` is a buffer with one entry per color.
+  fn leaf_term(&self, i: usize, anc: &mut [usize]) -> u32 {
     if !self.conf.contains(i) || self.g.n == 1 {
       return 0;
     }
     let k = self.g.k();
-    let anc: Vec<usize> = (0..k).map(|kk| self.climb(kk, i)).collect();
+    for (kk, a) in anc.iter_mut().enumerate() {
+      *a = self.climb(kk, i);
+    }
     let mut e = 0;
     for k1 in 0..k {
       for k2 in k1 + 1..k {
@@ -324,7 +338,10 @@ impl<'g> EnergyState<'g> {
 
   /// Flip leaf `j` and return the new energy. [`EnergyState::undo`] reverts it.
   pub fn flip(&mut self, j: usize) -> usize {
-    let mut cand = vec![j];
+    let mut cand = std::mem::take(&mut self.cand);
+    let mut anc = std::mem::take(&mut self.anc);
+    cand.clear();
+    cand.push(j);
     self.candidates(j, &mut cand);
     let add = !self.conf.contains(j);
     self.conf.toggle(j);
@@ -332,21 +349,23 @@ impl<'g> EnergyState<'g> {
     self.candidates(j, &mut cand);
     cand.sort_unstable();
     cand.dedup();
-    let mut old = Vec::with_capacity(cand.len());
+    self.old.clear();
     for &i in &cand {
-      let t = self.leaf_term(i);
-      old.push((i, self.term[i]));
+      let t = self.leaf_term(i, &mut anc);
+      self.old.push((i, self.term[i]));
       self.energy = self.energy + t as usize - self.term[i] as usize;
       self.term[i] = t;
     }
-    self.last = Some((j, old));
+    self.cand = cand;
+    self.anc = anc;
+    self.flipped = Some(j);
     self.energy
   }
 
   /// Revert the last flip.
   pub fn undo(&mut self) {
-    let (j, old) = self.last.take().expect("nothing to undo");
-    for (i, t) in old {
+    let j = self.flipped.take().expect("nothing to undo");
+    for &(i, t) in &self.old {
       self.energy = self.energy + t as usize - self.term[i] as usize;
       self.term[i] = t;
     }
