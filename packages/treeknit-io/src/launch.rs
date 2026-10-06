@@ -224,7 +224,8 @@ pub fn apply(base: &Settings, patch: &SettingsPatch) -> Settings {
 }
 
 /// The key-value pairs of the canonical link of `request`, whose trees have the `addresses`, or
-/// `None` when a tree has no address or a label or setting cannot be written: input keys, then
+/// `None` when the request has fewer than two trees, which no link holds, or a tree has no
+/// address, or a label or setting cannot be written: input keys, then
 /// the settings that differ from `base` in the order of [`SETTING_KEYS`], then `run`. The input
 /// is `example=<id>` when the trees are the trees of that example in its order with its labels,
 /// and one `tree` per tree otherwise, with `<label>=` only where the label differs from the one
@@ -235,7 +236,7 @@ pub fn launch_pairs(
   base: &Settings,
   run: bool,
 ) -> Option<Vec<(String, String)>> {
-  if addresses.len() != request.trees.len() {
+  if addresses.len() != request.trees.len() || request.trees.len() < 2 {
     return None;
   }
   let mut pairs = match example_input(request, addresses) {
@@ -1828,6 +1829,17 @@ mod tests {
       ),
       written(&r, &addresses, false)
     );
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::no_tree(  &[],     &[])]
+  #[case::one_tree( &["ha"], &[Some(TreeAddress::Data)])]
+  #[trace]
+  fn fewer_than_two_trees_have_no_link_even_with_settings(#[case] labels: &[&str], #[case] addresses: &[Option<TreeAddress>]) {
+    // A link with settings and no input would fail to read: "gamma needs an input".
+    let r = request(labels, Settings { gamma: 3.0, ..Settings::default() });
+    assert_eq!(None, written(&r, addresses, false));
   }
 
   #[test]
