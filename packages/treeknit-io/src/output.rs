@@ -1,6 +1,6 @@
 //! Output files of a run, as the command line writes them and the web app lists them.
 
-use crate::analysis::{AnalysisRequest, ValidationError};
+use crate::analysis::{AnalysisRequest, Field, ValidationError};
 use crate::display::{self, AuspiceTrees, Scale, TreeVersion};
 use crate::figure::{self, FigureOptions};
 use crate::run::RunResult;
@@ -404,7 +404,7 @@ pub const MAX_FILE_NAME_BYTES: usize = 255;
 /// `analysis::parse_trees`, which reports repeated labels and pair names.
 pub fn check_output_paths(labels: &[String], options: &OutputOptions) -> Vec<ValidationError> {
   let error = |message: String| ValidationError {
-    field: Some("trees".to_owned()),
+    field: Some(Field::Trees),
     message,
     line: None,
     column: None,
@@ -992,7 +992,7 @@ mod tests {
       ..OutputOptions::web(names.len())
     };
     let expected = vec![ValidationError {
-      field: Some("trees".to_owned()),
+      field: Some(Field::Trees),
       message: message.to_owned(),
       line: None,
       column: None,
@@ -1004,7 +1004,7 @@ mod tests {
   fn check_output_paths_reports_file_names_longer_than_a_file_system_holds() {
     let (a, b) = ("a".repeat(125), "b".repeat(125));
     let error = |message: String| ValidationError {
-      field: Some("trees".to_owned()),
+      field: Some(Field::Trees),
       message,
       line: None,
       column: None,

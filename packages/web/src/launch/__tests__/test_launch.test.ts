@@ -250,7 +250,14 @@ describe("a link launch", () => {
   test("lists the errors of the link and the ignored keys that have a hint", async () => {
     const parse: LaunchParse = {
       launch: null,
-      errors: [{ field: "gamma", message: 'gamma must be a number, got "abc"', line: null, column: null }],
+      errors: [
+        {
+          field: { kind: "linkKey", key: "gamma" },
+          message: 'gamma must be a number, got "abc"',
+          line: null,
+          column: null,
+        },
+      ],
       ignored: [
         { key: "gama", suggestion: "gamma", afterLocationQuery: false },
         { key: "utm_source", suggestion: null, afterLocationQuery: false },

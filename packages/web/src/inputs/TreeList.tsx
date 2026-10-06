@@ -11,7 +11,7 @@ import { InlineNotice } from "../ui/InlineNotice";
 import { reorder, type ReorderMove } from "../ui/reorder";
 import { errorStyle } from "../ui/styles";
 import { useWorkspace, useWorkspaceStore } from "../workspace/context";
-import { joinedMessage, TREE_LIST_FIELD } from "../workspace/fieldErrors";
+import { fieldErrorsAt, joinedMessage } from "../workspace/fieldErrors";
 import { useFieldErrors } from "../workspace/useFieldErrors";
 import { NewickDialog } from "./NewickDialog";
 import { TreeActions } from "./TreeActions";
@@ -84,7 +84,7 @@ export function TreeList() {
     [errors, inspections, missing, schema, seqLengthsOn],
   );
 
-  const listError = joinedMessage(visibleGeneralErrors(trees.length, errors.byField.get(TREE_LIST_FIELD) ?? []));
+  const listError = joinedMessage(visibleGeneralErrors(trees.length, fieldErrorsAt(errors, { kind: "trees" })));
 
   return (
     <section aria-labelledby="rail-trees" className="flex flex-col gap-3">

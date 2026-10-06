@@ -19,7 +19,7 @@ export function useRunReadiness(): RunReadinessState {
   const { state: validation, retry } = useValidationProgress();
 
   return useMemo(() => {
-    const all = [...errors.general, ...[...errors.byField.values()].flat()];
+    const all = [...errors.general, ...errors.byField.flatMap((group) => group.errors)];
 
     return {
       blockedReason: runBlockedReason({ treeCount, hasDraft, validation, errors: all }),

@@ -53,13 +53,13 @@ mod tests {
     });
     let expected = json!([
         {
-            "field": "trees[1].newick",
+            "field": {"kind": "treeNewick", "index": 1},
             "message": "tree \"na\": Newick parse error: expected ',' or ')' at byte 15",
             "line": 2,
             "column": 8,
         },
         {
-            "field": "settings.gamma",
+            "field": {"kind": "setting", "key": "gamma"},
             "message": "gamma must be a non-negative number, got -1",
             "line": null,
             "column": null,
@@ -111,7 +111,7 @@ mod tests {
     assert_eq!(json!(1_u64 << 32), plain_request["settings"]["nMcmcIt"]);
     let errors = plain_list(&treeknit_wasm::validate(&request).unwrap());
     let expected = json!({
-        "field": "settings.nMcmcIt",
+        "field": {"kind": "setting", "key": "nMcmcIt"},
         "message": "MCMC steps per leaf must be at most 4294967295, got 4294967296",
         "line": null,
         "column": null,

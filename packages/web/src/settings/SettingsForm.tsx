@@ -13,7 +13,7 @@ import { InlineNotice } from "../ui/InlineNotice";
 import { Radio, RadioGroup } from "../ui/RadioGroup";
 import { Switch } from "../ui/Switch";
 import { useWorkspace, useWorkspaceStore } from "../workspace/context";
-import { fieldMessage, settingField } from "../workspace/fieldErrors";
+import { fieldMessage } from "../workspace/fieldErrors";
 import { useFieldErrors } from "../workspace/useFieldErrors";
 import type { SettingsDraft, ToggleSettingKey } from "./draft";
 import { DraftNumberField } from "./DraftNumberField";
@@ -112,7 +112,7 @@ export function SettingsForm() {
         name="gamma"
         label="γ"
         setting={fields.gamma}
-        error={fieldMessage(errors, settingField("gamma"))}
+        error={fieldMessage(errors, { kind: "setting", key: "gamma" })}
         onCommit={commitGamma}
       />
       <RadioGroup label="Resolution" info={modesInfo} value={settings.resolve ?? null} onChange={selectMode}>
@@ -127,7 +127,7 @@ export function SettingsForm() {
           name="seed"
           label="Seed"
           setting={fields.seed}
-          error={fieldMessage(errors, settingField("seed"))}
+          error={fieldMessage(errors, { kind: "setting", key: "seed" })}
           onCommit={commitSeed}
           className="flex-1"
         />
@@ -146,7 +146,7 @@ export function SettingsForm() {
           name="rounds"
           label="Rounds"
           setting={fields.rounds}
-          error={fieldMessage(errors, settingField("rounds"))}
+          error={fieldMessage(errors, { kind: "setting", key: "rounds" })}
           onCommit={commitRounds}
         />
         <SettingSwitch name="finalRound" label="Final round" setting={fields.finalRound} />
@@ -167,7 +167,7 @@ export function SettingsForm() {
           name="nMcmcIt"
           label="MCMC steps per leaf"
           setting={fields.nMcmcIt}
-          error={fieldMessage(errors, settingField("nMcmcIt"))}
+          error={fieldMessage(errors, { kind: "setting", key: "nMcmcIt" })}
           onCommit={commitSteps}
         />
         <SettingSwitch name="naive" label="Naive mode" setting={fields.naive} />

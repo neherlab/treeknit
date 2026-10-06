@@ -18,7 +18,7 @@ import { Menu, MenuItem } from "../ui/Menu";
 import { errorStyle } from "../ui/styles";
 import { TextField } from "../ui/TextField";
 import { useWorkspaceStore } from "../workspace/context";
-import { type FieldErrors, fieldMessage, seqLengthField, treeField } from "../workspace/fieldErrors";
+import { type FieldErrors, fieldErrorsAt, fieldMessage } from "../workspace/fieldErrors";
 import type { WorkspaceTree } from "../workspace/store";
 import { sourceOrigin } from "../workspace/treeSource";
 import { treeFacts } from "./treeFacts";
@@ -46,7 +46,7 @@ export function TreeRow({
 }: TreeRowProps) {
   const store = useWorkspaceStore();
   const actions = useSettingsActions();
-  const status = treeStatus(inspection, errors.byField.get(treeField(index, "newick")) ?? []);
+  const status = treeStatus(inspection, fieldErrorsAt(errors, { kind: "treeNewick", index }));
   const facts = treeFacts(inspection, missing);
   const origin = sourceOrigin(tree.source);
 
@@ -81,7 +81,7 @@ export function TreeRow({
             labelHidden
             value={tree.label}
             onChange={rename}
-            errorMessage={fieldMessage(errors, treeField(index, "label"))}
+            errorMessage={fieldMessage(errors, { kind: "treeLabel", index })}
             className="flex-1"
           />
           <StatusButton status={status} onPress={viewNewick} />
@@ -122,7 +122,7 @@ export function TreeRow({
             name={`seqLengths.${tree.id}`}
             label="Sequence length"
             setting={seqLength}
-            error={fieldMessage(errors, seqLengthField(index))}
+            error={fieldMessage(errors, { kind: "seqLength", index })}
             onCommit={commitSeqLength}
           />
         )}

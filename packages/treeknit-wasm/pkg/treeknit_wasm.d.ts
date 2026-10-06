@@ -295,10 +295,9 @@ export interface Mark {
  */
 export interface ValidationError {
     /**
-     * Path of the field in the request, such as `settings.gamma`, `settings.seqLengths[1]`, or
-     * `trees[0].newick`; `None` for the request as a whole.
+     * The field the error concerns; `None` for the request as a whole.
      */
-    field: string | null;
+    field: Field | null;
     message: string;
     /**
      * 1-based line of a parse error in the Newick text.
@@ -361,6 +360,11 @@ export interface Block {
      */
     right: [number, number];
 }
+
+/**
+ * A setting that a check of [`check_settings`] reports, named as the field of [`Settings`].
+ */
+export type SettingKey = "gamma" | "seqLengths" | "nMcmcIt" | "rounds" | "seed";
 
 /**
  * A setting value of a link for each field of `Settings`; `None` keeps the value of the base.
@@ -552,6 +556,11 @@ export interface ToggleSetting {
      */
     help: string;
 }
+
+/**
+ * An option of [`FigureOptions`] that [`check_figure_options`] reports, named as its field.
+ */
+export type FigureOptionKey = "width" | "rowHeight";
 
 /**
  * Branch scale of a drawing.
@@ -1238,6 +1247,11 @@ export interface DrawingRules {
      */
     dotPx: [number, number];
 }
+
+/**
+ * The input field that a [`ValidationError`] concerns.
+ */
+export type Field = { kind: "trees" } | { kind: "tree"; index: number } | { kind: "treeLabel"; index: number } | { kind: "treeNewick"; index: number } | { kind: "setting"; key: SettingKey } | { kind: "seqLength"; index: number } | { kind: "figureOption"; key: FigureOptionKey } | { kind: "linkKey"; key: string } | { kind: "linkTree"; index: number };
 
 /**
  * The input, the settings, and the run of a link.

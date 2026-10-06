@@ -14,7 +14,7 @@
 //! format. The web app owns the keys of its display (`view`, `pair`, ...), which this module
 //! leaves alone.
 
-use crate::analysis::{self, AnalysisRequest, ResolveMode, Settings, ValidationError};
+use crate::analysis::{self, AnalysisRequest, Field, ResolveMode, Settings, ValidationError};
 use crate::examples;
 use crate::output;
 use crate::schema::{KeyValue, SETTING_KEYS, SettingKey, SettingName};
@@ -744,8 +744,10 @@ impl LaunchReader {
     }
   }
 
-  fn error(&mut self, field: &str, message: String) {
-    self.errors.push(ValidationError::at(field, message));
+  fn error(&mut self, key: &str, message: String) {
+    self
+      .errors
+      .push(ValidationError::at(Field::LinkKey { key: key.to_owned() }, message));
   }
 
   fn finish(mut self) -> LaunchParse {
@@ -784,14 +786,14 @@ impl LaunchReader {
       match parse_location(token.rest) {
         Ok(location) => parsed.push((token.label.map(str::to_owned), location)),
         Err(e) => {
-          self.errors.push(ValidationError::at(format!("tree[{i}]"), e));
+          self.errors.push(ValidationError::at(Field::LinkTree { index: i }, e));
           valid = false;
         },
       }
     }
     if self.trees.len() < 2 {
       self.errors.push(ValidationError::at(
-        "tree",
+        Field::LinkKey { key: "tree".to_owned() },
         format!("a link needs at least two trees, got {}", self.trees.len()),
       ));
       valid = false;
@@ -1254,8 +1256,8 @@ mod tests {
     }
   }
 
-  fn error(field: &str, message: &str) -> ValidationError {
-    ValidationError::at(field, message)
+  fn error(key: &str, message: &str) -> ValidationError {
+    ValidationError::at(Field::LinkKey { key: key.to_owned() }, message)
   }
 
   fn launch(input: LaunchInput, settings: SettingsPatch, run: bool) -> Option<Launch> {
@@ -1383,8 +1385,8 @@ mod tests {
   #[test]
   fn invalid_tree_location_is_an_error_at_its_tree_and_stops_the_launch() {
     let parsed = parse("tree=https://x/ha.nwk&tree=ha.nwk");
-    let expected = vec![error(
-      "tree[1]",
+    let expected = vec![ValidationError::at(
+      Field::LinkTree { index: 1 },
       "\"ha.nwk\" is neither an https: address nor a data: text",
     )];
     assert_eq!((None, expected), (parsed.launch, parsed.errors));

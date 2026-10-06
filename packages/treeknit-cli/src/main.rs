@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 use treeknit_core::{Options, Resolution};
-use treeknit_io::analysis::{self, AnalysisRequest, Settings, TreeText, ValidationError};
+use treeknit_io::analysis::{self, AnalysisRequest, Field, SettingKey, Settings, TreeText, ValidationError};
 use treeknit_io::examples;
 use treeknit_io::launch::{self, LaunchInput, LinkLocation, SettingsPatch, TreeAddress};
 use treeknit_io::output::{self, OutputFile, OutputOptions};
@@ -459,10 +459,10 @@ impl Input {
   /// The read errors, then `errors` without the errors of the Newick text of the files that
   /// cannot be read, which are about their empty text.
   fn with_read_errors(&self, errors: Vec<ValidationError>) -> Vec<ValidationError> {
-    let unread: Vec<String> = self
+    let unread: Vec<Field> = self
       .read_errors
       .iter()
-      .map(|(i, _)| analysis::newick_field(*i))
+      .map(|(i, _)| Field::TreeNewick { index: *i })
       .collect();
     let mut all: Vec<ValidationError> = self.read_errors.iter().map(|(_, e)| e.clone()).collect();
     all.extend(
@@ -519,7 +519,7 @@ fn tree_input(args: &[PathBuf], fetch: Fetch<'_>) -> Input {
         read_errors.push((
           i,
           ValidationError {
-            field: Some(format!("trees[{i}]")),
+            field: Some(Field::Tree { index: i }),
             message,
             line: None,
             column: None,
@@ -749,7 +749,7 @@ fn link_input(url: &str, fetch: Fetch<'_>) -> Result<Input> {
             read_errors.push((
               i,
               ValidationError {
-                field: Some(format!("trees[{i}]")),
+                field: Some(Field::Tree { index: i }),
                 message,
                 line: None,
                 column: None,
@@ -929,7 +929,7 @@ fn fail<T>(errors: &[ValidationError], source: &Source) -> Result<T> {
     .iter()
     .map(|e| match source {
       Source::Trees(names) => {
-        let name = e.field.as_deref().and_then(tree_index).and_then(|i| names.get(i));
+        let name = e.field.as_ref().and_then(Field::tree_index).and_then(|i| names.get(i));
         match (name, e.line, e.column) {
           (Some(n), Some(line), Some(column)) => format!("{n}:{line}:{column}: {e}"),
           (Some(n), ..) => format!("{n}: {e}"),
@@ -938,19 +938,14 @@ fn fail<T>(errors: &[ValidationError], source: &Source) -> Result<T> {
       },
       Source::Named(name) => match (&e.field, e.line, e.column) {
         (Some(field), Some(line), Some(column)) => {
-          format!("{name}: {field}: line {line}, column {column}: {e}")
+          format!("{name}: {}: line {line}, column {column}: {e}", field.path())
         },
-        (Some(field), ..) => format!("{name}: {field}: {e}"),
+        (Some(field), ..) => format!("{name}: {}: {e}", field.path()),
         (None, ..) => format!("{name}: {e}"),
       },
     })
     .collect();
   bail!("{}", lines.join("\n"))
-}
-
-/// Index `i` of an error field `trees[i]` or `trees[i].<field>`.
-fn tree_index(field: &str) -> Option<usize> {
-  field.strip_prefix("trees[")?.split_once(']')?.0.parse().ok()
 }
 
 /// Options of the former options for `k` trees, or every error of the flags and of the shared
@@ -1011,7 +1006,9 @@ fn parse_lengths(s: &str) -> Result<Vec<f64>, ValidationError> {
     .map(str::parse::<f64>)
     .collect::<Result<Vec<_>, _>>()
     .map_err(|e| ValidationError {
-      field: Some("settings.seqLengths".to_owned()),
+      field: Some(Field::Setting {
+        key: SettingKey::SeqLengths,
+      }),
       message: format!("--seq-lengths should look like 1500,2000, got {s:?}: {e}"),
       line: None,
       column: None,
@@ -1366,7 +1363,7 @@ mod tests {
     let expected = vec![(
       0,
       ValidationError {
-        field: Some("trees[0]".to_owned()),
+        field: Some(Field::Tree { index: 0 }),
         message: "cannot read https://x/ha.nwk: 404 Not Found".to_owned(),
         line: None,
         column: None,

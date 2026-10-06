@@ -14,7 +14,7 @@ const PARSED: TreeInspection = {
 };
 
 const DUPLICATE: ValidationError = {
-  field: "trees[0].newick",
+  field: { kind: "treeNewick", index: 0 },
   message: 'tree "ha": duplicate leaf name A',
   line: null,
   column: null,

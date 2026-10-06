@@ -7,9 +7,10 @@ mod arg;
 mod svg;
 mod tanglegram;
 
-use crate::analysis::ValidationError;
+use crate::analysis::{Field, ValidationError};
 use crate::display::{ArgView, DRAWING_RULES, PairView, Scale};
 use serde::{Deserialize, Serialize};
+use strum::VariantArray;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
@@ -56,6 +57,25 @@ impl Default for FigureOptions {
   }
 }
 
+/// An option of [`FigureOptions`] that [`check_figure_options`] reports, named as its field.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, VariantArray)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub enum FigureOptionKey {
+  Width,
+  RowHeight,
+}
+
+impl FigureOptionKey {
+  /// The name of the option, as serde writes it and as the field of [`FigureOptions`] is named.
+  pub fn name(self) -> &'static str {
+    match self {
+      FigureOptionKey::Width => "width",
+      FigureOptionKey::RowHeight => "rowHeight",
+    }
+  }
+}
+
 /// Smallest figure width, in px: the two margins and one px between them, so that the drawing
 /// has a width.
 pub const MIN_FIGURE_WIDTH: f64 = 2.0 * DRAWING_RULES.margin_px + 1.0;
@@ -68,10 +88,10 @@ pub const MIN_ROW_HEIGHT: f64 = 1.0;
 pub const MAX_ROW_HEIGHT: f64 = 1_000.0;
 
 /// Check `options`: the width and the row height must be finite numbers from `MIN_FIGURE_WIDTH`
-/// to `MAX_FIGURE_WIDTH` and from `MIN_ROW_HEIGHT` to `MAX_ROW_HEIGHT` px. Each error names the
-/// field of `FigureOptions` as it is serialized, such as `rowHeight`.
+/// to `MAX_FIGURE_WIDTH` and from `MIN_ROW_HEIGHT` to `MAX_ROW_HEIGHT` px. Each error names its
+/// option as a [`FigureOptionKey`].
 pub fn check_figure_options(options: &FigureOptions) -> Vec<ValidationError> {
-  let bounded = |field: &str, name: &str, value: f64, [min, max]: [f64; 2]| {
+  let bounded = |key: FigureOptionKey, name: &str, value: f64, [min, max]: [f64; 2]| {
     let message = if !(value.is_finite() && value > 0.0) {
       format!("{name} must be a positive number, got {value}")
     } else if value < min {
@@ -82,7 +102,7 @@ pub fn check_figure_options(options: &FigureOptions) -> Vec<ValidationError> {
       return None;
     };
     Some(ValidationError {
-      field: Some(field.to_owned()),
+      field: Some(Field::FigureOption { key }),
       message,
       line: None,
       column: None,
@@ -90,13 +110,13 @@ pub fn check_figure_options(options: &FigureOptions) -> Vec<ValidationError> {
   };
   [
     bounded(
-      "width",
+      FigureOptionKey::Width,
       "figure width",
       options.width,
       [MIN_FIGURE_WIDTH, MAX_FIGURE_WIDTH],
     ),
     bounded(
-      "rowHeight",
+      FigureOptionKey::RowHeight,
       "row height",
       options.row_height,
       [MIN_ROW_HEIGHT, MAX_ROW_HEIGHT],
@@ -530,8 +550,11 @@ mod tests {
     )
     .unwrap_err();
     let expected = vec![
-      error("width", "figure width must be a positive number, got 0"),
-      error("rowHeight", "row height must be a positive number, got -1"),
+      error(FigureOptionKey::Width, "figure width must be a positive number, got 0"),
+      error(
+        FigureOptionKey::RowHeight,
+        "row height must be a positive number, got -1",
+      ),
     ];
     assert_eq!(expected, errors);
   }
@@ -545,10 +568,13 @@ mod tests {
     .unwrap_err();
     let expected = vec![
       error(
-        "width",
+        FigureOptionKey::Width,
         &format!("figure width must be at most 100000 px, got {}", 1e308),
       ),
-      error("rowHeight", "row height must be at most 1000 px, got 1000.5"),
+      error(
+        FigureOptionKey::RowHeight,
+        "row height must be at most 1000 px, got 1000.5",
+      ),
     ];
     assert_eq!(expected, errors);
   }
@@ -712,7 +738,10 @@ mod tests {
     )
     .unwrap_err();
     assert_eq!(
-      vec![error("width", "figure width must be a positive number, got NaN")],
+      vec![error(
+        FigureOptionKey::Width,
+        "figure width must be a positive number, got NaN"
+      )],
       errors
     );
   }
@@ -727,10 +756,24 @@ mod tests {
     assert_eq!(expected, options);
   }
 
-  /// The error for `field` with `message`.
-  fn error(field: &str, message: &str) -> ValidationError {
+  #[test]
+  fn figure_option_key_names_are_their_serde_names_and_fields_of_the_options() {
+    // Oracle: the serialized `FigureOptions`, the options that the web app sends.
+    let options = serde_json::to_value(FigureOptions::default()).unwrap();
+    let names: Vec<&str> = FigureOptionKey::VARIANTS.iter().map(|k| k.name()).collect();
+    let serde_names: Vec<serde_json::Value> = FigureOptionKey::VARIANTS
+      .iter()
+      .map(|k| serde_json::to_value(k).unwrap())
+      .collect();
+    let not_in_options: Vec<&str> = names.iter().copied().filter(|n| options.get(n).is_none()).collect();
+    assert_eq!(names.iter().map(|n| json!(n)).collect::<Vec<_>>(), serde_names);
+    assert_eq!(Vec::<&str>::new(), not_in_options);
+  }
+
+  /// The error of the option `key` with `message`.
+  fn error(key: FigureOptionKey, message: &str) -> ValidationError {
     ValidationError {
-      field: Some(field.to_owned()),
+      field: Some(Field::FigureOption { key }),
       message: message.to_owned(),
       line: None,
       column: None,
@@ -748,18 +791,18 @@ mod tests {
   #[rustfmt::skip]
   #[rstest]
   #[case::width_smallest(         (33.0,              1.0),      vec![])]
-  #[case::width_below_margins(    (32.5,              12.0),     vec![error("width", "figure width must be at least 33 px, got 32.5")])]
-  #[case::width_tiny(             (f64::MIN_POSITIVE, 12.0),     vec![error("width", &format!("figure width must be at least 33 px, got {}", f64::MIN_POSITIVE))])]
-  #[case::row_height_below_px(    (1200.0,            0.004),    vec![error("rowHeight", "row height must be at least 1 px, got 0.004")])]
-  #[case::width_zero(             (0.0,               12.0),     vec![error("width", "figure width must be a positive number, got 0")])]
-  #[case::width_negative(         (-1.0,              12.0),     vec![error("width", "figure width must be a positive number, got -1")])]
-  #[case::width_nan(              (f64::NAN,          12.0),     vec![error("width", "figure width must be a positive number, got NaN")])]
-  #[case::width_infinite(         (f64::INFINITY,     12.0),     vec![error("width", "figure width must be a positive number, got inf")])]
-  #[case::row_height_zero(        (1200.0,            0.0),      vec![error("rowHeight", "row height must be a positive number, got 0")])]
-  #[case::row_height_infinite(    (1200.0,            f64::NEG_INFINITY), vec![error("rowHeight", "row height must be a positive number, got -inf")])]
+  #[case::width_below_margins(    (32.5,              12.0),     vec![error(FigureOptionKey::Width, "figure width must be at least 33 px, got 32.5")])]
+  #[case::width_tiny(             (f64::MIN_POSITIVE, 12.0),     vec![error(FigureOptionKey::Width, &format!("figure width must be at least 33 px, got {}", f64::MIN_POSITIVE))])]
+  #[case::row_height_below_px(    (1200.0,            0.004),    vec![error(FigureOptionKey::RowHeight, "row height must be at least 1 px, got 0.004")])]
+  #[case::width_zero(             (0.0,               12.0),     vec![error(FigureOptionKey::Width, "figure width must be a positive number, got 0")])]
+  #[case::width_negative(         (-1.0,              12.0),     vec![error(FigureOptionKey::Width, "figure width must be a positive number, got -1")])]
+  #[case::width_nan(              (f64::NAN,          12.0),     vec![error(FigureOptionKey::Width, "figure width must be a positive number, got NaN")])]
+  #[case::width_infinite(         (f64::INFINITY,     12.0),     vec![error(FigureOptionKey::Width, "figure width must be a positive number, got inf")])]
+  #[case::row_height_zero(        (1200.0,            0.0),      vec![error(FigureOptionKey::RowHeight, "row height must be a positive number, got 0")])]
+  #[case::row_height_infinite(    (1200.0,            f64::NEG_INFINITY), vec![error(FigureOptionKey::RowHeight, "row height must be a positive number, got -inf")])]
   #[case::both_invalid(           (0.0,               f64::NAN), vec![
-    error("width", "figure width must be a positive number, got 0"),
-    error("rowHeight", "row height must be a positive number, got NaN"),
+    error(FigureOptionKey::Width, "figure width must be a positive number, got 0"),
+    error(FigureOptionKey::RowHeight, "row height must be a positive number, got NaN"),
   ])]
   #[trace]
   fn figure_options_width_and_row_height_must_be_finite_and_positive(

@@ -5,11 +5,13 @@
 //! accepts too. The checks reject the inputs known to make the core panic, because a panic
 //! traps the WebAssembly instance.
 
+use crate::figure::FigureOptionKey;
 use crate::newick;
 use crate::output::{self, OutputOptions};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
+use strum::VariantArray;
 use treeknit_core::{Options, Resolution, Taxa, Tree, bits};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
@@ -128,9 +130,8 @@ impl From<ResolveMode> for Resolution {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ValidationError {
-  /// Path of the field in the request, such as `settings.gamma`, `settings.seqLengths[1]`, or
-  /// `trees[0].newick`; `None` for the request as a whole.
-  pub field: Option<String>,
+  /// The field the error concerns; `None` for the request as a whole.
+  pub field: Option<Field>,
   pub message: String,
   /// 1-based line of a parse error in the Newick text.
   pub line: Option<usize>,
@@ -140,12 +141,94 @@ pub struct ValidationError {
 
 impl ValidationError {
   /// An error at the field `field`.
-  pub(crate) fn at(field: impl Into<String>, message: impl Into<String>) -> Self {
+  pub(crate) fn at(field: Field, message: impl Into<String>) -> Self {
     ValidationError {
-      field: Some(field.into()),
+      field: Some(field),
       message: message.into(),
       line: None,
       column: None,
+    }
+  }
+}
+
+/// The input field that a [`ValidationError`] concerns.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum Field {
+  /// The list of trees as a whole, such as the number of trees or a pair of trees.
+  Trees,
+  /// Tree `index` as a whole, such as a tree file that cannot be read.
+  Tree { index: usize },
+  /// The label of tree `index`.
+  TreeLabel { index: usize },
+  /// The Newick text of tree `index`.
+  TreeNewick { index: usize },
+  /// A setting.
+  Setting { key: SettingKey },
+  /// Sequence length `index` of `settings.seqLengths`.
+  SeqLength { index: usize },
+  /// An option of a figure.
+  FigureOption { key: FigureOptionKey },
+  /// The key `key` of a link, as the link writes it.
+  LinkKey { key: String },
+  /// The `tree` value `index` of a link.
+  LinkTree { index: usize },
+}
+
+impl Field {
+  /// The path of the field as the command line names it, such as `trees[0].newick`,
+  /// `settings.seqLengths[1]`, `rowHeight`, or the key of a link.
+  pub fn path(&self) -> String {
+    match self {
+      Field::Trees => "trees".to_owned(),
+      Field::Tree { index } => format!("trees[{index}]"),
+      Field::TreeLabel { index } => format!("trees[{index}].label"),
+      Field::TreeNewick { index } => format!("trees[{index}].newick"),
+      Field::Setting { key } => format!("settings.{}", key.name()),
+      Field::SeqLength { index } => format!("settings.{}[{index}]", SettingKey::SeqLengths.name()),
+      Field::FigureOption { key } => key.name().to_owned(),
+      Field::LinkKey { key } => key.clone(),
+      Field::LinkTree { index } => format!("tree[{index}]"),
+    }
+  }
+
+  /// The index of the tree of the request that the field belongs to; `None` for a field that
+  /// belongs to no tree of the request.
+  pub fn tree_index(&self) -> Option<usize> {
+    match self {
+      Field::Tree { index } | Field::TreeLabel { index } | Field::TreeNewick { index } => Some(*index),
+      Field::Trees
+      | Field::Setting { .. }
+      | Field::SeqLength { .. }
+      | Field::FigureOption { .. }
+      | Field::LinkKey { .. }
+      | Field::LinkTree { .. } => None,
+    }
+  }
+}
+
+/// A setting that a check of [`check_settings`] reports, named as the field of [`Settings`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, VariantArray)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub enum SettingKey {
+  Gamma,
+  SeqLengths,
+  NMcmcIt,
+  Rounds,
+  Seed,
+}
+
+impl SettingKey {
+  /// The name of the setting, as serde writes it and as the field of [`Settings`] is named.
+  pub fn name(self) -> &'static str {
+    match self {
+      SettingKey::Gamma => "gamma",
+      SettingKey::SeqLengths => "seqLengths",
+      SettingKey::NMcmcIt => "nMcmcIt",
+      SettingKey::Rounds => "rounds",
+      SettingKey::Seed => "seed",
     }
   }
 }
@@ -220,7 +303,7 @@ pub fn check_trees(trees: &[TreeText]) -> Vec<ValidationError> {
 pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationError>> {
   let mut errors = Vec::new();
   if trees.len() < 2 {
-    errors.push(ValidationError::at("trees", "need at least two trees"));
+    errors.push(ValidationError::at(Field::Trees, "need at least two trees"));
   }
   let label_errors = check_labels(trees);
   // A pair with an invalid or repeated label is left out of the pair-name check: its label
@@ -253,7 +336,7 @@ pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationErro
       .filter(|p| p.shared < MIN_SHARED_LEAVES)
       .map(|p| {
         ValidationError::at(
-          "trees",
+          Field::Trees,
           format!(
             "trees {:?} and {:?} share fewer than {MIN_SHARED_LEAVES} leaves",
             trees[p.i].label, trees[p.j].label
@@ -287,48 +370,61 @@ pub fn check_settings(s: &Settings, k: usize) -> Vec<ValidationError> {
   let mut errors = Vec::new();
   if !(s.gamma.is_finite() && s.gamma >= 0.0) {
     errors.push(ValidationError::at(
-      "settings.gamma",
+      Field::Setting { key: SettingKey::Gamma },
       format!("gamma must be a non-negative number, got {}", s.gamma),
     ));
   }
   if let Some(v) = &s.seq_lengths {
     if v.len() != k {
       errors.push(ValidationError::at(
-        "settings.seqLengths",
+        Field::Setting {
+          key: SettingKey::SeqLengths,
+        },
         format!("got {} sequence lengths for {k} trees", v.len()),
       ));
     }
     for (i, x) in v.iter().enumerate() {
       if !(x.is_finite() && *x > 0.0) {
         errors.push(ValidationError::at(
-          format!("settings.seqLengths[{i}]"),
+          Field::SeqLength { index: i },
           format!("sequence length {} must be a positive number, got {x}", i + 1),
         ));
       }
     }
   }
   if s.rounds == 0 {
-    errors.push(ValidationError::at("settings.rounds", "rounds must be at least 1"));
+    errors.push(ValidationError::at(
+      Field::Setting {
+        key: SettingKey::Rounds,
+      },
+      "rounds must be at least 1",
+    ));
   } else if s.rounds > MAX_ROUNDS {
     errors.push(ValidationError::at(
-      "settings.rounds",
+      Field::Setting {
+        key: SettingKey::Rounds,
+      },
       format!("rounds must be at most {MAX_ROUNDS}, got {}", s.rounds),
     ));
   }
   if s.n_mcmc_it == 0 {
     errors.push(ValidationError::at(
-      "settings.nMcmcIt",
+      Field::Setting {
+        key: SettingKey::NMcmcIt,
+      },
       "MCMC steps per leaf must be at least 1",
     ));
   } else if s.n_mcmc_it > MAX_MCMC_IT {
     errors.push(ValidationError::at(
-      "settings.nMcmcIt",
+      Field::Setting {
+        key: SettingKey::NMcmcIt,
+      },
       format!("MCMC steps per leaf must be at most {MAX_MCMC_IT}, got {}", s.n_mcmc_it),
     ));
   }
   if s.seed > MAX_SEED {
     errors.push(ValidationError::at(
-      "settings.seed",
+      Field::Setting { key: SettingKey::Seed },
       format!("seed must be at most {MAX_SEED}, got {}", s.seed),
     ));
   }
@@ -375,7 +471,7 @@ pub fn read_session(text: &str) -> Result<AnalysisRequest, Vec<ValidationError>>
   let seed = request.settings.seed;
   if seed > MAX_SEED {
     return Err(vec![ValidationError::at(
-      "settings.seed",
+      Field::Setting { key: SettingKey::Seed },
       format!(
         "the seed {seed} of the session file is above {MAX_SEED}, the largest integer a JavaScript number holds exactly"
       ),
@@ -491,7 +587,7 @@ fn check_labels(trees: &[TreeText]) -> Vec<Option<ValidationError>> {
   let mut errors = Vec::new();
   let mut seen: BTreeMap<String, &str> = BTreeMap::new();
   for (i, t) in trees.iter().enumerate() {
-    let field = format!("trees[{i}].label");
+    let field = Field::TreeLabel { index: i };
     let l = t.label.as_str();
     let message = if l.trim().is_empty() {
       Some(format!("tree {} needs a label", i + 1))
@@ -542,7 +638,7 @@ fn check_pair_stems(trees: &[TreeText], valid: &[bool]) -> Vec<ValidationError> 
             format!("output file names ({first_stem:?} and {stem:?}) that differ only in case")
           };
           errors.push(ValidationError::at(
-            "trees",
+            Field::Trees,
             format!(
               "tree pairs ({:?}, {:?}) and ({:?}, {:?}) give {names}; rename a tree",
               trees[*a].label, trees[*b].label, trees[i].label, trees[j].label
@@ -558,15 +654,10 @@ fn check_pair_stems(trees: &[TreeText], valid: &[bool]) -> Vec<ValidationError> 
   errors
 }
 
-/// The field of the Newick text of tree `i` in a `ValidationError`, `trees[<i>].newick`.
-pub fn newick_field(i: usize) -> String {
-  format!("trees[{i}].newick")
-}
-
 fn parse_error(i: usize, t: &TreeText, e: &newick::ParseError) -> ValidationError {
   let position = e.offset.map(|o| newick::line_column(&t.newick, o));
   ValidationError {
-    field: Some(newick_field(i)),
+    field: Some(Field::TreeNewick { index: i }),
     message: format!("tree {:?}: {e}", t.label),
     line: position.map(|(l, _)| l),
     column: position.map(|(_, c)| c),
@@ -597,8 +688,16 @@ mod tests {
     trees(&labels.iter().map(|&l| (l, T)).collect::<Vec<_>>())
   }
 
-  fn error(field: &str, message: &str) -> ValidationError {
+  fn error(field: Field, message: &str) -> ValidationError {
     ValidationError::at(field, message)
+  }
+
+  fn label(index: usize) -> Field {
+    Field::TreeLabel { index }
+  }
+
+  fn setting(key: SettingKey) -> Field {
+    Field::Setting { key }
   }
 
   fn clades(newick: &str) -> BTreeSet<BTreeSet<String>> {
@@ -682,16 +781,48 @@ mod tests {
     assert_eq!(r, serde_json::from_str::<AnalysisRequest>(&text).unwrap());
   }
 
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::trees(        Field::Trees,                                                 ("trees",                  json!({"kind": "trees"})))]
+  #[case::tree(         Field::Tree { index: 2 },                                     ("trees[2]",               json!({"kind": "tree", "index": 2})))]
+  #[case::tree_label(   Field::TreeLabel { index: 0 },                                ("trees[0].label",         json!({"kind": "treeLabel", "index": 0})))]
+  #[case::tree_newick(  Field::TreeNewick { index: 1 },                               ("trees[1].newick",        json!({"kind": "treeNewick", "index": 1})))]
+  #[case::setting(      Field::Setting { key: SettingKey::NMcmcIt },                  ("settings.nMcmcIt",       json!({"kind": "setting", "key": "nMcmcIt"})))]
+  #[case::seq_lengths(  Field::Setting { key: SettingKey::SeqLengths },               ("settings.seqLengths",    json!({"kind": "setting", "key": "seqLengths"})))]
+  #[case::seq_length(   Field::SeqLength { index: 1 },                                ("settings.seqLengths[1]", json!({"kind": "seqLength", "index": 1})))]
+  #[case::figure_option(Field::FigureOption { key: FigureOptionKey::RowHeight },      ("rowHeight",              json!({"kind": "figureOption", "key": "rowHeight"})))]
+  #[case::link_key(     Field::LinkKey { key: "seq-lengths".to_owned() },             ("seq-lengths",            json!({"kind": "linkKey", "key": "seq-lengths"})))]
+  #[case::link_tree(    Field::LinkTree { index: 3 },                                 ("tree[3]",                json!({"kind": "linkTree", "index": 3})))]
+  #[trace]
+  fn fields_have_a_command_line_path_and_a_kind(#[case] field: Field, #[case] expected: (&str, serde_json::Value)) {
+    let actual = (field.path(), serde_json::to_value(&field).unwrap());
+    assert_eq!((expected.0.to_owned(), expected.1), actual);
+  }
+
+  #[test]
+  fn setting_key_names_are_their_serde_names_and_fields_of_the_settings() {
+    // Oracle: the serialized `Settings`, whose field names the web app's form uses.
+    let settings = serde_json::to_value(Settings::default()).unwrap();
+    let names: Vec<&str> = SettingKey::VARIANTS.iter().map(|k| k.name()).collect();
+    let serde_names: Vec<serde_json::Value> = SettingKey::VARIANTS
+      .iter()
+      .map(|k| serde_json::to_value(k).unwrap())
+      .collect();
+    let not_in_settings: Vec<&str> = names.iter().copied().filter(|n| settings.get(n).is_none()).collect();
+    assert_eq!(names.iter().map(|n| json!(n)).collect::<Vec<_>>(), serde_names);
+    assert_eq!(Vec::<&str>::new(), not_in_settings);
+  }
+
   #[test]
   fn validation_error_serializes_camel_case_fields() {
     let e = ValidationError {
-      field: Some("trees[0].newick".to_owned()),
+      field: Some(Field::TreeNewick { index: 0 }),
       message: "m".to_owned(),
       line: Some(2),
       column: Some(5),
     };
     assert_eq!(
-      json!({"field": "trees[0].newick", "message": "m", "line": 2, "column": 5}),
+      json!({"field": {"kind": "treeNewick", "index": 0}, "message": "m", "line": 2, "column": 5}),
       serde_json::to_value(&e).unwrap()
     );
   }
@@ -796,38 +927,38 @@ mod tests {
       },
     };
     let expected = vec![
-      error("trees", "need at least two trees"),
-      error("settings.rounds", "rounds must be at least 1"),
+      error(Field::Trees, "need at least two trees"),
+      error(setting(SettingKey::Rounds), "rounds must be at least 1"),
     ];
     assert_eq!(expected, validate(&r));
   }
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::no_tree(        &[],                         "trees",           "need at least two trees")]
-  #[case::one_tree(       &["ha"],                     "trees",           "need at least two trees")]
-  #[case::empty_label(    &["ha", ""],                 "trees[1].label",  "tree 2 needs a label")]
-  #[case::blank_label(    &["ha", " "],                "trees[1].label",  "tree 2 needs a label")]
-  #[case::duplicate_label(&["ha", "na", "ha"],         "trees[2].label",  "tree label \"ha\" is used twice")]
-  #[case::parent_path(    &["ha", "../x"],             "trees[1].label",  "tree label \"../x\" must not contain / or \\")]
-  #[case::slash(          &["a/b", "na"],              "trees[0].label",  "tree label \"a/b\" must not contain / or \\")]
-  #[case::backslash(      &["ha", "a\\b"],             "trees[1].label",  "tree label \"a\\\\b\" must not contain / or \\")]
-  #[case::control(        &["ha", "a\tb"],             "trees[1].label",  "tree label \"a\\tb\" must not contain control characters")]
-  #[case::dot(            &["ha", "."],                "trees[1].label",  "tree label \".\" is not a file name")]
-  #[case::dot_dot(        &["..", "na"],               "trees[0].label",  "tree label \"..\" is not a file name")]
-  #[case::pair_stems(     &["a_b", "c", "a", "b_c"],   "trees",           "tree pairs (\"a_b\", \"c\") and (\"a\", \"b_c\") give the same output file names (\"a_b_c\"); rename a tree")]
-  #[case::case_only(      &["HA", "na", "ha"],         "trees[2].label",  "tree label \"ha\" differs from \"HA\" only in case, so their output files get the same name")]
-  #[case::final_sigma(    &["ΑΣ", "na", "ασ"],         "trees[2].label",  "tree label \"ασ\" differs from \"ΑΣ\" only in case, so their output files get the same name")]
-  #[case::pair_stems_case(&["a_b", "c", "A", "B_c"],   "trees",           "tree pairs (\"a_b\", \"c\") and (\"A\", \"B_c\") give output file names (\"a_b_c\" and \"A_B_c\") that differ only in case; rename a tree")]
-  #[case::less_than(      &["ha", "a<b"],              "trees[1].label",  "tree label \"a<b\" must not contain any of <>:\"|?*")]
-  #[case::greater_than(   &["ha", "a>b"],              "trees[1].label",  "tree label \"a>b\" must not contain any of <>:\"|?*")]
-  #[case::colon(          &["ha", "a:b"],              "trees[1].label",  "tree label \"a:b\" must not contain any of <>:\"|?*")]
-  #[case::quote(          &["ha", "a\"b"],             "trees[1].label",  "tree label \"a\\\"b\" must not contain any of <>:\"|?*")]
-  #[case::pipe(           &["ha", "a|b"],              "trees[1].label",  "tree label \"a|b\" must not contain any of <>:\"|?*")]
-  #[case::question(       &["ha", "a?b"],              "trees[1].label",  "tree label \"a?b\" must not contain any of <>:\"|?*")]
-  #[case::star(           &["ha", "a*b"],              "trees[1].label",  "tree label \"a*b\" must not contain any of <>:\"|?*")]
+  #[case::no_tree(        &[],                         Field::Trees,      "need at least two trees")]
+  #[case::one_tree(       &["ha"],                     Field::Trees,      "need at least two trees")]
+  #[case::empty_label(    &["ha", ""],                 label(1),          "tree 2 needs a label")]
+  #[case::blank_label(    &["ha", " "],                label(1),          "tree 2 needs a label")]
+  #[case::duplicate_label(&["ha", "na", "ha"],         label(2),          "tree label \"ha\" is used twice")]
+  #[case::parent_path(    &["ha", "../x"],             label(1),          "tree label \"../x\" must not contain / or \\")]
+  #[case::slash(          &["a/b", "na"],              label(0),          "tree label \"a/b\" must not contain / or \\")]
+  #[case::backslash(      &["ha", "a\\b"],             label(1),          "tree label \"a\\\\b\" must not contain / or \\")]
+  #[case::control(        &["ha", "a\tb"],             label(1),          "tree label \"a\\tb\" must not contain control characters")]
+  #[case::dot(            &["ha", "."],                label(1),          "tree label \".\" is not a file name")]
+  #[case::dot_dot(        &["..", "na"],               label(0),          "tree label \"..\" is not a file name")]
+  #[case::pair_stems(     &["a_b", "c", "a", "b_c"],   Field::Trees,      "tree pairs (\"a_b\", \"c\") and (\"a\", \"b_c\") give the same output file names (\"a_b_c\"); rename a tree")]
+  #[case::case_only(      &["HA", "na", "ha"],         label(2),          "tree label \"ha\" differs from \"HA\" only in case, so their output files get the same name")]
+  #[case::final_sigma(    &["ΑΣ", "na", "ασ"],         label(2),          "tree label \"ασ\" differs from \"ΑΣ\" only in case, so their output files get the same name")]
+  #[case::pair_stems_case(&["a_b", "c", "A", "B_c"],   Field::Trees,      "tree pairs (\"a_b\", \"c\") and (\"A\", \"B_c\") give output file names (\"a_b_c\" and \"A_B_c\") that differ only in case; rename a tree")]
+  #[case::less_than(      &["ha", "a<b"],              label(1),          "tree label \"a<b\" must not contain any of <>:\"|?*")]
+  #[case::greater_than(   &["ha", "a>b"],              label(1),          "tree label \"a>b\" must not contain any of <>:\"|?*")]
+  #[case::colon(          &["ha", "a:b"],              label(1),          "tree label \"a:b\" must not contain any of <>:\"|?*")]
+  #[case::quote(          &["ha", "a\"b"],             label(1),          "tree label \"a\\\"b\" must not contain any of <>:\"|?*")]
+  #[case::pipe(           &["ha", "a|b"],              label(1),          "tree label \"a|b\" must not contain any of <>:\"|?*")]
+  #[case::question(       &["ha", "a?b"],              label(1),          "tree label \"a?b\" must not contain any of <>:\"|?*")]
+  #[case::star(           &["ha", "a*b"],              label(1),          "tree label \"a*b\" must not contain any of <>:\"|?*")]
   #[trace]
-  fn invalid_labels_are_rejected(#[case] labels: &[&str], #[case] field: &str, #[case] message: &str) {
+  fn invalid_labels_are_rejected(#[case] labels: &[&str], #[case] field: Field, #[case] message: &str) {
     assert_eq!(vec![error(field, message)], check_trees(&labeled(labels)));
   }
 
@@ -845,9 +976,9 @@ mod tests {
   #[test]
   fn invalid_label_does_not_hide_pair_name_collisions() {
     let expected = vec![
-      error("trees[4].label", "tree label \"bad/label\" must not contain / or \\"),
+      error(label(4), "tree label \"bad/label\" must not contain / or \\"),
       error(
-        "trees",
+        Field::Trees,
         "tree pairs (\"a_b\", \"c\") and (\"a\", \"b_c\") give the same output file names (\"a_b_c\"); rename a tree",
       ),
     ];
@@ -857,7 +988,7 @@ mod tests {
   #[test]
   fn repeated_label_gives_no_pair_name_error() {
     assert_eq!(
-      vec![error("trees[2].label", "tree label \"ha\" is used twice")],
+      vec![error(label(2), "tree label \"ha\" is used twice")],
       check_trees(&labeled(&["ha", "na", "ha"]))
     );
   }
@@ -866,7 +997,7 @@ mod tests {
   fn parse_error_has_field_line_and_column() {
     let errors = check_trees(&trees(&[("ha", T), ("na", "((A,B),\n(C,D)x y);")]));
     let expected = vec![ValidationError {
-      field: Some("trees[1].newick".to_owned()),
+      field: Some(Field::TreeNewick { index: 1 }),
       message: "tree \"na\": Newick parse error: expected ',' or ')' at byte 15".to_owned(),
       line: Some(2),
       column: Some(8),
@@ -887,7 +1018,7 @@ mod tests {
   #[trace]
   fn parse_error_without_position(#[case] newick: &str, #[case] message: &str) {
     let errors = check_trees(&trees(&[("ha", T), ("na", newick)]));
-    let expected = vec![ValidationError { field: Some("trees[1].newick".to_owned()), message: message.to_owned(), line: None, column: None }];
+    let expected = vec![ValidationError { field: Some(Field::TreeNewick { index: 1 }), message: message.to_owned(), line: None, column: None }];
     assert_eq!(expected, errors);
   }
 
@@ -896,8 +1027,8 @@ mod tests {
     // The command line gives a file that it cannot read an empty text and reports the read error
     // instead of the error of this field.
     let errors = check_trees(&trees(&[("ha", T), ("na", "")]));
-    let fields: Vec<Option<&str>> = errors.iter().map(|e| e.field.as_deref()).collect();
-    assert_eq!(vec![Some(newick_field(1).as_str())], fields);
+    let fields: Vec<Option<Field>> = errors.iter().map(|e| e.field.clone()).collect();
+    assert_eq!(vec![Some(Field::TreeNewick { index: 1 })], fields);
   }
 
   #[rustfmt::skip]
@@ -908,8 +1039,8 @@ mod tests {
   fn pairs_sharing_fewer_than_two_leaves_are_rejected(#[case] newick: &str) {
     let errors = check_trees(&trees(&[("ha", T), ("na", T), ("pb2", newick)]));
     let expected = vec![
-      error("trees", "trees \"ha\" and \"pb2\" share fewer than 2 leaves"),
-      error("trees", "trees \"na\" and \"pb2\" share fewer than 2 leaves"),
+      error(Field::Trees, "trees \"ha\" and \"pb2\" share fewer than 2 leaves"),
+      error(Field::Trees, "trees \"na\" and \"pb2\" share fewer than 2 leaves"),
     ];
     assert_eq!(expected, errors);
   }
@@ -925,8 +1056,11 @@ mod tests {
   #[test]
   fn all_errors_are_reported_together() {
     let errors = check_trees(&trees(&[("a/b", T), ("na", "(A,B"), ("", T)]));
-    let fields: Vec<_> = errors.iter().map(|e| e.field.as_deref().unwrap()).collect();
-    assert_eq!(vec!["trees[0].label", "trees[2].label", "trees[1].newick"], fields);
+    let fields: Vec<Option<Field>> = errors.iter().map(|e| e.field.clone()).collect();
+    assert_eq!(
+      vec![Some(label(0)), Some(label(2)), Some(Field::TreeNewick { index: 1 })],
+      fields
+    );
   }
 
   #[test]
@@ -941,17 +1075,17 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::negative_gamma( Settings { gamma: -1.0, ..Settings::default() },                       "settings.gamma",         "gamma must be a non-negative number, got -1")]
-  #[case::nan_gamma(      Settings { gamma: f64::NAN, ..Settings::default() },                   "settings.gamma",         "gamma must be a non-negative number, got NaN")]
-  #[case::infinite_gamma( Settings { gamma: f64::INFINITY, ..Settings::default() },              "settings.gamma",         "gamma must be a non-negative number, got inf")]
-  #[case::length_count(   Settings { seq_lengths: Some(vec![1.0]), ..Settings::default() },      "settings.seqLengths",    "got 1 sequence lengths for 2 trees")]
-  #[case::zero_length(    Settings { seq_lengths: Some(vec![1.0, 0.0]), ..Settings::default() }, "settings.seqLengths[1]", "sequence length 2 must be a positive number, got 0")]
-  #[case::nan_length(     Settings { seq_lengths: Some(vec![f64::NAN, 1.0]), ..Settings::default() }, "settings.seqLengths[0]", "sequence length 1 must be a positive number, got NaN")]
-  #[case::zero_rounds(    Settings { rounds: 0, ..Settings::default() },                         "settings.rounds",        "rounds must be at least 1")]
-  #[case::zero_mcmc(      Settings { n_mcmc_it: 0, ..Settings::default() },                      "settings.nMcmcIt",       "MCMC steps per leaf must be at least 1")]
-  #[case::large_seed(     Settings { seed: 1 << 53, ..Settings::default() },                     "settings.seed",          "seed must be at most 9007199254740991, got 9007199254740992")]
+  #[case::negative_gamma( Settings { gamma: -1.0, ..Settings::default() },                       setting(SettingKey::Gamma),      "gamma must be a non-negative number, got -1")]
+  #[case::nan_gamma(      Settings { gamma: f64::NAN, ..Settings::default() },                   setting(SettingKey::Gamma),      "gamma must be a non-negative number, got NaN")]
+  #[case::infinite_gamma( Settings { gamma: f64::INFINITY, ..Settings::default() },              setting(SettingKey::Gamma),      "gamma must be a non-negative number, got inf")]
+  #[case::length_count(   Settings { seq_lengths: Some(vec![1.0]), ..Settings::default() },      setting(SettingKey::SeqLengths), "got 1 sequence lengths for 2 trees")]
+  #[case::zero_length(    Settings { seq_lengths: Some(vec![1.0, 0.0]), ..Settings::default() }, Field::SeqLength { index: 1 }, "sequence length 2 must be a positive number, got 0")]
+  #[case::nan_length(     Settings { seq_lengths: Some(vec![f64::NAN, 1.0]), ..Settings::default() }, Field::SeqLength { index: 0 }, "sequence length 1 must be a positive number, got NaN")]
+  #[case::zero_rounds(    Settings { rounds: 0, ..Settings::default() },                         setting(SettingKey::Rounds),     "rounds must be at least 1")]
+  #[case::zero_mcmc(      Settings { n_mcmc_it: 0, ..Settings::default() },                      setting(SettingKey::NMcmcIt),    "MCMC steps per leaf must be at least 1")]
+  #[case::large_seed(     Settings { seed: 1 << 53, ..Settings::default() },                     setting(SettingKey::Seed),       "seed must be at most 9007199254740991, got 9007199254740992")]
   #[trace]
-  fn invalid_settings_are_rejected(#[case] s: Settings, #[case] field: &str, #[case] message: &str) {
+  fn invalid_settings_are_rejected(#[case] s: Settings, #[case] field: Field, #[case] message: &str) {
     assert_eq!(vec![error(field, message)], check_settings(&s, 2));
   }
 
@@ -983,9 +1117,14 @@ mod tests {
     let text = r#"{"trees": [], "settings": {"nMcmcIt": 4294967296, "rounds": 4294967296}}"#;
     let request = read_session(text).unwrap();
     let expected = vec![
-      error("settings.rounds", "rounds must be at most 4294967294, got 4294967296"),
       error(
-        "settings.nMcmcIt",
+        setting(SettingKey::Rounds),
+        "rounds must be at most 4294967294, got 4294967296",
+      ),
+      error(
+        Field::Setting {
+          key: SettingKey::NMcmcIt,
+        },
         "MCMC steps per leaf must be at most 4294967295, got 4294967296",
       ),
     ];
@@ -995,9 +1134,9 @@ mod tests {
   #[rustfmt::skip]
   #[rstest]
   #[case::largest_rounds(  Settings { rounds: 0xFFFF_FFFE, ..Settings::default() },    vec![])]
-  #[case::too_many_rounds( Settings { rounds: 0xFFFF_FFFF, ..Settings::default() },    vec![error("settings.rounds", "rounds must be at most 4294967294, got 4294967295")])]
+  #[case::too_many_rounds( Settings { rounds: 0xFFFF_FFFF, ..Settings::default() },    vec![error(setting(SettingKey::Rounds), "rounds must be at most 4294967294, got 4294967295")])]
   #[case::largest_mcmc(    Settings { n_mcmc_it: 0xFFFF_FFFF, ..Settings::default() }, vec![])]
-  #[case::too_many_mcmc(   Settings { n_mcmc_it: 0x1_0000_0000, ..Settings::default() }, vec![error("settings.nMcmcIt", "MCMC steps per leaf must be at most 4294967295, got 4294967296")])]
+  #[case::too_many_mcmc(   Settings { n_mcmc_it: 0x1_0000_0000, ..Settings::default() }, vec![error(setting(SettingKey::NMcmcIt), "MCMC steps per leaf must be at most 4294967295, got 4294967296")])]
   #[trace]
   fn counts_are_checked_at_their_maximum(#[case] s: Settings, #[case] expected: Vec<ValidationError>) {
     let s = Settings { resolve: ResolveMode::Strict, ..s };
@@ -1011,13 +1150,13 @@ mod tests {
       ..Settings::default()
     };
     let expected = vec![
-      error("settings.seqLengths", "got 3 sequence lengths for 2 trees"),
+      error(setting(SettingKey::SeqLengths), "got 3 sequence lengths for 2 trees"),
       error(
-        "settings.seqLengths[0]",
+        Field::SeqLength { index: 0 },
         "sequence length 1 must be a positive number, got 0",
       ),
       error(
-        "settings.seqLengths[1]",
+        Field::SeqLength { index: 1 },
         "sequence length 2 must be a positive number, got -1",
       ),
     ];
@@ -1070,7 +1209,7 @@ mod tests {
   fn read_session_rejects_a_seed_above_the_javascript_limit() {
     let text = r#"{"trees": [], "settings": {"seed": 9007199254740992}}"#;
     let expected = vec![error(
-      "settings.seed",
+      Field::Setting { key: SettingKey::Seed },
       "the seed 9007199254740992 of the session file is above 9007199254740991, the largest integer a JavaScript number holds exactly",
     )];
     assert_eq!(Err(expected), read_session(text));

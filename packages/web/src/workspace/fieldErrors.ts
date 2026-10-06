@@ -1,44 +1,47 @@
-import type { SettingFields, TreeText, ValidationError } from "@neherlab/treeknit-wasm";
+import type { Field, ValidationError } from "@neherlab/treeknit-wasm";
+import { isDeepEqual } from "remeda";
 
 import { NUMBER_SETTINGS } from "../settings/draft";
 
-export const TREE_LIST_FIELD = "trees";
-
 export interface FieldErrors {
-  byField: ReadonlyMap<string, readonly ValidationError[]>;
+  byField: readonly FieldErrorGroup[];
   general: readonly ValidationError[];
 }
 
-export function settingField(key: keyof SettingFields): string {
-  return `settings.${key}`;
+export interface FieldErrorGroup {
+  field: Field;
+  errors: readonly ValidationError[];
 }
 
-export function treeField(index: number, part: keyof TreeText): string {
-  return `trees[${String(index)}].${part}`;
-}
-
-export function seqLengthField(index: number): string {
-  return `${settingField("seqLengths")}[${String(index)}]`;
-}
-
-export function shownFields(treeCount: number, seqLengthsOn: boolean): ReadonlySet<string> {
+export function shownFields(treeCount: number, seqLengthsOn: boolean): readonly Field[] {
   const indices = Array.from({ length: treeCount }, (_, index) => index);
 
-  return new Set([
-    ...NUMBER_SETTINGS.map((key) => settingField(key)),
-    TREE_LIST_FIELD,
-    ...indices.flatMap((index) => [treeField(index, "label"), treeField(index, "newick")]),
-    ...(seqLengthsOn ? indices.map((index) => seqLengthField(index)) : []),
-  ]);
+  return [
+    ...NUMBER_SETTINGS.map((key): Field => ({ kind: "setting", key })),
+    { kind: "trees" },
+    ...indices.flatMap((index): Field[] => [
+      { kind: "treeLabel", index },
+      { kind: "treeNewick", index },
+    ]),
+    ...(seqLengthsOn ? indices.map((index): Field => ({ kind: "seqLength", index })) : []),
+  ];
 }
 
-export function groupFieldErrors(errors: readonly ValidationError[], shown: ReadonlySet<string>): FieldErrors {
-  const byField = new Map<string, ValidationError[]>();
+export function groupFieldErrors(errors: readonly ValidationError[], shown: readonly Field[]): FieldErrors {
+  const byField: { field: Field; errors: ValidationError[] }[] = [];
   const general: ValidationError[] = [];
 
   for (const error of errors) {
-    if (error.field !== null && shown.has(error.field)) {
-      byField.set(error.field, [...(byField.get(error.field) ?? []), error]);
+    const { field } = error;
+
+    if (field !== null && shown.some((candidate) => isDeepEqual(candidate, field))) {
+      const group = byField.find((existing) => isDeepEqual(existing.field, field));
+
+      if (group === undefined) {
+        byField.push({ field, errors: [error] });
+      } else {
+        group.errors.push(error);
+      }
     } else {
       general.push(error);
     }
@@ -47,8 +50,12 @@ export function groupFieldErrors(errors: readonly ValidationError[], shown: Read
   return { byField, general };
 }
 
-export function fieldMessage(errors: FieldErrors, field: string): string | undefined {
-  return joinedMessage(errors.byField.get(field) ?? []);
+export function fieldErrorsAt(errors: FieldErrors, field: Field): readonly ValidationError[] {
+  return errors.byField.find((group) => isDeepEqual(group.field, field))?.errors ?? [];
+}
+
+export function fieldMessage(errors: FieldErrors, field: Field): string | undefined {
+  return joinedMessage(fieldErrorsAt(errors, field));
 }
 
 export function joinedMessage(errors: readonly ValidationError[]): string | undefined {
