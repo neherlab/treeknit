@@ -33,6 +33,7 @@ export class LinkLaunch implements LaunchControl {
   readonly #environment: LaunchEnvironment;
   readonly #entries: readonly QueryEntry[];
   readonly #listeners = new Set<() => void>();
+  readonly #settled = Promise.withResolvers<undefined>();
   #state: LaunchState = NO_LAUNCH;
   #launch: Launch | null = null;
   #store: WorkspaceStore | null = null;
@@ -46,6 +47,8 @@ export class LinkLaunch implements LaunchControl {
     this.#store = store;
 
     if (this.#entries.length === 0) {
+      this.#settled.resolve(undefined);
+
       return;
     }
 
@@ -54,6 +57,10 @@ export class LinkLaunch implements LaunchControl {
 
       this.#launch = parsed.launch;
       this.#update({ notes: launchNotes(parsed) });
+
+      if (parsed.launch === null) {
+        this.#settled.resolve(undefined);
+      }
     } catch (cause) {
       this.#update({ status: { kind: "failed", problems: [`The link could not be read: ${messageOf(cause)}`] } });
 
@@ -61,6 +68,10 @@ export class LinkLaunch implements LaunchControl {
     }
 
     await this.#load();
+  }
+
+  get settled(): Promise<undefined> {
+    return this.#settled.promise;
   }
 
   getSnapshot(): LaunchState {
@@ -82,6 +93,7 @@ export class LinkLaunch implements LaunchControl {
   dismissStatus(): void {
     if (this.#state.status.kind === "failed") {
       this.#update({ status: NO_LAUNCH.status });
+      this.#settled.resolve(undefined);
     }
   }
 
@@ -113,6 +125,7 @@ export class LinkLaunch implements LaunchControl {
 
     store.getState().openLink(loaded.request, loaded.sources);
     this.#update({ status: { kind: "loaded" } });
+    this.#settled.resolve(undefined);
 
     if (launch.run || loaded.run) {
       await this.#environment.run(namesView(this.#entries));

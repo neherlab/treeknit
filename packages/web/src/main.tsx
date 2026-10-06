@@ -15,6 +15,7 @@ import { createAnalysisClient } from "./analysis/browserHost";
 import { AnalysisClientContext } from "./analysis/context";
 import { loadExample } from "./analysis/example";
 import { createQueryClient } from "./analysis/queryClient";
+import { AddressBarSync, linkSearch } from "./launch/addressBar";
 import { LaunchContext } from "./launch/context";
 import { linkEntries } from "./launch/entries";
 import { LinkLaunch } from "./launch/LinkLaunch";
@@ -100,6 +101,27 @@ if (root !== null) {
   const runtime = await workspace.catch(() => null);
 
   if (runtime !== null) {
-    await launch.start(runtime.store);
+    const addressBar = new AddressBarSync(runtime.store, client, {
+      onWorkspace: () => router.state.location.pathname === PAGES.workspace,
+      write: async (pairs) =>
+        router.navigate({
+          from: PAGES.workspace,
+          to: PAGES.workspace,
+          search: (previous) => linkSearch(previous, pairs),
+          replace: true,
+        }),
+    });
+
+    router.subscribe("onResolved", ({ pathChanged }) => {
+      if (pathChanged) {
+        void addressBar.refresh(true);
+      }
+    });
+
+    const launching = launch.start(runtime.store);
+
+    await launch.settled;
+    addressBar.start();
+    await launching;
   }
 }

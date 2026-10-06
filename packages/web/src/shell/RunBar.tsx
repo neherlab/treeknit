@@ -6,6 +6,7 @@ import StopIcon from "~icons/lucide/square";
 
 import { formatElapsed } from "../format/elapsed";
 import { useDelayedIndicator } from "../indicator/useDelayedIndicator";
+import { CopyLinkButton } from "../launch/CopyLinkButton";
 import { CHECK_FAILED, CHECKING_INPUT, progressLabel, progressPercent, runTime } from "../run/runControl";
 import { RunFailureNotice } from "../run/RunFailureNotice";
 import { useNow } from "../run/useNow";
@@ -94,6 +95,7 @@ export function RunBar() {
               Check again
             </Button>
           ) : null}
+          <CopyLinkButton />
         </div>
       )}
     </div>
