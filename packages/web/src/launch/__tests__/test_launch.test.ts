@@ -41,7 +41,12 @@ const NO_PATCH: SettingsPatch = {
   seed: null,
 };
 
-const LIMITS: LinkLimits = { fetchTimeoutSeconds: 60, maxDownloadBytes: 1024, maxLinkChars: 32_000, longLinkChars: 2000 };
+const LIMITS: LinkLimits = {
+  fetchTimeoutSeconds: 60,
+  maxDownloadBytes: 1024,
+  maxLinkChars: 32_000,
+  longLinkChars: 2000,
+};
 
 const HA = "((A,B),(C,(D,X)));";
 
@@ -58,6 +63,16 @@ const SMALL: ExampleInfo = {
   ],
 };
 
+const SESSION: AnalysisRequest = {
+  trees: [
+    { label: "seg4", newick: HA },
+    { label: "seg6", newick: NA },
+  ],
+  settings: { ...DEFAULTS, gamma: 4, seed: 5 },
+};
+
+const SESSION_TEXT = "the session file";
+
 const URL_TREES: Launch = {
   input: {
     kind: "trees",
@@ -72,9 +87,19 @@ const URL_TREES: Launch = {
 
 describe("a link launch", () => {
   test("opens an example with the settings of the link and runs it, keeping the view the link names", async () => {
-    const launch: Launch = { input: { kind: "example", id: "5-leaves" }, settings: { ...NO_PATCH, gamma: 3 }, run: true };
+    const launch: Launch = {
+      input: { kind: "example", id: "5-leaves" },
+      settings: { ...NO_PATCH, gamma: 3 },
+      run: true,
+    };
+
     const runs: boolean[] = [];
-    const { store, linkLaunch } = setUp(parsed(launch), { run: recordRuns(runs) }, "?example=5-leaves&gamma=3&run&view=mccs");
+
+    const { store, linkLaunch } = setUp(
+      parsed(launch),
+      { run: recordRuns(runs) },
+      "?example=5-leaves&gamma=3&run&view=mccs",
+    );
 
     await linkLaunch.start(store);
 
@@ -114,7 +139,10 @@ describe("a link launch", () => {
 
   test("leaves the workspace untouched while a tree fails, and loads every tree on retry", async () => {
     const answers = [new Response("", { status: 404, statusText: "Not Found" }), new Response(NA)];
-    const fetchFile: FetchFile = async (url) => (url.endsWith("ha.nwk") ? new Response(HA) : (answers.shift() ?? new Response(NA)));
+
+    const fetchFile: FetchFile = (url) =>
+      Promise.resolve(url.endsWith("ha.nwk") ? new Response(HA) : (answers.shift() ?? new Response(NA)));
+
     const { store, linkLaunch } = setUp(parsed(URL_TREES), { fetchFile });
 
     await linkLaunch.start(store);
@@ -164,7 +192,7 @@ describe("a link launch", () => {
     ],
     [
       "a server that does not answer",
-      async (_url, init) =>
+      (_url, init) =>
         new Promise((_resolve, reject) => {
           init.signal?.addEventListener("abort", () => {
             reject(new Error("aborted"));
@@ -174,7 +202,9 @@ describe("a link launch", () => {
       "Could not read x.org/ha.nwk: no answer within 0.01 seconds.",
     ],
   ])("reports %s by its address", async (_case, fetchHa, limits, message) => {
-    const fetchFile: FetchFile = async (url, init) => (url.endsWith("ha.nwk") ? fetchHa(url, init) : new Response(NA));
+    const fetchFile: FetchFile = (url, init) =>
+      url.endsWith("ha.nwk") ? fetchHa(url, init) : Promise.resolve(new Response(NA));
+
     const { store, linkLaunch } = setUp(parsed(URL_TREES), { fetchFile, limits });
 
     await linkLaunch.start(store);
@@ -183,16 +213,8 @@ describe("a link launch", () => {
   });
 
   test("applies the settings of the link to the settings of the session file", async () => {
-    const session: AnalysisRequest = {
-      trees: [
-        { label: "seg4", newick: HA },
-        { label: "seg6", newick: NA },
-      ],
-      settings: { ...DEFAULTS, gamma: 4, seed: 5 },
-    };
-
     const launch: Launch = {
-      input: { kind: "session", location: { kind: "data", text: JSON.stringify(session) } },
+      input: { kind: "session", location: { kind: "data", text: SESSION_TEXT } },
       settings: { ...NO_PATCH, seed: 7 },
       run: false,
     };
@@ -201,12 +223,20 @@ describe("a link launch", () => {
 
     await linkLaunch.start(store);
 
-    expect(selectRequest(store.getState())).toStrictEqual({ ...session, settings: { ...DEFAULTS, gamma: 4, seed: 7 } });
+    expect(selectRequest(store.getState())).toStrictEqual({ ...SESSION, settings: { ...DEFAULTS, gamma: 4, seed: 7 } });
   });
 
   test("keeps the workspace and makes no undo entry when the link describes the saved workspace", async () => {
     const launch: Launch = { input: { kind: "example", id: "5-leaves" }, settings: NO_PATCH, run: false };
-    const saved: AnalysisRequest = { trees: [{ label: "ha", newick: HA }, { label: "na", newick: NA }], settings: DEFAULTS };
+
+    const saved: AnalysisRequest = {
+      trees: [
+        { label: "ha", newick: HA },
+        { label: "na", newick: NA },
+      ],
+      settings: DEFAULTS,
+    };
+
     const { store, linkLaunch } = setUp(parsed(launch), {}, "?example=5-leaves", saved);
 
     await linkLaunch.start(store);
@@ -266,9 +296,21 @@ describe("linkEntries", () => {
 
 describe("ignoredKeyNote", () => {
   test.each([
-    ["a key after an address with a query", { key: "sig", suggestion: null, afterLocationQuery: true }, 'The key "sig" seems to belong to the address before it: write & inside an address as %26.'],
-    ["an Auspice filter", { key: "f_region", suggestion: null, afterLocationQuery: false }, '"f_region" is an Auspice setting: put Auspice settings inside the auspice key, for example auspice=c=mcc.'],
-    ["a misspelled key", { key: "aupsice", suggestion: "auspice", afterLocationQuery: false }, 'TreeKnit ignored the key "aupsice"; did you mean "auspice"?'],
+    [
+      "a key after an address with a query",
+      { key: "sig", suggestion: null, afterLocationQuery: true },
+      'The key "sig" seems to belong to the address before it: write & inside an address as %26.',
+    ],
+    [
+      "an Auspice filter",
+      { key: "f_region", suggestion: null, afterLocationQuery: false },
+      '"f_region" is an Auspice setting: put Auspice settings inside the auspice key, for example auspice=c=mcc.',
+    ],
+    [
+      "a misspelled key",
+      { key: "aupsice", suggestion: "auspice", afterLocationQuery: false },
+      'TreeKnit ignored the key "aupsice"; did you mean "auspice"?',
+    ],
     ["a key of another site", { key: "fbclid", suggestion: null, afterLocationQuery: false }, null],
   ])("explains %s", (_case, key, note) => {
     expect(ignoredKeyNote(key)).toBe(note);
@@ -280,7 +322,11 @@ describe("loadingMessage", () => {
     ["trees from one site", URL_TREES.input, "Loading 2 trees from x.org"],
     ["an example", { kind: "example", id: "h3n2-2017" }, "Loading the example h3n2-2017"],
     ["inline trees", { kind: "trees", trees: [] }, "Loading 0 trees from the link"],
-    ["a message", { kind: "message", source: "opener" }, "Waiting for the session file from the page that opened TreeKnit"],
+    [
+      "a message",
+      { kind: "message", source: "opener" },
+      "Waiting for the session file from the page that opened TreeKnit",
+    ],
   ])("describes %s", (_case, input, message) => {
     expect(loadingMessage(input)).toBe(message);
   });
@@ -291,7 +337,7 @@ function setUp(
   overrides: { fetchFile?: FetchFile; run?: (keepView: boolean) => Promise<void>; limits?: LinkLimits },
   query = "?tree=a&tree=b",
   restored: AnalysisRequest | null = null,
-): { store: WorkspaceStore; linkLaunch: LinkLaunch; client: FakeLaunchClient } {
+): LaunchFixture {
   const store = createWorkspaceStore(
     { treeLabels: unexpected, settingsSchema: unexpected, cancel: () => undefined },
     { defaults: DEFAULTS, restored: restored === null ? null : { request: restored, sources: [] } },
@@ -301,13 +347,22 @@ function setUp(
 
   const environment: LaunchEnvironment = {
     client,
-    fetchFile: overrides.fetchFile ?? (async () => new Response(HA)),
-    loadExample: async (example) => example.trees.map(({ file, label, newick }) => ({ fileName: file, label, newick: newick ?? "" })),
+    fetchFile: overrides.fetchFile ?? (() => Promise.resolve(new Response(HA))),
+    loadExample: (example) =>
+      Promise.resolve(
+        example.trees.map(({ file, label, newick }) => ({ fileName: file, label, newick: newick ?? "" })),
+      ),
     receiveSession: unexpected,
-    run: overrides.run ?? (async () => undefined),
+    run: overrides.run ?? (() => Promise.resolve()),
   };
 
   return { store, linkLaunch: new LinkLaunch(environment, linkEntries({ search: query, hash: "" })), client };
+}
+
+interface LaunchFixture {
+  store: WorkspaceStore;
+  linkLaunch: LinkLaunch;
+  client: FakeLaunchClient;
 }
 
 function parsed(launch: Launch): LaunchParse {
@@ -315,8 +370,10 @@ function parsed(launch: Launch): LaunchParse {
 }
 
 function recordRuns(runs: boolean[]): (keepView: boolean) => Promise<void> {
-  return async (keepView) => {
+  return (keepView) => {
     runs.push(keepView);
+
+    return Promise.resolve();
   };
 }
 
@@ -351,37 +408,31 @@ class FakeLaunchClient implements LaunchClient {
     this.#limits = limits;
   }
 
-  async parseLaunch(): Promise<LaunchParse> {
+  parseLaunch(): Promise<LaunchParse> {
     this.parseCalls += 1;
 
-    return this.#parse;
+    return Promise.resolve(this.#parse);
   }
 
-  async decodeTreeBytes(bytes: Uint8Array): Promise<string> {
-    return new TextDecoder().decode(bytes);
+  decodeTreeBytes(bytes: Uint8Array): Promise<string> {
+    return Promise.resolve(new TextDecoder().decode(bytes));
   }
 
-  async examples(): Promise<ExampleInfo[]> {
-    return [SMALL];
+  examples(): Promise<ExampleInfo[]> {
+    return Promise.resolve([SMALL]);
   }
 
-  async readRequest(text: string): Promise<AnalysisRequest> {
-    return requestSchema(text);
+  readRequest(text: string): Promise<AnalysisRequest> {
+    return text === SESSION_TEXT ? Promise.resolve(SESSION) : Promise.reject(new Error("not a TreeKnit session file"));
   }
 
-  async applySettings(base: Settings, patch: SettingsPatch): Promise<Settings> {
+  applySettings(base: Settings, patch: SettingsPatch): Promise<Settings> {
     const changed = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== null));
 
-    return { ...base, ...changed };
+    return Promise.resolve({ ...base, ...changed });
   }
 
-  async linkLimits(): Promise<LinkLimits> {
-    return this.#limits;
+  linkLimits(): Promise<LinkLimits> {
+    return Promise.resolve(this.#limits);
   }
-}
-
-function requestSchema(text: string): AnalysisRequest {
-  const request: AnalysisRequest = JSON.parse(text);
-
-  return request;
 }

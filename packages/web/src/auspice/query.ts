@@ -21,7 +21,9 @@ export const AUSPICE_FILTER_PREFIX = "f_";
 const AUSPICE_KEY_NAMES: ReadonlySet<string> = new Set(Object.values(AUSPICE_KEYS));
 
 export function isAuspiceKey(key: string): boolean {
-  return AUSPICE_KEY_NAMES.has(key) || (key.startsWith(AUSPICE_FILTER_PREFIX) && key.length > AUSPICE_FILTER_PREFIX.length);
+  return (
+    AUSPICE_KEY_NAMES.has(key) || (key.startsWith(AUSPICE_FILTER_PREFIX) && key.length > AUSPICE_FILTER_PREFIX.length)
+  );
 }
 
 export function auspiceQuery(controls: AuspiceControlsState): string {
@@ -43,7 +45,10 @@ export function auspiceQuery(controls: AuspiceControlsState): string {
   }
 
   if (controls.tipLabelKey !== defaults.tipLabelKey) {
-    query.set(AUSPICE_KEYS.tipLabel, controls.tipLabelKey === strainSymbol ? strainSymbolUrlString : String(controls.tipLabelKey));
+    query.set(
+      AUSPICE_KEYS.tipLabel,
+      controls.tipLabelKey === strainSymbol ? strainSymbolUrlString : String(controls.tipLabelKey),
+    );
   }
 
   if (controls.selectedBranchLabel !== defaults.selectedBranchLabel) {

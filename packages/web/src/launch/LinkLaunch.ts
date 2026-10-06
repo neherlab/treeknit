@@ -249,7 +249,11 @@ export async function loadLaunch(
     })
     .with({ kind: "trees" }, async ({ trees }) => {
       const limits = downloadLimits(await client.linkLimits());
-      const texts = await Promise.allSettled(trees.map(async ({ location }) => readLocation(location, limits, environment)));
+
+      const texts = await Promise.allSettled(
+        trees.map(async ({ location }) => readLocation(location, limits, environment)),
+      );
+
       const problems = texts.flatMap((text) => (text.status === "rejected" ? [messageOf(text.reason)] : []));
 
       if (problems.length > 0) {
@@ -261,12 +265,15 @@ export async function loadLaunch(
           trees: trees.map(({ label }, index) => ({ label, newick: fulfilled(texts[index]) })),
           settings: await settings(defaults),
         },
-        sources: trees.map(({ location }): TreeSource => (location.kind === "url" ? { kind: "url", url: location.url } : { kind: "data" })),
+        sources: trees.map(({ location }): TreeSource =>
+          location.kind === "url" ? { kind: "url", url: location.url } : { kind: "data" },
+        ),
         run: false,
       };
     })
     .with({ kind: "session" }, async ({ location }) => {
       const limits = downloadLimits(await client.linkLimits());
+
       const text = await readLocation(location, limits, environment).catch((cause: unknown) => {
         throw new LaunchLoadError([messageOf(cause)]);
       });
@@ -278,18 +285,34 @@ export async function loadLaunch(
         throw new LaunchLoadError([messageOf(cause)]);
       });
 
-      const opened = await openSession(received.text, { kind: "message", origin: received.origin }, settings, defaults, client);
+      const opened = await openSession(
+        received.text,
+        { kind: "message", origin: received.origin },
+        settings,
+        defaults,
+        client,
+      );
 
       return { ...opened, run: received.run };
     })
     .exhaustive();
 }
 
-function downloadLimits({ fetchTimeoutSeconds, maxDownloadBytes }: { fetchTimeoutSeconds: number; maxDownloadBytes: number }): DownloadLimits {
+function downloadLimits({
+  fetchTimeoutSeconds,
+  maxDownloadBytes,
+}: {
+  fetchTimeoutSeconds: number;
+  maxDownloadBytes: number;
+}): DownloadLimits {
   return { timeoutSeconds: fetchTimeoutSeconds, maxBytes: maxDownloadBytes };
 }
 
-async function readLocation(location: LinkLocation, limits: DownloadLimits, environment: LaunchEnvironment): Promise<string> {
+async function readLocation(
+  location: LinkLocation,
+  limits: DownloadLimits,
+  environment: LaunchEnvironment,
+): Promise<string> {
   if (location.kind === "data") {
     return location.text;
   }
@@ -339,4 +362,3 @@ function hostOf(url: string): string {
 function messageOf(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
-

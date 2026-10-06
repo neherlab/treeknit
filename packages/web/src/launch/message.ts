@@ -6,6 +6,23 @@ export const READY_MESSAGE = { type: "treeknit:ready", protocol: 1 } as const;
 
 export const MESSAGE_TIMING: MessageTiming = { intervalMs: 250, timeoutMs: 10_000 };
 
+export const TIMER_CLOCK: MessageClock = {
+  repeat: (intervalMs, callback) => {
+    const timer = setInterval(callback, intervalMs);
+
+    return () => {
+      clearInterval(timer);
+    };
+  },
+  once: (delayMs, callback) => {
+    const timer = setTimeout(callback, delayMs);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  },
+};
+
 const openMessageSchema = z.object({
   type: z.literal("treeknit:open"),
   session: z.string(),
@@ -16,6 +33,7 @@ export async function receiveSession(
   port: MessagePortal,
   description: string,
   timing: MessageTiming = MESSAGE_TIMING,
+  clock: MessageClock = TIMER_CLOCK,
 ): Promise<ReceivedSession> {
   const { target } = port;
 
@@ -31,11 +49,11 @@ export async function receiveSession(
 
   announce();
 
-  const interval = setInterval(announce, timing.intervalMs);
+  const stopAnnouncing = clock.repeat(timing.intervalMs, announce);
 
-  const deadline = setTimeout(() => {
+  const stopWaiting = clock.once(timing.timeoutMs, () => {
     reject(new Error(`The ${description} sent no session file within ${String(timing.timeoutMs / 1000)} seconds.`));
-  }, timing.timeoutMs);
+  });
 
   const stopListening = port.listen(({ source, origin, data }) => {
     const message = openMessageSchema.safeParse(data);
@@ -48,8 +66,8 @@ export async function receiveSession(
   try {
     return await promise;
   } finally {
-    clearInterval(interval);
-    clearTimeout(deadline);
+    stopAnnouncing();
+    stopWaiting();
     stopListening();
   }
 }
@@ -72,4 +90,9 @@ export interface ReceivedMessage {
 export interface MessageTiming {
   intervalMs: number;
   timeoutMs: number;
+}
+
+export interface MessageClock {
+  repeat: (intervalMs: number, callback: () => void) => () => void;
+  once: (delayMs: number, callback: () => void) => () => void;
 }

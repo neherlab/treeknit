@@ -13,8 +13,8 @@ import { createRoot } from "react-dom/client";
 
 import { createAnalysisClient } from "./analysis/browserHost";
 import { AnalysisClientContext } from "./analysis/context";
-import { createQueryClient } from "./analysis/queryClient";
 import { loadExample } from "./analysis/example";
+import { createQueryClient } from "./analysis/queryClient";
 import { LaunchContext } from "./launch/context";
 import { linkEntries } from "./launch/entries";
 import { LinkLaunch } from "./launch/LinkLaunch";
@@ -48,7 +48,7 @@ if (root !== null) {
   const launch = new LinkLaunch(
     {
       client,
-      fetchFile: async (url, init) => fetch(url, init),
+      fetchFile: fetch,
       loadExample: async (example) => loadExample(example),
       receiveSession: async (source) =>
         receiveSession(
@@ -80,8 +80,6 @@ if (root !== null) {
     onWorkspacePage ? linkEntries(window.location) : [],
   );
 
-  void workspace.then(async (runtime) => launch.start(runtime.store));
-
   createRoot(root).render(
     <StrictMode>
       <ThemeProvider {...CLIENT_THEME_PROVIDER_PROPS}>
@@ -98,4 +96,10 @@ if (root !== null) {
       </ThemeProvider>
     </StrictMode>,
   );
+
+  const runtime = await workspace.catch(() => null);
+
+  if (runtime !== null) {
+    await launch.start(runtime.store);
+  }
 }

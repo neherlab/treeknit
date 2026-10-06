@@ -1,4 +1,10 @@
-import { createMemoryHistory, createRootRoute, createRoute, createRouter, stripSearchParams } from "@tanstack/react-router";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  stripSearchParams,
+} from "@tanstack/react-router";
 import { describe, expect, test } from "vitest";
 
 import { parseSearch, stringifySearch, WORKSPACE_SEARCH_DEFAULTS, workspaceSearchSchema } from "../search";

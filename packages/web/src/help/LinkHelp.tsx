@@ -66,9 +66,9 @@ export function LinkHelp() {
   return (
     <>
       <p>
-        A link to <code className={CODE}>{base}</code> can name trees, settings, a run, and a view. The address bar
-        then describes what the page shows, so copying it shares the result: the same trees, settings, and seed give
-        the same result. Copy link in the run bar gives a link also for trees from files.
+        A link to <code className={CODE}>{base}</code> can name trees, settings, a run, and a view. The address bar then
+        describes what the page shows, so copying it shares the result: the same trees, settings, and seed give the same
+        result. Copy link in the run bar gives a link also for trees from files.
       </p>
       <ul className="flex flex-col gap-2">
         {LINK_EXAMPLES.map(({ query, effect, opens }) => (
@@ -85,8 +85,8 @@ export function LinkHelp() {
         ))}
       </ul>
       <p>
-        Write <code className={CODE}>&amp;</code> inside an address as <code className={CODE}>%26</code>, and the
-        number of a key as the interface shows it. The command line runs a link with{" "}
+        Write <code className={CODE}>&amp;</code> inside an address as <code className={CODE}>%26</code>, and the number
+        of a key as the interface shows it. The command line runs a link with{" "}
         <code className={CODE}>treeknit --link</code> and prints one with <code className={CODE}>--print-link</code>.
       </p>
       {keys === undefined ? null : <KeyList keys={keys} />}
@@ -109,8 +109,8 @@ export function MessageHelp() {
       </p>
       <pre className="bg-pane rounded-control overflow-x-auto p-3 font-mono text-sm">{SENDER_EXAMPLE}</pre>
       <p>
-        A page served with <code className={CODE}>Cross-Origin-Opener-Policy: same-origin</code> loses its link to
-        the window it opens, so it cannot send TreeKnit a session file this way.
+        A page served with <code className={CODE}>Cross-Origin-Opener-Policy: same-origin</code> loses its link to the
+        window it opens, so it cannot send TreeKnit a session file this way.
       </p>
     </>
   );

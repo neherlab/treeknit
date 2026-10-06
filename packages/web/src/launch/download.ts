@@ -1,3 +1,5 @@
+import { match } from "ts-pattern";
+
 export type FetchFile = (url: string, init: RequestInit) => Promise<Response>;
 
 export interface DownloadLimits {
@@ -50,28 +52,26 @@ export function downloadMessage(url: string, cause: unknown, limits: DownloadLim
     return `Could not read ${place}: ${cause instanceof Error ? cause.message : String(cause)}`;
   }
 
-  const { failure } = cause;
-
-  switch (failure.kind) {
-    case "network": {
-      return `Could not read ${place}. The server may not allow other sites to read it (CORS), the address may be wrong, or the network is down. Download the file and drop it here instead.`;
-    }
-
-    case "status": {
-      const status =
-        failure.statusText === "" ? `HTTP status ${String(failure.status)}` : `${String(failure.status)} ${failure.statusText}`;
-
-      return `Could not read ${place}: ${status}`;
-    }
-
-    case "timeout": {
-      return `Could not read ${place}: no answer within ${String(limits.timeoutSeconds)} seconds.`;
-    }
-
-    case "tooLarge": {
-      return `Could not read ${place}: the file is larger than ${String(limits.maxBytes / 1024 / 1024)} MiB.`;
-    }
-  }
+  return match(cause.failure)
+    .with(
+      { kind: "network" },
+      () =>
+        `Could not read ${place}. The server may not allow other sites to read it (CORS), the address may be wrong, or the network is down. Download the file and drop it here instead.`,
+    )
+    .with({ kind: "status" }, ({ status, statusText }) =>
+      statusText === ""
+        ? `Could not read ${place}: HTTP status ${String(status)}`
+        : `Could not read ${place}: ${String(status)} ${statusText}`,
+    )
+    .with(
+      { kind: "timeout" },
+      () => `Could not read ${place}: no answer within ${String(limits.timeoutSeconds)} seconds.`,
+    )
+    .with(
+      { kind: "tooLarge" },
+      () => `Could not read ${place}: the file is larger than ${String(limits.maxBytes / 1024 / 1024)} MiB.`,
+    )
+    .exhaustive();
 }
 
 export function filePlace(url: string): string {

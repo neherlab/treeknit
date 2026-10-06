@@ -9,7 +9,7 @@ const messageTargetSchema = z.custom<MessageTarget>(
 );
 
 export function windowPortal(source: MessageSource): MessagePortal {
-  const candidate = source === "opener" ? window.opener : framingWindow();
+  const candidate: unknown = source === "opener" ? window.opener : framingWindow();
 
   return {
     target: messageTargetSchema.safeParse(candidate).data ?? null,

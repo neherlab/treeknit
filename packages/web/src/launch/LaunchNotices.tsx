@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import RetryIcon from "~icons/lucide/refresh-cw";
 
 import { Button } from "../ui/Button";
@@ -21,22 +21,22 @@ export function LaunchNotices() {
     control.dismissNotes();
   }, [control]);
 
+  const retryButton = useMemo(
+    () => (
+      <Button size="sm" icon={RetryIcon} onPress={retry}>
+        Retry
+      </Button>
+    ),
+    [retry],
+  );
+
   return (
     <>
       <NoticeRegion>
         {status.kind === "loading" ? <InlineNotice tone="info">{status.message}</InlineNotice> : null}
       </NoticeRegion>
       {status.kind === "failed" ? (
-        <InlineNotice
-          tone="danger"
-          title="The link could not be opened"
-          action={
-            <Button size="sm" icon={RetryIcon} onPress={retry}>
-              Retry
-            </Button>
-          }
-          onDismiss={dismissStatus}
-        >
+        <InlineNotice tone="danger" title="The link could not be opened" action={retryButton} onDismiss={dismissStatus}>
           <ul className="flex flex-col gap-1">
             {status.problems.map((problem) => (
               <li key={problem}>{problem}</li>
