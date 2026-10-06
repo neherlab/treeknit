@@ -19,6 +19,7 @@ js-sys.workspace = true
 log.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+serde_path_to_error.workspace = true
 treeknit-core.workspace = true
 treeknit-io = { workspace = true, features = ["tsify"] }
 tsify.workspace = true
@@ -26,6 +27,7 @@ wasm-bindgen.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true
+strum.workspace = true
 wasm-bindgen-test.workspace = true
 
 [lints]
