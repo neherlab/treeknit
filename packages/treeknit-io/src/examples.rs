@@ -24,7 +24,7 @@ impl ExampleGroup {
   pub fn name(self) -> &'static str {
     match self {
       ExampleGroup::Small => "Small",
-      ExampleGroup::Real => "Real data (influenza A/H3N2)",
+      ExampleGroup::Real => "Real data",
       ExampleGroup::Simulated => "Simulated (ARGTools)",
     }
   }
@@ -88,7 +88,7 @@ macro_rules! tree_file {
   };
 }
 
-/// The real influenza A/H3N2 example of directory `data/<id>` with the segments `files`.
+/// The real-data example of directory `data/<id>` with the segment trees `files`.
 macro_rules! real {
   ($id:literal, [$($file:literal),+]) => {
     Example {
@@ -129,11 +129,13 @@ pub const EXAMPLES: &[Example] = &[
       },
     ],
   },
+  real!("andv-80x3", ["tree_l.nwk", "tree_m.nwk", "tree_s.nwk"]),
   real!("h3n2-2012-2018", ["ha.nwk", "na.nwk"]),
   real!("h3n2-2017", ["ha.nwk", "na.nwk"]),
   real!("h3n2-2017-2018", ["ha.nwk", "na.nwk"]),
   real!("h3n2-2k-4-segments", ["ha.nwk", "na.nwk", "pb1.nwk", "pb2.nwk"]),
   real!("h3n2-new-york-1999-2004", ["ha.nwk", "na.nwk"]),
+  real!("h5n1-587x3-timetree", ["tree_pa.nwk", "tree_pb1.nwk", "tree_pb2.nwk"]),
   simulated!("sim_k2_n100_r0.01", ["tree1.nwk", "tree2.nwk"]),
   simulated!("sim_k2_n100_r0.01_poly", ["tree1.nwk", "tree2.nwk"]),
   simulated!("sim_k2_n100_r0.02", ["tree1.nwk", "tree2.nwk"]),
@@ -248,11 +250,13 @@ mod tests {
     // Published links name these ids; a renamed example keeps its old id.
     let expected = [
       "5-leaves",
+      "andv-80x3",
       "h3n2-2012-2018",
       "h3n2-2017",
       "h3n2-2017-2018",
       "h3n2-2k-4-segments",
       "h3n2-new-york-1999-2004",
+      "h5n1-587x3-timetree",
       "sim_k2_n100_r0.01",
       "sim_k2_n100_r0.01_poly",
       "sim_k2_n100_r0.02",

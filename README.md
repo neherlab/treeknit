@@ -117,7 +117,7 @@ equivalents:
 | `treeknit-wasm` | WebAssembly bindings of the core, with TypeScript declarations (`packages/treeknit-wasm/README.md`). |
 | `web` | The web app: React, runs analyses in the browser (`packages/web/README.md`). |
 
-`data/` holds real influenza A/H3N2 segment trees (HA and NA pairs, and one set of four segments with 1997 strains), ready as TreeKnit input and offered in the **Load example** menu of the web app.
+`data/` holds real segment trees, ready as TreeKnit input and offered in the **Load example** menu of the web app: influenza A/H3N2 (HA and NA pairs, and one set of four segments with 1997 strains), influenza A/H5N1 time trees of the PA, PB1, and PB2 segments, and Andes virus trees of the S, M, and L segments.
 
 ## Development
 

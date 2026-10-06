@@ -18,7 +18,7 @@ const REAL: ExampleInfo = {
   id: "h3n2-2017",
   name: "h3n2-2017",
   group: "real",
-  groupName: "Real data (influenza A/H3N2)",
+  groupName: "Real data",
   trees: [
     { file: "ha.nwk", label: "ha", path: "data/h3n2-2017/ha.nwk", newick: null },
     { file: "na.nwk", label: "na", path: "data/h3n2-2017/na.nwk", newick: null },
@@ -69,7 +69,7 @@ describe("exampleGroups", () => {
 
     expect(groups.map(({ id, name, examples }) => ({ id, name, ids: examples.map((e) => e.id) }))).toStrictEqual([
       { id: "small", name: "Small", ids: ["5-leaves"] },
-      { id: "real", name: "Real data (influenza A/H3N2)", ids: ["h3n2-2017", "h3n2-2012-2018"] },
+      { id: "real", name: "Real data", ids: ["h3n2-2017", "h3n2-2012-2018"] },
     ]);
   });
 });
