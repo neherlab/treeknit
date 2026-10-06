@@ -132,10 +132,6 @@ fn remove_mccs(
 
 /// Pick one of several optimal configurations: drop the trivial one, then maximise the
 /// branch-length likelihood, then minimise energy, then choose at random.
-#[expect(
-  clippy::float_cmp,
-  reason = "only configurations of exactly the maximal likelihood are kept, as in TreeKnit.jl"
-)]
 fn choose_conf(confs: Vec<Bits>, g: &Graph, trees: &[&Tree], p: &PairParams, rng: &mut impl Rng) -> Bits {
   let mut confs: Vec<Bits> = confs.into_iter().filter(|c| c.count_ones(..) < g.n).collect();
   if confs.len() > 1 && p.likelihood_sort {
@@ -144,13 +140,7 @@ fn choose_conf(confs: Vec<Bits>, g: &Graph, trees: &[&Tree], p: &PairParams, rng
       .map(|c| g.likelihood(c, p.resolve, trees, &p.seq_lengths))
       .collect();
     log::trace!("likelihoods of {} configurations: {lk:?}", confs.len());
-    let lmax = lk.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    confs = confs
-      .into_iter()
-      .zip(&lk)
-      .filter(|&(_, &l)| l == lmax)
-      .map(|(c, _)| c)
-      .collect();
+    confs = most_likely(confs, &lk);
     if confs.len() > 1 {
       let e: Vec<usize> = confs.iter().map(|c| g.energy(c, p.resolve)).collect();
       let emin = *e.iter().min().unwrap();
@@ -163,6 +153,26 @@ fn choose_conf(confs: Vec<Bits>, g: &Graph, trees: &[&Tree], p: &PairParams, rng
     }
   }
   confs.choose(rng).unwrap().clone()
+}
+
+/// The configurations whose likelihood `lk` is maximal. A NaN likelihood ranks below every
+/// number, so the result is never empty for non-empty `confs`.
+#[expect(
+  clippy::float_cmp,
+  reason = "only configurations of exactly the maximal likelihood are kept, as in TreeKnit.jl"
+)]
+fn most_likely(confs: Vec<Bits>, lk: &[f64]) -> Vec<Bits> {
+  let lk: Vec<f64> = lk
+    .iter()
+    .map(|&l| if l.is_nan() { f64::NEG_INFINITY } else { l })
+    .collect();
+  let lmax = lk.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+  confs
+    .into_iter()
+    .zip(&lk)
+    .filter(|&(_, &l)| l == lmax)
+    .map(|(c, _)| c)
+    .collect()
 }
 
 /// Copy of `tree` in which each MCC (a clade) becomes a single leaf with taxon = MCC index.
@@ -199,6 +209,7 @@ pub fn prune_mccs(t: &mut Tree, mccs: &[Mcc], n_taxa: usize) {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::bits;
   use crate::options::{Options, Resolution};
   use crate::tree::test_util::trees;
   use rand::SeedableRng;
@@ -285,6 +296,31 @@ mod tests {
       let m = run(nwk, &o, seed);
       assert_eq!(m[0], vec!["C1", "C2"], "seed {seed}");
     }
+  }
+
+  #[test]
+  fn inference_completes_with_negative_branch_lengths() {
+    let nwk = ["((A:-0.1,B:0.3):0.2,C:0.5);", "(A:0.2,(B:0.4,C:-0.2):0.1);"];
+    for seed in 0..20 {
+      let m = run(nwk, &Options::default(), seed);
+      assert_eq!(m.iter().map(Vec::len).sum::<usize>(), 3, "seed {seed}");
+    }
+  }
+
+  #[test]
+  fn most_likely_ranks_nan_below_every_likelihood() {
+    let confs = vec![
+      bits::from_iter(3, [0]),
+      bits::from_iter(3, [1]),
+      bits::from_iter(3, [2]),
+    ];
+    assert_eq!(
+      (
+        most_likely(confs.clone(), &[f64::NAN, -1.0, f64::NAN]),
+        most_likely(confs.clone(), &[f64::NAN, f64::NAN, f64::NAN]),
+      ),
+      (vec![confs[1].clone()], confs)
+    );
   }
 
   #[test]

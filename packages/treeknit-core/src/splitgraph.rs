@@ -357,9 +357,13 @@ impl<'g> EnergyState<'g> {
 }
 
 /// Log-ratio of the Poisson likelihoods of branches `t1`, `t2` (segment lengths `l1`, `l2`)
-/// being equal versus independent.
+/// being equal versus independent. A missing, negative, or non-finite length gives 0: the model
+/// has no likelihood for it.
 pub fn branch_likelihood(t1: Option<f64>, t2: Option<f64>, l1: f64, l2: f64) -> f64 {
-  let (Some(t1), Some(t2)) = (t1, t2) else { return 0.0 };
+  let valid = |t: &f64| t.is_finite() && *t >= 0.0;
+  let (Some(t1), Some(t2)) = (t1.filter(valid), t2.filter(valid)) else {
+    return 0.0;
+  };
   let mean = (t1 * l1 + t2 * l2) / (l1 + l2);
   let term = |n: f64, ns: f64| if n != 0.0 { n - ns + n * (ns / n).ln() } else { -ns };
   term(t1 * l1, mean * l1) + term(t2 * l2, mean * l2)
@@ -417,6 +421,18 @@ mod tests {
         }
       }
     }
+  }
+
+  #[test]
+  #[expect(clippy::float_cmp, reason = "a missing length contributes exactly 0")]
+  fn branch_likelihood_treats_negative_and_non_finite_lengths_as_missing() {
+    let lk = [
+      branch_likelihood(Some(-0.1), Some(0.3), 1.0, 1.0),
+      branch_likelihood(Some(0.2), Some(-0.2), 1.0, 1.0),
+      branch_likelihood(Some(f64::INFINITY), Some(0.3), 1.0, 1.0),
+      branch_likelihood(Some(0.3), Some(f64::NAN), 1.0, 1.0),
+    ];
+    assert_eq!(lk, [0.0; 4]);
   }
 
   #[test]
