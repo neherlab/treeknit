@@ -144,9 +144,47 @@ checksum = "sha256:248da7f581724e470071990c088ffc55c811981715f4cbdb258621fb79f8b
 url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-apple-darwin.tar.gz"
 url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets/471598357"
 
+[[tools.cargo-dylint]]
+version = "6.0.4"
+backend = "github:trailofbits/dylint"
+
+[tools.cargo-dylint.options]
+matching = "cargo-dylint-"
+
+[tools.cargo-dylint."platforms.linux-arm64"]
+checksum = "sha256:76bea6b65babdbc6d1d96b15b89e731c0afba83338999c0f81a34d3dfd8d8508"
+url = "https://github.com/trailofbits/dylint/releases/download/v6.0.4/cargo-dylint-aarch64-unknown-linux-gnu-v6.0.4.tar.gz"
+url_api = "https://api.github.com/repos/trailofbits/dylint/releases/assets/514601048"
+provenance = "github-attestations"
+
+[tools.cargo-dylint."platforms.linux-x64"]
+checksum = "sha256:14195423ac6bfe6b055ffa94e0c48e282e1f5997abd98dfb4ea8bdf4633aec5c"
+url = "https://github.com/trailofbits/dylint/releases/download/v6.0.4/cargo-dylint-x86_64-unknown-linux-gnu-v6.0.4.tar.gz"
+url_api = "https://api.github.com/repos/trailofbits/dylint/releases/assets/514601051"
+provenance = "github-attestations"
+
 [[tools."cargo:cargo-edit"]]
 version = "0.13.13"
 backend = "cargo:cargo-edit"
+
+[[tools.dylint-link]]
+version = "6.0.4"
+backend = "github:trailofbits/dylint"
+
+[tools.dylint-link.options]
+matching = "dylint-link-"
+
+[tools.dylint-link."platforms.linux-arm64"]
+checksum = "sha256:dd33dd207272cdafab494089239587f93ab2b6b2af18312281b6754b24a1db13"
+url = "https://github.com/trailofbits/dylint/releases/download/v6.0.4/dylint-link-aarch64-unknown-linux-gnu-v6.0.4.tar.gz"
+url_api = "https://api.github.com/repos/trailofbits/dylint/releases/assets/514601050"
+provenance = "github-attestations"
+
+[tools.dylint-link."platforms.linux-x64"]
+checksum = "sha256:54ce515583ade02b197bc11f6870fd755c30e04b7e44ea015a507726de05fa1d"
+url = "https://github.com/trailofbits/dylint/releases/download/v6.0.4/dylint-link-x86_64-unknown-linux-gnu-v6.0.4.tar.gz"
+url_api = "https://api.github.com/repos/trailofbits/dylint/releases/assets/514601046"
+provenance = "github-attestations"
 
 [[tools."github:Boshen/cargo-shear"]]
 version = "1.13.4"

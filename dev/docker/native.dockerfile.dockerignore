@@ -2,4 +2,7 @@
 !.config/mise.lock
 !.config/mise.toml
 !dev/docker/files/
+!dev/lints/dylint-custom/rust-toolchain.toml
+!dev/lints/dylint-mordant/rust-toolchain.toml
+!dev/lints/dylint-trailofbits/rust-toolchain.toml
 !rust-toolchain.toml

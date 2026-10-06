@@ -1,0 +1,145 @@
+# Configuration of the cargo-dylint lint libraries of dev/lints (`just dylint`).
+# The local treeknit_lints library reads its own sections here and falls back to
+# built-in defaults when a section is absent.
+
+# mordant: type-invariant lints (github.com/scarletindustries/mordant).
+# The non-opt-in rule families state, checks, errors, enums, duplication,
+# naming, keys_locks, and comments stay enabled; pre-existing findings are
+# absorbed by the committed baseline so only new findings fail the mordant gate.
+[mordant]
+baseline = ".config/mordant-baseline.toml"
+# unused_pub judges each library from the records of whichever crates cargo
+# happened to compile before the reporting crate, so it reports items that
+# sibling binaries use. treeknit_lints' pub_unused_in_workspace and the
+# pub-unused-report post-pass replace it.
+disabled = ["unused_pub"]
+
+# forbidden_reach: the algorithms of treeknit-core take their input as
+# arguments and their randomness from the seed of the caller, so no call path
+# from the entry points of the inference reaches the file system, the
+# environment, a process, the clock, or an unseeded random source.
+[[mordant.forbidden-reach]]
+from = "run_observed"
+never = [
+  "std::env::var",
+  "std::fs::File::create",
+  "std::fs::File::open",
+  "std::fs::read",
+  "std::fs::read_to_string",
+  "std::fs::write",
+  "std::process::Command::new",
+  "std::time::SystemTime::now",
+  "rand::random",
+  "rand::thread_rng",
+]
+
+[[mordant.forbidden-reach]]
+from = "infer_pair"
+never = [
+  "std::env::var",
+  "std::fs::File::create",
+  "std::fs::File::open",
+  "std::fs::read",
+  "std::fs::read_to_string",
+  "std::fs::write",
+  "std::process::Command::new",
+  "std::time::SystemTime::now",
+  "rand::random",
+  "rand::thread_rng",
+]
+
+[[mordant.forbidden-reach]]
+from = "optimize"
+never = [
+  "std::env::var",
+  "std::fs::File::create",
+  "std::fs::File::open",
+  "std::fs::read",
+  "std::fs::read_to_string",
+  "std::fs::write",
+  "std::process::Command::new",
+  "std::time::SystemTime::now",
+  "rand::random",
+  "rand::thread_rng",
+]
+
+[[mordant.forbidden-reach]]
+from = "arg_from_trees"
+never = [
+  "std::env::var",
+  "std::fs::File::create",
+  "std::fs::File::open",
+  "std::fs::read",
+  "std::fs::read_to_string",
+  "std::fs::write",
+  "std::process::Command::new",
+  "std::time::SystemTime::now",
+  "rand::random",
+  "rand::thread_rng",
+]
+
+# debug_remnants: the project logs through the `log` macros.
+[debug_remnants]
+suggested_framework = "log"
+
+# unnamed_constant (Trail of Bits, supplementary): flags integer literals that
+# should be named constants. Raised above the default of 10 because this is a
+# numerically dense codebase where small dimension, index, and exponent literals
+# are idiomatic; the ceiling still catches genuinely opaque magic numbers.
+# Test code is exempt: grid sizes, sample counts, seeds, and expected values in a
+# test read best next to the assertion that uses them.
+[unnamed_constant]
+threshold = 32
+check_tests = false
+
+# no_comments / doc_comment_limit: the project keeps no comments, except doc
+# comments that a configured render source carries into user-facing output (CLI
+# help, the TypeScript declarations of the WebAssembly package). Each render
+# source lists the derives and attributes that place an item on its surface,
+# which doc comments it renders ("item", "fields", "variants", and "methods",
+# the public functions of an impl block), and the attributes that drop a field
+# or variant from that surface. Derives and attributes inside `cfg_attr` count
+# whatever its condition. A doc comment is kept when at least one render source
+# still shows it. A rendered doc comment stays within the size limits below.
+#
+# Comments that start with an allowed prefix are kept: license headers and the
+# markers SAFETY (the invariants an unsafe block relies on), TODO, FIXME, and
+# HACK (known gaps, defects, and workarounds, including disabled code kept as a
+# comment). Line comments that directly follow a kept line comment, with no
+# blank line or code between them, belong to the same note and are kept too.
+[no_comments]
+allowed_comment_prefixes = ["SPDX-License-Identifier", "SAFETY:", "TODO", "FIXME", "HACK"]
+max_chars = 500
+max_lines = 6
+max_paragraphs = 2
+
+[[no_comments.rendered]]
+name = "clap-command"
+derives = ["Parser", "Args"]
+renders = ["item", "fields"]
+skip_attrs = ["arg(skip)"]
+
+[[no_comments.rendered]]
+name = "clap-subcommand"
+derives = ["Subcommand"]
+renders = ["item", "variants"]
+skip_attrs = ["command(skip)", "arg(skip)"]
+
+[[no_comments.rendered]]
+name = "clap-value"
+derives = ["ValueEnum"]
+renders = ["variants"]
+skip_attrs = ["value(skip)"]
+
+[[no_comments.rendered]]
+name = "tsify"
+derives = ["Tsify"]
+attrs = ["tsify::declare"]
+renders = ["item", "fields", "variants"]
+skip_attrs = ["serde(skip)"]
+
+[[no_comments.rendered]]
+name = "wasm-bindgen"
+attrs = ["wasm_bindgen"]
+renders = ["item", "methods"]
+skip_attrs = ["wasm_bindgen(skip)"]

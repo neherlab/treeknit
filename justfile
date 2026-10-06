@@ -5,7 +5,8 @@
 #
 # Naming: a leaf recipe runs one tool in one mode. The suffix `-rs`, `-wasm`, or
 # `-ts` names the toolchain of a leaf: Rust, Rust for WebAssembly, or TypeScript
-# (Bun); tools that serve one toolchain only, such as knip, keep their own name.
+# (Bun); tools that serve one toolchain only, such as dylint or knip, keep their
+# own name.
 # A recipe without a toolchain suffix combines the leaves and calls no tool
 # itself. The suffix `-all` adds the slow tools to the fast set of the same
 # name: `lint` and `lint-all`, `check` and `check-all`.
@@ -24,10 +25,12 @@ export NEXTEST_NO_TESTS := "fail"
 # Build output of the checkout. dev/docker/run points TREEKNIT_BUILD_DIR at
 # .build/container, so host and container artifacts, which link against
 # different system libraries, never mix. Builds and tests share one cargo target
-# directory; clippy has its own, so a lint never waits on the build lock.
+# directory; clippy and dylint each have their own, so a lint never waits on the
+# build lock.
 build_dir := env("TREEKNIT_BUILD_DIR", justfile_directory() / ".build/host")
 export CARGO_TARGET_DIR := build_dir / "cargo"
 lint_target_dir := build_dir / "lint"
+dylint_target_dir := build_dir / "dylint"
 
 # The kache compiler cache is optional. KACHE_STORE, in .env or the environment,
 # names the store directory; every build and clippy pass then compiles through
@@ -35,8 +38,8 @@ lint_target_dir := build_dir / "lint"
 # the workspace crates of dev, test, release, and clippy builds keep their
 # incremental state, so an edit rebuilds as fast as without kache, while kache
 # serves the dependencies and every build without incremental state (dist,
-# profiling, and bench builds). Coverage always compiles without kache, because
-# a cache hit skips its instrumentation.
+# profiling, and bench builds). Dylint and coverage always compile without
+# kache, because a cache hit skips their analysis and instrumentation.
 #
 # Each store is <KACHE_STORE>/<kache version>/<host|docker>-<pass>: kache does
 # not check its store format, so two versions never share a store; host and
@@ -51,6 +54,22 @@ export RUSTC_WRAPPER := if kache_store != "" { "kache" } else { env("RUSTC_WRAPP
 export KACHE_CACHE_DIR := if kache_store != "" { kache_prefix + "-build" } else { env("KACHE_CACHE_DIR", "") }
 lint_env := "CARGO_TARGET_DIR=" + quote(lint_target_dir) + if kache_store != "" { " KACHE_CACHE_DIR=" + quote(kache_prefix + "-clippy") } else { "" }
 uncached_env := "RUSTC_WRAPPER= CARGO_INCREMENTAL=0"
+
+# The dylint driver, shared by the check, fix, and baseline recipes. It loads
+# the lint libraries of [workspace.metadata.dylint] in Cargo.toml, which read
+# their settings from dylint.toml. The pub_unused_in_workspace lint leaves one
+# record per compiled crate in the pub-unused directory, and pub-unused-report
+# reads them after the check pass. Mordant lists the crates over the committed
+# baseline in over-baseline.txt.
+pub_unused_env := "TREEKNIT_LINTS_PUB_UNUSED_DIR=" + quote(dylint_target_dir / "pub-unused")
+dylint_cmd := uncached_env + " CARGO_TARGET_DIR=" + quote(dylint_target_dir) + " " + pub_unused_env + " cargo dylint --quiet --all"
+dylint_cargo_args := "--quiet --locked --workspace --all-targets"
+dylint_over_baseline := dylint_target_dir / "mordant/over-baseline.txt"
+
+# Library crates whose public API is an external boundary, skipped by the
+# unused-public-code report: the `#[wasm_bindgen]` surface of the WebAssembly
+# bindings is consumed by the web app.
+public_api_crates := "treeknit_wasm"
 
 # Cargo with the seven-day minimum publish age of new dependency releases. The
 # setting is unstable in the pinned Rust (stable from 1.100), so the dependency
@@ -72,7 +91,7 @@ wasm_types := wasm_pkg / "treeknit_wasm.d.ts"
 wasm_variants := wasm_pkg / "treeknit_variants.ts"
 
 check_fast := "fmt-check-rs fmt-check-ts fmt-check-other lint-rs lint-wasm lint-ts typecheck"
-check_full := "fmt-check-rs fmt-check-ts fmt-check-other lint-shell lint-docker lint-workflows deny shear lint-rs lint-wasm test-rs test-wasm build-web:prod typecheck lint-ts knip test-ts generated-check"
+check_full := "fmt-check-rs fmt-check-ts fmt-check-other lint-shell lint-docker lint-workflows deny shear lint-rs lint-wasm dylint test-rs test-wasm build-web:prod typecheck lint-ts knip test-ts generated-check"
 
 alias b := build
 alias r := run
@@ -94,14 +113,18 @@ check: _js
 check-all: _js
     TREEKNIT_JS_READY=1 dev/run-checks {{ check_full }}
 
-# Apply the automatic lint fixes (clippy, oxlint), then format; stage your changes first
+# Apply the fast automatic lint fixes (clippy, oxlint), then format; stage your changes first
 [group("check")]
 fix: lint-fix fmt
 
-# Install the pinned tools (on the host)
+# Apply every automatic lint fix, dylint included, then format; stage your changes first
+[group("check")]
+fix-all: lint-fix dylint-fix fmt
+
+# Install the pinned tools and the lint toolchains (on the host)
 [group("setup")]
 setup:
-    if [[ -z "${TREEKNIT_CONTAINER:-}" ]]; then mise install; fi
+    if [[ -z "${TREEKNIT_CONTAINER:-}" ]]; then mise install; for dir in dev/lints/dylint-*/; do (cd "${dir}" && rustup toolchain install); done; fi
 
 # Build the CLI: just build <dev|dev-opt|release|prod|profiling> [cargo args]; prod is the shipped build (dist profile); release and prod copy the binary to .out/
 [arg("mode", pattern="dev|dev-opt|release|prod|profiling")]
@@ -232,10 +255,10 @@ review-suppressions:
 lint: _js
     TREEKNIT_JS_READY=1 dev/run-checks --serial lint-rs lint-wasm lint-ts
 
-# Every lint: clippy, oxlint, TypeScript types, unused code and dependencies, dependency policy, and the shell, Dockerfile, and workflow lints, keep-going
+# Every lint: clippy, oxlint, TypeScript types, the dylint libraries, unused code and dependencies, dependency policy, and the shell, Dockerfile, and workflow lints, keep-going
 [group("lint")]
 lint-all: _js
-    TREEKNIT_JS_READY=1 dev/run-checks --serial lint-rs lint-wasm lint-ts typecheck knip deny shear lint-shell lint-docker lint-workflows
+    TREEKNIT_JS_READY=1 dev/run-checks --serial lint-rs lint-wasm lint-ts typecheck dylint knip deny shear lint-shell lint-docker lint-workflows
 
 # Apply the automatic lint fixes: clippy, then oxlint; stage your changes first
 [group("lint")]
@@ -260,6 +283,29 @@ lint-rs *args:
 [group("lint")]
 lint-wasm *args:
     {{ lint_env }} CARGO_BUILD_WARNINGS=deny cargo clippy --locked -p treeknit-wasm --all-targets --target=wasm32-unknown-unknown --keep-going "$@"
+
+# Lint libraries (dylint) gated against .config/mordant-baseline.toml, then the unused public items they recorded; reports every finding, then fails if there were any
+[group("lint")]
+[script]
+dylint *args:
+    status=0
+    rm -f {{ quote(dylint_over_baseline) }}
+    DYLINT_RUSTFLAGS="-A unknown_lints" CARGO_BUILD_WARNINGS=deny {{ dylint_cmd }} -- {{ dylint_cargo_args }} --keep-going "$@" || status=1
+    if [[ -s {{ quote(dylint_over_baseline) }} ]]; then printf 'mordant: findings over the committed baseline:\n' >&2; cat {{ quote(dylint_over_baseline) }} >&2; status=1; fi
+    (cd dev/lints/dylint-custom && {{ uncached_env }} {{ pub_unused_env }} cargo run --quiet --release --locked --target-dir {{ quote(dylint_target_dir / "report") }} --bin pub-unused-report -- {{ quote(justfile_directory() / "Cargo.toml") }} {{ prepend("--exclude-crate ", public_api_crates) }}) || status=1
+    exit "${status}"
+
+# Apply the automatic fixes of the lint libraries (dylint); stage your changes first
+[group("lint")]
+dylint-fix:
+    rm -f {{ quote(dylint_over_baseline) }}
+    DYLINT_RUSTFLAGS="-A unknown_lints" {{ dylint_cmd }} --fix -- --allow-staged {{ dylint_cargo_args }}
+
+# Accept the current mordant findings: rewrites .config/mordant-baseline.toml, commit it afterwards
+[confirm("Rewrite .config/mordant-baseline.toml with the current findings?")]
+[group("lint")]
+dylint-baseline:
+    DYLINT_RUSTFLAGS="-A unknown_lints" MORDANT_BASELINE_WRITE=1 {{ dylint_cmd }} -- {{ dylint_cargo_args }} --keep-going
 
 # TypeScript lints (oxlint, type-aware)
 [group("lint")]

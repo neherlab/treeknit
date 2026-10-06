@@ -19,6 +19,7 @@ RUN set -euxo pipefail >/dev/null \
   gcc \
   git \
   libc6-dev \
+  libssl-dev \
   make \
   pkg-config \
   unzip \
@@ -31,15 +32,22 @@ RUN set -euxo pipefail >/dev/null \
 
 COPY dev/docker/files/fetch dev/docker/files/checksums /
 
-# The Rust toolchain of rust-toolchain.toml.
+# The Rust toolchain of rust-toolchain.toml, then the pinned nightly of the lint
+# libraries.
 ENV RUSTUP_HOME="/usr/local/rustup"
 ENV CARGO_HOME="/usr/local/cargo"
 ENV PATH="/usr/local/cargo/bin:${PATH}"
 COPY dev/docker/files/install-rust /
 COPY rust-toolchain.toml /tmp/rust/
+COPY dev/lints/dylint-custom/rust-toolchain.toml /tmp/lints/dylint-custom/
+COPY dev/lints/dylint-mordant/rust-toolchain.toml /tmp/lints/dylint-mordant/
+COPY dev/lints/dylint-trailofbits/rust-toolchain.toml /tmp/lints/dylint-trailofbits/
+# hadolint ignore=DL3003
 RUN set -euxo pipefail >/dev/null \
 && /install-rust "/tmp/rust" \
-&& rm -rf /install-rust /tmp/rust
+&& for dir in /tmp/lints/*; do (cd "${dir}" && rustup toolchain install); done \
+&& chmod -R a+w "${RUSTUP_HOME}" "${CARGO_HOME}" \
+&& rm -rf /install-rust /tmp/rust /tmp/lints
 
 # mise installs every tool of .config/mise.toml at the URL and sha256 of .config/mise.lock and
 # links their executables into /usr/local/bin. The cargo registry that source
@@ -61,6 +69,7 @@ done \
 && rm -rf "/tmp/mise" "/install-mise" "/mise-version" \
 && just --version \
 && cargo nextest --version \
+&& cargo dylint --version \
 && bun --version
 
 # dev/docker/run runs as the host user with HOME=/tmp/home.

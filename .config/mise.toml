@@ -5,6 +5,10 @@ lockfile = true
 locked = true
 minimum_release_age = "7d"
 
+[tool_alias]
+cargo-dylint = "github:trailofbits/dylint"
+dylint-link = "github:trailofbits/dylint"
+
 [tools]
 actionlint = "1.7.12"
 bun = "1.4.2"
@@ -30,3 +34,5 @@ yq = "4.53.6"
 "github:kunobi-ninja/kache" = "0.26.3"
 "github:sourcefrog/cargo-mutants" = "27.1.0"
 "github:wasm-bindgen/wasm-bindgen" = "0.2.129"
+cargo-dylint = { version = "6.0.4", os = ["linux"], matching = "cargo-dylint-" }
+dylint-link = { version = "6.0.4", os = ["linux"], matching = "dylint-link-" }

@@ -18,7 +18,7 @@ section() {
   "$@" || [[ $? -eq 1 ]]
 }
 
-section "Rust #[allow]/#[expect] attributes" \
+section "Rust #[allow]/#[expect] attributes, including dylint cfg_attr suppressions" \
   rg -n -g '*.rs' '#!?\[(allow|expect)\(|cfg_attr\([^)]*(allow|expect)\(' packages
 section "Lints allowed in manifests" \
   rg -n -g 'Cargo.toml' -e '= "allow"' -e 'level *= *"allow"' Cargo.toml packages
@@ -29,4 +29,4 @@ section "Test tolerances" \
 section "Mutation exclusions" \
   rg -n 'exclude' .cargo/mutants.toml
 section "Lint configuration files" \
-  git ls-files -- Cargo.toml clippy.toml .config/deny.toml .cargo/mutants.toml
+  git ls-files -- Cargo.toml clippy.toml dylint.toml .config/deny.toml .config/mordant-baseline.toml .cargo/mutants.toml

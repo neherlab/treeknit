@@ -94,6 +94,9 @@ build_inputs=(
   .config/mise.toml
   .config/mise.lock
 )
+if [[ "${kind}" == native ]]; then
+  build_inputs+=(dev/lints/dylint-custom/rust-toolchain.toml dev/lints/dylint-mordant/rust-toolchain.toml dev/lints/dylint-trailofbits/rust-toolchain.toml)
+fi
 image_hash="$(cd "${root}" && hash_files "${build_inputs[@]}" "${build_args[@]+"${build_args[@]}"}" "${platform}")"
 image="${registry}:${kind}-${image_hash}"
 
@@ -190,13 +193,15 @@ passthrough_env
 # output goes to .build/container, apart from host builds in .build/host. The
 # cargo home is mounted at one fixed path in every checkout, so the registry
 # source paths that compiled crates record, and that kache shares between
-# worktrees, exist in each of them.
-mkdir -p "${root}/.cache/cargo" "${root}/.cache/bun" "${root}/.build/container"
+# worktrees, exist in each of them. The dylint drivers, built once per lint
+# toolchain, are kept there too.
+mkdir -p "${root}/.cache/cargo/dylint_drivers" "${root}/.cache/bun" "${root}/.build/container"
 run_flags+=(
   --env="HOME=/tmp/home"
   --env="MISE_TRUSTED_CONFIG_PATHS=${root}"
   --volume="${root}/.cache/cargo:/cargo-home"
   --env="CARGO_HOME=/cargo-home"
+  --env="DYLINT_DRIVER_PATH=${root}/.cache/cargo/dylint_drivers"
   --env="TREEKNIT_BUILD_DIR=${root}/.build/container"
   --env="BUN_INSTALL_CACHE_DIR=${root}/.cache/bun"
 )

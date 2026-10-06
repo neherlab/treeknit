@@ -9,6 +9,7 @@ exclude = [
   "target/**",
   ".repos/**",
   "tmp/**",
+  "dev/lints/dylint-*/**",
   "**/rust-toolchain.toml",
   "rustfmt.toml",
   "clippy.toml",
