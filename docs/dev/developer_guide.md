@@ -62,7 +62,7 @@ Optional settings go into the gitignored `.env` in the checkout; `.env.example` 
 | Run the web app                             | `just run-web <dev\|prod>`                                                 |
 | TypeScript types, lints, tests              | `just typecheck`, `just lint-ts`, `just test-ts`                           |
 | WebAssembly build, tests, Clippy            | `just build-wasm <dev\|release\|prod>`, `just test-wasm`, `just lint-wasm` |
-| WebAssembly type declarations               | `just gen`                                                                 |
+| WebAssembly type declarations, value lists  | `just gen`                                                                 |
 
 In the container, prefix each command with `./dev/docker/run`.
 
@@ -92,7 +92,10 @@ The dev mode uses the WebAssembly module of the `release` profile, which is opti
 
 The commands are the same in the main checkout and in a worktree. `run-web` serves on the port of the checkout and mode, which `dev/web-port` derives: a base port per mode (6180 for dev, 7180 for prod) plus an offset of 0-511 from the checkout path. The servers of parallel worktrees do not collide, and the dev and prod servers of one checkout run side by side. `TREEKNIT_WEB_PORT` overrides the dev port and `TREEKNIT_SERVE_PORT` the prod port; `dev/docker/run` forwards both. `dev/web-port <dev|prod>` prints the port. The recipe prints the URL; open it on `localhost`. In the build container, prefix the commands with `./dev/docker/run`; the container shares the host network, so the browser on the host reaches the server.
 
-The types that cross between Rust and TypeScript are Rust types. tsify writes their TypeScript declarations, which are committed as `packages/treeknit-wasm/pkg/treeknit_wasm.d.ts`, so the TypeScript checks need no Rust build. After a change to the interface, `just gen` rewrites them; `just generated-check`, part of the full gate, fails when they are stale.
+The types that cross between Rust and TypeScript are Rust types. tsify writes their TypeScript declarations, which are committed as `packages/treeknit-wasm/pkg/treeknit_wasm.d.ts`, so the TypeScript checks need no Rust build. After a change to the interface, `just gen` rewrites them, together with `packages/treeknit-wasm/pkg/treeknit_variants.ts`, the value lists of the enums that the web app needs at runtime; `just generated-check`, part of the full gate, fails when either is stale. Two rules keep the declarations true at runtime:
+
+- A field that serde skips takes `#[serde(skip_serializing_if = "Option::is_none")]` and no other predicate, because tsify marks only that exact predicate as optional
+- An integer argument of an export is a tsify newtype with `#[serde(transparent)]`, such as `PairIndex`, never a plain `usize`, because wasm-bindgen converts a JavaScript number for a `usize` with ToInt32 and no check
 
 ## Lints
 
