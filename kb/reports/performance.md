@@ -10,7 +10,8 @@ This report measures the runtime and memory of the port and of TreeKnit.jl 0.5.8
 - **Start-up**: a cold TreeKnit.jl command takes 10 to 12 s on 53 leaves, almost all compilation, or 0.4 to 0.7 s with a precompiled <a id="gloss-use-1"></a>system image <sup>[1](#gloss-1)</sup>; the port takes 0.01 s
 - **Memory**: 470 MB peak for TreeKnit.jl on 1997 leaves, of which about 400 MB is the Julia runtime and system image, against 19 MB for the port
 - **Parallel pairs**: with all cores, the port infers the six pairs of four segments at the same time and takes 7 to 11 s instead of 34 s on 1997 leaves, with the same results for each seed
-- **Proposed TreeKnit.jl changes**: five draft pull requests to TreeKnit.jl ([#43](https://github.com/PierreBarrat/TreeKnit.jl/pull/43) to [#47](https://github.com/PierreBarrat/TreeKnit.jl/pull/47)) bring the bit sets and the incremental energy of the port to TreeKnit.jl, with byte-identical results for each seed. On the four segment trees of 1997 leaves, a run takes 18 to 19 s instead of 2.1 hours, faster than the port with one thread
+- **Proposed TreeKnit.jl changes**: five draft pull requests to TreeKnit.jl ([#43](https://github.com/PierreBarrat/TreeKnit.jl/pull/43) to [#47](https://github.com/PierreBarrat/TreeKnit.jl/pull/47)) bring the bit sets and the incremental energy of the port to TreeKnit.jl, with byte-identical results for each seed. On the four segment trees of 1997 leaves, a run takes 18 to 19 s instead of 2.1 hours, faster than the port with one thread before the changes of the next point
+- **Changes to the port**: five changes to the annealing step, taken from the TreeKnit.jl changes and from a profile of the port, keep every result byte-identical and cut the CPU time of a one-thread run on the four segment trees of 1997 leaves from 35 s to 14 s. An annealing step with resolution on 1773 leaves takes 10 to 11 µs instead of 35 to 38 µs, about as long as in the changed TreeKnit.jl. Three further candidates gained nothing measurable and were left out ([Changes to the port](#changes-to-the-port))
 
 ## Method
 
@@ -73,7 +74,7 @@ Averages over the reassortment rates ρ = 0.05, 0.1, and 0.2 (two trees) and 0.0
 Both implementations run the same annealing: the same number of steps, the same single-leaf flips, and the same Metropolis rule. The cost of one step differs.
 
 - **TreeKnit.jl**: `mcmcstep!` flips one leaf and calls `compute_energy` (`src/SplitGraph/energy.jl`), which climbs from every kept leaf to its first ancestor with two kept leaves and compares the splits of the two trees. Splits are sorted `Vector{Int}`; membership tests use `in` for short splits and binary search (`insorted`) for splits longer than 25
-- **Port**: `EnergyState` ([splitgraph.rs#L203-L357](../../packages/treeknit-core/src/splitgraph.rs#L203-L357)) keeps the number of kept leaves below every node. A flip recomputes the term of the flipped leaf and of the kept leaves whose first non-trivial ancestor is an ancestor of the flipped leaf in some tree, before and after the flip. Clades are `FixedBitSet`s, and the restricted comparisons (equal, subset, disjoint on the kept leaves) work on 64-bit words ([bits.rs](../../packages/treeknit-core/src/bits.rs))
+- **Port**: `EnergyState` ([splitgraph.rs#L325-L532](../../packages/treeknit-core/src/splitgraph.rs#L203-L357)) keeps the number of kept leaves below every node. A flip recomputes the term of the flipped leaf and of the kept leaves whose first non-trivial ancestor is an ancestor of the flipped leaf in some tree, before and after the flip. Clades are `FixedBitSet`s, and the restricted comparisons (equal, subset, disjoint on the kept leaves) work on 64-bit words ([bits.rs](../../packages/treeknit-core/src/bits.rs))
 
 **Profile of TreeKnit.jl** (428 leaves, `--better-MCCs`, one warm run, 2999 samples of the main thread):
 
@@ -154,23 +155,77 @@ Times with one thread, measured as in [Method](#method) on the same machine; the
 
 The 428 and 150-leaf rows are 5 seeds each and the 1997-leaf row seeds 1 and 2; every output file (`MCCs.json`, resolved trees, `ARG/`, `parameters.json`) was byte-identical to that of TreeKnit.jl 0.5.8 for the same seed.
 
-| One annealing step on 1773 leaves              | Without resolution | With resolution |
-| ---------------------------------------------- | ------------------ | --------------- |
-| TreeKnit.jl 0.5.8, full computation            | 2.0 to 2.7 ms      | 5.2 to 6.6 ms   |
-| With #43, full computation                     | 0.23 ms            | 0.5 to 1.1 ms   |
-| With #43 to #47, incremental update            | 4.5 to 5.7 µs      | 11 to 12 µs     |
-| Port, incremental update                       | 15 to 17 µs        | 71 to 79 µs     |
+| One annealing step on 1773 leaves               | Without resolution | With resolution |
+| ----------------------------------------------- | ------------------ | --------------- |
+| TreeKnit.jl 0.5.8, full computation             | 2.0 to 2.7 ms      | 5.2 to 6.6 ms   |
+| With #43, full computation                      | 0.23 ms            | 0.5 to 1.1 ms   |
+| With #43 to #47, incremental update             | 4.5 to 5.7 µs      | 11 to 12 µs     |
+| Port, incremental update                        | 15 to 17 µs        | 71 to 79 µs     |
+| Port with the changes below, incremental update | 4.3 to 4.8 µs      | 9.7 to 10.9 µs  |
 
 - **Where the time goes now**: on the 1997-leaf data, the annealing takes about 79% of a run, the likelihood tie-break 7%, resolution and polytomy sorting 5%, and writing the Newick files 2%. About 150 leaves are affected per flip, at a depth of about 32 nodes
 - **Hardware counters**: `perf stat` on the annealing gave 2.2 instructions per cycle and almost no last-level cache misses, but about 1300 first-level cache misses per step before [#47](https://github.com/PierreBarrat/TreeKnit.jl/pull/47), from comparisons over all words of the clades
 - **Measured without gain**: storing the children of the nodes in flat arrays instead of one vector per node changed the step time by about 3%, within the noise
 
+## Changes to the port
+
+Five changes to the annealing step of the port, each kept only after measuring it alone and on top of the others. Like the TreeKnit.jl changes, they keep the random-number calls and the energy of every step, so every output file stays byte-identical for each seed.
+
+- **Skip the minimum list after a rejected step** (from [#45](https://github.com/PierreBarrat/TreeKnit.jl/pull/45)): a rejected step restores a configuration that is already in the set of minimal configurations, which `mcmc` cloned and hashed again ([anneal.rs](../../packages/treeknit-core/src/anneal.rs))
+- **Reuse the buffers of a flip**: the candidate, undo and ancestor vectors live in `EnergyState` instead of being allocated in every flip
+- **Per-leaf stamp instead of sorting** (from [#44](https://github.com/PierreBarrat/TreeKnit.jl/pull/44)): a stamp with the number of the flip removes the duplicate candidates, which a sort removed before
+- **One walk of each root path per flip**: a flip walked every root path of the flipped leaf three times, for the candidates before and after the toggle and for the counts in between. Only the child on the path changes its number of kept leaves, and a single kept leaf below it is always found lower on the path, so one walk updates the counts and finds the same candidates. TreeKnit.jl still walks three times
+- **Leaves in tree order in the clade bit sets** (from [#47](https://github.com/PierreBarrat/TreeKnit.jl/pull/47)): graph leaves are numbered in MCC order, so even small clades spread over all words of their bit sets. The bit sets place the leaves in the left-to-right order of the first tree, and each clade records the range of its non-zero words, so a comparison reads only those words ([splitgraph.rs](../../packages/treeknit-core/src/splitgraph.rs)). A first version stored only the words of that range per clade; it read fewer words but did more work per comparison and was slower on all end-to-end runs
+
+Three candidates gained nothing measurable and are not part of the port:
+
+- **Count of kept leaves** (from [#43](https://github.com/PierreBarrat/TreeKnit.jl/pull/43)): counting the bits of the configuration in every step costs a few words of `count_ones`; a maintained count changed no run by more than 0.2%
+- **Numbers of kept leaves compared before clade words** (from [#44](https://github.com/PierreBarrat/TreeKnit.jl/pull/44)): alone it changed the runs by -1% to +1.4%, and on top of the five changes by -2% to +2%. Most comparisons in the port end at the first words, so the extra branch saves little
+- **Counts in the likelihood tie-break** (from [#46](https://github.com/PierreBarrat/TreeKnit.jl/pull/46)): the tie-break itself became about 35% faster, but it takes less than 1% of a run in the port, and the runs changed by -3% to +2.5% depending on the code around it
+
+### Method of these measurements
+
+- **Builds**: the `prod` build of each change alone and of every prefix of the five changes, all from the same base commit, one thread (`--threads 1`)
+- **Counters**: every run starts in its own project container, and `perf stat` on the host counts the user-space instructions and cycles of the container's cgroup. Instruction counts repeat within 0.2% for the same binary even under load, while cycles and times varied by up to 30% on the shared machine. Each benchmark ran 5 times per build in interleaved rounds, in a new random order of the builds in every round; the tables give medians and the ratio to the base build in the same round
+- **Data**: `h3n2-2012-2018` with seeds 1 to 8 (default options), the 4-segment subset of 400 leaves (`--better-trees`), the pair `ha`, `na` of `h3n2-2k-4-segments` (default options), and the four segments of 1997 leaves (`--better-trees`, 3 runs)
+- **Step cost**: `energy_cost` (`just example energy_cost ha.nwk na.nwk 20000`) on the pair `ha`, `na`, which also compares the incremental energy with the full computation after every flip: no flip differed
+- **Results**: every output file except `log.txt` was byte-identical to that of the base build for every benchmark
+
+### Results of the changes
+
+Ratio of user-space instructions to the base build, each change added to the ones above it:
+
+| Change                    | 428 leaves, 8 seeds | 4-segment subset, 400 leaves | `ha`, `na`, 1997 leaves |
+| ------------------------- | ------------------- | ---------------------------- | ----------------------- |
+| Skip the minimum list     | 0.97                | 0.97                         | 0.99                    |
+| Reuse the flip buffers    | 0.86                | 0.75                         | 0.91                    |
+| Per-leaf stamp            | 0.80                | 0.56                         | 0.81                    |
+| One walk per flip         | 0.77                | 0.49                         | 0.77                    |
+| Leaves in tree order      | 0.77                | 0.51                         | 0.59                    |
+
+Tree order costs 1% to 4% on the small inputs, whose clades fit in a few words, and saves 23% on 1997 leaves; its gain grows with the number of leaves.
+
+| Data                                        | Base         | With the changes | Ratio of cycles |
+| ------------------------------------------- | ------------ | ---------------- | --------------- |
+| `h3n2-2012-2018`, 8 seeds                   | 2.1 s        | 1.5 s            | 0.73            |
+| 4-segment subset, 400 leaves                | 1.8 s        | 0.7 s            | 0.42            |
+| `ha`, `na` of `h3n2-2k-4-segments`          | 7.4 s        | 4.0 s            | 0.54            |
+| `h3n2-2k-4-segments`, four segments         | 34.6 s       | 13.5 s           | 0.45            |
+
+CPU time (task clock) of the whole command, median of the runs.
+
+| One annealing step on 1773 leaves | Without resolution | With resolution |
+| --------------------------------- | ------------------ | --------------- |
+| Base                              | 10.0 to 10.4 µs    | 34.9 to 38.2 µs |
+| With the changes                  | 4.3 to 4.8 µs      | 9.7 to 10.9 µs  |
+
 ## Discussion
 
 - **The speed-up comes from the algorithm, not from compromises in the computation**: both implementations evaluate the same energy at every step of the same chain; [`julia-rust-equivalence.md`](julia-rust-equivalence.md) compares the results
 - **Practical consequence**: four segments of 2000 leaves take two hours per run in TreeKnit.jl and half a minute in the port, or about ten seconds with all cores, so repeated runs over seeds and parameter scans become practical. The web app runs the same core in WebAssembly with one thread; its speed was not measured here
-- **TreeKnit.jl gains the whole difference**: with the incremental energy and bit sets of [#43](https://github.com/PierreBarrat/TreeKnit.jl/pull/43) to [#47](https://github.com/PierreBarrat/TreeKnit.jl/pull/47), TreeKnit.jl is faster than the port with one thread on four segment trees, and slower on small pairs of trees, where resolution, the ARG and file output dominate. The port remains faster with all cores, because it infers the pairs in parallel
-- **The port's incremental step is 3 to 7 times slower than that of the changed TreeKnit.jl**: the port allocates the candidate, undo and ancestor vectors in every flip, sorts the candidates to remove duplicates, compares clades without first comparing the numbers of kept leaves, and reads all words of both clades ([splitgraph.rs](../../packages/treeknit-core/src/splitgraph.rs), [bits.rs](../../packages/treeknit-core/src/bits.rs)). TreeKnit.jl avoids each of these
+- **TreeKnit.jl gains the whole difference**: with the incremental energy and bit sets of [#43](https://github.com/PierreBarrat/TreeKnit.jl/pull/43) to [#47](https://github.com/PierreBarrat/TreeKnit.jl/pull/47), TreeKnit.jl became faster than the port with one thread on four segment trees, and stayed slower on small pairs of trees, where resolution, the ARG and file output dominate. The port remains faster with all cores, because it infers the pairs in parallel
+- **The port's step caught up**: before the [changes to the port](#changes-to-the-port), its incremental step was 3 to 7 times slower than that of the changed TreeKnit.jl, because it allocated vectors in every flip, sorted the candidates, and read all words of both clades. With them, a step takes about as long as in the changed TreeKnit.jl, and a one-thread run on the four segment trees takes 14 s of CPU time against 18 to 19 s for the changed TreeKnit.jl; these two figures come from different days on the shared machine, so the comparison is rough
+- **Not every TreeKnit.jl change carries over**: the count of kept leaves, the comparison of counts before words, and the faster tie-break gained nothing in the port, because the port's costs there were already small
 - **Start-up dominates small TreeKnit.jl runs**: without a system image, a run on 53 leaves takes 10 to 12 s, of which the inference is 0.06 s. A system image, or a long-running Julia session as the TreeKnit.jl documentation recommends, removes this cost
 
 ## Limitations

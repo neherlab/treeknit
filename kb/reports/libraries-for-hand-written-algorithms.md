@@ -1,6 +1,6 @@
 # Libraries for the hand-written algorithms
 
-The port writes its core algorithms by hand. This report records, for each of them, which libraries were evaluated as replacements, what they offer, and why the hand-written code stays, so that later work does not repeat the search. Improvements by better algorithms, as opposed to libraries, are in `kb/proposals/` ([`tree-query-indices.md`](../proposals/tree-query-indices.md), [`naive-mccs-by-subtree-hashing.md`](../proposals/naive-mccs-by-subtree-hashing.md), [`deep-trees.md`](../proposals/deep-trees.md), [`incremental-energy-step.md`](../proposals/incremental-energy-step.md)); the names and sources of the algorithms are in [`algorithm-names.md`](../proposals/algorithm-names.md).
+The port writes its core algorithms by hand. This report records, for each of them, which libraries were evaluated as replacements, what they offer, and why the hand-written code stays, so that later work does not repeat the search. Improvements by better algorithms, as opposed to libraries, are in `kb/proposals/` ([`tree-query-indices.md`](../proposals/tree-query-indices.md), [`naive-mccs-by-subtree-hashing.md`](../proposals/naive-mccs-by-subtree-hashing.md), [`deep-trees.md`](../proposals/deep-trees.md)); the names and sources of the algorithms are in [`algorithm-names.md`](../proposals/algorithm-names.md).
 
 Evaluated on 2026-10-06. Versions are the newest releases on crates.io or npm on that day, read from the registry APIs; library behavior was read from the library sources.
 
@@ -26,10 +26,10 @@ Evaluated on 2026-10-06. Versions are the newest releases on crates.io or npm on
 
 ## Clade bit sets
 
-- **Code**: `fn eq_on`, `fn subset_on`, `fn disjoint_on`, `fn trivial_on` [packages/treeknit-core/src/bits.rs#L22-L48](../../packages/treeknit-core/src/bits.rs#L22-L48) compare two clades restricted to the kept leaves, word by word, without allocating
+- **Code**: `fn eq_on`, `fn subset_on`, `fn disjoint_on`, `fn trivial_on` [packages/treeknit-core/src/bits.rs#L22-L48](../../packages/treeknit-core/src/bits.rs#L22-L48) compare two clades restricted to the kept leaves, word by word, without allocating; the split graph of the annealing uses the same comparisons as methods of `struct Clade` [packages/treeknit-core/src/splitgraph.rs#L255-L323](../../packages/treeknit-core/src/splitgraph.rs#L255-L323), which read only the range of words where a clade has leaves
 - **`fixedbitset` 0.5.7** (in use): `is_subset`, `is_disjoint`, `intersection_count`, and the other set operations take two operands [[doc](https://docs.rs/fixedbitset/0.5.7/fixedbitset/struct.FixedBitSet.html)]; a comparison restricted to a mask needs the word loop or an allocated intersection
 - **`bitvec` 1.1.1** (2026-06-18), **`roaring` 0.11.5** (2026-08-12), **`bit-set` 0.11.1** (2026-07-10), **`hi_sparse_bitset` 0.10.0** (2026-10-01): no three-operand predicates
-- **Decision**: keep; faster comparisons are in [`incremental-energy-step.md`](../proposals/incremental-energy-step.md)
+- **Decision**: keep; the measured speed-ups of the comparisons are in [`performance.md`](performance.md#changes-to-the-port)
 
 ## Tree arena and LCA
 
