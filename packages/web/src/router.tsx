@@ -1,5 +1,5 @@
 import {
-  createHashHistory,
+  createBrowserHistory,
   createRootRoute,
   createRoute,
   createRouter,
@@ -7,32 +7,38 @@ import {
 } from "@tanstack/react-router";
 
 import { HelpPage } from "./help/HelpPage";
+import { PAGES, routerBasepath } from "./pages";
 import { AppShell } from "./shell/AppShell";
 import { NotFound } from "./shell/NotFound";
 import { Workspace } from "./shell/Workspace";
 import { parseSearch, stringifySearch, WORKSPACE_SEARCH_DEFAULTS, workspaceSearchSchema } from "./workspace/search";
 
-const rootRoute = createRootRoute({ component: AppShell, notFoundComponent: NotFound });
+export function createAppRouter(base: string) {
+  const rootRoute = createRootRoute({ component: AppShell, notFoundComponent: NotFound });
 
-const workspaceRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/",
-  validateSearch: workspaceSearchSchema,
-  search: { middlewares: [stripSearchParams(WORKSPACE_SEARCH_DEFAULTS)] },
-  component: Workspace,
-});
+  const workspaceRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: PAGES.workspace,
+    validateSearch: workspaceSearchSchema,
+    search: { middlewares: [stripSearchParams(WORKSPACE_SEARCH_DEFAULTS)] },
+    component: Workspace,
+  });
 
-const helpRoute = createRoute({ getParentRoute: () => rootRoute, path: "/help", component: HelpPage });
+  const helpRoute = createRoute({ getParentRoute: () => rootRoute, path: PAGES.help, component: HelpPage });
 
-export const router = createRouter({
-  routeTree: rootRoute.addChildren([workspaceRoute, helpRoute]),
-  history: createHashHistory(),
-  parseSearch,
-  stringifySearch,
-});
+  return createRouter({
+    routeTree: rootRoute.addChildren([workspaceRoute, helpRoute]),
+    history: createBrowserHistory(),
+    basepath: routerBasepath(base),
+    parseSearch,
+    stringifySearch,
+  });
+}
+
+export type AppRouter = ReturnType<typeof createAppRouter>;
 
 declare module "@tanstack/react-router" {
   interface Register {
-    router: typeof router;
+    router: AppRouter;
   }
 }

@@ -5,6 +5,7 @@ import { defineConfig } from "vite";
 
 import { auspice } from "./build/auspice.ts";
 import { contentSecurityPolicyMeta } from "./build/content-security-policy.ts";
+import { pageFiles } from "./build/pages.ts";
 
 const webPort = Number(process.env["TREEKNIT_WEB_PORT"] ?? "6180");
 
@@ -26,6 +27,7 @@ export default defineConfig(({ mode }) => ({
     }),
     tailwindcss(),
     react(),
+    pageFiles(),
   ],
   base: "./",
   clearScreen: false,

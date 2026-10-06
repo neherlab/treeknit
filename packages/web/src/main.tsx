@@ -14,8 +14,9 @@ import { createRoot } from "react-dom/client";
 import { createAnalysisClient } from "./analysis/browserHost";
 import { AnalysisClientContext } from "./analysis/context";
 import { createQueryClient } from "./analysis/queryClient";
+import { basePath, hashRouteHref } from "./pages";
 import { PaletteStyles } from "./palette/PaletteStyles";
-import { router } from "./router";
+import { createAppRouter } from "./router";
 import { CLIENT_THEME_PROVIDER_PROPS } from "./shell/theme";
 import { startWorkspace } from "./workspace/runtime";
 import { WorkspaceProvider } from "./workspace/WorkspaceProvider";
@@ -23,6 +24,14 @@ import { WorkspaceProvider } from "./workspace/WorkspaceProvider";
 const root = document.getElementById("root");
 
 if (root !== null) {
+  const base = basePath(import.meta.url);
+  const routeHref = hashRouteHref(window.location, base);
+
+  if (routeHref !== null) {
+    window.history.replaceState(window.history.state, "", routeHref);
+  }
+
+  const router = createAppRouter(base);
   const client = createAnalysisClient();
   const queryClient = createQueryClient();
   const workspace = startWorkspace(client, queryClient);
