@@ -81,11 +81,49 @@ mod tests {
 
   #[wasm_bindgen_test]
   fn validate_reports_where_a_request_is_malformed() {
-    let expected = "invalid request: invalid type: integer `3`, expected a sequence at line 1 column 10";
-    match treeknit_wasm::validate(&ts(&json!({"trees": 3}))) {
-      Ok(_) => panic!("expected error {expected:?}"),
-      Err(e) => assert_eq!(expected, message(e)),
-    }
+    let expected = json!([{
+        "field": null,
+        "message": "invalid request: trees: invalid type: integer `3`, expected a sequence at line 1 column 10",
+        "line": null,
+        "column": null,
+    }]);
+    assert_eq!(
+      expected,
+      plain_list(&treeknit_wasm::validate(&ts(&json!({"trees": 3}))).unwrap())
+    );
+  }
+
+  #[wasm_bindgen_test]
+  fn session_run_throws_validation_error_for_a_malformed_request() {
+    let request = json!({"trees": [{"label": "ha"}, {"label": "na", "newick": "(A,B);"}]});
+    let error = match Session::run(&ts(&request), &Function::new_no_args("")) {
+      Ok(_) => panic!("expected a ValidationError"),
+      Err(e) => Error::from(e),
+    };
+    let expected = (
+      "ValidationError".to_owned(),
+      "invalid request: trees[0]: missing field `newick` at line 1 column 24".to_owned(),
+    );
+    assert_eq!(expected, (String::from(error.name()), String::from(error.message())));
+  }
+
+  #[wasm_bindgen_test]
+  fn session_figure_throws_validation_error_for_malformed_options() {
+    let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
+    let options = ts(&json!({"width": "wide"}));
+    let errors: Vec<(String, String)> = [
+      session.figure(0, &ts(&json!("resolved")), &options).unwrap_err(),
+      session.arg_figure(&options).unwrap_err(),
+    ]
+    .into_iter()
+    .map(|e| {
+      let e = Error::from(e);
+      (String::from(e.name()), String::from(e.message()))
+    })
+    .collect();
+    let message = "invalid options: width: invalid type: string \"wide\", expected f64 at line 1 column 15";
+    let expected = vec![("ValidationError".to_owned(), message.to_owned()); 2];
+    assert_eq!(expected, errors);
   }
 
   #[wasm_bindgen_test]
@@ -879,7 +917,7 @@ mod tests {
       ts(&json!({"label": "ha", "newick": "(A,B);"})),
       ts(&json!({"label": 3, "newick": "(A,B);"})),
     ];
-    let expected = "invalid trees[1]: invalid type: integer `3`, expected a string at line 1 column 10";
+    let expected = "invalid trees[1]: label: invalid type: integer `3`, expected a string at line 1 column 10";
     match treeknit_wasm::overlap(trees) {
       Ok(_) => panic!("expected error {expected:?}"),
       Err(e) => assert_eq!(expected, message(e)),
@@ -911,7 +949,7 @@ mod tests {
 
   #[wasm_bindgen_test]
   fn settings_schema_names_malformed_settings() {
-    let expected = "invalid settings: unknown field `foo`";
+    let expected = "invalid settings: foo: unknown field `foo`";
     match treeknit_wasm::settings_schema(2, &ts(&json!({"foo": 1}))) {
       Ok(_) => panic!("expected error {expected:?}"),
       Err(e) => assert!(message(e).starts_with(expected)),

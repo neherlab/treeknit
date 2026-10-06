@@ -70,14 +70,16 @@ pub fn overlap(trees: Vec<Ts<TreeText>>) -> Result<Ts<Overlap>, JsError> {
   to_js(&inspect::overlap(&trees))
 }
 
-/// Every problem with the trees and the settings of the request; none when it runs.
+/// Every problem with the trees and the settings of the request; none when it runs. A request
+/// whose structure is malformed gives one error for the request as a whole.
 #[wasm_bindgen]
 pub fn validate(request: &Ts<AnalysisRequest>) -> Result<Vec<Ts<ValidationError>>, JsError> {
   let _log = log_capture::discard();
-  analysis::validate(&from_js("request", request)?)
-    .iter()
-    .map(to_js)
-    .collect()
+  let errors = match parse_js("request", request) {
+    Ok(request) => analysis::validate(&request),
+    Err(message) => vec![malformed(message)],
+  };
+  errors.iter().map(to_js).collect()
 }
 
 /// The request of a session file (`treeknit_session.json`); throws with the messages when its
@@ -233,7 +235,7 @@ impl Session {
     #[wasm_bindgen(js_name = onProgress, unchecked_param_type = "(progress: Progress) => void")] on_progress: &Function,
   ) -> Result<Session, JsValue> {
     let _log = log_capture::discard();
-    let request = from_js("request", request)?;
+    let request = parse_js("request", request).map_err(|message| validation_error(&[malformed(message)]))?;
     let unavailable = log_capture::unavailable();
     log::info!("TreeKnit {}", env!("TREEKNIT_LONG_VERSION"));
     let k = request.trees.len();
@@ -416,7 +418,7 @@ impl Session {
   ) -> Result<Ts<FigureDownload>, JsValue> {
     let _log = log_capture::discard();
     let version = from_js("version", version)?;
-    let options = from_js("options", options)?;
+    let options = parse_js("options", options).map_err(|message| validation_error(&[malformed(message)]))?;
     let figure = output::pair_figure(&self.run, pair, version, &options)
       .map_err(|e| validation_error(&e))?
       .ok_or_else(|| no_pair(&self.run, pair))?;
@@ -431,7 +433,7 @@ impl Session {
   #[wasm_bindgen(js_name = argFigure)]
   pub fn arg_figure(&self, options: &Ts<FigureOptions>) -> Result<Ts<FigureDownload>, JsValue> {
     let _log = log_capture::discard();
-    let options = from_js("options", options)?;
+    let options = parse_js("options", options).map_err(|message| validation_error(&[malformed(message)]))?;
     let figure = output::arg_figure(&self.run, &options)
       .map_err(|e| validation_error(&e))?
       .ok_or_else(|| JsError::new("the run has no ARG: it needs two trees and a built ARG"))?;
@@ -504,14 +506,42 @@ fn messages(errors: &[ValidationError]) -> String {
   errors.iter().map(|e| e.message.as_str()).collect::<Vec<_>>().join("\n")
 }
 
+/// A `ValidationError` for the request as a whole, for an argument whose structure is malformed:
+/// the app reports it as invalid input, not as an internal failure.
+fn malformed(message: String) -> ValidationError {
+  ValidationError {
+    field: None,
+    message,
+    line: None,
+    column: None,
+  }
+}
+
 /// The Rust value of the argument `name`; errors start with `invalid <name>:`.
 fn from_js<T: DeserializeOwned + Tsify>(name: &str, value: &Ts<T>) -> Result<T, JsError> {
-  // JSON text instead of serde-wasm-bindgen: serde_json errors say where the value is wrong.
+  parse_js(name, value).map_err(|message| JsError::new(&message))
+}
+
+/// The Rust value of the argument `name`, or the message of the error: `invalid <name>:`, then
+/// the path of the field inside the value when the error is below its root, such as
+/// `invalid request: trees[0].newick: ...`.
+fn parse_js<T: DeserializeOwned + Tsify>(name: &str, value: &Ts<T>) -> Result<T, String> {
+  // JSON text instead of serde-wasm-bindgen: serde_json errors say what is wrong, and
+  // serde_path_to_error says where.
   let text = JSON::stringify(&value.js_value())
-    .map_err(|e| JsError::new(&format!("invalid {name}: {}", js_message(&e))))?
+    .map_err(|e| format!("invalid {name}: {}", js_message(&e)))?
     .as_string()
-    .ok_or_else(|| JsError::new(&format!("invalid {name}: expected a JSON value")))?;
-  serde_json::from_str(&text).map_err(|e| JsError::new(&format!("invalid {name}: {e}")))
+    .ok_or_else(|| format!("invalid {name}: expected a JSON value"))?;
+  let mut deserializer = serde_json::Deserializer::from_str(&text);
+  let parsed = serde_path_to_error::deserialize(&mut deserializer).map_err(|e| {
+    if e.path().iter().next().is_none() {
+      format!("invalid {name}: {}", e.inner())
+    } else {
+      format!("invalid {name}: {}: {}", e.path(), e.inner())
+    }
+  })?;
+  deserializer.end().map_err(|e| format!("invalid {name}: {e}"))?;
+  Ok(parsed)
 }
 
 fn to_js<T: Serialize + Tsify>(value: &T) -> Result<Ts<T>, JsError> {
