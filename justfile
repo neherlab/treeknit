@@ -64,6 +64,11 @@ uncached_env := "RUSTC_WRAPPER= CARGO_INCREMENTAL=0"
 pub_unused_env := "TREEKNIT_LINTS_PUB_UNUSED_DIR=" + quote(dylint_target_dir / "pub-unused")
 dylint_cmd := uncached_env + " CARGO_TARGET_DIR=" + quote(dylint_target_dir) + " " + pub_unused_env + " cargo dylint --quiet --all"
 dylint_cargo_args := "--quiet --locked --workspace --all-targets"
+
+# Lint levels of the driver: lints that only one library declares are unknown
+# to the others, and the comment lints of treeknit_lints (no_comments,
+# doc_comment_limit) are off, because the Rust code keeps its comments.
+dylint_rustflags := "-A unknown_lints -A no_comments -A doc_comment_limit"
 dylint_over_baseline := dylint_target_dir / "mordant/over-baseline.txt"
 
 # Library crates whose public API is an external boundary, skipped by the
@@ -290,7 +295,7 @@ lint-wasm *args:
 dylint *args:
     status=0
     rm -f {{ quote(dylint_over_baseline) }}
-    DYLINT_RUSTFLAGS="-A unknown_lints" CARGO_BUILD_WARNINGS=deny {{ dylint_cmd }} -- {{ dylint_cargo_args }} --keep-going "$@" || status=1
+    DYLINT_RUSTFLAGS={{ quote(dylint_rustflags) }} CARGO_BUILD_WARNINGS=deny {{ dylint_cmd }} -- {{ dylint_cargo_args }} --keep-going "$@" || status=1
     if [[ -s {{ quote(dylint_over_baseline) }} ]]; then printf 'mordant: findings over the committed baseline:\n' >&2; cat {{ quote(dylint_over_baseline) }} >&2; status=1; fi
     (cd dev/lints/dylint-custom && {{ uncached_env }} {{ pub_unused_env }} cargo run --quiet --release --locked --target-dir {{ quote(dylint_target_dir / "report") }} --bin pub-unused-report -- {{ quote(justfile_directory() / "Cargo.toml") }} {{ prepend("--exclude-crate ", public_api_crates) }}) || status=1
     exit "${status}"
@@ -299,13 +304,13 @@ dylint *args:
 [group("lint")]
 dylint-fix:
     rm -f {{ quote(dylint_over_baseline) }}
-    DYLINT_RUSTFLAGS="-A unknown_lints" {{ dylint_cmd }} --fix -- --allow-staged {{ dylint_cargo_args }}
+    DYLINT_RUSTFLAGS={{ quote(dylint_rustflags) }} {{ dylint_cmd }} --fix -- --allow-staged {{ dylint_cargo_args }}
 
 # Accept the current mordant findings: rewrites .config/mordant-baseline.toml, commit it afterwards
 [confirm("Rewrite .config/mordant-baseline.toml with the current findings?")]
 [group("lint")]
 dylint-baseline:
-    DYLINT_RUSTFLAGS="-A unknown_lints" MORDANT_BASELINE_WRITE=1 {{ dylint_cmd }} -- {{ dylint_cargo_args }} --keep-going
+    DYLINT_RUSTFLAGS={{ quote(dylint_rustflags) }} MORDANT_BASELINE_WRITE=1 {{ dylint_cmd }} -- {{ dylint_cargo_args }} --keep-going
 
 # TypeScript lints (oxlint, type-aware)
 [group("lint")]
