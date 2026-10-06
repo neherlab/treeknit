@@ -85,13 +85,13 @@ See [`arg.md`](arg.md#extended-newick-output).
 - [x] **Structure**: the Auspice v2 subset of TreeKnit.jl (see [`visualization.md`](visualization.md#auspice-json))
 - [x] **Line end**: no newline after the closing brace
 
-## Session file (`treeknit_request.json`, new)
+## Session file (`treeknit_session.json`, new)
 
-The analysis request of the web app: the trees with their labels and Newick texts, and the settings. `fn request_file` writes it [[src](../../packages/treeknit-io/src/output.rs#L685-L694)], and `fn read_request` reads it [[src](../../packages/treeknit-io/src/analysis.rs#L361-L384)].
+The analysis request of the web app: the trees with their labels and Newick texts, and the settings. `fn session_file` writes it [[src](../../packages/treeknit-io/src/output.rs)], and `fn read_session` reads it [[src](../../packages/treeknit-io/src/analysis.rs)]. Numbers read back exactly, because `serde_json` parses with its `float_roundtrip` feature.
 
 - [x] **Structure**: `{"trees": [{"label": ..., "newick": ...}], "settings": {...}}`, pretty JSON with a newline at the end. The settings use the camelCase names of the web app (`gamma`, `seqLengths`, `nMcmcIt`, `resolve`, `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed`); a missing setting takes its default
 - [x] **Reading**: checks the structure only: types, required and unknown fields, and a seed of at most 2^53 - 1, which a JavaScript number holds exactly. A file with a broken tree or an out-of-range setting loads, so the web app can show the errors at their fields; the command line applies the shared validation after reading
-- [x] **Writers**: the web app ("Save session file", and the archive of a run), and the command line with `--request`, which writes the request it ran into the results directory
+- [x] **Writers**: the web app ("Save session file", and the archive of a run), and the command line with `--session`, `--example`, `--link`, or `--print-link`, which writes the request it ran into the results directory
 
 ## ZIP archive (new)
 
@@ -99,7 +99,22 @@ The analysis request of the web app: the trees with their labels and Newick text
 
 - [x] **Entries**: every file under `treeknit_results/`, the default results directory of the command line, at its path in that directory (`treeknit_results/ARG/arg.nwk`)
 - [x] **Reproducible bytes**: every entry is deflated and dated 1980-01-01 00:00, the earliest ZIP time, so equal files give a byte-identical archive. `log.txt` carries clock times, so the archives of two runs differ in that entry
-- [x] **Reproduction**: `treeknit --request treeknit_results/treeknit_request.json --impute --auspice-view`, run in the directory where the archive was extracted, writes the same file set with the command line
+- [x] **Reproduction**: `treeknit --session treeknit_results/treeknit_session.json --impute --auspice-view`, run in the directory where the archive was extracted, writes the same file set with the command line
+
+## Links (new)
+
+A link of the web app names trees, settings, a run, and a view in its query, and inline data in its fragment. `treeknit_io::launch` reads it (`fn parse_launch`) and writes it (`fn launch_pairs`, `fn inline_session`) for both surfaces, so the web app and the command line (`--link`, `--print-link`) share one grammar [[src](../../packages/treeknit-io/src/launch.rs)].
+
+- [x] **Input keys**: one kind per link: `example=<id>` (an id of the catalog of `treeknit_io::examples`, which the Examples menu and `--example` share; ids stay fixed once published), `tree=[<label>=]<location>` repeated for at least two trees, `session=<location>`, or `from=opener|parent` for a session file that another window posts. A second kind is an error at its key
+- [x] **Labels**: the text before the first `=` of a tree is its label when it is not empty and holds no `:`, `/`, or `\`, which a label cannot hold and every location holds before its first `=`. Unlabeled trees take `analysis::tree_labels` of the percent-decoded last path segment of their address, next to the given labels; a `data:` tree has no file name and gets `tree`, `tree_2`
+- [x] **Locations**: `https:` addresses without a user name or password, and `data:` texts (RFC 2397, percent-encoded or `;base64` in the standard or URL-safe alphabet), decoded while parsing. A GitHub file page (`github.com/<o>/<r>/blob/<ref>/<path>` or `/raw/`) is read from `raw.githubusercontent.com`, and a Zenodo record file (`zenodo.org/records/<id>/files/<name>`) from its `/api/records/<id>/files/<name>/content` address, because only those send `Access-Control-Allow-Origin`; the link keeps the address as given
+- [x] **Downloads**: gzip-compressed bytes are decompressed (several gzip members too, as bgzip writes them) up to 256 MiB of text; the text must be UTF-8, and a web page (`<!doctype html` or `<html` at the start) is rejected. A download stops after 60 seconds or 64 MiB (`FETCH_TIMEOUT_SECONDS`, `MAX_DOWNLOAD_BYTES`), in the web app and in the command line
+- [x] **Settings keys**: the long flags of the command line without `--`: `gamma`, `seq-lengths` (comma list), `n-mcmc-it`, `resolve`, `rounds`, `seed`, and the flags `pre-resolve`, `no-final-round`, `no-likelihood`, `naive` with their opposites `no-pre-resolve`, `final-round`, `likelihood`, `no-naive`, from the key table `schema::SETTING_KEYS`. A value of the wrong type is an error that leaves the setting unset; a value out of bounds goes into the settings, so the form shows it at its field. A repeated key with a value is an error; of a flag and its opposite the last wins. The settings apply to the defaults, or to the settings of the session file
+- [x] **`run`, `v`**: `run` starts the run once the inputs have loaded. `v` is the format version: absent means 1, and a larger version than the build reads stops the launch with "This link needs a newer version of TreeKnit". Settings or `run` without an input are an error
+- [x] **Other keys**: keys of the display are read by the web app (see [`web-app.md`](web-app.md#web-app)); any other key is ignored, with the launch or display key it most likely misspells (edit distance 2, keys of at least 4 characters) and, after a location with a `?`, the hint that `&` inside an address is written `%26`
+- [x] **Query text**: pairs joined by `&`, a flag without `=`; only `%`, `&`, `#`, `+`, `=` in keys, spaces, `"`, `<`, `>`, control and non-ASCII characters are percent-encoded, so addresses and Newick texts stay readable. Reading follows `URLSearchParams` (`+` is a space). The fragment holds keys only when it contains `=`, so `#help-cite` stays an anchor
+- [x] **Canonical link**: `launch_pairs` writes the input keys, the settings that differ from the defaults in the order of the key table, and `run`: `example=<id>` when the trees are those of the example in its order with its labels, one `tree` per tree otherwise, with `<label>=` only where the label differs from the one the address gives. A tree from a file has no address, and no link is written
+- [x] **Inline session**: `data:application/gzip;base64,` and the gzip of the session file, for the fragment: `?run&<view keys>#session=data:...`. The whole session compresses better than the trees one by one, because they share their leaf names. Links longer than 32,000 characters are not written (`MAX_LINK_CHARS`)
 
 ## Other formats
 
