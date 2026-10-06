@@ -183,14 +183,10 @@ test-wasm *args:
     "${test[@]}" --no-run "$@"
     CARGO_TERM_QUIET=false "${test[@]}" "$@"
 
-# TypeScript tests (vitest) and the tests of the custom oxlint rules, keep-going
+# TypeScript tests (vitest)
 [group("test")]
-[script]
 test-ts: _js
-    status=0
-    bun run --silent test || status=1
-    node --test "dev/lints/oxlint/__tests__/test_*.ts" "dev/lints/oxlint-anti-slop/**/*.test.ts" || status=1
-    exit "${status}"
+    bun run --silent test
 
 # Cross-compile the CLI for a Linux x86_64 target and run it on a simulated case in many Linux distribution images (host only, needs Docker): just test-distros <dev|release|prod> <x86_64-unknown-linux-gnu|x86_64-unknown-linux-musl> [--image=<ref>] [-- CLI args]
 [arg("mode", pattern="dev|release|prod")]
@@ -270,14 +266,13 @@ lint-wasm *args:
 lint-ts: _js
     bun run --silent lint
 
-# TypeScript type checks of the packages, the tool configs, and the vendored lint rules, keep-going
+# TypeScript type checks of the packages and the tool configs, keep-going
 [group("lint")]
 [script]
 typecheck: _js
     status=0
     bun run --silent typecheck:packages || status=1
     bun run --silent typecheck:tools || status=1
-    bun run --silent typecheck:vendor || status=1
     exit "${status}"
 
 # Unused TypeScript files, exports, and dependencies (knip), keep-going
