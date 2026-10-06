@@ -139,7 +139,8 @@ pub struct ValidationError {
 }
 
 impl ValidationError {
-  fn at(field: impl Into<String>, message: impl Into<String>) -> Self {
+  /// An error at the field `field`.
+  pub(crate) fn at(field: impl Into<String>, message: impl Into<String>) -> Self {
     ValidationError {
       field: Some(field.into()),
       message: message.into(),

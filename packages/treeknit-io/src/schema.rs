@@ -22,6 +22,126 @@ pub const PRE_RESOLVE_HELP: &str = "Before inference, add to each tree the split
 /// inference (`treeknit_core::pipeline`, `infer`).
 const NAIVE_REASON: &str = "Naive MCCs skip the inference that uses this setting.";
 
+/// Every setting as a key of links and a long flag of the command line, in the order of the
+/// fields of `Settings`, which is also the order in which links write them. A key is the flag
+/// without `--`, so both surfaces use one name with one meaning: `gamma=3` in a link is
+/// `--gamma 3` on the command line.
+pub const SETTING_KEYS: [SettingKey; 10] = [
+  SettingKey {
+    setting: SettingName::Gamma,
+    key: "gamma",
+    opposite: None,
+    value: KeyValue::Number,
+    description: "Cost γ of a reassortment, that is of removing an MCC.",
+  },
+  SettingKey {
+    setting: SettingName::SeqLengths,
+    key: "seq-lengths",
+    opposite: None,
+    value: KeyValue::Numbers,
+    description: "Sequence length of each segment, in the order of the trees, for the likelihood tie-break.",
+  },
+  SettingKey {
+    setting: SettingName::NMcmcIt,
+    key: "n-mcmc-it",
+    opposite: None,
+    value: KeyValue::Integer,
+    description: "MCMC steps per leaf of the simulated annealing.",
+  },
+  SettingKey {
+    setting: SettingName::Resolve,
+    key: "resolve",
+    opposite: None,
+    value: KeyValue::Mode,
+    description: "How trees are resolved: matched, strict, liberal, or none.",
+  },
+  SettingKey {
+    setting: SettingName::PreResolve,
+    key: "pre-resolve",
+    opposite: Some("no-pre-resolve"),
+    value: KeyValue::Flag { key_sets: true },
+    description: "Before inference, add to each tree the splits of other trees that are compatible with all trees.",
+  },
+  SettingKey {
+    setting: SettingName::Rounds,
+    key: "rounds",
+    opposite: None,
+    value: KeyValue::Integer,
+    description: "Rounds of pair inference.",
+  },
+  SettingKey {
+    setting: SettingName::FinalRound,
+    key: "no-final-round",
+    opposite: Some("final-round"),
+    value: KeyValue::Flag { key_sets: false },
+    description: "With strict or liberal resolution and more than two trees, skip the final round without resolution.",
+  },
+  SettingKey {
+    setting: SettingName::Likelihood,
+    key: "no-likelihood",
+    opposite: Some("likelihood"),
+    value: KeyValue::Flag { key_sets: false },
+    description: "Do not break ties between configurations with branch lengths.",
+  },
+  SettingKey {
+    setting: SettingName::Naive,
+    key: "naive",
+    opposite: Some("no-naive"),
+    value: KeyValue::Flag { key_sets: true },
+    description: "Naive MCCs (γ → ∞): the maximal clades whose subtrees are identical, without inference.",
+  },
+  SettingKey {
+    setting: SettingName::Seed,
+    key: "seed",
+    opposite: None,
+    value: KeyValue::Integer,
+    description: "Seed of the random number generator, so that a run can be repeated.",
+  },
+];
+
+/// A setting as a key of links and a long flag of the command line.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SettingKey {
+  pub setting: SettingName,
+  /// Key of links and long flag of the command line without `--`: `gamma` for `--gamma`.
+  pub key: &'static str,
+  /// For a flag, the key that sets the other value: `final-round` for `no-final-round`.
+  pub opposite: Option<&'static str>,
+  pub value: KeyValue,
+  /// One-line description.
+  pub description: &'static str,
+}
+
+/// A field of `Settings`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SettingName {
+  Gamma,
+  SeqLengths,
+  NMcmcIt,
+  Resolve,
+  PreResolve,
+  Rounds,
+  FinalRound,
+  Likelihood,
+  Naive,
+  Seed,
+}
+
+/// The value a setting key takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KeyValue {
+  /// A number: `gamma=3`.
+  Number,
+  /// One number per tree, separated by commas: `seq-lengths=1701,1410`.
+  Numbers,
+  /// A whole number: `seed=7`.
+  Integer,
+  /// A resolution mode: `resolve=strict`.
+  Mode,
+  /// No value: the key sets the setting to `key_sets`, its opposite to the other value.
+  Flag { key_sets: bool },
+}
+
 /// Rules and help of the settings for a request with a given number of trees and settings.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]

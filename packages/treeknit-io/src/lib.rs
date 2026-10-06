@@ -7,6 +7,7 @@ pub mod display;
 pub mod examples;
 pub mod figure;
 pub mod inspect;
+pub mod launch;
 pub mod mccs;
 pub mod newick;
 pub mod output;
