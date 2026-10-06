@@ -72,3 +72,22 @@ function setFilter(
 export function withAuspiceQuery(search: WorkspaceSearch, text: string): WorkspaceSearch {
   return text === "" ? omit(search, ["auspice"]) : { ...search, auspice: text };
 }
+
+export function withoutFilterValue(text: string, key: string, value: string | null): string {
+  const query = new URLSearchParams(text);
+  const values = query.get(key);
+
+  if (value === null || values === null) {
+    return text;
+  }
+
+  const kept = values.split(",").filter((item) => item !== value);
+
+  if (kept.length === 0) {
+    query.delete(key);
+  } else {
+    query.set(key, kept.join(","));
+  }
+
+  return query.toString();
+}

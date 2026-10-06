@@ -12,7 +12,7 @@ import { ControlsContainer } from "auspice/src/components/controls/styles";
 import { ToggleFocus } from "auspice/src/components/controls/toggle-focus";
 import ToggleTangle from "auspice/src/components/controls/toggle-tangle";
 import Tree from "auspice/src/components/tree";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { I18nextProvider } from "react-i18next";
 import { Provider } from "react-redux";
 import { ThemeProvider } from "styled-components";
@@ -26,7 +26,8 @@ import { CollapsiblePane } from "../ui/CollapsiblePane";
 import { AuspiceHeader } from "./AuspiceHeader";
 import { AUSPICE_I18N } from "./i18n";
 import { SIDEBAR_WIDTH_PX, sidebarOverlays, treeSize } from "./layout";
-import { type AppliedMarks, mccFilterValue, NO_MARKS, syncSelection, zoomToMcc } from "./linking";
+import { type AppliedMarks, markedMccValue, mccFilterValue, NO_MARKS, syncSelection, zoomToMcc } from "./linking";
+import { withoutFilterValue } from "./query";
 import type { AuspiceStore } from "./store";
 import { type AuspiceInput, useAuspiceStore } from "./useAuspiceStore";
 
@@ -43,7 +44,21 @@ const SIDEBAR_THEME = {
 };
 
 export default function AuspiceView({ files, treeLabels, axisTitle, selection, pair, ...input }: AuspiceViewProps) {
-  const store = useAuspiceStore(input);
+  const markedMcc = useRef<string | null>(null);
+  const { onQuery } = input;
+
+  const writeQuery = useCallback(
+    (text: string) => {
+      onQuery(withoutFilterValue(text, "f_mcc", markedMcc.current));
+    },
+    [onQuery],
+  );
+
+  const store = useAuspiceStore({ ...input, onQuery: writeQuery });
+
+  useEffect(() => {
+    markedMcc.current = markedMccValue(selection, (mcc) => mccFilterValue(input.datasets.left, mcc));
+  }, [selection, input.datasets]);
 
   useSelectionMarks(store, selection, input.datasets);
   useMccFocus(store, pair, input.datasets, input.trees);

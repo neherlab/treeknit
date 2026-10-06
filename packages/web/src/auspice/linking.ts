@@ -32,8 +32,7 @@ export function syncSelection(
 ): AppliedMarks {
   const wantedLeaf = selection.leaf ?? null;
 
-  const wantedMcc =
-    selection.leaf === undefined && selection.mcc !== undefined ? (mccValue(selection.mcc) ?? null) : null;
+  const wantedMcc = markedMccValue(selection, mccValue);
 
   let { leaf, mcc } = applied;
 
@@ -58,6 +57,10 @@ export function syncSelection(
   }
 
   return { leaf, mcc };
+}
+
+export function markedMccValue(selection: Selection, mccValue: (mcc: number) => string | undefined): string | null {
+  return selection.leaf === undefined && selection.mcc !== undefined ? (mccValue(selection.mcc) ?? null) : null;
 }
 
 export function zoomToMcc(store: AuspiceStore, root: AuspiceMccRoot, trees: AuspiceTrees): void {
