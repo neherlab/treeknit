@@ -143,7 +143,7 @@ fn labels_shown(options: &FigureOptions) -> bool {
 }
 
 /// When leaf labels are drawn.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize, VariantArray)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum LabelMode {

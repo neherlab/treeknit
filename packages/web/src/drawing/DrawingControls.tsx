@@ -1,4 +1,5 @@
 import type { LabelMode, PairSummary, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
+import { LABEL_MODE_VALUES, SCALE_VALUES, TREE_VERSION_VALUES } from "@neherlab/treeknit-wasm/variants";
 import { useCallback, useMemo } from "react";
 import type { Key } from "react-aria-components";
 import DownloadIcon from "~icons/lucide/download";
@@ -7,12 +8,11 @@ import { Button } from "../ui/Button";
 import { DisabledButton } from "../ui/DisabledButton";
 import { Select, type SelectOption } from "../ui/Select";
 import { ToggleButton, ToggleButtonGroup } from "../ui/ToggleButtonGroup";
-import { LABEL_MODES, TREE_VERSIONS, SCALES } from "../workspace/search";
 import { SCALE_LABELS } from "./scale";
 
 const VERSION_LABELS: Record<TreeVersion, string> = { input: "Input", resolved: "Resolved", imputed: "Imputed" };
 
-const LABEL_MODE_OPTIONS: SelectOption<LabelMode>[] = LABEL_MODES.map((mode) => ({
+const LABEL_MODE_OPTIONS: SelectOption<LabelMode>[] = LABEL_MODE_VALUES.map((mode) => ({
   id: mode,
   label: { auto: "Automatic", on: "On", off: "Off" }[mode],
 }));
@@ -20,14 +20,16 @@ const LABEL_MODE_OPTIONS: SelectOption<LabelMode>[] = LABEL_MODES.map((mode) => 
 const FIGURE_BUTTON_LABEL = "Download figure (SVG)";
 
 export function ScaleToggle({ value, onChange }: ChoiceProps<Scale>) {
-  return <ChoiceGroup label="Branch scale" choices={SCALES} labels={SCALE_LABELS} value={value} onChange={onChange} />;
+  return (
+    <ChoiceGroup label="Branch scale" choices={SCALE_VALUES} labels={SCALE_LABELS} value={value} onChange={onChange} />
+  );
 }
 
 export function VersionToggle({ value, onChange }: ChoiceProps<TreeVersion>) {
   return (
     <ChoiceGroup
       label="Tree version"
-      choices={TREE_VERSIONS}
+      choices={TREE_VERSION_VALUES}
       labels={VERSION_LABELS}
       value={value}
       onChange={onChange}

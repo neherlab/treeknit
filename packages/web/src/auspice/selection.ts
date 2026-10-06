@@ -1,3 +1,4 @@
+import type { AuspiceTrees } from "@neherlab/treeknit-wasm";
 import { DESELECT_NODE, SELECT_NODE } from "auspice/src/actions/types";
 import type { AnyAction } from "redux";
 
@@ -12,7 +13,7 @@ export type TreeSides = Readonly<Record<AuspiceTreeId, TreeSide>>;
 
 export const PAIR_SIDES: TreeSides = { LEFT: "left", RIGHT: "right" };
 
-export function treeSides(trees: "both" | "left" | "right"): TreeSides {
+export function treeSides(trees: AuspiceTrees): TreeSides {
   return trees === "right" ? { LEFT: "right", RIGHT: "left" } : PAIR_SIDES;
 }
 

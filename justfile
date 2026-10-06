@@ -69,6 +69,7 @@ cargo_profile_dir(mode) := if mode == "dev" { "debug" } else { cargo_profile(mod
 # without a Rust build; `just generated-check` keeps them current.
 wasm_pkg := "packages/treeknit-wasm/pkg"
 wasm_types := wasm_pkg / "treeknit_wasm.d.ts"
+wasm_variants := wasm_pkg / "treeknit_variants.ts"
 
 check_fast := "fmt-check-rs fmt-check-ts fmt-check-other lint-rs lint-wasm lint-ts typecheck"
 check_full := "fmt-check-rs fmt-check-ts fmt-check-other lint-shell lint-docker lint-workflows deny shear lint-rs lint-wasm test-rs test-wasm build-web:prod typecheck lint-ts knip test-ts generated-check"
@@ -359,11 +360,12 @@ fmt-check-other:
     just --fmt --check || status=1
     exit "${status}"
 
-# Regenerate the TypeScript declarations of the WebAssembly package (packages/treeknit-wasm/pkg/treeknit_wasm.d.ts) after a change to its interface
+# Regenerate the TypeScript declarations and enum value lists of the WebAssembly package (packages/treeknit-wasm/pkg/treeknit_wasm.d.ts, treeknit_variants.ts) after a change to its interface
 [group("generated")]
 gen: (build-wasm "dev")
+    cargo run --locked --quiet -p treeknit-wasm --example ts_variants > {{ wasm_variants }}
 
-# Fail when the committed TypeScript declarations of the WebAssembly package differ from a fresh build; writes nothing into the checkout
+# Fail when the committed TypeScript declarations or enum value lists of the WebAssembly package differ from a fresh build; writes nothing into the checkout
 [group("generated")]
 [script]
 generated-check:
@@ -372,6 +374,8 @@ generated-check:
     cargo build --locked --target=wasm32-unknown-unknown -p treeknit-wasm
     wasm-bindgen --target=web --out-dir="${out}" {{ quote(CARGO_TARGET_DIR / "wasm32-unknown-unknown" / "debug" / "treeknit_wasm.wasm") }}
     diff -u {{ wasm_types }} "${out}/treeknit_wasm.d.ts" || { printf '%s is stale; run `just gen` and commit it\n' {{ quote(wasm_types) }} >&2; exit 1; }
+    cargo run --locked --quiet -p treeknit-wasm --example ts_variants > "${out}/treeknit_variants.ts"
+    diff -u {{ wasm_variants }} "${out}/treeknit_variants.ts" || { printf '%s is stale; run `just gen` and commit it\n' {{ quote(wasm_variants) }} >&2; exit 1; }
 
 # Run the web app in the foreground until Ctrl-C, on the port of this checkout and mode: just run-web <dev|prod>; dev: Vite dev server with hot reload (`just build-wasm release` after a Rust change); prod: the shipped build, served
 [arg("mode", pattern="dev|prod")]

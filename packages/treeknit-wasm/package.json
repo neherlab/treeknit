@@ -9,6 +9,7 @@
       "types": "./pkg/treeknit_wasm.d.ts",
       "default": "./pkg/treeknit_wasm.js"
     },
-    "./treeknit_wasm_bg.wasm": "./pkg/treeknit_wasm_bg.wasm"
+    "./treeknit_wasm_bg.wasm": "./pkg/treeknit_wasm_bg.wasm",
+    "./variants": "./pkg/treeknit_variants.ts"
   }
 }

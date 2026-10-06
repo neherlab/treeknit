@@ -1,9 +1,9 @@
 import type { AuspiceTrees, LabelMode, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
+import { LABEL_MODE_VALUES, SCALE_VALUES, TREE_VERSION_VALUES } from "@neherlab/treeknit-wasm/variants";
 import { isDeepEqual, omit } from "remeda";
 import * as z from "zod";
 
 import type { RunOutcome } from "../analysis/client";
-import { everyVariantOf } from "../variants";
 import { type QueryRecord, queryRecord, queryValueSchema, readQuery, recordEntries, writeQuery } from "./searchQuery";
 
 export const WORKSPACE_VIEWS = [
@@ -18,14 +18,6 @@ export const WORKSPACE_VIEWS = [
 ] as const;
 
 export type WorkspaceView = (typeof WORKSPACE_VIEWS)[number];
-
-export const TREE_VERSIONS = everyVariantOf<TreeVersion>()(["input", "resolved", "imputed"]);
-
-export const SCALES = everyVariantOf<Scale>()(["div", "depth"]);
-
-export const LABEL_MODES = everyVariantOf<LabelMode>()(["auto", "on", "off"]);
-
-export const AUSPICE_TREES = everyVariantOf<AuspiceTrees>()(["both", "left", "right"]);
 
 export const NODE_SIDES = ["left", "right", "arg"] as const;
 
@@ -106,9 +98,9 @@ type ViewKey = (typeof VIEW_KEYS)[number];
 const VIEW_KEY_CODECS: Readonly<Record<ViewKey, z.ZodType<SearchValue, string>>> = {
   view: z.enum(WORKSPACE_VIEWS),
   pair: pairCodec,
-  version: z.enum(TREE_VERSIONS),
-  scale: z.enum(SCALES),
-  labels: z.enum(LABEL_MODES),
+  version: z.enum(TREE_VERSION_VALUES),
+  scale: z.enum(SCALE_VALUES),
+  labels: z.enum(LABEL_MODE_VALUES),
   show: nonEmptyText,
   auspice: nonEmptyText,
   mcc: mccCodec,
@@ -119,9 +111,9 @@ const VIEW_KEY_CODECS: Readonly<Record<ViewKey, z.ZodType<SearchValue, string>>>
 export const workspaceSearchSchema = z.object({
   view: choice(WORKSPACE_VIEWS, WORKSPACE_SEARCH_DEFAULTS.view),
   pair: optional(pairRefSchema),
-  version: choice(TREE_VERSIONS, WORKSPACE_SEARCH_DEFAULTS.version),
-  scale: choice(SCALES, WORKSPACE_SEARCH_DEFAULTS.scale),
-  labels: choice(LABEL_MODES, WORKSPACE_SEARCH_DEFAULTS.labels),
+  version: choice(TREE_VERSION_VALUES, WORKSPACE_SEARCH_DEFAULTS.version),
+  scale: choice(SCALE_VALUES, WORKSPACE_SEARCH_DEFAULTS.scale),
+  labels: choice(LABEL_MODE_VALUES, WORKSPACE_SEARCH_DEFAULTS.labels),
   show: optional(nonEmptyText),
   auspice: optional(nonEmptyText),
   mcc: optional(z.int().min(0)),

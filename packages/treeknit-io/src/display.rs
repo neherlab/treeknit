@@ -27,6 +27,7 @@ pub use pair::pair_view;
 pub(crate) use shapes::s_curve;
 
 use serde::{Deserialize, Serialize};
+use strum::VariantArray;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
@@ -125,7 +126,7 @@ pub struct DrawingRules {
 pub type Point = [f64; 2];
 
 /// Version of the trees of a pair: input, resolved, or imputed.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize, VariantArray)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum TreeVersion {
@@ -139,7 +140,7 @@ pub enum TreeVersion {
 }
 
 /// Branch scale of a drawing.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize, VariantArray)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
 pub enum Scale {
