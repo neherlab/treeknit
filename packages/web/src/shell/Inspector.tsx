@@ -25,6 +25,7 @@ import { MccSwatch } from "../ui/MccSwatch";
 import { useEscapeKey } from "../ui/useEscapeKey";
 import { VirtualList } from "../ui/VirtualList";
 import { useWorkspace } from "../workspace/context";
+import type { WrittenSearch } from "../workspace/search";
 import type { RunResult } from "../workspace/store";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 
@@ -57,8 +58,8 @@ function ResultInspector({ result }: { result: RunResult }) {
   const escapeProps = useEscapeKey(clearOnEscape);
   const { sessionId } = result;
   const selection = useMemo(() => selectionOf(search), [search]);
-  const pair = currentData(usePairView(sessionId, search.pair, search.version, search.x));
-  const arg = currentData(useArgView(selection.node?.side === "arg" ? sessionId : null, search.x));
+  const pair = currentData(usePairView(sessionId, search.pair, search.version, search.scale));
+  const arg = currentData(useArgView(selection.node?.side === "arg" ? sessionId : null, search.scale));
   const constellation = useConstellation(selection.leaf === undefined ? null : sessionId).data;
 
   const subject = useMemo(
@@ -226,7 +227,12 @@ function LeafPairs({ name, pairs }: { name: string; pairs: readonly LeafPair[] }
 }
 
 function LeafPairLink({ name, pair, label }: { name: string; pair: number; label: string }) {
-  const { search } = useWorkspaceSearch();
+  const { pairLabels } = useWorkspaceSearch();
+
+  const target = useCallback(
+    (search: WrittenSearch): WrittenSearch => leafInPair(search, pairLabels, pair, name),
+    [pairLabels, pair, name],
+  );
 
   const focusLeaf = useCallback(
     ({ ctrlKey, metaKey, shiftKey }: PressEvent) => {
@@ -238,7 +244,7 @@ function LeafPairLink({ name, pair, label }: { name: string; pair: number; label
   );
 
   return (
-    <Link to="/" search={leafInPair(search, pair, name)} onPress={focusLeaf}>
+    <Link from="/" to="/" search={target} onPress={focusLeaf}>
       {label}
     </Link>
   );

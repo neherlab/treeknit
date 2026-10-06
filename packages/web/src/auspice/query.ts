@@ -2,7 +2,7 @@ import { strainSymbolUrlString } from "auspice/src/middleware/changeURL";
 import { strainSymbol } from "auspice/src/util/globals";
 import { omit } from "remeda";
 
-import type { WorkspaceSearch } from "../workspace/search";
+import type { WrittenSearch } from "../workspace/search";
 import type { AuspiceControlsState, AuspiceFilterValue } from "./state";
 
 export function auspiceQuery(controls: AuspiceControlsState): string {
@@ -69,7 +69,7 @@ function setFilter(
   }
 }
 
-export function withAuspiceQuery(search: WorkspaceSearch, text: string): WorkspaceSearch {
+export function withAuspiceQuery(search: WrittenSearch, text: string): WrittenSearch {
   return text === "" ? omit(search, ["auspice"]) : { ...search, auspice: text };
 }
 

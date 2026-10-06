@@ -24,7 +24,7 @@ describe("viewTabs", () => {
   });
 
   test("enables every tab of a two-tree result and hides the constellation", () => {
-    expect(tabsOf({ hasResult: true, treeCount: 2, resultTreeCount: 2, pairCount: 1 })).toStrictEqual([
+    expect(tabsOf({ hasResult: true, treeCount: 2, resultTreeCount: 2, pairLabels: [["ha", "na"]] })).toStrictEqual([
       { view: "overview", isDisabled: false },
       { view: "tanglegram", isDisabled: false },
       { view: "auspice", isDisabled: false },
@@ -36,13 +36,24 @@ describe("viewTabs", () => {
   });
 
   test("shows the constellation and hides the ARG for a three-tree result", () => {
-    const views = tabsOf({ hasResult: true, treeCount: 3, resultTreeCount: 3, pairCount: 3 }).map(({ view }) => view);
+    const views = tabsOf({
+      hasResult: true,
+      treeCount: 3,
+      resultTreeCount: 3,
+      pairLabels: [
+        ["a", "b"],
+        ["a", "c"],
+        ["b", "c"],
+      ],
+    }).map(({ view }) => view);
 
     expect(views).toStrictEqual(["overview", "tanglegram", "auspice", "mccs", "constellation", "files", "diagnostics"]);
   });
 
   test("follows the trees of the result while the workspace has more trees", () => {
-    const views = tabsOf({ hasResult: true, treeCount: 3, resultTreeCount: 2, pairCount: 1 }).map(({ view }) => view);
+    const views = tabsOf({ hasResult: true, treeCount: 3, resultTreeCount: 2, pairLabels: [["ha", "na"]] }).map(
+      ({ view }) => view,
+    );
 
     expect(views).toContain("arg");
   });
@@ -76,7 +87,13 @@ describe("viewTabs tooltips", () => {
   });
 
   test("describe the tanglegram once a run has a result", () => {
-    const tabs = viewTabs({ ...NO_WORKSPACE, hasResult: true, treeCount: 2, resultTreeCount: 2, pairCount: 1 });
+    const tabs = viewTabs({
+      ...NO_WORKSPACE,
+      hasResult: true,
+      treeCount: 2,
+      resultTreeCount: 2,
+      pairLabels: [["ha", "na"]],
+    });
 
     expect(tabs.find(({ view }) => view === "tanglegram")?.tooltip).toBe("Both trees side by side, linked by MCC");
   });

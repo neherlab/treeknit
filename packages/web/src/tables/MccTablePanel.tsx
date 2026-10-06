@@ -59,7 +59,7 @@ export function MccTablePanel() {
 
 function MccTableQuery({ result }: { result: RunResult }) {
   const { search } = useWorkspaceSearch();
-  const query = usePairView(result.sessionId, search.pair, search.version, search.x);
+  const query = usePairView(result.sessionId, search.pair, search.version, search.scale);
   const labels = result.summary.pairs[search.pair]?.labels;
 
   return (

@@ -1,6 +1,7 @@
 import type { AuspicePair } from "@neherlab/treeknit-wasm";
 import { type ReactNode, Suspense, useCallback, useMemo, useState } from "react";
 import { ErrorBoundary, type FallbackProps, getErrorMessage } from "react-error-boundary";
+import { omit } from "remeda";
 import RetryIcon from "~icons/lucide/rotate-ccw";
 
 import { useAuspiceFiles, useAuspiceView } from "../analysis/queries";
@@ -19,7 +20,7 @@ import type { RunResult } from "../workspace/store";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 import { leafNames, shownTreeLabels } from "./datasets";
 import { parseAuspiceQuery, withAuspiceQuery } from "./query";
-import type { ShownTrees } from "./strip";
+import type { StripChoice } from "./strip";
 import { TreeStrip } from "./TreeStrip";
 
 const AUSPICE_VIEW = lazyCanvas(async () => import("./AuspiceView"));
@@ -39,10 +40,10 @@ export function AuspicePanel() {
 function Auspice({ result }: { result: RunResult }) {
   const [AuspiceView, reloadAuspiceView] = useLazyCanvas(AUSPICE_VIEW);
   const { search, selection, select, clearOnEscape, chooseVersion, chooseScale } = useDrawingSearch();
-  const { update } = useWorkspaceSearch();
-  const { pair, version, x, trees } = search;
-  const query = useAuspiceView(result.sessionId, pair, version, x);
-  const files = useAuspiceFiles(result.sessionId, pair, version, x, trees).data;
+  const { update, pairLabels } = useWorkspaceSearch();
+  const { pair, version, scale, show: trees } = search;
+  const query = useAuspiceView(result.sessionId, pair, version, scale);
+  const files = useAuspiceFiles(result.sessionId, pair, version, scale, trees).data;
   const pairs = result.summary.pairs;
   const labels = pairs[pair]?.labels;
   const treeLabels = useMemo(() => result.request.trees.map(({ label }) => label), [result.request.trees]);
@@ -52,13 +53,15 @@ function Auspice({ result }: { result: RunResult }) {
   const names = useMemo(() => (query.data === undefined ? [] : leafNames(query.data, trees)), [query.data, trees]);
 
   const chooseShown = useCallback(
-    (next: ShownTrees) => {
-      update((written) => ({
-        ...(next.pair === written.pair ? written : selectPair(written, next.pair)),
-        trees: next.trees,
-      }));
+    (next: StripChoice) => {
+      update((written) => {
+        const paired =
+          next.pair === pair ? omit(written, ["show"]) : omit(selectPair(written, pairLabels, next.pair), ["show"]);
+
+        return next.show === undefined ? paired : { ...paired, show: next.show };
+      });
     },
-    [update],
+    [update, pair, pairLabels],
   );
 
   const writeQuery = useCallback(
@@ -79,7 +82,7 @@ function Auspice({ result }: { result: RunResult }) {
     <>
       <TreeStrip labels={treeLabels} pairs={pairs} shown={shown} onChange={chooseShown} />
       <VersionToggle value={version} onChange={chooseVersion} />
-      <ScaleToggle value={x} onChange={chooseScale} />
+      <ScaleToggle value={scale} onChange={chooseScale} />
       <LeafSearch names={names} onSelect={findLeaf} />
     </>
   );
@@ -87,7 +90,7 @@ function Auspice({ result }: { result: RunResult }) {
   return (
     <DrawingPanel
       toolbar={toolbar}
-      notice={shownScaleNotice(x, query.data?.scale, "pair")}
+      notice={shownScaleNotice(scale, query.data?.scale, "pair")}
       query={query}
       loading="Loading the Auspice view"
       errorTitle="The Auspice view could not be loaded"
@@ -96,7 +99,7 @@ function Auspice({ result }: { result: RunResult }) {
       {(datasets) =>
         labels === undefined ? null : (
           <AuspiceBoundary
-            resultKey={`${String(result.sessionId)}:${String(pair)}:${version}:${x}`}
+            resultKey={`${String(result.sessionId)}:${String(pair)}:${version}:${scale}`}
             onReset={reloadAuspiceView}
           >
             <KeyedAuspiceView datasets={datasets}>

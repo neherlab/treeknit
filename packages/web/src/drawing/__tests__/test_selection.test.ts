@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { WORKSPACE_SEARCH_DEFAULTS, type WorkspaceSearch } from "../../workspace/search";
+import { WORKSPACE_SEARCH_DEFAULTS, type WorkspaceSearch, type WrittenSearch } from "../../workspace/search";
 import {
   argClickSelection,
   argEmphasis,
@@ -21,7 +21,9 @@ const VIEW = examplePairView();
 
 const ARG = exampleArgView();
 
-const SEARCH: WorkspaceSearch = { ...WORKSPACE_SEARCH_DEFAULTS, view: "tanglegram", mcc: 1, leaf: "A" };
+const SEARCH: WrittenSearch = { ...WORKSPACE_SEARCH_DEFAULTS, view: "tanglegram", mcc: 1, leaf: "A" };
+
+const RESOLVED: WorkspaceSearch = { ...SEARCH, pair: 0, show: "both" };
 
 describe("pairClickSelection", () => {
   test.each([
@@ -67,7 +69,7 @@ describe("withSelection", () => {
   });
 
   test("round-trips the selection of a search", () => {
-    expect(withSelection({ ...WORKSPACE_SEARCH_DEFAULTS }, selectionOf(SEARCH))).toStrictEqual({
+    expect(withSelection({ ...WORKSPACE_SEARCH_DEFAULTS }, selectionOf(RESOLVED))).toStrictEqual({
       ...WORKSPACE_SEARCH_DEFAULTS,
       mcc: 1,
       leaf: "A",

@@ -1,15 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import type { WorkspaceSearch } from "../../workspace/search";
+import type { WrittenSearch } from "../../workspace/search";
 import { withAuspiceQuery, withoutFilterValue } from "../query";
 
-const SEARCH: WorkspaceSearch = {
+const SEARCH: WrittenSearch = {
   view: "auspice",
-  pair: 0,
   version: "resolved",
-  x: "div",
+  scale: "div",
   labels: "auto",
-  trees: "both",
 };
 
 describe("withoutFilterValue", () => {

@@ -3,14 +3,14 @@ import { useCallback, useMemo } from "react";
 
 import type { TreeViewActions } from "../canvas/useTreeView";
 import type { RowRange } from "../canvas/viewState";
-import { selectPair, type WorkspaceSearch } from "../workspace/search";
+import { selectPair, type WorkspaceSearch, type WrittenSearch } from "../workspace/search";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 import { revealLeafRows } from "./focus";
 import { hasSelection, selectionOf, type Selection, withSelection } from "./selection";
 
 export interface DrawingSearch {
   search: WorkspaceSearch;
-  update: (change: (written: WorkspaceSearch) => WorkspaceSearch) => void;
+  update: (change: (written: WrittenSearch) => WrittenSearch) => void;
   selection: Selection;
   select: (next: Selection) => void;
   clear: () => void;
@@ -22,7 +22,7 @@ export interface DrawingSearch {
 }
 
 export function useDrawingSearch(): DrawingSearch {
-  const { search, update } = useWorkspaceSearch();
+  const { search, update, pairLabels } = useWorkspaceSearch();
   const selection = useMemo(() => selectionOf(search), [search]);
 
   const select = useCallback(
@@ -38,9 +38,9 @@ export function useDrawingSearch(): DrawingSearch {
 
   const choosePair = useCallback(
     (next: number) => {
-      update((written) => selectPair(written, next));
+      update((written) => selectPair(written, pairLabels, next));
     },
-    [update],
+    [update, pairLabels],
   );
 
   const chooseVersion = useCallback(
@@ -52,7 +52,7 @@ export function useDrawingSearch(): DrawingSearch {
 
   const chooseScale = useCallback(
     (next: Scale) => {
-      update((written) => ({ ...written, x: next }));
+      update((written) => ({ ...written, scale: next }));
     },
     [update],
   );

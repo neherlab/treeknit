@@ -1,10 +1,10 @@
 import type { AuspiceTrees, LabelMode, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
-import { stringifySearchWith } from "@tanstack/react-router";
 import { isDeepEqual, omit } from "remeda";
 import * as z from "zod";
 
 import type { RunOutcome } from "../analysis/client";
 import { everyVariantOf } from "../variants";
+import { type QueryRecord, queryRecord, queryValueSchema, readQuery, recordEntries, writeQuery } from "./searchQuery";
 
 export const WORKSPACE_VIEWS = [
   "overview",
@@ -21,7 +21,7 @@ export type WorkspaceView = (typeof WORKSPACE_VIEWS)[number];
 
 export const TREE_VERSIONS = everyVariantOf<TreeVersion>()(["input", "resolved", "imputed"]);
 
-export const X_SCALES = everyVariantOf<Scale>()(["div", "depth"]);
+export const SCALES = everyVariantOf<Scale>()(["div", "depth"]);
 
 export const LABEL_MODES = everyVariantOf<LabelMode>()(["auto", "on", "off"]);
 
@@ -31,68 +31,165 @@ export const NODE_SIDES = ["left", "right", "arg"] as const;
 
 export type NodeSide = (typeof NODE_SIDES)[number];
 
-const nodeRefSchema = z.object({ side: z.enum(NODE_SIDES), name: z.string().min(1) });
+const nonEmptyText = z.string().min(1);
+
+const nodeRefSchema = z.object({ side: z.enum(NODE_SIDES), name: nonEmptyText });
 
 export type NodeRef = z.output<typeof nodeRefSchema>;
 
-const nodeRefTextSchema = z
-  .string()
-  .transform((text) => {
-    const [side, ...name] = text.split(":");
+const pairRefSchema = z.tuple([nonEmptyText, nonEmptyText]).readonly();
 
-    return { side, name: name.join(":") };
-  })
-  .pipe(nodeRefSchema);
+export type PairRef = z.output<typeof pairRefSchema>;
 
 export const WORKSPACE_SEARCH_DEFAULTS = {
   view: "overview",
-  pair: 0,
   version: "resolved",
-  x: "div",
+  scale: "div",
   labels: "auto",
-  trees: "both",
 } as const;
 
-const integerSchema = z.union([
-  z.int(),
-  z
-    .string()
-    .regex(/^-?\d{1,15}$/u)
-    .transform(Number),
-]);
+const pairCodec = z.codec(z.string(), pairRefSchema, {
+  decode: (text, payload) => {
+    const parsed = pairRefSchema.safeParse(text.split(":"));
 
-const nonNegativeIntegerSchema = integerSchema.pipe(z.int().min(0));
+    if (parsed.success) {
+      return parsed.data;
+    }
+
+    payload.issues.push({ code: "custom", message: "A pair is two tree labels separated by a colon.", input: text });
+
+    return z.NEVER;
+  },
+  encode: ([first, second]) => `${first}:${second}`,
+});
+
+const nodeCodec = z.codec(z.string(), nodeRefSchema, {
+  decode: (text, payload) => {
+    const [side, ...name] = text.split(":");
+    const parsed = nodeRefSchema.safeParse({ side, name: name.join(":") });
+
+    if (parsed.success) {
+      return parsed.data;
+    }
+
+    payload.issues.push({
+      code: "custom",
+      message: "A node is a side and a node name separated by a colon.",
+      input: text,
+    });
+
+    return z.NEVER;
+  },
+  encode: ({ side, name }) => `${side}:${name}`,
+});
+
+const mccCodec = z.codec(z.string().regex(/^\d{1,15}$/u), z.int().min(0), {
+  decode: (text) => Number(text) - 1,
+  encode: (index) => String(index + 1),
+});
+
+export const VIEW_KEYS = [
+  "view",
+  "pair",
+  "version",
+  "scale",
+  "labels",
+  "show",
+  "auspice",
+  "mcc",
+  "leaf",
+  "node",
+] as const;
+
+type ViewKey = (typeof VIEW_KEYS)[number];
+
+const VIEW_KEY_CODECS: Readonly<Record<ViewKey, z.ZodType<SearchValue, string>>> = {
+  view: z.enum(WORKSPACE_VIEWS),
+  pair: pairCodec,
+  version: z.enum(TREE_VERSIONS),
+  scale: z.enum(SCALES),
+  labels: z.enum(LABEL_MODES),
+  show: nonEmptyText,
+  auspice: nonEmptyText,
+  mcc: mccCodec,
+  leaf: nonEmptyText,
+  node: nodeCodec,
+};
 
 export const workspaceSearchSchema = z.object({
   view: choice(WORKSPACE_VIEWS, WORKSPACE_SEARCH_DEFAULTS.view),
-  pair: nonNegativeInteger(WORKSPACE_SEARCH_DEFAULTS.pair),
+  pair: optional(pairRefSchema),
   version: choice(TREE_VERSIONS, WORKSPACE_SEARCH_DEFAULTS.version),
-  x: choice(X_SCALES, WORKSPACE_SEARCH_DEFAULTS.x),
+  scale: choice(SCALES, WORKSPACE_SEARCH_DEFAULTS.scale),
   labels: choice(LABEL_MODES, WORKSPACE_SEARCH_DEFAULTS.labels),
-  trees: choice(AUSPICE_TREES, WORKSPACE_SEARCH_DEFAULTS.trees),
-  auspice: optional(z.string().min(1)),
-  mcc: optional(nonNegativeIntegerSchema),
-  leaf: optional(z.string().min(1)),
-  node: optional(z.union([nodeRefSchema, nodeRefTextSchema])),
+  show: optional(nonEmptyText),
+  auspice: optional(nonEmptyText),
+  mcc: optional(z.int().min(0)),
+  leaf: optional(nonEmptyText),
+  node: optional(nodeRefSchema),
 });
 
-export type WorkspaceSearch = z.output<typeof workspaceSearchSchema>;
+export type WrittenSearch = z.output<typeof workspaceSearchSchema>;
 
-export function parseSearch(query: string): Record<string, string> {
-  return Object.fromEntries(new URLSearchParams(query));
+export interface WorkspaceSearch {
+  view: WorkspaceView;
+  pair: number;
+  version: TreeVersion;
+  scale: Scale;
+  labels: LabelMode;
+  show: AuspiceTrees;
+  auspice?: string | undefined;
+  mcc?: number | undefined;
+  leaf?: string | undefined;
+  node?: NodeRef | undefined;
 }
 
-export const stringifySearch = stringifySearchWith(formatNodeRef);
+export function parseSearch(query: string): SearchRecord {
+  return Object.fromEntries(
+    Object.entries(queryRecord(readQuery(query.startsWith("?") ? query.slice(1) : query))).flatMap(
+      ([key, value]): [string, SearchValue][] => {
+        if (!isViewKey(key)) {
+          return [[key, value]];
+        }
+
+        const text = z.string().safeParse(value);
+        const decoded = text.success ? z.safeDecode(VIEW_KEY_CODECS[key], text.data) : undefined;
+
+        return decoded?.success === true ? [[key, decoded.data]] : [];
+      },
+    ),
+  );
+}
+
+export function stringifySearch(search: Readonly<SearchRecord>): string {
+  const record: QueryRecord = {};
+
+  for (const [key, value] of Object.entries(search)) {
+    const written = isViewKey(key) ? encodeViewKey(key, value) : queryValueSchema.safeParse(value).data;
+
+    if (written !== undefined) {
+      record[key] = written;
+    }
+  }
+
+  const query = writeQuery(recordEntries(record));
+
+  return query === "" ? "" : `?${query}`;
+}
+
+export type SearchRecord = Record<string, SearchValue>;
+
+export type SearchValue = QueryRecord[string] | number | PairRef | NodeRef | undefined;
 
 export function formatNodeRef(node: NodeRef): string {
-  return `${node.side}:${node.name}`;
+  return z.encode(nodeCodec, node);
 }
 
 export interface WorkspaceAvailability {
   hasResult: boolean;
   treeCount: number;
   resultTreeCount: number;
-  pairCount: number;
+  pairLabels: readonly PairRef[];
   mccExists: (pair: number, mcc: number) => boolean;
   leafExists: (pair: number, leaf: string) => boolean;
   nodeExists: (pair: number, node: NodeRef) => boolean;
@@ -102,7 +199,7 @@ export const NO_WORKSPACE: WorkspaceAvailability = {
   hasResult: false,
   treeCount: 0,
   resultTreeCount: 0,
-  pairCount: 0,
+  pairLabels: [],
   mccExists: () => false,
   leafExists: () => false,
   nodeExists: () => false,
@@ -115,10 +212,10 @@ const VIEW_TREE_COUNT: Partial<Record<WorkspaceView, (treeCount: number) => bool
 
 const VIEW_AVAILABLE: Record<WorkspaceView, (availability: WorkspaceAvailability) => boolean> = {
   overview: () => true,
-  tanglegram: ({ hasResult, pairCount }) => hasResult && pairCount > 0,
-  auspice: ({ hasResult, pairCount }) => hasResult && pairCount > 0,
+  tanglegram: ({ hasResult, pairLabels }) => hasResult && pairLabels.length > 0,
+  auspice: ({ hasResult, pairLabels }) => hasResult && pairLabels.length > 0,
   arg: ({ hasResult }) => hasResult,
-  mccs: ({ hasResult, pairCount }) => hasResult && pairCount > 0,
+  mccs: ({ hasResult, pairLabels }) => hasResult && pairLabels.length > 0,
   constellation: ({ hasResult }) => hasResult,
   files: ({ hasResult }) => hasResult,
   diagnostics: ({ hasResult }) => hasResult,
@@ -132,14 +229,19 @@ export function isViewAvailable(view: WorkspaceView, availability: WorkspaceAvai
   return viewFitsTreeCount(view, availability.resultTreeCount) && VIEW_AVAILABLE[view](availability);
 }
 
-export function resolveWorkspaceSearch(search: WorkspaceSearch, availability: WorkspaceAvailability): WorkspaceSearch {
+export function resolveWorkspaceSearch(search: WrittenSearch, availability: WorkspaceAvailability): WorkspaceSearch {
   const view = isViewAvailable(search.view, availability) ? search.view : WORKSPACE_SEARCH_DEFAULTS.view;
-  const pair = resolvePair(search.pair, availability.pairCount);
+  const pair = resolvePair(search.pair, availability.pairLabels);
   const keepMcc = search.mcc !== undefined && availability.mccExists(pair, search.mcc);
   const keepLeaf = search.leaf !== undefined && availability.leafExists(pair, search.leaf);
   const keepNode = search.node !== undefined && availability.nodeExists(pair, search.node);
 
-  const resolved: WorkspaceSearch = { ...omit(search, ["mcc", "leaf", "node"]), view, pair };
+  const resolved: WorkspaceSearch = {
+    ...omit(search, ["pair", "show", "mcc", "leaf", "node"]),
+    view,
+    pair,
+    show: resolveShown(search.show, availability.pairLabels[pair]),
+  };
 
   if (keepMcc) {
     resolved.mcc = search.mcc;
@@ -156,42 +258,91 @@ export function resolveWorkspaceSearch(search: WorkspaceSearch, availability: Wo
   return resolved;
 }
 
-export function resolvePair(pair: number, pairCount: number): number {
-  return pair < pairCount ? pair : WORKSPACE_SEARCH_DEFAULTS.pair;
+export function resolvePair(pair: PairRef | undefined, pairLabels: readonly PairRef[]): number {
+  if (pair === undefined) {
+    return 0;
+  }
+
+  const [a, b] = pair;
+
+  const index = pairLabels.findIndex(
+    ([first, second]) => (a === first && b === second) || (a === second && b === first),
+  );
+
+  return Math.max(index, 0);
+}
+
+export function resolveShown(show: string | undefined, labels: PairRef | undefined): AuspiceTrees {
+  if (show === undefined || labels === undefined) {
+    return "both";
+  }
+
+  if (show === labels[0]) {
+    return "left";
+  }
+
+  return show === labels[1] ? "right" : "both";
+}
+
+export function shownLabel(trees: AuspiceTrees, labels: PairRef | undefined): string | undefined {
+  if (trees === "both" || labels === undefined) {
+    return undefined;
+  }
+
+  return trees === "left" ? labels[0] : labels[1];
 }
 
 export function withSelectionPair(
-  written: WorkspaceSearch,
-  next: WorkspaceSearch,
+  written: WrittenSearch,
+  next: WrittenSearch,
+  pairLabels: readonly PairRef[],
   resolvedPair: number,
-): WorkspaceSearch {
+): WrittenSearch {
   const selectionChanged =
     next.mcc !== written.mcc || next.leaf !== written.leaf || !isDeepEqual(next.node, written.node);
 
-  return selectionChanged && next.pair === written.pair ? { ...next, pair: resolvedPair } : next;
+  return selectionChanged && isDeepEqual(next.pair, written.pair)
+    ? withPair(next, pairLabels[resolvedPair], resolvedPair)
+    : next;
 }
 
-export function selectPair(search: WorkspaceSearch, pair: number): WorkspaceSearch {
-  return { ...omit(search, ["mcc", "node"]), pair };
+export function selectPair(search: WrittenSearch, pairLabels: readonly PairRef[], pair: number): WrittenSearch {
+  return withPair(omit(search, ["mcc", "node"]), pairLabels[pair], pair);
+}
+
+function withPair(search: WrittenSearch, labels: PairRef | undefined, index: number): WrittenSearch {
+  const rest = omit(search, ["pair"]);
+
+  return index === 0 || labels === undefined ? rest : { ...rest, pair: labels };
 }
 
 function choice<const V extends string>(values: readonly [V, ...V[]], fallback: NoInfer<V>) {
   return z.enum(values).default(fallback).catch(fallback);
 }
 
-function nonNegativeInteger(fallback: number) {
-  return nonNegativeIntegerSchema.default(fallback).catch(fallback);
-}
-
 function optional<T extends z.ZodType>(schema: T) {
   return schema.optional().catch(undefined);
 }
 
+function isViewKey(key: string): key is ViewKey {
+  return VIEW_KEYS.some((viewKey) => viewKey === key);
+}
+
+function encodeViewKey(key: ViewKey, value: SearchValue): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const encoded = z.safeEncode(VIEW_KEY_CODECS[key], value);
+
+  return encoded.success ? encoded.data : undefined;
+}
+
 export function searchAfterRun(
-  search: WorkspaceSearch,
+  search: WrittenSearch,
   outcome: RunOutcome,
   storedSessionId: number | undefined,
-): WorkspaceSearch {
+): WrittenSearch {
   const stored = outcome.status === "succeeded" && outcome.sessionId === storedSessionId;
 
   return stored ? { ...search, view: "auspice" } : search;

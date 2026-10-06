@@ -3,7 +3,7 @@ import { useCallback, useMemo } from "react";
 import type { Key } from "react-aria-components";
 
 import { ToggleButton, ToggleButtonGroup } from "../ui/ToggleButtonGroup";
-import { type ShownTrees, shownFromStrip, shownTreeIndices } from "./strip";
+import { type ShownTrees, type StripChoice, shownFromStrip, shownTreeIndices } from "./strip";
 
 const AT_MOST_TWO = "At most two trees: hide one to show another";
 
@@ -62,5 +62,5 @@ export interface TreeStripProps {
   labels: readonly string[];
   pairs: readonly PairSummary[];
   shown: ShownTrees;
-  onChange: (shown: ShownTrees) => void;
+  onChange: (choice: StripChoice) => void;
 }

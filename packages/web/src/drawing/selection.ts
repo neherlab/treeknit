@@ -2,7 +2,7 @@ import type { ArgView, PairView } from "@neherlab/treeknit-wasm";
 import { omit } from "remeda";
 
 import type { RowRange } from "../canvas/viewState";
-import type { NodeRef, WorkspaceSearch } from "../workspace/search";
+import type { NodeRef, WorkspaceSearch, WrittenSearch } from "../workspace/search";
 import { mccRows } from "./focus";
 import { internalNodeIndex, leafIndex, leafRows, pairLeafRows, type TreeSide } from "./trees";
 
@@ -42,7 +42,7 @@ export function selectionOf(search: WorkspaceSearch): Selection {
   };
 }
 
-export function withSelection(search: WorkspaceSearch, selection: Selection): WorkspaceSearch {
+export function withSelection(search: WrittenSearch, selection: Selection): WrittenSearch {
   return { ...omit(search, ["mcc", "leaf", "node"]), ...selection };
 }
 

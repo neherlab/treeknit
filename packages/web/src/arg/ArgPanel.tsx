@@ -31,8 +31,8 @@ export function ArgPanel() {
 function Arg({ result }: { result: RunResult }) {
   const [ArgCanvas, reloadArgCanvas] = useLazyCanvas(ARG_CANVAS);
   const { search, selection, select, clearOnEscape, chooseScale, chooseLabels } = useDrawingSearch();
-  const { x, labels } = search;
-  const query = useArgView(result.sessionId, x);
+  const { scale, labels } = search;
+  const query = useArgView(result.sessionId, scale);
   const data = query.data ?? undefined;
   const rows = useMemo(() => (data === undefined ? 1 : rowCount(data)), [data]);
   const view = useDrawingView(rows);
@@ -47,7 +47,7 @@ function Arg({ result }: { result: RunResult }) {
 
   const toolbar = (
     <>
-      <ScaleToggle value={x} onChange={chooseScale} />
+      <ScaleToggle value={scale} onChange={chooseScale} />
       <LabelModeSelect value={labels} onChange={chooseLabels} />
       <LeafSearch names={names} onSelect={findLeaf} />
       <ZoomControls view={view} />
@@ -60,12 +60,12 @@ function Arg({ result }: { result: RunResult }) {
   const notice = useMemo<DrawingNotice | undefined>(
     () =>
       failure === undefined
-        ? shownScaleNotice(x, shownScale, "arg")
+        ? shownScaleNotice(scale, shownScale, "arg")
         : {
             tone: "warning",
             text: `The ARG could not be built: ${failure}. The MCCs and the other files are still valid.`,
           },
-    [failure, x, shownScale],
+    [failure, scale, shownScale],
   );
 
   return (

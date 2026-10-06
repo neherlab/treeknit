@@ -7,7 +7,7 @@ import { Button } from "../ui/Button";
 import { DisabledButton } from "../ui/DisabledButton";
 import { Select, type SelectOption } from "../ui/Select";
 import { ToggleButton, ToggleButtonGroup } from "../ui/ToggleButtonGroup";
-import { LABEL_MODES, TREE_VERSIONS, X_SCALES } from "../workspace/search";
+import { LABEL_MODES, TREE_VERSIONS, SCALES } from "../workspace/search";
 import { SCALE_LABELS } from "./scale";
 
 const VERSION_LABELS: Record<TreeVersion, string> = { input: "Input", resolved: "Resolved", imputed: "Imputed" };
@@ -20,9 +20,7 @@ const LABEL_MODE_OPTIONS: SelectOption<LabelMode>[] = LABEL_MODES.map((mode) => 
 const FIGURE_BUTTON_LABEL = "Download figure (SVG)";
 
 export function ScaleToggle({ value, onChange }: ChoiceProps<Scale>) {
-  return (
-    <ChoiceGroup label="Branch scale" choices={X_SCALES} labels={SCALE_LABELS} value={value} onChange={onChange} />
-  );
+  return <ChoiceGroup label="Branch scale" choices={SCALES} labels={SCALE_LABELS} value={value} onChange={onChange} />;
 }
 
 export function VersionToggle({ value, onChange }: ChoiceProps<TreeVersion>) {

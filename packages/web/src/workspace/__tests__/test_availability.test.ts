@@ -3,7 +3,7 @@ import { defaultScheduler, notifyManager, QueryClient } from "@tanstack/react-qu
 import { afterEach, describe, expect, test } from "vitest";
 
 import { type LoadedViews, subscribeToQueryCache, workspaceAvailability } from "../availability";
-import { resolveWorkspaceSearch, type WorkspaceSearch } from "../search";
+import { resolveWorkspaceSearch, type WorkspaceSearch, type WrittenSearch } from "../search";
 import type { RunResult } from "../store";
 
 const SUMMARY: Summary = {
@@ -37,28 +37,28 @@ const RESULT: RunResult = {
 
 const NOTHING_LOADED: LoadedViews = { pairView: () => undefined, argView: () => undefined };
 
-const SEARCH: WorkspaceSearch = {
+const SEARCH: WrittenSearch = {
   view: "tanglegram",
-  pair: 0,
   version: "resolved",
-  x: "div",
+  scale: "div",
   labels: "auto",
-  trees: "both",
   mcc: 1,
   leaf: "X",
   node: { side: "left", name: "NODE_1" },
 };
+
+const RESOLVED: WorkspaceSearch = { ...SEARCH, pair: 0, show: "both" };
 
 describe("workspace availability", () => {
   test("without a result has the tree count and nothing else", () => {
     const availability = workspaceAvailability(3, null, NOTHING_LOADED);
 
     expect({
-      counts: [availability.hasResult, availability.treeCount, availability.resultTreeCount, availability.pairCount],
+      counts: [availability.hasResult, availability.treeCount, availability.resultTreeCount, availability.pairLabels],
       mcc: availability.mccExists(0, 0),
       leaf: availability.leafExists(0, "X"),
       node: availability.nodeExists(0, { side: "left", name: "NODE_1" }),
-    }).toStrictEqual({ counts: [false, 3, 0, 0], mcc: false, leaf: false, node: false });
+    }).toStrictEqual({ counts: [false, 3, 0, []], mcc: false, leaf: false, node: false });
   });
 
   test("takes the tree and pair counts of the result, not of the current trees", () => {
@@ -68,8 +68,8 @@ describe("workspace availability", () => {
       availability.hasResult,
       availability.treeCount,
       availability.resultTreeCount,
-      availability.pairCount,
-    ]).toStrictEqual([true, 5, 2, 1]);
+      availability.pairLabels,
+    ]).toStrictEqual([true, 5, 2, [["ha", "na"]]]);
   });
 
   test("knows the MCC numbers and leaves of each pair", () => {
@@ -133,9 +133,9 @@ describe("workspace availability", () => {
       cleared: resolveWorkspaceSearch({ ...SEARCH, mcc: 5, leaf: "Y" }, workspaceAvailability(2, RESULT, loaded)),
       noResult: resolveWorkspaceSearch(SEARCH, workspaceAvailability(2, null, NOTHING_LOADED)),
     }).toStrictEqual({
-      kept: SEARCH,
-      cleared: { view: "tanglegram", pair: 0, version: "resolved", x: "div", labels: "auto", trees: "both" },
-      noResult: { view: "overview", pair: 0, version: "resolved", x: "div", labels: "auto", trees: "both" },
+      kept: RESOLVED,
+      cleared: { view: "tanglegram", pair: 0, version: "resolved", scale: "div", labels: "auto", show: "both" },
+      noResult: { view: "overview", pair: 0, version: "resolved", scale: "div", labels: "auto", show: "both" },
     });
   });
 });

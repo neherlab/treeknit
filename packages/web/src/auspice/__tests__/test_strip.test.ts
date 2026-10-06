@@ -24,10 +24,10 @@ describe("shownTreeIndices", () => {
 
 describe("shownFromStrip", () => {
   test.each([
-    ["two trees in run order", [0, 2], { pair: 1, trees: "both" }],
-    ["two trees in the order of their toggles", [3, 1], { pair: 4, trees: "both" }],
-    ["the first tree of the pair alone", [1], { pair: 4, trees: "left" }],
-    ["the second tree of the pair alone", [3], { pair: 4, trees: "right" }],
+    ["two trees in run order", [0, 2], { pair: 1, show: undefined }],
+    ["two trees in the order of their toggles", [3, 1], { pair: 4, show: undefined }],
+    ["the first tree of the pair alone, by its label", [1], { pair: 4, show: "t1" }],
+    ["the second tree of the pair alone, by its label", [3], { pair: 4, show: "t3" }],
   ] as const)("%s", (_case, selected, shown) => {
     expect(shownFromStrip(selected, PAIRS, { pair: 4, trees: "both" })).toStrictEqual(shown);
   });
@@ -43,7 +43,10 @@ describe("shownFromStrip", () => {
   test("maps the strip of the shown trees back to the same choice", () => {
     const current = { pair: 3, trees: "right" } as const;
 
-    expect(shownFromStrip(shownTreeIndices(pairOf(3, [1, 2]), "right"), PAIRS, current)).toStrictEqual(current);
+    expect(shownFromStrip(shownTreeIndices(pairOf(3, [1, 2]), "right"), PAIRS, current)).toStrictEqual({
+      pair: 3,
+      show: "t2",
+    });
   });
 });
 

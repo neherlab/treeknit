@@ -43,8 +43,8 @@ function Tanglegram({ result }: { result: RunResult }) {
   const { search, selection, select, clearOnEscape, choosePair, chooseVersion, chooseScale, chooseLabels } =
     useDrawingSearch();
 
-  const { pair, version, x, labels } = search;
-  const query = usePairView(result.sessionId, pair, version, x);
+  const { pair, version, scale, labels } = search;
+  const query = usePairView(result.sessionId, pair, version, scale);
   const data = query.data;
   const rows = useMemo(() => (data === undefined ? 1 : rowCount(data.left, data.right)), [data]);
   const view = useDrawingView(rows);
@@ -65,7 +65,7 @@ function Tanglegram({ result }: { result: RunResult }) {
     <>
       <PairSelect pairs={pairs} value={pair} onChange={choosePair} />
       <VersionToggle value={version} onChange={chooseVersion} />
-      <ScaleToggle value={x} onChange={chooseScale} />
+      <ScaleToggle value={scale} onChange={chooseScale} />
       <Switch label="Color branches by MCC" isSelected={colorByMcc} onChange={setColorByMcc} />
       <LabelModeSelect value={labels} onChange={chooseLabels} />
       <LeafSearch names={names} onSelect={findLeaf} />
@@ -78,7 +78,7 @@ function Tanglegram({ result }: { result: RunResult }) {
     <DrawingPanel
       toolbar={toolbar}
       failure={figure.failure}
-      notice={shownScaleNotice(x, data?.scale, "pair")}
+      notice={shownScaleNotice(scale, data?.scale, "pair")}
       query={query}
       loading="Loading the tanglegram"
       errorTitle="The tanglegram could not be loaded"

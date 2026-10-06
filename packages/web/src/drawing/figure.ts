@@ -12,8 +12,8 @@ export const FIGURE_UNLISTED = "The files of this run could not be listed.";
 
 export type FigureFile = { entry: FileEntry } | { disabledReason: string };
 
-export function figureOptions({ x, labels }: Pick<WorkspaceSearch, "x" | "labels">): FigureOptions {
-  return { scale: x, labels };
+export function figureOptions({ scale, labels }: Pick<WorkspaceSearch, "scale" | "labels">): FigureOptions {
+  return { scale, labels };
 }
 
 export interface FigureMutation {

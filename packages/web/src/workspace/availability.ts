@@ -6,10 +6,12 @@ import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { analysisKeys } from "../analysis/queries";
 import { internalNodeIndex } from "../drawing/trees";
 import { useWorkspace } from "./context";
-import { NO_WORKSPACE, type NodeRef, resolvePair, type WorkspaceAvailability } from "./search";
+import { NO_WORKSPACE, type NodeRef, type PairRef, resolvePair, type WorkspaceAvailability } from "./search";
 import type { RunResult } from "./store";
 
 const workspaceRoute = getRouteApi("/");
+
+const pairLabelCache = new WeakMap<RunResult, readonly PairRef[]>();
 
 export interface LoadedViews {
   pairView: (pair: number) => PairView | undefined;
@@ -24,22 +26,24 @@ export function useWorkspaceAvailability(): WorkspaceAvailability {
   const {
     pair: searchPair,
     version,
-    x,
+    scale,
   } = workspaceRoute.useSearch({
-    select: (search) => ({ pair: search.pair, version: search.version, x: search.x }),
+    select: (search) => ({ pair: search.pair, version: search.version, scale: search.scale }),
     structuralSharing: true,
   });
 
-  const pair = resolvePair(searchPair, result?.summary.pairs.length ?? 0);
+  const pair = resolvePair(searchPair, pairLabels(result));
 
   const loadedPair = useCachedData((queryClient) =>
     sessionId === undefined
       ? undefined
-      : queryClient.getQueryData<PairView>(analysisKeys.pairView(sessionId, pair, version, x)),
+      : queryClient.getQueryData<PairView>(analysisKeys.pairView(sessionId, pair, version, scale)),
   );
 
   const loadedArg = useCachedData((queryClient) =>
-    sessionId === undefined ? undefined : queryClient.getQueryData<ArgView | null>(analysisKeys.argView(sessionId, x)),
+    sessionId === undefined
+      ? undefined
+      : queryClient.getQueryData<ArgView | null>(analysisKeys.argView(sessionId, scale)),
   );
 
   return useMemo(
@@ -82,11 +86,29 @@ export function workspaceAvailability(
     hasResult: true,
     treeCount,
     resultTreeCount: result.request.trees.length,
-    pairCount: pairs.length,
+    pairLabels: pairLabels(result),
     mccExists: (pair, mcc) => Number.isInteger(mcc) && mcc >= 0 && mcc < (pairs[pair]?.mccCount ?? 0),
     leafExists: (pair, leaf) => leavesOf(pair).has(leaf),
     nodeExists: (pair, node) => pair < pairs.length && nodeInLoadedView(pair, node, views),
   };
+}
+
+export function pairLabels(result: RunResult | null): readonly PairRef[] {
+  if (result === null) {
+    return NO_WORKSPACE.pairLabels;
+  }
+
+  const cached = pairLabelCache.get(result);
+
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const labels = result.summary.pairs.map(({ labels: [first, second] }): PairRef => [first, second]);
+
+  pairLabelCache.set(result, labels);
+
+  return labels;
 }
 
 function nodeInLoadedView(pair: number, node: NodeRef, views: LoadedViews): boolean {

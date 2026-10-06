@@ -7,8 +7,9 @@ import { InfoButton } from "../ui/InfoButton";
 import { InlineNotice, NoticeRegion } from "../ui/InlineNotice";
 import { Link } from "../ui/Link";
 import { Cell, Column, Row, Table, TableBody, TableHeader } from "../ui/Table";
-import { selectPair, type WorkspaceSearch } from "../workspace/search";
+import { selectPair, type WrittenSearch } from "../workspace/search";
 import type { RunResult } from "../workspace/store";
+import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 import { Matrix } from "./Matrix";
 import { type MatrixCell, type PairCell, resultOverview } from "./overviewModel";
 
@@ -120,9 +121,11 @@ interface FigureProps {
 }
 
 function PairLink({ pair, children }: PairLinkProps) {
+  const { pairLabels } = useWorkspaceSearch();
+
   const target = useCallback(
-    (search: WorkspaceSearch): WorkspaceSearch => ({ ...selectPair(search, pair), view: "tanglegram" }),
-    [pair],
+    (search: WrittenSearch): WrittenSearch => ({ ...selectPair(search, pairLabels, pair), view: "tanglegram" }),
+    [pairLabels, pair],
   );
 
   return (
