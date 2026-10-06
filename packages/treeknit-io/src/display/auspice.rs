@@ -131,7 +131,7 @@ fn colorings(mccs: &[MccInfo], largest: &[usize], left: &str, right: &str) -> Ve
     key: key.to_owned(),
     title: title.to_owned(),
     kind: AuspiceColoringKind::Categorical,
-    scale,
+    scale: Some(scale),
   };
   let yes_no = |key: &str, title: &str| {
     categorical(
@@ -165,7 +165,7 @@ fn colorings(mccs: &[MccInfo], largest: &[usize], left: &str, right: &str) -> Ve
       key: MCC_SIZE_KEY.to_owned(),
       title: "MCC size".to_owned(),
       kind: AuspiceColoringKind::Continuous,
-      scale: Vec::new(),
+      scale: None,
     },
     yes_no(REASSORTMENT_KEY, "Reassortment branch"),
     yes_no(IMPUTED_KEY, "Imputed leaf"),
@@ -386,7 +386,7 @@ mod tests {
       key: key.to_owned(),
       title: title.to_owned(),
       kind: AuspiceColoringKind::Categorical,
-      scale,
+      scale: Some(scale),
     };
     AuspiceMeta {
       title: "TreeKnit: ha and na".to_owned(),
@@ -415,7 +415,7 @@ mod tests {
           key: "mcc_size".to_owned(),
           title: "MCC size".to_owned(),
           kind: AuspiceColoringKind::Continuous,
-          scale: vec![],
+          scale: None,
         },
         categorical("reassortment", "Reassortment branch", yes_no.clone()),
         categorical("imputed", "Imputed leaf", yes_no.clone()),
@@ -614,7 +614,7 @@ mod tests {
       .find(|c| c.key == "largest_mcc")
       .unwrap();
     assert!(mccs.len() > 8, "the example has more than 8 MCCs");
-    assert_eq!(expected, largest.scale);
+    assert_eq!(Some(&expected), largest.scale.as_ref());
     // Every leaf outside the 8 largest MCCs has the value "Other".
     let kept: BTreeSet<String> = expected.iter().map(|(name, _)| name.clone()).collect();
     let mut stack = vec![&view.left.tree];

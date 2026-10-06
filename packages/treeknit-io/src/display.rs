@@ -660,9 +660,8 @@ pub struct AuspiceColoring {
   pub kind: AuspiceColoringKind,
   /// `[value, color]` per value, the color as `#rrggbb`.
   /// Absent for a continuous coloring, which Auspice colors with its own scale.
-  #[serde(skip_serializing_if = "Vec::is_empty")]
-  #[cfg_attr(feature = "tsify", tsify(optional))]
-  pub scale: Vec<(String, String)>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub scale: Option<Vec<(String, String)>>,
 }
 
 /// Type of an Auspice coloring.
@@ -703,7 +702,6 @@ pub struct AuspiceNode {
   pub branch_attrs: AuspiceBranchAttrs,
   /// The children in display order; absent for a leaf.
   #[serde(skip_serializing_if = "Option::is_none")]
-  #[cfg_attr(feature = "tsify", tsify(optional))]
   pub children: Option<Vec<AuspiceNode>>,
 }
 
@@ -717,38 +715,30 @@ pub struct AuspiceNodeAttrs {
   /// The number of the node's MCC, its index in `MCCs.json` plus 1; absent for a node without
   /// an MCC.
   #[serde(skip_serializing_if = "Option::is_none")]
-  #[cfg_attr(feature = "tsify", tsify(optional))]
   pub mcc: Option<AuspiceValue>,
   /// The MCC's value of `mcc` when the MCC is one of the 8 largest of the pair, "Other" for
   /// another MCC; absent for a node without an MCC.
   #[serde(skip_serializing_if = "Option::is_none")]
-  #[cfg_attr(feature = "tsify", tsify(optional))]
   pub largest_mcc: Option<AuspiceValue>,
   /// The number of leaves of the node's MCC; absent for a node without an MCC.
   #[serde(skip_serializing_if = "Option::is_none")]
-  #[cfg_attr(feature = "tsify", tsify(optional))]
   pub mcc_size: Option<AuspiceNumber>,
   /// "Yes" when the branch above the node is a reassortment branch, "No" otherwise; absent for
   /// the root.
   #[serde(skip_serializing_if = "Option::is_none")]
-  #[cfg_attr(feature = "tsify", tsify(optional))]
   pub reassortment: Option<AuspiceValue>,
   /// For a leaf: "Yes" when imputation placed it into the tree.
   #[serde(skip_serializing_if = "Option::is_none")]
-  #[cfg_attr(feature = "tsify", tsify(optional))]
   pub imputed: Option<AuspiceValue>,
   /// For an internal node: "Yes" when resolution or imputation added it.
   #[serde(skip_serializing_if = "Option::is_none")]
-  #[cfg_attr(feature = "tsify", tsify(optional))]
   pub added: Option<AuspiceValue>,
   /// For a leaf: "Yes" when the other tree of the pair lacks it.
   #[serde(skip_serializing_if = "Option::is_none")]
-  #[cfg_attr(feature = "tsify", tsify(optional))]
   pub one_tree: Option<AuspiceValue>,
   /// For a leaf with an MCC: "Ambiguous" when its attachment to the MCC is ambiguous, otherwise
   /// "Unambiguous".
   #[serde(skip_serializing_if = "Option::is_none")]
-  #[cfg_attr(feature = "tsify", tsify(optional))]
   pub attachment: Option<AuspiceValue>,
 }
 
@@ -772,7 +762,6 @@ pub struct AuspiceNumber {
 pub struct AuspiceBranchAttrs {
   /// Absent for a branch without labels.
   #[serde(skip_serializing_if = "Option::is_none")]
-  #[cfg_attr(feature = "tsify", tsify(optional))]
   pub labels: Option<AuspiceBranchLabels>,
 }
 
