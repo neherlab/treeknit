@@ -342,8 +342,9 @@ export function searchAfterRun(
   search: WrittenSearch,
   outcome: RunOutcome,
   storedSessionId: number | undefined,
+  keepView: boolean,
 ): WrittenSearch {
   const stored = outcome.status === "succeeded" && outcome.sessionId === storedSessionId;
 
-  return stored ? { ...search, view: "auspice" } : search;
+  return stored && !keepView ? { ...search, view: "auspice" } : search;
 }

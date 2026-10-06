@@ -970,6 +970,30 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
+  fn apply_settings_replaces_the_values_of_the_patch() {
+    let base = json!({"gamma": 3, "seed": 9});
+    let patch = json!({
+        "gamma": null, "seqLengths": null, "nMcmcIt": null, "resolve": "strict", "preResolve": null,
+        "rounds": null, "finalRound": false, "likelihood": null, "naive": null, "seed": 7,
+    });
+    let settings = plain(
+      &treeknit_wasm::apply_settings(&ts(&base), &ts(&patch))
+        .unwrap()
+        .js_value(),
+    );
+    let expected = json!([3, "strict", false, 7]);
+    assert_eq!(
+      expected,
+      json!([
+        settings["gamma"],
+        settings["resolve"],
+        settings["finalRound"],
+        settings["seed"]
+      ])
+    );
+  }
+
+  #[wasm_bindgen_test]
   fn decode_tree_bytes_rejects_a_web_page() {
     let error = treeknit_wasm::decode_tree_bytes(b"<!doctype html><p>404</p>").unwrap_err();
     assert_eq!("a web page, not a tree file", message(error));

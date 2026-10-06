@@ -6,6 +6,7 @@ import { Header } from "../shell/Header";
 import { ExternalLink } from "../ui/ExternalLink";
 import { useWorkspace } from "../workspace/context";
 import { CITE_REQUEST, Citation } from "./Citation";
+import { LinkHelp, MessageHelp } from "./LinkHelp";
 
 const AUSPICE_URL = "https://docs.nextstrain.org/projects/auspice";
 
@@ -150,6 +151,12 @@ export function HelpPage() {
               file when leaf names contain spaces or any of the characters{" "}
               <code className="font-mono text-sm">{ICYTREE_CHARACTERS}</code>.
             </p>
+          </HelpSection>
+          <HelpSection id="help-links" title="Open TreeKnit from a link">
+            <LinkHelp />
+          </HelpSection>
+          <HelpSection id="help-messages" title="Send trees from another page">
+            <MessageHelp />
           </HelpSection>
           <HelpSection id="help-cite" title="How to cite">
             <p>{CITE_REQUEST}</p>

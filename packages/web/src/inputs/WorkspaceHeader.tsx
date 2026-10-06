@@ -4,6 +4,7 @@ import OpenIcon from "~icons/lucide/folder-open";
 import RestoredIcon from "~icons/lucide/history";
 import ClearIcon from "~icons/lucide/trash-2";
 
+import { LaunchNotices } from "../launch/LaunchNotices";
 import { PersistenceSwitch } from "../persistence/PersistenceSwitch";
 import { FilePicker, type FilePickerHandle } from "../ui/FilePicker";
 import { IconButton } from "../ui/IconButton";
@@ -61,6 +62,7 @@ export function WorkspaceHeader() {
           </p>
         ) : null}
       </NoticeRegion>
+      <LaunchNotices />
       {error === null ? null : (
         <InlineNotice tone="danger" onDismiss={dismissError}>
           {error}

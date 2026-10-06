@@ -5,6 +5,7 @@ import type { UndoEntry, WorkspaceReplacement } from "./store";
 const REPLACEMENT_MESSAGES: Record<WorkspaceReplacement, string> = {
   clear: "Workspace cleared",
   session: "Session file opened",
+  link: "Link opened",
 };
 
 export function undoMessage(entry: UndoEntry): string {

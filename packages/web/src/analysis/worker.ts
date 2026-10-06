@@ -1,4 +1,5 @@
 import {
+  applySettings,
   decodeTreeBytes,
   defaultSettings,
   drawingRules,
@@ -42,6 +43,7 @@ class AnalysisWorker implements WorkerApi {
   readonly linkLimits = linkLimits;
   readonly launchPairs = launchPairs;
   readonly inlineSession = inlineSession;
+  readonly applySettings = applySettings;
   readonly version = version;
   readonly palette = palette;
   readonly drawingRules = drawingRules;

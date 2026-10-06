@@ -477,6 +477,7 @@ function fakeApi(overrides: Partial<FakeApi>): FakeApi {
     linkLimits: missing,
     launchPairs: missing,
     inlineSession: missing,
+    applySettings: missing,
     version: missing,
     palette: missing,
     drawingRules: missing,

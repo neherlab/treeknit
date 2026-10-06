@@ -531,7 +531,7 @@ pub enum MessageSource {
 }
 
 /// A setting value of a link for each field of `Settings`; `None` keeps the value of the base.
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct SettingsPatch {

@@ -45,7 +45,7 @@ export type UndoEntry =
     }
   | { kind: "settings"; settings: Settings };
 
-export type WorkspaceReplacement = "clear" | "session";
+export type WorkspaceReplacement = "clear" | "session" | "link";
 
 export interface WorkspaceData {
   trees: WorkspaceTree[];
@@ -73,6 +73,7 @@ export interface WorkspaceActions {
   setSeqLengthsEnabled(enabled: boolean): Promise<void>;
   clear(): void;
   loadRequest(request: AnalysisRequest): void;
+  openLink(request: AnalysisRequest, sources: readonly TreeSource[]): void;
   runStarted(runId: number, request: AnalysisRequest): void;
   runProgressed(runId: number, progress: Progress): void;
   runFinished(runId: number, outcome: RunOutcome): void;
@@ -412,6 +413,26 @@ export function createWorkspaceStore(
             state.nextTreeNumber += trees.length;
             state.nextTextId += trees.length;
             replaceWorkspace(state, "session", trees, request.settings ?? defaults);
+          });
+        },
+
+        openLink(request, sources) {
+          if (isDeepEqual(selectRequest(get()), request)) {
+            set((state) => {
+              state.trees.forEach((tree, index) => {
+                tree.source = sources[index] ?? tree.source;
+              });
+            });
+
+            return;
+          }
+
+          replaceWorkspaceWith((state) => {
+            const trees = sessionTrees(request, sources, { tree: state.nextTreeNumber, text: state.nextTextId });
+
+            state.nextTreeNumber += trees.length;
+            state.nextTextId += trees.length;
+            replaceWorkspace(state, "link", trees, request.settings ?? defaults);
           });
         },
 

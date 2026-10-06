@@ -495,9 +495,13 @@ describe("searchAfterRun", () => {
   test.each(["overview", "files", "tanglegram"] as const)(
     "opens the Auspice view from the %s view for a stored result, keeping pair, version, and scale",
     (view) => {
-      expect(searchAfterRun({ ...SHOWN, view }, SUCCEEDED, 7)).toStrictEqual({ ...SHOWN, view: "auspice" });
+      expect(searchAfterRun({ ...SHOWN, view }, SUCCEEDED, 7, false)).toStrictEqual({ ...SHOWN, view: "auspice" });
     },
   );
+
+  test("keeps the view that a link names for the run it starts", () => {
+    expect(searchAfterRun({ ...SHOWN, view: "mccs" }, SUCCEEDED, 7, true)).toStrictEqual({ ...SHOWN, view: "mccs" });
+  });
 
   test.each<{ run: string; outcome: RunOutcome; stored: number | undefined }>([
     { run: "a cancelled", outcome: { status: "failed", kind: "cancelled", message: "Run cancelled." }, stored: 7 },
@@ -508,7 +512,7 @@ describe("searchAfterRun", () => {
   ])("leaves the search unchanged after $run run", ({ outcome, stored }) => {
     const search: WrittenSearch = { ...SHOWN, view: "files" };
 
-    expect(searchAfterRun(search, outcome, stored)).toStrictEqual(search);
+    expect(searchAfterRun(search, outcome, stored, false)).toStrictEqual(search);
   });
 });
 

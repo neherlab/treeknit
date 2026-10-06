@@ -11,7 +11,7 @@ use treeknit_io::display::{
 use treeknit_io::examples::{self, ExampleInfo};
 use treeknit_io::figure::FigureOptions;
 use treeknit_io::inspect::{self, Overlap, TreeInspection};
-use treeknit_io::launch::{self, LaunchKeyInfo, LaunchParse, LinkEntry, LinkLimits, LinkSource};
+use treeknit_io::launch::{self, LaunchKeyInfo, LaunchParse, LinkEntry, LinkLimits, LinkSource, SettingsPatch};
 use treeknit_io::output::{
   self, Archive, AuspiceFiles, FigureDownload, FigureFile, FileEntry, OutputFile, OutputOptions, WebFile,
 };
@@ -133,6 +133,13 @@ pub fn parse_launch(
     .map(|(i, e)| from_js(&format!("entries[{i}]"), e))
     .collect::<Result<Vec<_>, _>>()?;
   to_js(&launch::parse_launch(&LinkEntry::pairs(&entries), &view_keys))
+}
+
+/// The settings of `base` with the values of the link's `patch`.
+#[wasm_bindgen(js_name = applySettings)]
+pub fn apply_settings(base: &Ts<Settings>, patch: &Ts<SettingsPatch>) -> Result<Ts<Settings>, JsError> {
+  let _log = log_capture::discard();
+  to_js(&launch::apply(&from_js("base", base)?, &from_js("patch", patch)?))
 }
 
 /// The text of a downloaded tree or session file: decompressed when gzip-compressed; throws when

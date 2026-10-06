@@ -27,6 +27,7 @@ export function useWorkspaceSearch(): WorkspaceSearchState {
       navigate({
         search: (written: WrittenSearch) => withSelectionPair(written, change(written), pairLabels, resolvedPair),
         replace: options?.replace ?? false,
+        hash: true,
       }).catch((cause: unknown) => {
         setFailure(new Error(`The view could not be updated: ${getErrorMessage(cause) ?? String(cause)}`, { cause }));
       });

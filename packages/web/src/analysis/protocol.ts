@@ -18,6 +18,7 @@ export type StatelessApi = Pick<
   | "linkLimits"
   | "launchPairs"
   | "inlineSession"
+  | "applySettings"
   | "version"
   | "palette"
   | "drawingRules"

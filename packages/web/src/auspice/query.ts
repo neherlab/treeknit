@@ -5,6 +5,25 @@ import { omit } from "remeda";
 import type { WrittenSearch } from "../workspace/search";
 import type { AuspiceControlsState, AuspiceFilterValue } from "./state";
 
+export const AUSPICE_KEYS = {
+  colorBy: "c",
+  layout: "l",
+  tipLabel: "tl",
+  branchLabel: "branchLabel",
+  showBranchLabels: "showBranchLabels",
+  legend: "legend",
+  focus: "focus",
+  strain: "s",
+} as const;
+
+export const AUSPICE_FILTER_PREFIX = "f_";
+
+const AUSPICE_KEY_NAMES: ReadonlySet<string> = new Set(Object.values(AUSPICE_KEYS));
+
+export function isAuspiceKey(key: string): boolean {
+  return AUSPICE_KEY_NAMES.has(key) || (key.startsWith(AUSPICE_FILTER_PREFIX) && key.length > AUSPICE_FILTER_PREFIX.length);
+}
+
 export function auspiceQuery(controls: AuspiceControlsState): string {
   const { defaults, selectedNode } = controls;
 
@@ -16,38 +35,38 @@ export function auspiceQuery(controls: AuspiceControlsState): string {
   const query = new URLSearchParams();
 
   if (controls.colorBy !== defaults.colorBy) {
-    query.set("c", controls.colorBy);
+    query.set(AUSPICE_KEYS.colorBy, controls.colorBy);
   }
 
   if (controls.layout !== defaults.layout) {
-    query.set("l", controls.layout);
+    query.set(AUSPICE_KEYS.layout, controls.layout);
   }
 
   if (controls.tipLabelKey !== defaults.tipLabelKey) {
-    query.set("tl", controls.tipLabelKey === strainSymbol ? strainSymbolUrlString : String(controls.tipLabelKey));
+    query.set(AUSPICE_KEYS.tipLabel, controls.tipLabelKey === strainSymbol ? strainSymbolUrlString : String(controls.tipLabelKey));
   }
 
   if (controls.selectedBranchLabel !== defaults.selectedBranchLabel) {
-    query.set("branchLabel", controls.selectedBranchLabel);
+    query.set(AUSPICE_KEYS.branchLabel, controls.selectedBranchLabel);
   }
 
   if (controls.showAllBranchLabels) {
-    query.set("showBranchLabels", "all");
+    query.set(AUSPICE_KEYS.showBranchLabels, "all");
   }
 
   if (controls.legendOpen === true) {
-    query.set("legend", "open");
+    query.set(AUSPICE_KEYS.legend, "open");
   }
 
   if (controls.focus === "selected") {
-    query.set("focus", "selected");
+    query.set(AUSPICE_KEYS.focus, "selected");
   }
 
   for (const key of Object.keys(controls.filters).toSorted()) {
-    setFilter(query, `f_${key}`, controls.filters[key], undefined);
+    setFilter(query, `${AUSPICE_FILTER_PREFIX}${key}`, controls.filters[key], undefined);
   }
 
-  setFilter(query, "s", controls.filters[strainSymbol], markedLeaf);
+  setFilter(query, AUSPICE_KEYS.strain, controls.filters[strainSymbol], markedLeaf);
 
   return query.toString();
 }

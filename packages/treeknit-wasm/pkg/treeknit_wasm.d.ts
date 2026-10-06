@@ -1705,6 +1705,11 @@ export class Session {
 }
 
 /**
+ * The settings of `base` with the values of the link's `patch`.
+ */
+export function applySettings(base: Settings, patch: SettingsPatch): Settings;
+
+/**
  * The text of a downloaded tree or session file: decompressed when gzip-compressed; throws when
  * it is not UTF-8 text or is a web page.
  */
@@ -1814,6 +1819,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_session_free: (a: number, b: number) => void;
+    readonly applySettings: (a: any, b: any) => [number, number, number];
     readonly decodeTreeBytes: (a: number, b: number) => [number, number, number, number];
     readonly defaultSettings: () => [number, number, number];
     readonly drawingRules: () => [number, number, number];

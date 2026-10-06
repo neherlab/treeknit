@@ -1,11 +1,10 @@
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-import type { RunHandle, RunOutcome } from "../analysis/client";
 import { useAnalysisClient } from "../analysis/context";
 import { useWorkspaceStore } from "./context";
+import { type FinishedRun, runAnalysis } from "./runAnalysis";
 import { searchAfterRun } from "./search";
-import { selectRequest, selectRunning } from "./store";
 import { useWorkspaceSearch } from "./useWorkspaceSearch";
 
 export function useRunAnalysis(): RunControl {
@@ -13,35 +12,22 @@ export function useRunAnalysis(): RunControl {
   const store = useWorkspaceStore();
   const { update } = useWorkspaceSearch();
 
-  const { mutate } = useMutation<RunOutcome, Error, RunHandle>({
-    mutationFn: async (handle) => {
-      const outcome = await handle.outcome;
+  const { mutate } = useMutation<FinishedRun | null, Error, Promise<FinishedRun | null>>({
+    mutationFn: async (running) => {
+      const finished = await running;
 
-      store.getState().runFinished(handle.runId, outcome);
+      if (finished !== null) {
+        update((written) => searchAfterRun(written, finished.outcome, finished.storedSessionId, false), {
+          replace: true,
+        });
+      }
 
-      const stored = store.getState().result?.sessionId;
-
-      update((written) => searchAfterRun(written, outcome, stored), { replace: true });
-
-      return outcome;
+      return finished;
     },
   });
 
   const run = useCallback(() => {
-    const state = store.getState();
-
-    if (selectRunning(state)) {
-      return;
-    }
-
-    const request = selectRequest(state);
-
-    const handle = client.startRun(request, (progress) => {
-      store.getState().runProgressed(handle.runId, progress);
-    });
-
-    store.getState().runStarted(handle.runId, request);
-    mutate(handle);
+    mutate(runAnalysis(client, store));
   }, [client, store, mutate]);
 
   const cancel = useCallback(() => {

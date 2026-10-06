@@ -35,6 +35,7 @@ export interface AnalysisClient {
   linkLimits(): StatelessResult<"linkLimits">;
   launchPairs(...args: StatelessArgs<"launchPairs">): StatelessResult<"launchPairs">;
   inlineSession(...args: StatelessArgs<"inlineSession">): StatelessResult<"inlineSession">;
+  applySettings(...args: StatelessArgs<"applySettings">): StatelessResult<"applySettings">;
   version(): StatelessResult<"version">;
   palette(): StatelessResult<"palette">;
   drawingRules(): StatelessResult<"drawingRules">;
@@ -158,6 +159,10 @@ export class WorkerAnalysisClient implements AnalysisClient {
 
   async inlineSession(...args: StatelessArgs<"inlineSession">): StatelessResult<"inlineSession"> {
     return this.#stateless((remote) => remote.inlineSession(...args));
+  }
+
+  async applySettings(...args: StatelessArgs<"applySettings">): StatelessResult<"applySettings"> {
+    return this.#stateless((remote) => remote.applySettings(...args));
   }
 
   async version(): StatelessResult<"version"> {
