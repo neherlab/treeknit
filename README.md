@@ -14,7 +14,7 @@ Compared with the Julia version:
 
 ## Usage
 
-Releases and nightly builds of `main` are on the [releases page](https://github.com/neherlab/treeknit-rs/releases): the CLI for Linux, macOS, and Windows, with the changes of each release in `CHANGELOG.md`. The [web app](https://neherlab.github.io/treeknit-rs/) runs the same analyses in the browser. To build the CLI from source:
+Releases and nightly builds of `main` are on the [releases page](https://github.com/neherlab/treeknit-rs/releases): the CLI for Linux, macOS, and Windows, with the changes of each release in `CHANGELOG.md`. The [web app](https://neherlab.github.io/treeknit-rs/) runs the same analyses in the browser, and a link to it can name trees, settings, a run, and a view, such as [`?example=h3n2-2017&run&view=tanglegram`](https://neherlab.github.io/treeknit-rs/?example=h3n2-2017&run&view=tanglegram); its help page lists the keys, which the analysis options of the command line share. To build the CLI from source:
 
 ```sh
 cargo build --release
@@ -26,16 +26,19 @@ Main options:
 | Option | Effect |
 |---|---|
 | `-g/--gamma` | cost of a reassortment (default 2) |
-| `--seq-lengths "1700 1400"` | segment lengths for the branch-length tie-break |
+| `HA=seg4.nwk`, `https://...` | trees: files (gzip-compressed or not) or https: addresses, with an optional label |
+| `--seq-lengths 1700,1400` | segment lengths for the branch-length tie-break |
 | `--resolve matched\|strict\|liberal\|none` | how trees are resolved (default `matched`, see below); `--help-resolve` explains the modes |
-| `--pre-resolve`, `--rounds`, `--no-final-round` | further control of tree resolution |
+| `--pre-resolve`, `--rounds`, `--no-final-round` | further control of tree resolution; each flag has its opposite (`--no-pre-resolve`, `--final-round`, `--likelihood`, `--no-naive`) |
 | `--naive` | naive MCCs (γ → ∞) |
 | `--impute` | also write trees with missing leaves placed |
 | `--auspice-view` | auspice JSON for tanglegrams |
 | `--plot` | SVG figures: a tanglegram per pair and, for two trees, the ARG |
 | `--seed`, `--threads` | reproducibility and parallelism |
 | `-v`, `--verbosity-level` | logging detail |
-| `--session treeknit_session.json` | run the trees and settings of a session file saved by the web app, instead of tree files and analysis options |
+| `--session treeknit_session.json` | run the trees and settings of a session file saved by the web app, a path or an https: address; analysis options change its settings |
+| `--example h3n2-2017`, `--list-examples` | run a built-in example of the web app, or list them |
+| `--link <url>`, `--print-link` | run a link of the web app, or print the link that runs the analysis in the browser |
 
 Output in the results directory:
 
@@ -51,7 +54,7 @@ Output in the results directory:
 | `tanglegram_<a>_<b>.svg` | with `--plot`: the tanglegram of the resolved trees of each pair, with MCC colors and reassortment branches marked |
 | `ARG/arg.svg` | with `--plot`, two trees with a built ARG: the ARG, colored by segment, with reassortments as dashed curves |
 | `parameters.json`, `log.txt` | parameters and log of the run |
-| `treeknit_session.json` | with `--session`: the trees and settings that ran |
+| `treeknit_session.json` | with `--session`, `--example`, `--link`, or `--print-link`: the trees and settings that ran |
 
 ## Resolving trees
 

@@ -10,7 +10,7 @@ wasm-bindgen writes the JavaScript module, the WebAssembly binary, and the TypeS
 
 ## Interface
 
-Every value that crosses the boundary is a Rust type of `treeknit-io` (modules `analysis`, `inspect`, `schema`, `output`, `summary`, `progress`, `display`, `palette`, `figure`, `version`), which the command line uses too, and derives its TypeScript declaration with tsify. Field names are camelCase and enums are lowercase strings, as in `pkg/treeknit_wasm.d.ts`.
+Every value that crosses the boundary is a Rust type of `treeknit-io` (modules `analysis`, `inspect`, `schema`, `output`, `summary`, `progress`, `display`, `palette`, `figure`, `version`, `launch`, `examples`), which the command line uses too, and derives its TypeScript declaration with tsify. Field names are camelCase and enums are lowercase strings, as in `pkg/treeknit_wasm.d.ts`.
 
 Stateless functions:
 
@@ -22,6 +22,14 @@ Stateless functions:
 - `readSession(text): AnalysisRequest`: the request of a session file; throws when its JSON structure is invalid
 - `sessionFile(request): OutputFile`: the session file `treeknit_session.json`
 - `treeLabels(fileNames, existingLabels): string[]`: labels for loaded files, unique against the existing labels
+- `parseLaunch(entries, viewKeys): LaunchParse`: the launch of the key-value pairs of a link (input, settings patch, `run`), every error at its key, and the ignored keys with their suggestion
+- `launchPairs(source): LinkEntry[] | undefined`: the key-value pairs of the canonical link of a request whose trees have the given addresses; `undefined` when a tree has no address
+- `inlineSession(request): string`: the gzip-compressed, base64-encoded session file as a `data:` location for the fragment of a link
+- `applySettings(base, patch): Settings`: the settings of a base with the values of a link
+- `decodeTreeBytes(bytes): string`: the text of a downloaded file, decompressed when gzip-compressed; throws for text that is not UTF-8 or is a web page
+- `examples(): ExampleInfo[]`: the built-in examples with their ids, groups, and trees
+- `launchKeys(): LaunchKeyInfo[]`: every key of links besides the keys of the display, with its value and description
+- `linkLimits(): LinkLimits`: the time and size limits of downloads and the length limits of links
 - `version(): AppVersion`: the TreeKnit version and the repository URL
 - `palette(): Palette`: the drawing colors of the light and the dark theme
 - `drawingRules(): DrawingRules`: the drawing rules that depend on the drawn size: labels in mode `auto` from `labelAutoMinRowPx` (10) px per row, one curve per link from `linkMinRowPx` (6) px per row and ribbons below it, labels shortened in the middle to `labelMaxChars` (40) characters; the columns of a drawing (margin, label gap, link zone share and its minimum, the largest label column shares); and the stroke widths, mark sizes, opacities, and dash patterns
