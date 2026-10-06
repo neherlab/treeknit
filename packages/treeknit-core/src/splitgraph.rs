@@ -223,6 +223,10 @@ pub struct EnergyState<'g> {
   cand: Vec<usize>,
   /// Buffer of the first non-trivial ancestor of a leaf in each color.
   anc: Vec<usize>,
+  /// Number of flips so far.
+  flips: u64,
+  /// `stamp[i]`: the last flip that recomputed the term of leaf `i`.
+  stamp: Vec<u64>,
 }
 
 impl<'g> EnergyState<'g> {
@@ -243,6 +247,8 @@ impl<'g> EnergyState<'g> {
       old: vec![],
       cand: vec![],
       anc: vec![0; g.k()],
+      flips: 0,
+      stamp: vec![0; g.n],
     };
     let mut anc = std::mem::take(&mut s.anc);
     for i in 0..g.n {
@@ -347,8 +353,9 @@ impl<'g> EnergyState<'g> {
     self.conf.toggle(j);
     self.update_counts(j, add);
     self.candidates(j, &mut cand);
-    cand.sort_unstable();
-    cand.dedup();
+    self.flips += 1;
+    let (flips, stamp) = (self.flips, &mut self.stamp);
+    cand.retain(|&i| std::mem::replace(&mut stamp[i], flips) != flips);
     self.old.clear();
     for &i in &cand {
       let t = self.leaf_term(i, &mut anc);
