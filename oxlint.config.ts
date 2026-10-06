@@ -168,7 +168,18 @@ export default defineConfig({
   rules: {
     "no-comments/disallowComments": [
       "error",
-      { allow: ["oxlint-", "@ts-expect-error", "\\* @internal", "/ <reference", "/usr/bin/env"] },
+      {
+        allow: [
+          "oxlint-",
+          "@ts-expect-error",
+          "\\* @internal",
+          "/ <reference",
+          "/usr/bin/env",
+          "TODO",
+          "FIXME",
+          "HACK",
+        ],
+      },
     ],
 
     "sonarjs/class-name": "error",
