@@ -5,6 +5,7 @@
 
 #[cfg(test)]
 mod tests {
+  use approx::abs_diff_eq;
   use ctor::ctor;
   use rstest::rstest;
   use serde_json::Value;
@@ -257,10 +258,13 @@ mod tests {
           );
           if let Some(lk) = entry["lk"].as_f64() {
             let got = g.likelihood(&conf, true, &[&r1, &r2], &sl);
+            // The largest difference over the fixtures is 4.5e-13, one ulp of a likelihood near
+            // 3000; the tolerance leaves about ten ulps at the largest likelihood, 7344, for
+            // another build of the logarithm.
             r.check(
               &case,
-              &format!("lk[{q}]"),
-              &((got - lk).abs() < 1e-8 * (1.0 + lk.abs())),
+              &format!("lk[{q}] = {lk}, got {got}"),
+              &abs_diff_eq!(lk, got, epsilon = 1e-11),
               &true,
             );
           }

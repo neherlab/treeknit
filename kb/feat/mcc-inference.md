@@ -65,7 +65,7 @@ Counterpart: [`v0/mcc-inference.md`](v0/mcc-inference.md). `fn infer_pair` takes
 ## Branch-length likelihood
 
 - [x] **Log-ratio $\ell(\tau_1, \tau_2)$**: the Poisson log-ratio of TreeKnit.jl, with the term $-\bar n_k$ when $n_k = 0$ [[src](../../packages/treeknit-core/src/splitgraph.rs#L359-L366)]
-- [x] **Configuration likelihood**: the mean over the compatible ancestor pairs of kept leaves and over all ordered tree pairs of removed leaves, as in TreeKnit.jl [[src](../../packages/treeknit-core/src/splitgraph.rs#L106-L139)]. This combination differs from the published method in the same way (see [`treeknit-paper-vs-code.md`](../reports/treeknit-paper-vs-code.md)). Fixture comparison: `lk` of every configuration, with a computed tolerance ([`N-fixture-likelihood-tolerance.md`](../issues/N-fixture-likelihood-tolerance.md))
+- [x] **Configuration likelihood**: the mean over the compatible ancestor pairs of kept leaves and over all ordered tree pairs of removed leaves, as in TreeKnit.jl [[src](../../packages/treeknit-core/src/splitgraph.rs#L106-L139)]. This combination differs from the published method in the same way (see [`treeknit-paper-vs-code.md`](../reports/treeknit-paper-vs-code.md)). Fixture comparison: `lk` of every configuration, within an absolute `1e-11`
 - [x] **Missing lengths**: one or two missing lengths give 0. TreeKnit.jl gives `missing` for one
 - [x] **Sequence lengths**: from `--seq-lengths`. TreeKnit.jl uses length 1 for every tree on the command line
 - Not ported: the ignored `mode` keyword and the uncalled `conf_likelihood_times`

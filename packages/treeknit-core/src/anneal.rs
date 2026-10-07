@@ -157,13 +157,15 @@ pub fn optimize(
 #[cfg(test)]
 mod tests {
   use super::*;
+  use approx::assert_ulps_eq;
 
   #[test]
   fn geometric_schedule_matches_julia() {
     let t = schedule(Cooling::Geometric, 0.05, 1.0, 100);
-    assert_eq!(t.len(), 101);
-    assert!((t[0] - 1.0).abs() < 1e-12);
-    assert!((t[1] - 0.9704869503929601).abs() < 1e-12);
-    assert!((t[100] - 0.05).abs() < 1e-12);
+    assert_eq!(101, t.len());
+    // Oracle: the temperatures of TreeKnit.jl, which the schedule reproduces exactly.
+    assert_ulps_eq!(1.0, t[0], max_ulps = 0);
+    assert_ulps_eq!(0.9704869503929601, t[1], max_ulps = 0);
+    assert_ulps_eq!(0.05, t[100], max_ulps = 0);
   }
 }
