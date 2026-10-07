@@ -17,7 +17,7 @@ describe("pairTooltip", () => {
     ]);
   });
 
-  test("marks an imputed leaf and a node added by resolution", () => {
+  test("marks an imputed leaf and a node added by resolution or imputation with the legend labels", () => {
     expect({
       imputed: pairTooltip(VIEW, { kind: "node", side: "right", node: 5 }).at(-1),
       added: pairTooltip(VIEW, { kind: "node", side: "right", node: 3 }),
@@ -28,7 +28,7 @@ describe("pairTooltip", () => {
         "No MCC",
         "Branch length: 0",
         "Drawn at the mean length of the trees: 0.25",
-        "Added by resolution or imputation",
+        "Node added by resolution or imputation",
       ],
     });
   });
@@ -54,13 +54,13 @@ describe("segmentLabels", () => {
 });
 
 describe("argTooltip", () => {
-  test("shows the segments and the branch length per segment of a hybrid node", () => {
+  test("shows both segments, the branch length per segment, and reassortment at a hybrid node", () => {
     expect(argTooltip(exampleArgView(), { kind: "node", node: 4 }, SEGMENTS)).toStrictEqual([
       "H",
-      "Segments ha and na",
+      "Both segments",
       "Branch length in ha: 0.1",
       "Branch length in na: 0.2",
-      "Hybrid node",
+      "Reassortment",
     ]);
   });
 
@@ -71,7 +71,11 @@ describe("argTooltip", () => {
     ]);
   });
 
-  test("names one segment in the singular", () => {
-    expect(segmentList([0], SEGMENTS)).toBe("Segment ha");
+  test("names one segment after its tree, and two segments as both", () => {
+    expect([segmentList([0], SEGMENTS), segmentList([1], SEGMENTS), segmentList([0, 1], SEGMENTS)]).toStrictEqual([
+      "Segment ha",
+      "Segment na",
+      "Both segments",
+    ]);
   });
 });

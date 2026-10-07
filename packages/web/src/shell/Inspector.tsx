@@ -1,4 +1,5 @@
 import type { ArgNodeView, DrawNode, MccInfo } from "@neherlab/treeknit-wasm";
+import { LEGEND_LABELS } from "@neherlab/treeknit-wasm/variants";
 import { createContext, type ReactNode, use, useCallback, useMemo } from "react";
 import type { Key, PressEvent } from "react-aria-components";
 import { match } from "ts-pattern";
@@ -259,7 +260,9 @@ function NodeDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "
       <Facts>
         <Fact term="Tree">{tree}</Fact>
         <Fact term="Clade size">{leafCount(node.cladeSize)}</Fact>
-        <Fact term="Added by resolution or imputation">{yesNo(node.added)}</Fact>
+        <Fact term="Added" description={LEGEND_LABELS.addedNode}>
+          {yesNo(node.added)}
+        </Fact>
         <Fact term="Branch length">{formatBranchLength(node.branchLength)}</Fact>
         {node.meanLength === null ? null : (
           <Fact term="Mean length of the trees">{formatBranchLength(node.meanLength)}</Fact>
@@ -282,7 +285,9 @@ function ArgNodeDetails({ node, segments }: { node: ArgNodeView; segments: Segme
             {formatBranchLength(node.tau[segment] ?? null)}
           </Fact>
         ))}
-        <Fact term="Hybrid node">{yesNo(node.hybrid)}</Fact>
+        <Fact term="Hybrid" description={LEGEND_LABELS.reassortment}>
+          {yesNo(node.hybrid)}
+        </Fact>
       </Facts>
     </Section>
   );
@@ -318,11 +323,14 @@ function Facts({ children }: { children: ReactNode }) {
   return <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">{children}</dl>;
 }
 
-function Fact({ term, children }: { term: string; children: ReactNode }) {
+function Fact({ term, description, children }: { term: string; description?: string; children: ReactNode }) {
   return (
     <>
       <dt className="text-ink-muted">{term}</dt>
-      <dd className="text-ink min-w-0 tabular-nums">{children}</dd>
+      <dd className="text-ink min-w-0 tabular-nums">
+        {children}
+        {description === undefined ? null : <span className="text-ink-muted block text-xs">{description}</span>}
+      </dd>
     </>
   );
 }

@@ -1,4 +1,6 @@
 import type { ArgView, PairView } from "@neherlab/treeknit-wasm";
+import { LEGEND_LABELS } from "@neherlab/treeknit-wasm/variants";
+import { match } from "ts-pattern";
 
 import { formatBranchLength, leafCount, mccSummary } from "./format";
 import { itemAt } from "./lookup";
@@ -13,36 +15,37 @@ export function segmentLabels(trees: readonly { label: string }[]): SegmentLabel
 }
 
 export function pairTooltip(view: PairView, target: PairTarget): string[] {
-  if (target.kind === "link") {
-    const link = view.links[target.link];
-    const leaf = link === undefined ? undefined : view.left.nodes[link.left];
+  return match(target)
+    .returnType<string[]>()
+    .with({ kind: "link" }, ({ link: index }) => {
+      const link = view.links[index];
+      const leaf = link === undefined ? undefined : view.left.nodes[link.left];
 
-    return leaf === undefined || link === undefined ? [] : [leaf.name, mccLine(view, link.mcc)];
-  }
+      return leaf === undefined || link === undefined ? [] : [leaf.name, mccLine(view, link.mcc)];
+    })
+    .with({ kind: "ribbon" }, ({ block: index }) => {
+      const block = view.blocks[index];
 
-  if (target.kind === "ribbon") {
-    const block = view.blocks[target.block];
+      return block === undefined ? [] : [mccLine(view, block.mcc), blockLine(block.left)];
+    })
+    .with({ kind: "node" }, ({ side, node: index }) => {
+      const node = view[side].nodes[index];
 
-    return block === undefined ? [] : [mccLine(view, block.mcc), blockLine(block.left)];
-  }
-
-  const node = view[target.side].nodes[target.node];
-
-  if (node === undefined) {
-    return [];
-  }
-
-  return [
-    node.name === "" ? "Unnamed node" : node.name,
-    node.mcc === null ? "No MCC" : mccLine(view, node.mcc),
-    `Branch length: ${formatBranchLength(node.branchLength)}`,
-    ...(node.meanLength === null
-      ? []
-      : [`Drawn at the mean length of the trees: ${formatBranchLength(node.meanLength)}`]),
-    ...(node.mccBreak ? ["Reassortment branch"] : []),
-    ...(node.added ? ["Added by resolution or imputation"] : []),
-    ...(node.imputed ? ["Imputed leaf"] : []),
-  ];
+      return node === undefined
+        ? []
+        : [
+            node.name === "" ? "Unnamed node" : node.name,
+            node.mcc === null ? LEGEND_LABELS.noMcc : mccLine(view, node.mcc),
+            `Branch length: ${formatBranchLength(node.branchLength)}`,
+            ...(node.meanLength === null
+              ? []
+              : [`Drawn at the mean length of the trees: ${formatBranchLength(node.meanLength)}`]),
+            ...(node.mccBreak ? [LEGEND_LABELS.reassortmentBranch] : []),
+            ...(node.added ? [LEGEND_LABELS.addedNode] : []),
+            ...(node.imputed ? [LEGEND_LABELS.imputedLeaf] : []),
+          ];
+    })
+    .exhaustive();
 }
 
 export function argTooltip(view: ArgView, target: ArgTarget, segments: SegmentLabels): string[] {
@@ -66,7 +69,7 @@ export function argTooltip(view: ArgView, target: ArgTarget, segments: SegmentLa
     ...node.segments.map(
       (segment) => `Branch length in ${segmentName(segment, segments)}: ${tauOf(node.tau, segment)}`,
     ),
-    ...(node.hybrid ? ["Hybrid node"] : []),
+    ...(node.hybrid ? [LEGEND_LABELS.reassortment] : []),
   ];
 }
 
@@ -75,9 +78,9 @@ export function segmentName(segment: number, segments: SegmentLabels): string {
 }
 
 export function segmentList(present: readonly number[], segments: SegmentLabels): string {
-  const names = present.map((segment) => segmentName(segment, segments));
-
-  return names.length > 1 ? `Segments ${names.join(" and ")}` : `Segment ${names.join("")}`;
+  return present.length > 1
+    ? LEGEND_LABELS.bothSegments
+    : present.map((segment) => `${LEGEND_LABELS.segmentA} ${segmentName(segment, segments)}`).join("");
 }
 
 function tauOf(tau: readonly (number | null)[], segment: number): string {

@@ -35,7 +35,7 @@ export default projectConfig({
 
   contracts: {
     package: "@neherlab/treeknit-wasm",
-    enums: Object.values(variants),
+    enums: Object.values(variants).flatMap((value): (readonly string[])[] => (Array.isArray(value) ? [value] : [])),
     files: ["packages/web/src/**"],
   },
 
