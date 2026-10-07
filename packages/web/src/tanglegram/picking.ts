@@ -1,4 +1,5 @@
 import type { PairView } from "@neherlab/treeknit-wasm";
+import { match } from "ts-pattern";
 
 import type { RowRange } from "../canvas/viewState";
 import type { PickRules } from "../drawing/picking";
@@ -16,18 +17,18 @@ export const PAIR_PICK_RULES: PickRules<PairView, TanglegramGeometry, PairTarget
 };
 
 export function pairTargetRows(view: PairView, target: PairTarget): RowRange | null {
-  if (target.kind === "ribbon") {
-    const block = view.blocks[target.block];
+  return match(target)
+    .with({ kind: "ribbon" }, ({ block }) => {
+      const shown = view.blocks[block];
 
-    return block === undefined ? null : rowSpan([...block.left, ...block.right]);
-  }
+      return shown === undefined ? null : rowSpan([...shown.left, ...shown.right]);
+    })
+    .with({ kind: "link" }, ({ link }) => {
+      const shown = view.links[link];
+      const leaf = shown === undefined ? undefined : view.left.nodes[shown.left];
 
-  if (target.kind === "link") {
-    const link = view.links[target.link];
-    const leaf = link === undefined ? undefined : view.left.nodes[link.left];
-
-    return leaf === undefined ? null : pairLeafRows(view.left, view.right, leaf.name);
-  }
-
-  return leafRows(view[target.side].nodes, target.node);
+      return leaf === undefined ? null : pairLeafRows(view.left, view.right, leaf.name);
+    })
+    .with({ kind: "node" }, ({ side, node }) => leafRows(view[side].nodes, node))
+    .exhaustive();
 }

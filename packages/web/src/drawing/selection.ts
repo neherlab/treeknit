@@ -1,5 +1,6 @@
 import type { ArgView, PairView } from "@neherlab/treeknit-wasm";
 import { omit } from "remeda";
+import { match } from "ts-pattern";
 
 import type { RowRange } from "../canvas/viewState";
 import type { NodeRef, WorkspaceSearch, WrittenSearch } from "../workspace/search";
@@ -51,31 +52,19 @@ export function pairClickSelection(view: PairView, target: PairTarget | undefine
     return NO_SELECTION;
   }
 
-  if (target.kind === "link") {
-    const link = view.links[target.link];
+  return match(target)
+    .with({ kind: "link" }, ({ link }): Selection => {
+      const shown = view.links[link];
 
-    return link === undefined ? NO_SELECTION : { mcc: link.mcc };
-  }
+      return shown === undefined ? NO_SELECTION : { mcc: shown.mcc };
+    })
+    .with({ kind: "ribbon" }, ({ block }): Selection => {
+      const shown = view.blocks[block];
 
-  if (target.kind === "ribbon") {
-    const block = view.blocks[target.block];
-
-    return block === undefined ? NO_SELECTION : { mcc: block.mcc };
-  }
-
-  const node = view[target.side].nodes[target.node];
-
-  if (node === undefined) {
-    return NO_SELECTION;
-  }
-
-  if (node.leaf) {
-    return { leaf: node.name };
-  }
-
-  const mcc = node.mcc === null ? undefined : { mcc: node.mcc };
-
-  return node.name === "" ? { ...mcc } : { ...mcc, node: { side: target.side, name: node.name } };
+      return shown === undefined ? NO_SELECTION : { mcc: shown.mcc };
+    })
+    .with({ kind: "node" }, ({ side, node }) => nodeSelection(view, side, node))
+    .exhaustive();
 }
 
 export function argClickSelection(view: ArgView, target: ArgTarget | undefined): Selection {
@@ -152,4 +141,20 @@ export function emphasisOpacity(mcc: number | null, selected: number | undefined
 
 export function hasSelection(selection: Selection): boolean {
   return selection.mcc !== undefined || selection.leaf !== undefined || selection.node !== undefined;
+}
+
+function nodeSelection(view: PairView, side: TreeSide, index: number): Selection {
+  const node = view[side].nodes[index];
+
+  if (node === undefined) {
+    return NO_SELECTION;
+  }
+
+  if (node.leaf) {
+    return { leaf: node.name };
+  }
+
+  const mcc = node.mcc === null ? undefined : { mcc: node.mcc };
+
+  return node.name === "" ? { ...mcc } : { ...mcc, node: { side, name: node.name } };
 }
