@@ -21,8 +21,6 @@ export type WorkspaceView = (typeof WORKSPACE_VIEWS)[number];
 
 export const NODE_SIDES = ["left", "right", "arg"] as const;
 
-export type NodeSide = (typeof NODE_SIDES)[number];
-
 const nonEmptyText = z.string().min(1);
 
 const nodeRefSchema = z.object({ side: z.enum(NODE_SIDES), name: nonEmptyText });
@@ -274,14 +272,6 @@ export function resolveShown(show: string | undefined, labels: PairRef | undefin
   }
 
   return show === labels[1] ? "right" : "both";
-}
-
-export function shownLabel(trees: AuspiceTrees, labels: PairRef | undefined): string | undefined {
-  if (trees === "both" || labels === undefined) {
-    return undefined;
-  }
-
-  return trees === "left" ? labels[0] : labels[1];
 }
 
 export function withSelectionPair(

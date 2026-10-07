@@ -51,13 +51,11 @@ function argViewScope(sessionId: number) {
 }
 
 export const analysisKeys = {
-  defaultSettings: () => ["defaultSettings"] as const,
   palette: () => ["palette"] as const,
   drawingRules: () => ["drawingRules"] as const,
   version: () => ["version"] as const,
   examples: () => ["examples"] as const,
   launchKeys: () => ["launchKeys"] as const,
-  linkLimits: () => ["linkLimits"] as const,
   inspectTree: (textId: number) => ["inspectTree", textId] as const,
   overlap: (textIds: readonly number[]) => ["overlap", textIds] as const,
   validate: (textIds: readonly number[], labels: readonly string[], settings: Settings | null | undefined) =>
@@ -78,15 +76,6 @@ export const analysisKeys = {
   argView: (sessionId: number, ...args: SessionArgs<"argView">) => [...argViewScope(sessionId), ...args] as const,
   constellation: (sessionId: number) => ["session", sessionId, "constellation"] as const,
 };
-
-export function useDefaultSettings(): Answer<StatelessResult<"defaultSettings">> {
-  const client = useAnalysisClient();
-
-  return useQuery({
-    queryKey: analysisKeys.defaultSettings(),
-    queryFn: async ({ signal }) => client.stateless(async (api) => api.defaultSettings(), { signal }),
-  });
-}
 
 export function usePalette(): Answer<StatelessResult<"palette">> {
   const client = useAnalysisClient();
@@ -131,16 +120,6 @@ export function useLaunchKeys(): Answer<StatelessResult<"launchKeys">> {
   return useQuery({
     queryKey: analysisKeys.launchKeys(),
     queryFn: async ({ signal }) => client.stateless(async (api) => api.launchKeys(), { signal }),
-    staleTime: Infinity,
-  });
-}
-
-export function useLinkLimits(): Answer<StatelessResult<"linkLimits">> {
-  const client = useAnalysisClient();
-
-  return useQuery({
-    queryKey: analysisKeys.linkLimits(),
-    queryFn: async ({ signal }) => client.stateless(async (api) => api.linkLimits(), { signal }),
     staleTime: Infinity,
   });
 }
