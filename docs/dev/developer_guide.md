@@ -107,7 +107,7 @@ Two rules keep the declarations true at runtime:
 
 The workspace `Cargo.toml` enables every Clippy lint group, `restriction` included, and allows the lints that do not fit the project, each under a short heading. New Clippy releases therefore bring their new lints automatically. `clippy.toml` sets the thresholds and bans types and functions that make runs non-reproducible, such as `HashMap` iteration order and unseeded random number generators.
 
-TypeScript is linted by oxlint with type information (`oxlint.config.ts`): the correctness, suspicious, and performance categories, a selection of stricter rules, the sonarjs, Tailwind CSS, and React effect plugins, the vendored anti-slop plugin (`dev/lints/oxlint-anti-slop/UPSTREAM.md`), and the project rules in `dev/lints/oxlint/`, each with its tests. Warnings fail the lint. A project rule exists only where no built-in or plugin rule reports the same finding. knip reports unused files, exports, and dependencies, and configuration hints fail it.
+TypeScript is linted by oxlint with type information (`oxlint.config.ts`, which applies the shared base configuration `dev/lints/oxlint/config.ts`): the correctness, suspicious, and performance categories, a selection of stricter rules, the sonarjs, Tailwind CSS, and React effect plugins, the vendored anti-slop plugin (`dev/lints/oxlint-anti-slop/UPSTREAM.md`), and the project rules in `dev/lints/oxlint/`, each with its tests. Warnings fail the lint. knip reports unused files, exports, and dependencies, and configuration hints fail it.
 
 No recipe runs the tests of the oxlint rules. After a change to a rule, and after `just test-ts` has installed the packages, run the rule tests, the type check of the vendored plugin, and the type check of the project rules:
 
@@ -121,7 +121,7 @@ No recipe runs the tests of the oxlint rules. After a change to a rule, and afte
 
 Three cargo-dylint lint libraries, listed in `[workspace.metadata.dylint]` of `Cargo.toml`, add lints that Clippy lacks:
 
-- `dev/lints/dylint-custom` (`treeknit_lints`): the project rules, such as callers before callees, no debug output, no hand-written `Display`, test hygiene, and the unused-public-item lint `pub_unused_in_workspace`
+- `dev/lints/dylint-custom` (`custom`): the shared custom rules, such as callers before callees, no debug output, no hand-written `Display`, test hygiene, and the unused-public-item lint `pub_unused_in_workspace`
 - `dev/lints/dylint-mordant` (`mordant`): type invariants that live in conventions or runtime checks; its findings before adoption are in the committed baseline `.config/mordant-baseline.toml`, so only new findings fail
 - `dev/lints/dylint-trailofbits` (`trailofbits`): lints of Trail of Bits, such as the argument order of `assert_eq!` and `?` on an I/O result without context
 
