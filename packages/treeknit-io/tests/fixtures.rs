@@ -10,6 +10,7 @@ mod tests {
   use std::path::PathBuf;
   use treeknit_core::bits::Bits;
   use treeknit_core::{Options, Taxa, Tree, arg, mcc_map, naive, pair, resolve, splitgraph};
+  use treeknit_io::analysis::{self, ParsedTrees};
   use treeknit_io::newick;
 
   type Clades = Vec<Vec<String>>;
@@ -34,18 +35,15 @@ mod tests {
   }
 
   fn load(f: &Value) -> (Vec<Tree>, Taxa) {
-    let mut ts: Vec<Tree> = f["trees"]
+    let ts: Vec<Tree> = f["trees"]
       .as_array()
       .unwrap()
       .iter()
       .enumerate()
       .map(|(i, s)| newick::parse(s.as_str().unwrap(), &format!("t{}", i + 1)).unwrap())
       .collect();
-    let taxa = Taxa::from_trees(&ts);
-    for t in &mut ts {
-      t.assign_taxa(&taxa).unwrap();
-    }
-    (ts, taxa)
+    let ParsedTrees { trees, taxa } = analysis::number_leaves(ts);
+    (trees, taxa)
   }
 
   fn clades_json(v: &Value) -> Clades {

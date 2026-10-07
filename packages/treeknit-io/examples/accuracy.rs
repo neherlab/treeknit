@@ -11,6 +11,7 @@ use rand::seq::SliceRandom;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use treeknit_core::{Options, Taxa, Tree};
+use treeknit_io::analysis::{self, ParsedTrees};
 use treeknit_io::newick;
 
 type Partition = Vec<Vec<String>>;
@@ -60,16 +61,15 @@ fn scaled_vi(a: &Partition, b: &Partition) -> f64 {
   reason = "a developer report over the committed fixtures: a panic names the input that failed"
 )]
 fn load(f: &Value) -> (Vec<Tree>, Taxa) {
-  let mut ts: Vec<Tree> = f["trees"]
+  let ts: Vec<Tree> = f["trees"]
     .as_array()
     .unwrap()
     .iter()
     .enumerate()
     .map(|(i, s)| newick::parse(s.as_str().unwrap(), &format!("t{i}")).unwrap())
     .collect();
-  let taxa = Taxa::from_trees(&ts);
-  ts.iter_mut().for_each(|t| t.assign_taxa(&taxa).unwrap());
-  (ts, taxa)
+  let ParsedTrees { trees, taxa } = analysis::number_leaves(ts);
+  (trees, taxa)
 }
 
 #[expect(

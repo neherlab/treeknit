@@ -365,7 +365,7 @@ pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationErro
 }
 
 /// Number the leaves of `trees` with one taxon table built from all their leaves.
-pub(crate) fn number_leaves(mut trees: Vec<Tree>) -> ParsedTrees {
+pub fn number_leaves(mut trees: Vec<Tree>) -> ParsedTrees {
   let taxa = Taxa::from_trees(&trees);
   for t in &mut trees {
     #[expect(

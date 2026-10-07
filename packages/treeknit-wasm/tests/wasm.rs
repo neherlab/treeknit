@@ -10,10 +10,9 @@ mod tests {
   use std::collections::BTreeSet;
   use std::rc::Rc;
   use treeknit_core::{Options, Resolution, Taxa, Tree};
-  use treeknit_io::analysis::{self, AnalysisRequest};
+  use treeknit_io::analysis::{self, AnalysisRequest, ParsedTrees, TreeText};
   use treeknit_io::display::{self, Scale, TreeVersion};
   use treeknit_io::figure::{self, FigureOptions, LabelMode};
-  use treeknit_io::newick;
   use treeknit_io::output::{self, Figure, OutputFile};
   use treeknit_io::run::{self, RunResult};
   use treeknit_wasm::Session;
@@ -1228,15 +1227,12 @@ mod tests {
   }
 
   fn parsed(newicks: &[&str]) -> (Vec<Tree>, Taxa) {
-    let mut trees: Vec<Tree> = newicks
+    let texts: Vec<TreeText> = newicks
       .iter()
       .enumerate()
-      .map(|(i, s)| newick::parse(s, &format!("t{i}")).unwrap())
+      .map(|(i, s)| TreeText::new(format!("t{i}"), *s))
       .collect();
-    let taxa = Taxa::from_trees(&trees);
-    for t in &mut trees {
-      t.assign_taxa(&taxa).unwrap();
-    }
+    let ParsedTrees { trees, taxa } = analysis::parse_trees(&texts).unwrap();
     (trees, taxa)
   }
 }
