@@ -37,7 +37,7 @@ export function pairTooltip(view: PairView, target: PairTarget): string[] {
     node.mcc === null ? "No MCC" : mccLine(view, node.mcc),
     `Branch length: ${formatBranchLength(node.branchLength)}`,
     ...(node.mccBreak ? ["Reassortment branch"] : []),
-    ...(node.added ? ["Added by resolution"] : []),
+    ...(node.added ? ["Added by resolution or imputation"] : []),
     ...(node.imputed ? ["Imputed leaf"] : []),
   ];
 }

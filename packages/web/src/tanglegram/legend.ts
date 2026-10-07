@@ -37,7 +37,7 @@ export function tanglegramLegend({ colors, rules, colorByMcc, ribbons }: LegendS
       ],
     },
     {
-      label: "Node added by resolution",
+      label: "Node added by resolution or imputation",
       marks: [
         {
           kind: "line",

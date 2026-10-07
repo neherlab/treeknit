@@ -258,7 +258,7 @@ function NodeDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "
       <Facts>
         <Fact term="Tree">{tree}</Fact>
         <Fact term="Clade size">{leafCount(node.cladeSize)}</Fact>
-        <Fact term="Added by resolution">{yesNo(node.added)}</Fact>
+        <Fact term="Added by resolution or imputation">{yesNo(node.added)}</Fact>
         <Fact term="Branch length">{formatBranchLength(node.branchLength)}</Fact>
         <Fact term="MCC">
           {mcc === undefined ? NONE : <MccValue mcc={mcc.index} size={mcc.size} slot={mcc.slot} />}

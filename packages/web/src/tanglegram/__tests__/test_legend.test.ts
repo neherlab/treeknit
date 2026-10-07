@@ -54,7 +54,7 @@ describe("tanglegramLegend", () => {
   });
 
   test("draws an added node's branch solid in ink-muted", () => {
-    const marks = marksOf("Node added by resolution", true, true);
+    const marks = marksOf("Node added by resolution or imputation", true, true);
 
     expect(marks).toMatchObject([{ kind: "line", color: COLORS.inkMuted }]);
     expect(marks[0]).not.toHaveProperty("dashPx");
