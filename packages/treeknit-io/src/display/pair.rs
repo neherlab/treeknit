@@ -1,7 +1,7 @@
 //! The tanglegram of a pair: both trees sorted for the pair, links, blocks, and MCCs.
 
-use crate::display::lengths::mean_lengths;
 use crate::display::legend::pair_legend;
+use crate::display::lengths::mean_lengths;
 use crate::display::shapes::pair_shapes;
 use crate::display::slots::{block_neighbors, color_slots, rank_order};
 use crate::display::tree::draw_tree;
@@ -599,9 +599,7 @@ mod tests {
     let resolved = view(&r, 0, TreeVersion::Resolved);
     let input = view(&r, 0, TreeVersion::Input);
     let bc = |t: &DrawTree| {
-      let below = |n: &DrawNode| -> BTreeSet<&str> {
-        n.children.iter().map(|&c| t.nodes[c].name.as_str()).collect()
-      };
+      let below = |n: &DrawNode| -> BTreeSet<&str> { n.children.iter().map(|&c| t.nodes[c].name.as_str()).collect() };
       let n = t.nodes.iter().find(|n| below(n) == BTreeSet::from(["B", "C"])).unwrap();
       (n.mean_length, n.x_div)
     };

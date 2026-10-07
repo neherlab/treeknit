@@ -51,7 +51,11 @@ pub(super) fn pair_shapes(
 
 /// Elbows and marks of one tree.
 fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
-  let x = drawn_x(tree, &normalized(tree.nodes.iter().map(|n| scale.x(n.x_div, n.x_depth))), scale);
+  let x = drawn_x(
+    tree,
+    &normalized(tree.nodes.iter().map(|n| scale.x(n.x_div, n.x_depth))),
+    scale,
+  );
   let mut elbows = Vec::new();
   let mut marks = Vec::new();
   let mut leaders = Vec::new();

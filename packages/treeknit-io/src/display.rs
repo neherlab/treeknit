@@ -13,8 +13,8 @@
 mod arg_view;
 mod auspice;
 mod constellation;
-mod lengths;
 mod legend;
+mod lengths;
 mod names;
 mod pair;
 mod rows;
