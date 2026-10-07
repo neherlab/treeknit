@@ -4,7 +4,7 @@ import { isDeepEqual } from "remeda";
 import { createStore } from "zustand/vanilla";
 
 import type { ReadableStore } from "../workspace/store";
-import type { TreeSource } from "../workspace/treeSource";
+import type { StoredTreeSource, TreeSource } from "../workspace/treeSource";
 import {
   nextGeneration,
   type PersistenceChannel,
@@ -28,7 +28,7 @@ export interface WorkspaceSnapshot {
 
 export interface StoredWorkspace {
   sessionFile: string;
-  sources: TreeSource[];
+  sources: StoredTreeSource[];
 }
 
 export type PersistenceProblemKind = "unavailable" | "restore" | "enable" | "save" | "disable";

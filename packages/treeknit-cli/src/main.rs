@@ -687,7 +687,7 @@ fn tree_arg_labels(trees: &[TreeArg]) -> Vec<String> {
   let names: Vec<String> = trees
     .iter()
     .filter_map(|t| match (&t.label, &t.tree) {
-      (None, TreeArgKind::Location(Ok(LinkLocation::Url { url, .. }))) => Some(launch::url_file_name(url)),
+      (None, TreeArgKind::Location(Ok(LinkLocation::Url { file_name, .. }))) => Some(file_name.clone()),
       (None, TreeArgKind::Location(_)) => Some(String::new()),
       _ => None,
     })
@@ -726,7 +726,9 @@ fn read_file(path: &Path) -> Result<String, ReadError> {
 /// The text at `location`: downloaded with `fetch` from its address, or the text of `data:`.
 fn read_location(location: &LinkLocation, fetch: Fetch<'_>) -> Result<String, ReadError> {
   match location {
-    LinkLocation::Url { url, fetch: address } => {
+    LinkLocation::Url {
+      url, fetch: address, ..
+    } => {
       log::info!("reading {url}");
       let bytes = fetch(address).map_err(|source| ReadError::Download {
         url: url.clone(),

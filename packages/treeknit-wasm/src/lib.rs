@@ -14,7 +14,9 @@ use treeknit_io::display::{
 use treeknit_io::examples::{self, ExampleInfo};
 use treeknit_io::figure::FigureOptions;
 use treeknit_io::inspect::{self, Overlap, TreeInspection};
-use treeknit_io::launch::{self, LaunchKeyInfo, LaunchParse, LinkEntry, LinkLimits, LinkSource, SettingsPatch};
+use treeknit_io::launch::{
+  self, LaunchKeyInfo, LaunchParse, LinkEntry, LinkLimits, LinkSource, SettingsPatch, UrlPlace,
+};
 use treeknit_io::output::{
   self, Archive, AuspiceFiles, FigureDownload, FigureFile, FileEntry, OutputFile, OutputOptions, WebFile,
 };
@@ -186,6 +188,14 @@ pub fn examples() -> Result<Vec<Ts<ExampleInfo>>, JsError> {
 pub fn launch_keys() -> Result<Vec<Ts<LaunchKeyInfo>>, JsError> {
   let _log = log_capture::discard();
   launch::launch_keys().iter().map(to_js).collect()
+}
+
+/// The host and the file name of the `https:` URL `url`, as the URL location of a link carries
+/// them; both empty for a text that is not an `https:` URL.
+#[wasm_bindgen(js_name = urlPlace)]
+pub fn url_place(url: &str) -> Result<Ts<UrlPlace>, JsError> {
+  let _log = log_capture::discard();
+  to_js(&launch::url_place(url))
 }
 
 /// The limits of downloads and links.

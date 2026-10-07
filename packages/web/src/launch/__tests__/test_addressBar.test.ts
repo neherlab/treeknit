@@ -62,7 +62,7 @@ describe("treeAddress", () => {
     ["an example tree of a record without ids", { kind: "example", name: "ha.nwk" }, null],
     [
       "a tree at an address",
-      { kind: "url", url: "https://x.org/ha.nwk" },
+      { kind: "url", url: "https://x.org/ha.nwk", name: "ha.nwk", host: "x.org" },
       { kind: "url", url: "https://x.org/ha.nwk" },
     ],
     ["a tree of a data: link", { kind: "data" }, { kind: "data" }],

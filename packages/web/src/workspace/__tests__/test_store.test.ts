@@ -46,7 +46,7 @@ const SUMMARY: Summary = {
 };
 
 describe("workspace store", () => {
-  test("labels added trees through the label service and keeps their sources", async () => {
+  test("labels added trees through the label service from their file names, an empty one for a pasted tree, and keeps their sources", async () => {
     const store = newStore();
 
     await store.getState().addTrees([
@@ -58,7 +58,7 @@ describe("workspace store", () => {
     expect(store.getState().trees).toStrictEqual([
       { id: "tree-1", label: "ha", newick: HA, textId: 1, source: { kind: "file", name: "ha.nwk" } },
       { id: "tree-2", label: "na", newick: NA, textId: 2, source: { kind: "example", name: "na.nwk" } },
-      { id: "tree-3", label: "tree", newick: HA, textId: 3, source: { kind: "paste" } },
+      { id: "tree-3", label: "", newick: HA, textId: 3, source: { kind: "paste" } },
     ]);
   });
 

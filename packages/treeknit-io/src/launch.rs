@@ -154,9 +154,12 @@ pub fn parse_location(value: &str) -> Result<LinkLocation, LocationError> {
   match scheme.as_deref() {
     Some("https") => {
       check_https(value)?;
+      let UrlPlace { host, file_name } = url_place(value);
       Ok(LinkLocation::Url {
         url: value.to_owned(),
         fetch: fetch_url(value),
+        host,
+        file_name,
       })
     },
     Some("data") => Ok(LinkLocation::Data {
@@ -191,13 +194,28 @@ fn fetch_url(url: &str) -> String {
   }
 }
 
-/// The file name of an `https:` URL: its last path segment, percent-decoded, or an empty text
-/// without one. Labels of unlabeled trees come from it.
-pub fn url_file_name(url: &str) -> String {
-  UrlParts::of(url)
-    .and_then(|p| p.path.rsplit('/').find(|s| !s.is_empty()))
-    .map(|segment| percent_decode_str(segment).decode_utf8_lossy().into_owned())
-    .unwrap_or_default()
+/// The host and the file name of an `https:` URL, as messages and tree rows name the place of a
+/// file: the host without the port, and the last path segment, percent-decoded (an invalid UTF-8
+/// sequence becomes U+FFFD), or an empty text without one. Labels of unlabeled trees come from the
+/// file name. Both are empty for a text that is not an `https:` URL.
+pub fn url_place(url: &str) -> UrlPlace {
+  let parts = UrlParts::of(url);
+  UrlPlace {
+    host: parts.as_ref().map(|p| p.host.to_owned()).unwrap_or_default(),
+    file_name: parts
+      .and_then(|p| p.path.rsplit('/').find(|s| !s.is_empty()))
+      .map(|segment| percent_decode_str(segment).decode_utf8_lossy().into_owned())
+      .unwrap_or_default(),
+  }
+}
+
+/// The place of a file at an `https:` URL ([`url_place`]).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct UrlPlace {
+  pub host: String,
+  pub file_name: String,
 }
 
 /// The text of a tree or session file: gzip-compressed bytes (they start with `1f 8b`) are
@@ -560,8 +578,15 @@ pub struct LaunchTree {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum LinkLocation {
-  /// An `https:` URL as the link gives it, and the address to read it from ([`fetch_url`]).
-  Url { url: String, fetch: String },
+  /// An `https:` URL as the link gives it, the address to read it from ([`fetch_url`]), and the
+  /// host and file name of its place ([`url_place`]).
+  Url {
+    url: String,
+    fetch: String,
+    host: String,
+    #[serde(rename = "fileName")]
+    file_name: String,
+  },
   /// The decoded text of a `data:` location.
   Data { text: String },
 }
@@ -907,7 +932,7 @@ fn link_labels(trees: &[(Option<String>, LinkLocation)]) -> Vec<String> {
 
 fn location_file_name(location: &LinkLocation) -> String {
   match location {
-    LinkLocation::Url { url, .. } => url_file_name(url),
+    LinkLocation::Url { file_name, .. } => file_name.clone(),
     LinkLocation::Data { .. } => String::new(),
   }
 }
@@ -1062,7 +1087,7 @@ fn tree_pairs(request: &AnalysisRequest, addresses: &[Option<TreeAddress>]) -> O
     .iter()
     .zip(addresses)
     .map(|(tree, address)| match address {
-      Some(TreeAddress::Url { url }) => Some((url.clone(), url_file_name(url))),
+      Some(TreeAddress::Url { url }) => Some((url.clone(), url_place(url).file_name)),
       Some(TreeAddress::Data) => Some((format!("data:,{}", tree.newick.replace('%', "%25")), String::new())),
       Some(TreeAddress::Example { .. }) | None => None,
     })
@@ -1199,9 +1224,12 @@ mod tests {
   }
 
   fn url(u: &str) -> LinkLocation {
+    let UrlPlace { host, file_name } = url_place(u);
     LinkLocation::Url {
       url: u.to_owned(),
       fetch: fetch_url(u),
+      host,
+      file_name,
     }
   }
 
@@ -1303,9 +1331,22 @@ mod tests {
     assert_eq!(vec!["tree", "tree_2"], labels);
   }
 
-  #[test]
-  fn file_names_are_percent_decoded() {
-    assert_eq!("seg 4.nwk", url_file_name("https://x/a/seg%204.nwk?download=1"));
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::file_name_decoded(     "https://x/a/seg%204.nwk?download=1",   ("x",           "seg 4.nwk"))]
+  #[case::port_left_out(         "https://example.org:8443/a/ha.nwk",    ("example.org", "ha.nwk"))]
+  #[case::user_left_out(         "https://user@example.org/ha.nwk#x",    ("example.org", "ha.nwk"))]
+  #[case::last_segment_of_a_dir( "https://x/c/",                         ("x",           "c"))]
+  #[case::no_file_name(          "https://example.org/",                 ("example.org", ""))]
+  #[case::invalid_utf8_replaced( "https://x/a/%E2%28.nwk",               ("x",           "\u{fffd}(.nwk"))]
+  #[case::not_https(             "http://x/ha.nwk",                      ("",            ""))]
+  #[trace]
+  fn url_place_is_the_host_without_port_and_the_decoded_last_segment(
+    #[case] url: &str,
+    #[case] (host, file_name): (&str, &str),
+  ) {
+    let expected = UrlPlace { host: host.to_owned(), file_name: file_name.to_owned() };
+    assert_eq!(expected, url_place(url));
   }
 
   #[rustfmt::skip]
@@ -1911,7 +1952,7 @@ mod tests {
       &addresses
         .iter()
         .map(|a| match a {
-          Some(TreeAddress::Url { url }) => url_file_name(url),
+          Some(TreeAddress::Url { url }) => url_place(url).file_name,
           _ => String::new(),
         })
         .collect::<Vec<_>>(),

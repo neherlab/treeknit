@@ -1198,6 +1198,19 @@ mod tests {
     assert_eq!(expected, plain(&treeknit_wasm::link_limits().unwrap().js_value()));
   }
 
+  #[wasm_bindgen_test]
+  fn url_place_names_the_host_and_the_decoded_file_name() {
+    // Oracle: the host without the port, and the last path segment with %20 decoded.
+    assert_eq!(
+      json!({"host": "x.org", "fileName": "seg 4.nwk"}),
+      plain(
+        &treeknit_wasm::url_place("https://x.org:8443/a/seg%204.nwk?raw=1")
+          .unwrap()
+          .js_value()
+      )
+    );
+  }
+
   fn two_trees() -> Value {
     json!({
         "trees": [

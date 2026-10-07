@@ -14,6 +14,7 @@ import {
   type WorkspaceServices,
   type WorkspaceStore,
 } from "./store";
+import { restoredSources } from "./treeSource";
 
 export interface WorkspaceRuntime {
   store: WorkspaceStore;
@@ -30,10 +31,14 @@ export async function startWorkspace(client: AnalysisClient, queryClient: QueryC
 
   const [defaults, restored] = await Promise.all([
     client.stateless(async (api) => api.defaultSettings()),
-    persistence.restore(async (stored): Promise<RestoredWorkspace> => ({
-      request: await client.stateless(async (api) => api.readSession(stored.sessionFile)),
-      sources: stored.sources,
-    })),
+    persistence.restore(async (stored): Promise<RestoredWorkspace> => {
+      const [request, sources] = await Promise.all([
+        client.stateless(async (api) => api.readSession(stored.sessionFile)),
+        restoredSources(stored.sources, async (url) => client.stateless(async (api) => api.urlPlace(url))),
+      ]);
+
+      return { request, sources };
+    }),
   ]);
 
   const store = createWorkspaceStore(workspaceServices(client), { defaults, restored });

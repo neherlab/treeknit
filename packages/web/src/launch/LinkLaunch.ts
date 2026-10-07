@@ -19,8 +19,8 @@ import type { StatelessArgs, StatelessResult } from "../analysis/protocol";
 import { VIEW_KEYS } from "../workspace/search";
 import type { QueryEntry } from "../workspace/searchQuery";
 import type { ReadableStore, WorkspaceStore } from "../workspace/store";
-import { SESSION_SOURCE, type TreeSource } from "../workspace/treeSource";
-import { download, type DownloadLimits, downloadMessage, type FetchFile, filePlace } from "./download";
+import { SESSION_SOURCE, type TreeSource, urlSource } from "../workspace/treeSource";
+import { download, type DownloadLimits, downloadMessage, type FetchFile } from "./download";
 import { ignoredKeyNote, launchEntries, namesView } from "./entries";
 
 const NO_LAUNCH: LaunchState = { status: { kind: "none" }, notes: [] };
@@ -231,7 +231,7 @@ export function loadingMessage(input: LaunchInput): string {
   return match(input)
     .with({ kind: "example" }, ({ id }) => `Loading the example ${id}`)
     .with({ kind: "trees" }, ({ trees }) => {
-      const hosts = new Set(trees.flatMap(({ location }) => (location.kind === "url" ? [hostOf(location.url)] : [])));
+      const hosts = new Set(trees.flatMap(({ location }) => (location.kind === "url" ? [location.host] : [])));
       const count = `${String(trees.length)} trees`;
 
       if (hosts.size === 0) {
@@ -246,7 +246,7 @@ export function loadingMessage(input: LaunchInput): string {
     })
     .with({ kind: "session" }, ({ location }) =>
       location.kind === "url"
-        ? `Loading the session file from ${hostOf(location.url)}`
+        ? `Loading the session file from ${location.host}`
         : "Loading the session file from the link",
     )
     .with({ kind: "message" }, ({ source }) =>
@@ -302,7 +302,9 @@ export async function loadLaunch(
           settings: await settings(defaults),
         },
         sources: trees.map(({ location }): TreeSource =>
-          location.kind === "url" ? { kind: "url", url: location.url } : { kind: "data" },
+          location.kind === "url"
+            ? urlSource(location.url, { host: location.host, fileName: location.fileName })
+            : { kind: "data" },
         ),
         run: false,
       };
@@ -348,7 +350,7 @@ async function readLocation(
 
     return await environment.client.decodeTreeBytes(bytes);
   } catch (cause) {
-    throw new Error(downloadMessage(location.url, cause, limits), { cause });
+    throw new Error(downloadMessage(location, cause, limits), { cause });
   }
 }
 
@@ -379,8 +381,4 @@ function fulfilled(result: PromiseSettledResult<string> | undefined): string {
   }
 
   return result.value;
-}
-
-function hostOf(url: string): string {
-  return URL.parse(url)?.host ?? filePlace(url);
 }

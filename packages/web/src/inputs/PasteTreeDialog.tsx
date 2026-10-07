@@ -57,7 +57,7 @@ export function PasteTreeDialog({ isOpen, onOpenChange, onAdd }: PasteTreeDialog
           onChange={setNewick}
           placeholder="((A,B),(C,D));"
         />
-        <TextField label="Label" value={label} onChange={setLabel} placeholder="tree" />
+        <TextField label="Label" value={label} onChange={setLabel} />
       </div>
     </Dialog>
   );

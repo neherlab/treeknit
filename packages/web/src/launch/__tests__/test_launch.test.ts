@@ -5,6 +5,7 @@ import type {
   LaunchInput,
   LaunchParse,
   LinkLimits,
+  LinkLocation,
   Settings,
   SettingsPatch,
 } from "@neherlab/treeknit-wasm";
@@ -77,8 +78,8 @@ const URL_TREES: Launch = {
   input: {
     kind: "trees",
     trees: [
-      { label: "ha", location: { kind: "url", url: "https://x.org/ha.nwk", fetch: "https://x.org/ha.nwk" } },
-      { label: "na", location: { kind: "url", url: "https://x.org/na.nwk", fetch: "https://x.org/na.nwk" } },
+      { label: "ha", location: urlLocation("ha.nwk") },
+      { label: "na", location: urlLocation("na.nwk") },
     ],
   },
   settings: NO_PATCH,
@@ -165,8 +166,8 @@ describe("a link launch", () => {
         { label: "na", newick: NA },
       ],
       sources: [
-        { kind: "url", url: "https://x.org/ha.nwk" },
-        { kind: "url", url: "https://x.org/na.nwk" },
+        { kind: "url", url: "https://x.org/ha.nwk", name: "ha.nwk", host: "x.org" },
+        { kind: "url", url: "https://x.org/na.nwk", name: "na.nwk", host: "x.org" },
       ],
     });
   });
@@ -338,6 +339,12 @@ describe("loadingMessage", () => {
     expect(loadingMessage(input)).toBe(message);
   });
 });
+
+function urlLocation(fileName: string): LinkLocation {
+  const url = `https://x.org/${fileName}`;
+
+  return { kind: "url", url, fetch: url, host: "x.org", fileName };
+}
 
 function setUp(
   parse: LaunchParse,

@@ -1440,6 +1440,14 @@ export type TreeCount = number;
 export type ColorRole = "mcc" | "noMcc" | "ink" | "inkMuted" | "signal" | "segmentA" | "segmentB";
 
 /**
+ * The place of a file at an `https:` URL ([`url_place`]).
+ */
+export interface UrlPlace {
+    host: string;
+    fileName: string;
+}
+
+/**
  * The rectangular branch above a node: from (parent x, parent y) to (parent x, node y) to
  * (node x, node y).
  */
@@ -1805,7 +1813,7 @@ export type LabelMode = "auto" | "on" | "off";
 /**
  * Where a file of a link is.
  */
-export type LinkLocation = { kind: "url"; url: string; fetch: string } | { kind: "data"; text: string };
+export type LinkLocation = { kind: "url"; url: string; fetch: string; host: string; fileName: string } | { kind: "data"; text: string };
 
 /**
  * Where a link can get a tree of the workspace again.
@@ -2010,6 +2018,12 @@ export function start(): void;
 export function treeLabels(fileNames: string[], existingLabels: string[]): string[];
 
 /**
+ * The host and the file name of the `https:` URL `url`, as the URL location of a link carries
+ * them; both empty for a text that is not an `https:` URL.
+ */
+export function urlPlace(url: string): UrlPlace;
+
+/**
  * Every problem with the trees and the settings of the request; none when it runs. A request
  * whose structure is malformed gives one error for the request as a whole.
  */
@@ -2057,6 +2071,7 @@ export interface InitOutput {
     readonly settingsSchema: (a: any, b: any) => [number, number, number];
     readonly start: () => void;
     readonly treeLabels: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly urlPlace: (a: number, b: number) => [number, number, number];
     readonly validate: (a: any) => [number, number, number, number];
     readonly version: () => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;

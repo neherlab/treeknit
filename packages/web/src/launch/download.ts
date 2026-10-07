@@ -1,4 +1,4 @@
-import type { LinkLimits } from "@neherlab/treeknit-wasm";
+import type { LinkLimits, UrlPlace } from "@neherlab/treeknit-wasm";
 import { getErrorMessage } from "react-error-boundary";
 import { match } from "ts-pattern";
 
@@ -44,8 +44,8 @@ export async function download(url: string, limits: DownloadLimits, fetchFile: F
   }
 }
 
-export function downloadMessage(url: string, cause: unknown, limits: DownloadLimits): string {
-  const place = filePlace(url);
+export function downloadMessage({ host, fileName }: UrlPlace, cause: unknown, limits: DownloadLimits): string {
+  const place = fileName === "" ? host : `${host}/${fileName}`;
 
   if (!(cause instanceof DownloadError)) {
     return `Could not read ${place}: ${getErrorMessage(cause) ?? String(cause)}`;
@@ -71,18 +71,6 @@ export function downloadMessage(url: string, cause: unknown, limits: DownloadLim
       () => `Could not read ${place}: the file is larger than ${String(limits.maxDownloadBytes / 1024 / 1024)} MiB.`,
     )
     .exhaustive();
-}
-
-export function filePlace(url: string): string {
-  const parsed = URL.parse(url);
-
-  if (parsed === null) {
-    return url;
-  }
-
-  const file = parsed.pathname.split("/").findLast((part) => part !== "");
-
-  return file === undefined ? parsed.host : `${parsed.host}/${safeDecode(file)}`;
 }
 
 async function readLimited(response: Response, maxBytes: number): Promise<Uint8Array> {
@@ -114,12 +102,4 @@ async function readLimited(response: Response, maxBytes: number): Promise<Uint8A
   }
 
   return new Uint8Array(await new Blob(chunks).arrayBuffer());
-}
-
-function safeDecode(text: string): string {
-  try {
-    return decodeURIComponent(text);
-  } catch {
-    return text;
-  }
 }

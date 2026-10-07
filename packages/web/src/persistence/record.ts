@@ -1,6 +1,6 @@
 import * as z from "zod";
 
-import { treeSourceSchema } from "../workspace/treeSource";
+import { storedTreeSourceSchema } from "../workspace/treeSource";
 
 export const RECORD_VERSION = 1;
 
@@ -14,7 +14,7 @@ export const storedRecordSchema = z.discriminatedUnion("kind", [
     version: versionSchema,
     generation: generationSchema,
     sessionFile: z.string(),
-    sources: z.array(treeSourceSchema),
+    sources: z.array(storedTreeSourceSchema),
   }),
   z.object({ kind: z.literal("off"), version: versionSchema, generation: generationSchema }),
 ]);
