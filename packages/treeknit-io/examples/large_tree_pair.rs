@@ -11,14 +11,13 @@
 //! and `<outdir>/tree_b.nwk`. The seed defaults to 1 and the number of moves to 10; the same
 //! arguments always write the same files.
 
+use clap::Parser;
 use rand::{Rng, SeedableRng};
 use rand_xoshiro::Xoshiro256PlusPlus;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use treeknit_core::{NodeId, Tree};
 use treeknit_io::newick;
-
-const USAGE: &str = "usage: large_tree_pair <leaves> <outdir> [seed=1] [moves=10]";
 
 /// Smallest number of leaves on which a subtree move changes the topology.
 const MIN_LEAVES: u32 = 3;
@@ -27,53 +26,30 @@ const MIN_LEAVES: u32 = 3;
 /// memory. A million leaves is far beyond the trees TreeKnit is used on.
 const MAX_LEAVES: u32 = 1_000_000;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Parser)]
+#[command(about = "Write a pair of large random Newick trees that differ by subtree moves")]
 struct Args {
+  /// Number of leaves of each tree
+  #[arg(value_parser = clap::value_parser!(u32).range(i64::from(MIN_LEAVES)..=i64::from(MAX_LEAVES)))]
   leaves: u32,
+  /// Directory of `tree_a.nwk` and `tree_b.nwk`
   outdir: PathBuf,
+  /// Seed of the random numbers
+  #[arg(default_value_t = 1)]
   seed: u64,
+  /// Number of subtree moves from tree A to tree B
+  #[arg(default_value_t = 10)]
   moves: u32,
 }
 
 fn main() -> ExitCode {
-  let args: Vec<String> = std::env::args().skip(1).collect();
-  match parse_args(&args).and_then(|a| write_pair(&a)) {
+  match write_pair(&Args::parse()) {
     Ok(()) => ExitCode::SUCCESS,
     Err(e) => {
       eprintln!("large_tree_pair: {e}");
       ExitCode::FAILURE
     },
   }
-}
-
-fn parse_args(args: &[String]) -> Result<Args, String> {
-  let [leaves, outdir, rest @ ..] = args else {
-    return Err(USAGE.to_owned());
-  };
-  if rest.len() > 2 {
-    return Err(USAGE.to_owned());
-  }
-  let leaves: u32 = leaves.parse().map_err(|e| format!("leaves '{leaves}': {e}\n{USAGE}"))?;
-  if leaves < MIN_LEAVES {
-    return Err(format!(
-      "leaves: {leaves} is below {MIN_LEAVES}, the smallest tree that a subtree move changes\n{USAGE}"
-    ));
-  }
-  if leaves > MAX_LEAVES {
-    return Err(format!("leaves: {leaves} is above the limit of {MAX_LEAVES}\n{USAGE}"));
-  }
-  let seed = rest
-    .first()
-    .map_or(Ok(1), |s| s.parse().map_err(|e| format!("seed '{s}': {e}\n{USAGE}")))?;
-  let moves = rest
-    .get(1)
-    .map_or(Ok(10), |s| s.parse().map_err(|e| format!("moves '{s}': {e}\n{USAGE}")))?;
-  Ok(Args {
-    leaves,
-    outdir: PathBuf::from(outdir),
-    seed,
-    moves,
-  })
 }
 
 /// Write both trees, then read each file back with the parser of the CLI.
@@ -228,12 +204,13 @@ fn regraft_targets(t: &Tree, n: NodeId, time: &[f64]) -> Vec<NodeId> {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use clap::CommandFactory;
+  use pretty_assertions::assert_eq;
+  use rstest::rstest;
   use std::collections::BTreeSet;
+  use std::iter;
   use treeknit_core::Taxa;
-
-  fn strings(v: &[&str]) -> Vec<String> {
-    v.iter().map(|&s| s.to_owned()).collect()
-  }
+  use treeknit_testing::assert_err;
 
   fn leaf_names(t: &Tree) -> BTreeSet<String> {
     t.leaf_names().into_iter().collect()
@@ -256,62 +233,41 @@ mod tests {
   }
 
   #[test]
-  fn test_large_tree_pair_args_defaults() {
-    let expected = Args {
-      leaves: 10000,
-      outdir: PathBuf::from("tmp/large-pair"),
-      seed: 1,
-      moves: 10,
-    };
-    assert_eq!(Ok(expected), parse_args(&strings(&["10000", "tmp/large-pair"])));
+  fn test_large_tree_pair_args_definition_is_valid() {
+    Args::command().debug_assert();
   }
 
-  #[test]
-  fn test_large_tree_pair_args_seed_and_moves() {
-    let expected = Args {
-      leaves: 3,
-      outdir: PathBuf::from("out"),
-      seed: 7,
-      moves: 0,
-    };
-    assert_eq!(Ok(expected), parse_args(&strings(&["3", "out", "7", "0"])));
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::defaults(      &["10000", "tmp/large-pair"],  (10000,   "tmp/large-pair", 1, 10))]
+  #[case::seed_and_moves(&["3", "out", "7", "0"],        (3,       "out",            7, 0))]
+  #[case::most_leaves(   &["1000000", "out"],            (1000000, "out",            1, 10))]
+  #[trace]
+  fn test_large_tree_pair_args_are_parsed(#[case] args: &[&str], #[case] (leaves, outdir, seed, moves): (u32, &str, u64, u32)) {
+    let expected = Args { leaves, outdir: PathBuf::from(outdir), seed, moves };
+    let parsed = Args::try_parse_from(iter::once("large_tree_pair").chain(args.iter().copied())).unwrap();
+    assert_eq!(expected, parsed);
   }
 
-  #[test]
-  fn test_large_tree_pair_args_rejects_too_few_leaves() {
-    let err = parse_args(&strings(&["2", "out"])).unwrap_err();
-    assert!(err.contains("below 3"), "{err}");
-  }
+  /// The end of a clap error that shows the usage.
+  const USAGE: &str = "Usage: large_tree_pair <LEAVES> <OUTDIR> [SEED] [MOVES]\n\n";
 
-  #[test]
-  fn test_large_tree_pair_args_rejects_too_many_leaves() {
-    let err = parse_args(&strings(&["1000001", "out"])).unwrap_err();
-    assert_eq!(format!("leaves: 1000001 is above the limit of 1000000\n{USAGE}"), err);
-    assert_eq!(MAX_LEAVES, parse_args(&strings(&["1000000", "out"])).unwrap().leaves);
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::too_few_leaves( &["2", "out"],                 ("invalid value '2' for '<LEAVES>': 2 is not in 3..=1000000",             ""))]
+  #[case::too_many_leaves(&["1000001", "out"],           ("invalid value '1000001' for '<LEAVES>': 1000001 is not in 3..=1000000", ""))]
+  #[case::missing_outdir( &["10"],                       ("the following required arguments were not provided:\n  <OUTDIR>",     USAGE))]
+  #[case::extra_argument( &["10", "out", "1", "2", "3"], ("unexpected argument '3' found",                                         USAGE))]
+  #[case::bad_number(     &["10", "out", "x"],           ("invalid value 'x' for '[SEED]': invalid digit found in string",         ""))]
+  #[trace]
+  fn test_large_tree_pair_args_are_rejected(#[case] args: &[&str], #[case] (error, usage): (&str, &str)) {
+    let parsed = Args::try_parse_from(iter::once("large_tree_pair").chain(args.iter().copied()));
+    assert_err!(parsed, format!("error: {error}\n\n{usage}For more information, try '--help'.\n"));
   }
 
   #[test]
   fn test_large_tree_pair_lineage_pairs() {
     assert_eq!(vec![0.0, 1.0, 3.0, 6.0], (1..=4).map(lineage_pairs).collect::<Vec<_>>());
-  }
-
-  #[test]
-  fn test_large_tree_pair_args_rejects_missing_outdir() {
-    assert_eq!(Err(USAGE.to_owned()), parse_args(&strings(&["10"])));
-  }
-
-  #[test]
-  fn test_large_tree_pair_args_rejects_extra_argument() {
-    assert_eq!(
-      Err(USAGE.to_owned()),
-      parse_args(&strings(&["10", "out", "1", "2", "3"]))
-    );
-  }
-
-  #[test]
-  fn test_large_tree_pair_args_rejects_bad_number() {
-    let err = parse_args(&strings(&["10", "out", "x"])).unwrap_err();
-    assert!(err.starts_with("seed 'x'"), "{err}");
   }
 
   #[test]

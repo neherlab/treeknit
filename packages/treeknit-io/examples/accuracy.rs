@@ -5,6 +5,7 @@
 //!
 //! `cargo run --release -p treeknit-io --example accuracy [drop_fraction]`
 
+use clap::Parser;
 use rand::SeedableRng;
 use rand::seq::SliceRandom;
 use serde_json::Value;
@@ -13,6 +14,14 @@ use treeknit_core::{Options, Taxa, Tree};
 use treeknit_io::newick;
 
 type Partition = Vec<Vec<String>>;
+
+#[derive(Parser)]
+#[command(about = "Accuracy of the MCCs on the simulated fixtures, and placement of dropped leaves")]
+struct Args {
+  /// Fraction of the leaves of each tree that the partial-overlap experiment drops
+  #[arg(default_value_t = 0.2)]
+  drop: f64,
+}
 
 /// Variation of information between two partitions of the same set, divided by ln(n).
 #[expect(
@@ -80,7 +89,7 @@ fn mean(v: &[f64]) -> f64 {
   reason = "leaf and run counts become f64 statistics; they stay far below 2^52, so the conversion is exact"
 )]
 fn main() {
-  let drop: f64 = std::env::args().nth(1).map_or(0.2, |s| s.parse().unwrap());
+  let drop = Args::parse().drop;
   let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures");
   let mut files: Vec<_> = std::fs::read_dir(dir)
     .unwrap()
