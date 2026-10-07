@@ -8,7 +8,7 @@ describe("overview after a run", () => {
     const summary = summaryOf([pair(0, [0, 1], ["ha", "na"], 1, 1, 0)], { status: "built", reassortments: 0 }, true);
 
     expect(resultOverview(summary, ["ha", "na"])).toStrictEqual({
-      rows: [{ index: 0, labels: ["ha", "na"], mccCount: 1, imputedCount: 1, ambiguousCount: 0 }],
+      rows: summary.pairs,
       arg: { status: "built", reassortments: 0 },
       noReassortment: true,
       matrix: null,

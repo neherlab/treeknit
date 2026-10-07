@@ -1,13 +1,5 @@
 import type { ArgOutcome, Overlap, PairSummary, Summary } from "@neherlab/treeknit-wasm";
 
-export interface PairRow {
-  index: number;
-  labels: readonly [string, string];
-  mccCount: number;
-  imputedCount: number;
-  ambiguousCount: number;
-}
-
 export interface MatrixCell<T> {
   row: number;
   column: number;
@@ -30,7 +22,7 @@ export interface OverlapCell {
 }
 
 export interface ResultOverview {
-  rows: readonly PairRow[];
+  rows: readonly PairSummary[];
   arg: ArgOutcome | null;
   noReassortment: boolean;
   matrix: Matrix<PairCell> | null;
@@ -38,7 +30,7 @@ export interface ResultOverview {
 
 export function resultOverview(summary: Summary, labels: readonly string[]): ResultOverview {
   return {
-    rows: summary.pairs.map(pairRow),
+    rows: summary.pairs,
     arg: labels.length === 2 ? summary.arg : null,
     noReassortment: summary.noReassortment,
     matrix: labels.length > 2 ? pairMatrix(summary.pairs, labels) : null,
@@ -59,10 +51,6 @@ export function overlapMatrix(overlap: Overlap, labels: readonly string[]): Matr
   );
 
   return symmetricMatrix(labels, cells);
-}
-
-function pairRow({ index, labels, mccCount, imputedCount, ambiguousCount }: PairSummary): PairRow {
-  return { index, labels, mccCount, imputedCount, ambiguousCount };
 }
 
 function symmetricMatrix<T>(labels: readonly string[], cells: ReadonlyMap<string, T>): Matrix<T> {
