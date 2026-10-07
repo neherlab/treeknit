@@ -213,3 +213,57 @@ struct Branch {
   segments: Vec<usize>,
   length: Option<f64>,
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::analysis::{self, Settings, TreeText};
+  use crate::run::{self, RunResult};
+  use pretty_assertions::assert_eq;
+  use util_newick::{NewickReadOptions, newick_from_str};
+
+  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
+    let texts: Vec<TreeText> = trees
+      .iter()
+      .map(|(label, newick)| TreeText {
+        label: (*label).to_owned(),
+        newick: (*newick).to_owned(),
+      })
+      .collect();
+    let s = Settings::default();
+    let opts = analysis::options(&s, texts.len(), false).unwrap();
+    run::run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {})
+  }
+
+  #[test]
+  fn extended_newick_writes_a_reassortment_once_per_parent() {
+    // Oracle: the output of the string writer that this module had before util-newick, which
+    // equals the TreeKnit.jl format.
+    let r = run_trees(&[
+      ("ha", "((A:1,B:2):1,(C:1,(D:1,X:2):1):1);"),
+      ("na", "((A:1,(B:1,X:1):2):1,(C:2,D:2):1);"),
+    ]);
+    let expected = "((A[&segments={0,1}]:1.0,(B[&segments={0,1}]:1.0,(X[&segments={0,1}]:0.5)ARGNode_10#H1[&segments={1}]:0.5)ARGNode_4[&segments={0,1}]:1.5)ARGNode_2[&segments={0,1}]:1.0,(C[&segments={0,1}]:1.5,(D[&segments={0,1}]:1.0,ARGNode_10#H1[&segments={0}]:1.5)ARGNode_8[&segments={0,1}]:1.0)ARGNode_6[&segments={0,1}]:1.0)ARGNode_1[&segments={0,1}];";
+    assert_eq!(expected, extended_newick(r.built_arg().unwrap()).unwrap());
+  }
+
+  #[test]
+  fn extended_newick_quotes_labels_that_newick_reads_differently() {
+    let r = run_trees(&[("ha", "((A,'B,1'),(C,(D,X)));"), ("na", "((A,('B,1',X)),(C,D));")]);
+    let text = extended_newick(r.built_arg().unwrap()).unwrap();
+    let expected = "((A[&segments={0,1}],('B,1'[&segments={0,1}],(X[&segments={0,1}])ARGNode_10#H1[&segments={1}])ARGNode_4[&segments={0,1}])ARGNode_2[&segments={0,1}],(C[&segments={0,1}],(D[&segments={0,1}],ARGNode_10#H1[&segments={0}])ARGNode_8[&segments={0,1}])ARGNode_6[&segments={0,1}])ARGNode_1[&segments={0,1}];";
+    assert_eq!(expected, text);
+    let options = NewickReadOptions {
+      dialect: NewickDialect::ENEWICK_BEAST,
+      ..NewickReadOptions::default()
+    };
+    let graph = newick_from_str(&text, &options).unwrap().graph;
+    let mut leaves: Vec<&str> = graph
+      .nodes()
+      .filter(|&(n, _)| graph.is_leaf(n))
+      .filter_map(|(_, node)| node.name())
+      .collect();
+    leaves.sort_unstable();
+    assert_eq!(vec!["A", "B,1", "C", "D", "X"], leaves);
+  }
+}
