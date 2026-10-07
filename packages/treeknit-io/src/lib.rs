@@ -17,3 +17,4 @@ pub mod run;
 pub mod schema;
 pub mod summary;
 pub mod version;
+pub mod wire;

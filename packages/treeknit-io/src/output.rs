@@ -5,6 +5,7 @@ use crate::display::{self, AuspiceTrees, Scale, TreeVersion};
 use crate::figure::{self, FigureOptions};
 use crate::run::RunResult;
 use crate::summary::Diagnostic;
+use crate::wire::wire_name;
 use crate::{analysis, arg, auspice, mccs, newick};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -545,7 +546,7 @@ pub fn auspice_files(
   let stem = if version == TreeVersion::Resolved && view.scale == Scale::Div {
     format!("auspice_{pair_stem}")
   } else {
-    format!("auspice_{pair_stem}_{}_{}", wire_name(version), wire_name(view.scale))
+    format!("auspice_{pair_stem}_{}_{}", wire_name(&version), wire_name(&view.scale))
   };
   let json = [(true, a, &view.left), (false, b, &view.right)]
     .into_iter()
@@ -582,8 +583,8 @@ fn download_name(path: &str, version: Option<TreeVersion>, options: &FigureOptio
   }
   let stem = name.strip_suffix(".svg").unwrap_or(name);
   let mut parts: Vec<String> = vec![stem.to_owned()];
-  parts.extend(version.map(wire_name));
-  parts.push(wire_name(scale));
+  parts.extend(version.as_ref().map(wire_name));
+  parts.push(wire_name(&scale));
   if options.width != listed.width {
     parts.push(format!("w{}", options.width));
   }
@@ -591,16 +592,9 @@ fn download_name(path: &str, version: Option<TreeVersion>, options: &FigureOptio
     parts.push(format!("row{}", options.row_height));
   }
   if options.labels != listed.labels {
-    parts.push(format!("labels-{}", wire_name(options.labels)));
+    parts.push(format!("labels-{}", wire_name(&options.labels)));
   }
   format!("{}.svg", parts.join("_"))
-}
-
-/// The name of a unit variant as it is serialized, such as `imputed`.
-fn wire_name<T: Serialize>(value: T) -> String {
-  #[expect(clippy::expect_used, reason = "a unit variant serializes to a JSON string")]
-  let value = serde_json::to_value(value).expect("a unit variant serializes");
-  value.as_str().unwrap_or_default().to_owned()
 }
 
 /// The labels of the two trees of an ARG, segment A and then B; `None` for another number of

@@ -8,6 +8,7 @@
 use crate::figure::FigureOptionKey;
 use crate::newick;
 use crate::output::{self, OutputOptions};
+use crate::wire::wire_name;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
@@ -185,9 +186,9 @@ impl Field {
       Field::Tree { index } => format!("trees[{index}]"),
       Field::TreeLabel { index } => format!("trees[{index}].label"),
       Field::TreeNewick { index } => format!("trees[{index}].newick"),
-      Field::Setting { key } => format!("settings.{}", key.name()),
-      Field::SeqLength { index } => format!("settings.{}[{index}]", SettingKey::SeqLengths.name()),
-      Field::FigureOption { key } => key.name().to_owned(),
+      Field::Setting { key } => format!("settings.{}", wire_name(key)),
+      Field::SeqLength { index } => format!("settings.{}[{index}]", wire_name(&SettingKey::SeqLengths)),
+      Field::FigureOption { key } => wire_name(key),
       Field::LinkKey { key } => key.clone(),
       Field::LinkTree { index } => format!("tree[{index}]"),
     }
@@ -218,19 +219,6 @@ pub enum SettingKey {
   NMcmcIt,
   Rounds,
   Seed,
-}
-
-impl SettingKey {
-  /// The name of the setting, as serde writes it and as the field of [`Settings`] is named.
-  pub fn name(self) -> &'static str {
-    match self {
-      SettingKey::Gamma => "gamma",
-      SettingKey::SeqLengths => "seqLengths",
-      SettingKey::NMcmcIt => "nMcmcIt",
-      SettingKey::Rounds => "rounds",
-      SettingKey::Seed => "seed",
-    }
-  }
 }
 
 impl std::fmt::Display for ValidationError {
@@ -800,17 +788,15 @@ mod tests {
   }
 
   #[test]
-  fn setting_key_names_are_their_serde_names_and_fields_of_the_settings() {
+  fn setting_keys_are_fields_of_the_settings() {
     // Oracle: the serialized `Settings`, whose field names the web app's form uses.
     let settings = serde_json::to_value(Settings::default()).unwrap();
-    let names: Vec<&str> = SettingKey::VARIANTS.iter().map(|k| k.name()).collect();
-    let serde_names: Vec<serde_json::Value> = SettingKey::VARIANTS
+    let not_in_settings: Vec<String> = SettingKey::VARIANTS
       .iter()
-      .map(|k| serde_json::to_value(k).unwrap())
+      .map(wire_name)
+      .filter(|n| settings.get(n).is_none())
       .collect();
-    let not_in_settings: Vec<&str> = names.iter().copied().filter(|n| settings.get(n).is_none()).collect();
-    assert_eq!(names.iter().map(|n| json!(n)).collect::<Vec<_>>(), serde_names);
-    assert_eq!(Vec::<&str>::new(), not_in_settings);
+    assert_eq!(Vec::<String>::new(), not_in_settings);
   }
 
   #[test]

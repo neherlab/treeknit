@@ -18,6 +18,7 @@ use crate::analysis::{self, AnalysisRequest, Field, ResolveMode, Settings, Valid
 use crate::examples;
 use crate::output;
 use crate::schema::{KeyValue, SETTING_KEYS, SettingKey, SettingName};
+use crate::wire::{from_wire_name, wire_name};
 use base64::Engine;
 use base64::alphabet;
 use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
@@ -904,25 +905,7 @@ fn parse_integer(key: &str, value: &str) -> Result<u64, String> {
 }
 
 fn parse_mode(value: &str) -> Result<ResolveMode, String> {
-  [
-    ResolveMode::Matched,
-    ResolveMode::Strict,
-    ResolveMode::Liberal,
-    ResolveMode::None,
-  ]
-  .into_iter()
-  .find(|m| mode_name(*m) == value)
-  .ok_or_else(|| format!("resolve must be matched, strict, liberal, or none, got {value:?}"))
-}
-
-/// The value of `resolve=` for `mode`.
-fn mode_name(mode: ResolveMode) -> &'static str {
-  match mode {
-    ResolveMode::None => "none",
-    ResolveMode::Strict => "strict",
-    ResolveMode::Liberal => "liberal",
-    ResolveMode::Matched => "matched",
-  }
+  from_wire_name(value).ok_or_else(|| format!("resolve must be matched, strict, liberal, or none, got {value:?}"))
 }
 
 fn value_placeholder(value: KeyValue) -> Option<&'static str> {
@@ -1114,7 +1097,7 @@ fn setting_pairs(settings: &Settings, base: &Settings) -> Option<Vec<(String, St
         _ => return None,
       },
       SettingName::NMcmcIt => changed(&settings.n_mcmc_it, &base.n_mcmc_it).map(u64::to_string),
-      SettingName::Resolve => changed(&settings.resolve, &base.resolve).map(|m| mode_name(*m).to_owned()),
+      SettingName::Resolve => changed(&settings.resolve, &base.resolve).map(wire_name),
       SettingName::Rounds => changed(&settings.rounds, &base.rounds).map(u64::to_string),
       SettingName::Seed => changed(&settings.seed, &base.seed).map(u64::to_string),
       SettingName::PreResolve => flag_pair(s, settings.pre_resolve, base.pre_resolve),

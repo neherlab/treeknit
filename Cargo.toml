@@ -88,6 +88,7 @@ serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["float_roundtrip", "preserve_order"] }
 # Field paths in serde errors, for the messages of malformed values at the WebAssembly boundary.
 serde_path_to_error = "=0.1.20"
+serde_plain = "=1.0.2"
 simplelog = "=0.12.2"
 strsim = "=0.11.1"
 strum = { version = "=0.28.0", features = ["derive"] }

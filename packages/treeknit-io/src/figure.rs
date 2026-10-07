@@ -66,16 +66,6 @@ pub enum FigureOptionKey {
   RowHeight,
 }
 
-impl FigureOptionKey {
-  /// The name of the option, as serde writes it and as the field of [`FigureOptions`] is named.
-  pub fn name(self) -> &'static str {
-    match self {
-      FigureOptionKey::Width => "width",
-      FigureOptionKey::RowHeight => "rowHeight",
-    }
-  }
-}
-
 /// Smallest figure width, in px: the two margins and one px between them, so that the drawing
 /// has a width.
 pub const MIN_FIGURE_WIDTH: f64 = 2.0 * DRAWING_RULES.margin_px + 1.0;
@@ -161,6 +151,7 @@ mod tests {
   use crate::display::{self, TreeVersion};
   use crate::palette;
   use crate::run::{self, RunResult};
+  use crate::wire::wire_name;
   use pretty_assertions::assert_eq;
   use quick_xml::events::BytesStart;
   use quick_xml::events::Event;
@@ -794,17 +785,15 @@ mod tests {
   }
 
   #[test]
-  fn figure_option_key_names_are_their_serde_names_and_fields_of_the_options() {
+  fn figure_option_keys_are_fields_of_the_options() {
     // Oracle: the serialized `FigureOptions`, the options that the web app sends.
     let options = serde_json::to_value(FigureOptions::default()).unwrap();
-    let names: Vec<&str> = FigureOptionKey::VARIANTS.iter().map(|k| k.name()).collect();
-    let serde_names: Vec<serde_json::Value> = FigureOptionKey::VARIANTS
+    let not_in_options: Vec<String> = FigureOptionKey::VARIANTS
       .iter()
-      .map(|k| serde_json::to_value(k).unwrap())
+      .map(wire_name)
+      .filter(|n| options.get(n).is_none())
       .collect();
-    let not_in_options: Vec<&str> = names.iter().copied().filter(|n| options.get(n).is_none()).collect();
-    assert_eq!(names.iter().map(|n| json!(n)).collect::<Vec<_>>(), serde_names);
-    assert_eq!(Vec::<&str>::new(), not_in_options);
+    assert_eq!(Vec::<String>::new(), not_in_options);
   }
 
   /// The error of the option `key` with `message`.
