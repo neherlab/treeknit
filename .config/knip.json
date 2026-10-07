@@ -1,10 +1,17 @@
 {
   "$schema": "https://unpkg.com/knip@6.38.0/schema.json",
   "ignoreExportsUsedInFile": true,
+  "ignoreIssues": {
+    "dev/lints/oxlint-anti-slop/vendor/**/*.d.ts": ["types"]
+  },
   "workspaces": {
     ".": {
-      "entry": ["dev/lints/oxlint/__tests__/*.ts", "dev/lints/oxlint-anti-slop/**/*.test.ts"],
-      "project": ["*.ts", "dev/lints/oxlint/**/*.ts"]
+      "entry": [
+        "dev/lints/oxlint/__tests__/*.ts",
+        "dev/lints/oxlint-anti-slop/effect/index.ts",
+        "dev/lints/oxlint-anti-slop/**/*.test.ts"
+      ],
+      "project": ["*.ts", "dev/lints/oxlint/**/*.ts", "dev/lints/oxlint-anti-slop/**/*.ts"]
     },
     "packages/treeknit-wasm": {
       "entry": [],

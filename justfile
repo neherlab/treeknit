@@ -25,12 +25,13 @@ export NEXTEST_NO_TESTS := "fail"
 # Build output of the checkout. dev/docker/run points TREEKNIT_BUILD_DIR at
 # .build/container, so host and container artifacts, which link against
 # different system libraries, never mix. Builds and tests share one cargo target
-# directory; clippy and dylint each have their own, so a lint never waits on the
-# build lock.
+# directory; clippy, dylint, and hawk each have their own, so a lint never waits
+# on the build lock.
 build_dir := env("TREEKNIT_BUILD_DIR", justfile_directory() / ".build/host")
 export CARGO_TARGET_DIR := build_dir / "cargo"
 lint_target_dir := build_dir / "lint"
 dylint_target_dir := build_dir / "dylint"
+hawk_target_dir := build_dir / "hawk"
 
 # The kache compiler cache is optional. KACHE_STORE, in .env or the environment,
 # names the store directory; every build and clippy pass then compiles through
@@ -38,8 +39,8 @@ dylint_target_dir := build_dir / "dylint"
 # the workspace crates of dev, test, release, and clippy builds keep their
 # incremental state, so an edit rebuilds as fast as without kache, while kache
 # serves the dependencies and every build without incremental state (dist,
-# profiling, and bench builds). Dylint and coverage always compile without
-# kache, because a cache hit skips their analysis and instrumentation.
+# profiling, and bench builds). Dylint, hawk, and coverage always compile
+# without kache, because a cache hit skips their analysis and instrumentation.
 #
 # Each store is <KACHE_STORE>/<kache version>/<host|docker>-<pass>: kache does
 # not check its store format, so two versions never share a store; host and
@@ -61,18 +62,21 @@ uncached_env := "RUSTC_WRAPPER= CARGO_INCREMENTAL=0"
 # record per compiled crate in the pub-unused directory, and pub-unused-report
 # reads them after the check pass. Mordant lists the crates over the committed
 # baseline in over-baseline.txt.
-pub_unused_env := "TREEKNIT_LINTS_PUB_UNUSED_DIR=" + quote(dylint_target_dir / "pub-unused")
+pub_unused_env := "CUSTOM_LINTS_PUB_UNUSED_DIR=" + quote(dylint_target_dir / "pub-unused")
 dylint_cmd := uncached_env + " CARGO_TARGET_DIR=" + quote(dylint_target_dir) + " " + pub_unused_env + " cargo dylint --quiet --all"
 dylint_cargo_args := "--quiet --locked --workspace --all-targets"
 
 # Lint levels of the driver: lints that only one library declares are unknown
-# to the others, and the comment lints of treeknit_lints (no_comments,
-# doc_comment_limit) are off, because the Rust code keeps its comments.
-dylint_rustflags := "-A unknown_lints -A no_comments -A doc_comment_limit"
+# to the others. Of the custom library, the comment lints (no_comments,
+# doc_comment_limit) are off, because the Rust code keeps its comments, and the
+# builder and error-macro lints (suggest_builder, needless_builder,
+# prefer_error_macros) are off, because the project uses neither bon nor error
+# helper macros.
+dylint_rustflags := "-A unknown_lints -A no_comments -A doc_comment_limit -A suggest_builder -A needless_builder -A prefer_error_macros"
 dylint_over_baseline := dylint_target_dir / "mordant/over-baseline.txt"
 
-# Library crates whose public API is an external boundary, skipped by the
-# unused-public-code report: the `#[wasm_bindgen]` surface of the WebAssembly
+# Library crates whose public API is an external boundary, skipped by both
+# unused-public-code checks (hawk and pub-unused-report): the `#[wasm_bindgen]` surface of the WebAssembly
 # bindings is consumed by the web app.
 public_api_crates := "treeknit_wasm"
 
@@ -81,6 +85,10 @@ public_api_crates := "treeknit_wasm"
 # recipes enable it for their resolution only; RUSTC_BOOTSTRAP=1 allows unstable
 # Cargo features on a stable toolchain.
 cargo_min_age := "RUSTC_BOOTSTRAP=1 cargo -Zmin-publish-age --config 'registry.global-min-publish-age=\"7 days\"'"
+hawk_toolchain := trim(read("dev/docker/files/hawk-toolchain"))
+
+# Reason of the React 19 pin, printed by lint-ts when the catalog leaves 19.x.
+react_pin_reason := "the project keeps React on 19.x"
 
 # Build modes of the build and run recipes: dev, dev-opt, release, and
 # profiling are the cargo profiles of the same name; prod, the shipped build, is
@@ -95,8 +103,20 @@ wasm_pkg := "packages/treeknit-wasm/pkg"
 wasm_types := wasm_pkg / "treeknit_wasm.d.ts"
 wasm_variants := wasm_pkg / "treeknit_variants.ts"
 
+# Groups of the full gate (`just check-group <group>`). A check is a recipe name
+# with colon-separated arguments: `build-web:prod` runs `just build-web prod`.
+checks_format := "fmt-check-rs fmt-check-ts fmt-check-other lint-shell lint-docker lint-workflows deny shear"
+checks_clippy := "lint-rs lint-wasm"
+checks_dylint := "dylint"
+checks_tests := "test-rs test-wasm"
+checks_generated := "generated-check build-web:prod"
+checks_typescript := "typecheck lint-ts knip test-ts"
+checks_hawk := "hawk"
 check_fast := "fmt-check-rs fmt-check-ts fmt-check-other lint-rs lint-wasm lint-ts typecheck"
-check_full := "fmt-check-rs fmt-check-ts fmt-check-other lint-shell lint-docker lint-workflows deny shear lint-rs lint-wasm dylint test-rs test-wasm build-web:prod typecheck lint-ts knip test-ts generated-check"
+check_full := checks_format + " " + checks_clippy + " " + checks_dylint + " " + checks_tests + " " + checks_generated + " " + checks_typescript + " " + checks_hawk
+lint_fast := "lint-rs lint-wasm lint-ts"
+lint_full := "lint-rs lint-wasm lint-ts typecheck dylint hawk knip deny shear lint-shell lint-docker lint-workflows"
+dockerfiles := "dev/docker/*.dockerfile"
 
 alias b := build
 alias r := run
@@ -111,12 +131,17 @@ alias fc := fmt-check
 # Fast checks: formatting, clippy, TypeScript types and lints, in parallel
 [group("check")]
 check: _js
-    TREEKNIT_JS_READY=1 dev/run-checks {{ check_fast }}
+    JS_READY=1 dev/run-checks {{ check_fast }}
 
 # Every check, in parallel; slow
 [group("check")]
 check-all: _js
-    TREEKNIT_JS_READY=1 dev/run-checks {{ check_full }}
+    JS_READY=1 dev/run-checks {{ check_full }}
+
+# One group of check-all, serially with streamed output: just check-group <format|clippy|dylint|tests|generated|typescript|hawk>
+[group("check")]
+check-group group: _js
+    recipes="$(just --evaluate "checks_$1")"; JS_READY=1 dev/run-checks --serial ${recipes}
 
 # Apply the fast automatic lint fixes (clippy, oxlint), then format; stage your changes first
 [group("check")]
@@ -129,7 +154,7 @@ fix-all: lint-fix dylint-fix fmt
 # Install the pinned tools and the lint toolchains (on the host)
 [group("setup")]
 setup:
-    if [[ -z "${TREEKNIT_CONTAINER:-}" ]]; then mise install; for dir in dev/lints/dylint-*/; do (cd "${dir}" && rustup toolchain install); done; fi
+    if [[ -z "${TREEKNIT_CONTAINER:-}" ]]; then mise install; for dir in dev/lints/dylint-*/; do (cd "${dir}" && rustup toolchain install); done; rustup toolchain install {{ hawk_toolchain }} --profile minimal --component rustc-dev,llvm-tools-preview,rust-src; fi
 
 # Build the CLI: just build <dev|dev-opt|release|prod|profiling> [cargo args]; prod is the shipped build (dist profile); release and prod copy the binary to .out/
 [arg("mode", pattern="dev|dev-opt|release|prod|profiling")]
@@ -250,6 +275,11 @@ coverage-ts: _js
 mutants *args:
     dev/mutants "$@"
 
+# Copy-paste duplication across Rust and TypeScript (jscpd), never a gate
+[group("report")]
+duplication *args:
+    jscpd --config .config/jscpd.json packages "$@"
+
 # Inventory of lint suppressions and other review-sensitive settings
 [group("report")]
 review-suppressions:
@@ -258,12 +288,12 @@ review-suppressions:
 # Fast lints: clippy and oxlint, keep-going
 [group("lint")]
 lint: _js
-    TREEKNIT_JS_READY=1 dev/run-checks --serial lint-rs lint-wasm lint-ts
+    JS_READY=1 dev/run-checks --serial {{ lint_fast }}
 
-# Every lint: clippy, oxlint, TypeScript types, the dylint libraries, unused code and dependencies, dependency policy, and the shell, Dockerfile, and workflow lints, keep-going
+# Every lint: the fast lints, TypeScript types, the lint libraries, unused code and dependencies, dependency policy, and the shell, Dockerfile, and workflow lints, keep-going
 [group("lint")]
 lint-all: _js
-    TREEKNIT_JS_READY=1 dev/run-checks --serial lint-rs lint-wasm lint-ts typecheck dylint knip deny shear lint-shell lint-docker lint-workflows
+    JS_READY=1 dev/run-checks --serial {{ lint_full }}
 
 # Apply the automatic lint fixes: clippy, then oxlint; stage your changes first
 [group("lint")]
@@ -312,10 +342,19 @@ dylint-fix:
 dylint-baseline:
     DYLINT_RUSTFLAGS={{ quote(dylint_rustflags) }} MORDANT_BASELINE_WRITE=1 {{ dylint_cmd }} -- {{ dylint_cargo_args }} --keep-going
 
-# TypeScript lints (oxlint, type-aware)
+# Unnecessary public surface (cargo-hawk), denying warnings
 [group("lint")]
+hawk *args:
+    {{ uncached_env }} cargo +{{ hawk_toolchain }} hawk check --config .config/hawk.toml --target-dir {{ quote(hawk_target_dir) }} {{ prepend("--exclude-crate=", public_api_crates) }} -W warnings "$@"
+
+# TypeScript lints (oxlint, type-aware) and the React 19 pin, keep-going
+[group("lint")]
+[script]
 lint-ts: _js
-    bun run --silent lint
+    status=0
+    bun run --silent lint || status=1
+    jq -e '.workspaces.catalog.react | startswith("19.")' package.json >/dev/null || { printf 'the react catalog entry must stay on 19.x: %s\n' {{ quote(react_pin_reason) }} >&2; status=1; }
+    exit "${status}"
 
 # TypeScript type checks of the packages and the tool configs, keep-going
 [group("lint")]
@@ -353,7 +392,7 @@ lint-shell:
 # Dockerfiles (hadolint)
 [group("lint")]
 lint-docker:
-    hadolint --config .config/hadolint.yaml dev/docker/*.dockerfile
+    hadolint --config .config/hadolint.yaml {{ dockerfiles }}
 
 # GitHub Actions workflows (actionlint)
 [group("lint")]
@@ -367,7 +406,7 @@ fmt: fmt-rs fmt-ts fmt-other
 # Check formatting of Rust, TypeScript, shell, TOML, and the justfile, keep-going
 [group("format")]
 fmt-check: _js
-    TREEKNIT_JS_READY=1 dev/run-checks --serial fmt-check-rs fmt-check-ts fmt-check-other
+    JS_READY=1 dev/run-checks --serial fmt-check-rs fmt-check-ts fmt-check-other
 
 # Format Rust (rustfmt)
 [group("format")]
@@ -463,12 +502,12 @@ deps-upgrade-ts +packages: _main-checkout
 # Fail when a crate in Cargo.lock was published less than 7 days ago (network)
 [group("deps")]
 deps-age:
-    dev/crate-age Cargo.lock
+    dev/crate-age Cargo.lock dev/lints/*/Cargo.lock
 
 # Security advisories of both dependency graphs and the crate publish age (network), keep-going
 [group("deps")]
 audit: _js
-    TREEKNIT_JS_READY=1 dev/run-checks --serial audit-rs audit-ts deps-age
+    JS_READY=1 dev/run-checks --serial audit-rs audit-ts deps-age
 
 # Security advisories of the Rust dependencies (cargo-deny, network)
 [group("deps")]
@@ -492,7 +531,7 @@ tools-lock *tools:
 
 # Install the JavaScript dependencies from bun.lock
 _js:
-    [[ -n "${TREEKNIT_JS_READY:-}" ]] || bun install --frozen-lockfile --silent
+    [[ -n "${JS_READY:-}" ]] || bun install --frozen-lockfile --silent
 
 _main-checkout:
     test "$(git rev-parse --path-format=absolute --git-common-dir)" = "$(git rev-parse --path-format=absolute --git-dir)" || { printf 'run this recipe in the main checkout, not in a worktree\n' >&2; exit 1; }

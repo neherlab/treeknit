@@ -1,6 +1,6 @@
 #![feature(rustc_private)]
 #![cfg_attr(
-    not(dylint_lib = "treeknit_lints"),
+    not(dylint_lib = "custom"),
     allow(unknown_lints, reason = "enable dylint lint annotations")
 )]
 
@@ -41,6 +41,10 @@ pub fn register_lints(sess: &Session, lint_store: &mut LintStore) {
         lints::panic_in_drop::PANIC_IN_DROP,
         lints::topological_ordering::TOPOLOGICAL_ORDERING,
         lints::proper_error_type::PROPER_ERROR_TYPE,
+        lints::prefer_error_macros::PREFER_ERROR_MACROS,
+        lints::suggest_builder::SUGGEST_BUILDER,
+        lints::needless_builder::NEEDLESS_BUILDER,
+        lints::bon_builder_collector::BON_BUILDER_COLLECTOR,
         lints::code_hygiene::SUPER_IMPORT,
         lints::code_hygiene::LOCAL_USE,
         lints::code_hygiene::NESTED_FUNCTION,
@@ -61,7 +65,11 @@ pub fn register_lints(sess: &Session, lint_store: &mut LintStore) {
         lints::no_comments::NO_COMMENTS,
         lints::no_comments::DOC_COMMENT_LIMIT,
         lints::pub_unused_in_workspace::PUB_UNUSED_IN_WORKSPACE,
+        lints::json_value_in_schema::JSON_VALUE_IN_SCHEMA,
     ]);
+    lint_store.register_pre_expansion_pass(|| {
+        Box::new(lints::bon_builder_collector::BonBuilderCollector)
+    });
     let help_docs = lints::no_comments::new_help_docs();
     lint_store.register_pre_expansion_pass({
         let help_docs = help_docs.clone();
@@ -80,6 +88,10 @@ pub fn register_lints(sess: &Session, lint_store: &mut LintStore) {
         .register_late_pass(|_| Box::new(lints::topological_ordering::TopologicalOrdering::new()));
     lint_store
         .register_late_pass(|_| Box::new(lints::proper_error_type::ProperErrorType::default()));
+    lint_store
+        .register_late_pass(|_| Box::new(lints::prefer_error_macros::PreferErrorMacros::new()));
+    lint_store.register_late_pass(|_| Box::new(lints::suggest_builder::SuggestBuilder::new()));
+    lint_store.register_late_pass(|_| Box::new(lints::needless_builder::NeedlessBuilder::new()));
     lint_store.register_late_pass(|_| Box::new(lints::code_hygiene::CodeHygiene::new()));
     lint_store.register_late_pass(|_| {
         Box::new(lints::error_dropped_by_pattern::ErrorDroppedByPattern::new())
@@ -98,4 +110,6 @@ pub fn register_lints(sess: &Session, lint_store: &mut LintStore) {
     lint_store.register_late_pass(|_| {
         Box::new(lints::pub_unused_in_workspace::PubUnusedInWorkspace::new())
     });
+    lint_store
+        .register_late_pass(|_| Box::new(lints::json_value_in_schema::JsonValueInSchema::new()));
 }

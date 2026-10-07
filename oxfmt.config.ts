@@ -22,6 +22,6 @@ export default defineConfig({
   sortImports: true,
   sortPackageJson: true,
   sortTailwindcss: {
-    functions: ["cn", "cva"],
+    functions: ["cn", "clsx", "cva", "tw"],
   },
 });

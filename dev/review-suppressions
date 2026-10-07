@@ -3,9 +3,9 @@
 # Usage: $0
 #
 # Print the inventory of lint suppressions and other review-sensitive settings:
-# suppression attributes, allowed lints, lint configuration files, ignored
-# tests, mutation exclusions, and test tolerances. Changes to these deserve a
-# separate review from ordinary code changes.
+# suppression attributes and comments, allowed lints, lint configuration files,
+# ignored tests, mutation exclusions, and test tolerances. Changes to these
+# deserve a separate review from ordinary code changes.
 #
 set -euo pipefail
 shopt -s inherit_errexit
@@ -19,14 +19,16 @@ section() {
 }
 
 section "Rust #[allow]/#[expect] attributes, including dylint cfg_attr suppressions" \
-  rg -n -g '*.rs' '#!?\[(allow|expect)\(|cfg_attr\([^)]*(allow|expect)\(' packages
+  rg -n -g '*.rs' -g '!**/generated/**' '#!?\[(allow|expect)\(|cfg_attr\([^)]*(allow|expect)\(' packages
 section "Lints allowed in manifests" \
   rg -n -g 'Cargo.toml' -e '= "allow"' -e 'level *= *"allow"' Cargo.toml packages
 section "Ignored Rust tests" \
   rg -n -g '*.rs' '#\[ignore' packages
 section "Test tolerances" \
   rg -n -g '*.rs' 'epsilon *=|max_relative *=|max_ulps *=|f64::EPSILON|f32::EPSILON' packages
+section "TypeScript suppressions" \
+  rg -n -g '*.ts' -g '*.tsx' -g '!**/generated/**' 'oxlint-disable|eslint-disable|@ts-(expect-error|ignore)' packages dev/lints/oxlint
 section "Mutation exclusions" \
   rg -n 'exclude' .cargo/mutants.toml
 section "Lint configuration files" \
-  git ls-files -- Cargo.toml clippy.toml dylint.toml .config/deny.toml .config/mordant-baseline.toml .cargo/mutants.toml
+  git ls-files -- Cargo.toml clippy.toml dylint.toml .config/hawk.toml .config/deny.toml .config/mordant-baseline.toml oxlint.config.ts .config/knip.json .cargo/mutants.toml

@@ -28,6 +28,76 @@ pub struct DebugRemnantsConfig {
     pub suggested_framework: LogFramework,
 }
 
+#[derive(Deserialize)]
+#[serde(default)]
+pub struct SuggestBuilderConfig {
+    pub threshold: usize,
+    /// Derive names that exempt a struct from this lint.
+    /// Matches the last path segment (e.g. `"Default"` matches both
+    /// `#[derive(Default)]` and `#[derive(std::default::Default)]`).
+    pub skip_derives: Vec<String>,
+}
+
+impl Default for SuggestBuilderConfig {
+    fn default() -> Self {
+        Self {
+            threshold: 6,
+            skip_derives: vec![
+                "Default".into(),
+                "Queryable".into(),
+                "Insertable".into(),
+                "Selectable".into(),
+            ],
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(default)]
+pub struct NeedlessBuilderConfig {
+    pub threshold: usize,
+}
+
+impl Default for NeedlessBuilderConfig {
+    fn default() -> Self {
+        Self { threshold: 2 }
+    }
+}
+
+/// Config for the `proper_error_type` lint.
+#[derive(Default, Deserialize)]
+#[serde(default)]
+pub struct ProperErrorTypeConfig {
+    /// The error types the project expects in public signatures.
+    pub style: ErrorStyle,
+}
+
+/// Error convention of a project, named in `proper_error_type` diagnostics.
+///
+/// Deserialized from `dylint.toml` as `"eyre"` or `"typed"`.
+#[derive(Clone, Copy, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ErrorStyle {
+    /// `eyre::Report` in every crate.
+    #[default]
+    Eyre,
+    /// Typed error enums (`thiserror`) in libraries, `eyre::Report` in binaries.
+    Typed,
+}
+
+/// Config for the `prefer_error_macros` lint.
+#[derive(Default, Deserialize)]
+#[serde(default)]
+pub struct PreferErrorMacrosConfig {
+    /// Project macros that wrap `eyre!`; an `eyre!` expanded from one of them
+    /// is generated code and is not reported.
+    pub helper_macros: Vec<String>,
+    /// Macro suggested in place of `eyre!`, with the same arguments as `eyre!`.
+    pub report_macro: Option<String>,
+    /// Macro suggested in place of `bail!`, as `return <error_macro>!(...)`.
+    pub error_macro: Option<String>,
+}
+
 /// Config for the `fallible_new` lint.
 #[derive(Deserialize)]
 #[serde(default)]
@@ -77,7 +147,7 @@ pub struct NoCommentsConfig {
 #[derive(Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct RenderSource {
-    /// Surface name, e.g. `"clap"`, `"tsify"`.
+    /// Surface name, e.g. `"clap"`, `"schemars"`, `"tsify"`.
     pub name: String,
     /// Derive names that place an item on this surface (last path segment).
     pub derives: Vec<String>,

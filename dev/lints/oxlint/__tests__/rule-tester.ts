@@ -7,7 +7,7 @@ RuleTester.describe = (name, fn): void => {
 };
 
 RuleTester.it = (name, fn): void => {
-  // oxlint-disable-next-line treeknit/prefer-test-over-it -- RuleTester binds the runner's it
+  // oxlint-disable-next-line custom/prefer-test-over-it -- RuleTester binds the runner's it
   void it(name, fn);
 };
 

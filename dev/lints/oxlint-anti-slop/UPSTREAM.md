@@ -1,6 +1,6 @@
 # Vendored anti-slop Oxlint plugin
 
-TreeKnit vendors the `anti-slop` Oxlint plugin instead of depending on an npm package. Upstream ships no official package and documents vendoring as its distribution model.
+The project vendors the `anti-slop` Oxlint plugin instead of depending on an npm package. Upstream ships no official package and documents vendoring as its distribution model.
 
 ## Source
 
@@ -11,13 +11,13 @@ TreeKnit vendors the `anti-slop` Oxlint plugin instead of depending on an npm pa
 - License: MIT (`LICENSE`, `Copyright (c) 2026 Dillon Mulroy`), retained verbatim
 - Nested vendored code: `vendor/eslint-stylistic/` carries its own MIT `LICENSE` (OpenJS Foundation and ESLint Stylistic contributors) and `UPSTREAM.md`, both retained verbatim
 
-The vendored tree is the complete upstream `src/` tree: the generic plugin (`index.ts`, `rules/`, `shared/`), the Effect plugin (`effect/`), every rule test, and the nested eslint-stylistic vendor. Upstream package-manager files (`package.json`, `pnpm-lock.yaml`, `tsconfig.json`) and the skill-packaging script are not copied; TreeKnit type-checks and tests the tree through its own configuration.
+The vendored tree is the complete upstream `src/` tree: the generic plugin (`index.ts`, `rules/`, `shared/`), the Effect plugin (`effect/`), every rule test, and the nested eslint-stylistic vendor. Upstream package-manager files (`package.json`, `pnpm-lock.yaml`, `tsconfig.json`) and the skill-packaging script are not copied; the project type-checks and tests the tree through its own configuration.
 
 ## Loading and activation
 
-Oxlint loads the generic plugin from `./dev/lints/oxlint-anti-slop/index.ts`, registered in `oxlint.config.ts` under the plugin name `anti-slop`. The Effect plugin (`anti-slop-effect`, `effect/index.ts`) stays vendored but unregistered because TreeKnit has no direct Effect dependency.
+Oxlint loads the generic plugin from `./dev/lints/oxlint-anti-slop/index.ts`, registered in `oxlint.config.ts` under the plugin name `anti-slop`. The Effect plugin (`anti-slop-effect`, `effect/index.ts`) stays vendored but unregistered because the project has no direct Effect dependency.
 
-TreeKnit configuration owns rule severity and path overrides. Every generic rule has one explicit disposition:
+The project configuration owns rule severity and path overrides. Every generic rule has one explicit disposition:
 
 ### Enabled as errors
 
@@ -39,13 +39,13 @@ TreeKnit configuration owns rule severity and path overrides. Every generic rule
 
 `oxc/no-accumulating-spread` is enabled alongside `anti-slop/no-reduce-accumulator-copy`; the two cover growing-accumulator copies from complementary directions.
 
-### Disabled: superseded by a stricter TreeKnit rule
+### Disabled: superseded by a stricter project rule
 
 - `anti-slop/no-chained-type-assertions`
 - `anti-slop/no-widen-then-assert`
 - `anti-slop/require-safety-comment-for-type-assertion`
 
-TreeKnit keeps `typescript/consistent-type-assertions` with `assertionStyle: "never"`, which rejects every non-const type assertion earlier and more strictly than the three assertion rules above. Enabling them would only add duplicate diagnostics for assertions that are already forbidden.
+The project keeps `typescript/consistent-type-assertions` with `assertionStyle: "never"`, which rejects every non-const type assertion earlier and more strictly than the three assertion rules above. Enabling them would only add duplicate diagnostics for assertions that are already forbidden.
 
 ### Module mocking
 
@@ -53,18 +53,18 @@ TreeKnit keeps `typescript/consistent-type-assertions` with `assertionStyle: "ne
 
 ## Local patch
 
-- `rules/require-readable-spacing-cli.test.ts`: the child-process command is changed from `pnpm exec oxlint` to `bun --bun oxlint`. TreeKnit runs Oxlint through Bun with the pinned workspace version; `pnpm` is not installed in the container. No other upstream file is modified.
+- `rules/require-readable-spacing-cli.test.ts`: the child-process command is changed from `pnpm exec oxlint` to `bun --bun oxlint`. The project runs Oxlint through Bun with the pinned workspace version; `pnpm` is not installed in the container. No other upstream file is modified.
 
 Local functional changes to the vendored tree require an entry in this file and a regression test.
 
 ## Style enforcement
 
-The vendored tree is excluded from Oxlint and Oxfmt style enforcement (see the `ignorePatterns` in `oxlint.config.ts` and `oxfmt.config.ts`). It is type-checked with its own `tsconfig.json`, which mirrors upstream's compiler options rather than TreeKnit's stricter first-party flags, so the tree type-checks verbatim. Its rule tests run in the standard custom-rule test path.
+The vendored tree is excluded from Oxlint and Oxfmt style enforcement (see the `ignorePatterns` in `dev/lints/oxlint/config.ts` and `oxfmt.config.ts`). It is type-checked with its own `tsconfig.json`, which mirrors upstream's compiler options rather than the project's stricter first-party flags, so the tree type-checks verbatim. Its rule tests run in the standard custom-rule test path.
 
 ## Verification
 
-- Rule tests: `./dev/docker/run just test-ts`
-- Type check: `./dev/docker/run just typecheck`
+- Lint and format: `./dev/docker/run just check`
+- Type check: `./dev/docker/run bun run typecheck:vendor`
 
 ## Updating
 

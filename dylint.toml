@@ -1,5 +1,5 @@
 # Configuration of the cargo-dylint lint libraries of dev/lints (`just dylint`).
-# The local treeknit_lints library reads its own sections here and falls back to
+# The local custom library reads its own sections here and falls back to
 # built-in defaults when a section is absent.
 
 # mordant: type-invariant lints (github.com/scarletindustries/mordant).
@@ -10,7 +10,7 @@
 baseline = ".config/mordant-baseline.toml"
 # unused_pub judges each library from the records of whichever crates cargo
 # happened to compile before the reporting crate, so it reports items that
-# sibling binaries use. treeknit_lints' pub_unused_in_workspace and the
+# sibling binaries use. The custom library's pub_unused_in_workspace and the
 # pub-unused-report post-pass replace it.
 disabled = ["unused_pub"]
 
@@ -81,6 +81,11 @@ never = [
 # debug_remnants: the project logs through the `log` macros.
 [debug_remnants]
 suggested_framework = "log"
+
+# proper_error_type: the libraries return typed error enums (thiserror) and the
+# CLI returns eyre reports.
+[proper_error_type]
+style = "typed"
 
 # unnamed_constant (Trail of Bits, supplementary): flags integer literals that
 # should be named constants. Raised above the default of 10 because this is a

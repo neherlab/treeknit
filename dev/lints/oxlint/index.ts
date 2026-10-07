@@ -3,6 +3,10 @@ import { definePlugin } from "@oxlint/plugins";
 import { callersBeforeCalleesRule } from "./rules/callers-before-callees.ts";
 import { noAssertionInLoopRule } from "./rules/no-assertion-in-loop.ts";
 import { noAsyncArrayPredicateRule } from "./rules/no-async-array-predicate.ts";
+import { noContractAliasRule } from "./rules/no-contract-alias.ts";
+import { noContractEnumCopyRule } from "./rules/no-contract-enum-copy.ts";
+import { noContractParseRule } from "./rules/no-contract-parse.ts";
+import { noDeclareGlobalRule } from "./rules/no-declare-global.ts";
 import { noDisabledTestsRule } from "./rules/no-disabled-tests.ts";
 import { noExecShellStringRule } from "./rules/no-exec-shell-string.ts";
 import { noFakeSuccessRule } from "./rules/no-fake-success.ts";
@@ -22,13 +26,18 @@ import { preferTestOverItRule } from "./rules/prefer-test-over-it.ts";
 import { requireIoTimeoutRule } from "./rules/require-io-timeout.ts";
 import { requireSuppressionReasonRule } from "./rules/require-suppression-reason.ts";
 import { useClassNameHelperRule } from "./rules/use-class-name-helper.ts";
+import { useThemedCnRule } from "./rules/use-themed-cn.ts";
 
 export default definePlugin({
-  meta: { name: "treeknit" },
+  meta: { name: "custom" },
   rules: {
     "callers-before-callees": callersBeforeCalleesRule,
     "no-assertion-in-loop": noAssertionInLoopRule,
     "no-async-array-predicate": noAsyncArrayPredicateRule,
+    "no-contract-alias": noContractAliasRule,
+    "no-contract-enum-copy": noContractEnumCopyRule,
+    "no-contract-parse": noContractParseRule,
+    "no-declare-global": noDeclareGlobalRule,
     "no-disabled-tests": noDisabledTestsRule,
     "no-exec-shell-string": noExecShellStringRule,
     "no-fake-success": noFakeSuccessRule,
@@ -48,5 +57,6 @@ export default definePlugin({
     "require-io-timeout": requireIoTimeoutRule,
     "require-suppression-reason": requireSuppressionReasonRule,
     "use-class-name-helper": useClassNameHelperRule,
+    "use-themed-cn": useThemedCnRule,
   },
 });

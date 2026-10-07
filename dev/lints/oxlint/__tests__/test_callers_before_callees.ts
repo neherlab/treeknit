@@ -5,7 +5,7 @@ const tester = ruleTester("ts");
 
 const error = { messageId: "outOfOrder" };
 
-tester.run("treeknit/callers-before-callees", callersBeforeCalleesRule, {
+tester.run("custom/callers-before-callees", callersBeforeCalleesRule, {
   valid: [
     "function a() { b() }\nfunction b() {}",
     "function a() { const f = () => b(); f() }\nfunction b() {}",

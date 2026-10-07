@@ -5,18 +5,18 @@ const tester = ruleTester("ts");
 
 const error = { messageId: "unbounded" };
 
-tester.run("treeknit/no-unbounded-suppression", noUnboundedSuppressionRule, {
+tester.run("custom/no-unbounded-suppression", noUnboundedSuppressionRule, {
   valid: [
-    "// oxlint-disable treeknit/foo -- reason\nconst x = 1\n// oxlint-enable treeknit/foo",
-    "// oxlint-disable-next-line treeknit/foo -- reason\nconst x = 1",
-    "// oxlint-disable-line treeknit/foo -- reason\nconst x = 1",
+    "// oxlint-disable custom/foo -- reason\nconst x = 1\n// oxlint-enable custom/foo",
+    "// oxlint-disable-next-line custom/foo -- reason\nconst x = 1",
+    "// oxlint-disable-line custom/foo -- reason\nconst x = 1",
     "// a normal comment\nconst x = 1",
     "const x = 1",
   ],
   invalid: [
-    { code: "// oxlint-disable treeknit/foo -- reason\nconst x = 1", errors: [error] },
+    { code: "// oxlint-disable custom/foo -- reason\nconst x = 1", errors: [error] },
     {
-      code: "// oxlint-enable treeknit/foo\n// oxlint-disable treeknit/foo -- reason\nconst x = 1",
+      code: "// oxlint-enable custom/foo\n// oxlint-disable custom/foo -- reason\nconst x = 1",
       errors: [error],
     },
   ],
