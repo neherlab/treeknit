@@ -1,0 +1,654 @@
+{
+  "rules": {
+    "labelAutoMinRowPx": 10,
+    "linkMinRowPx": 6,
+    "labelMaxChars": 40,
+    "labelFontPx": 12.0,
+    "marginPx": 16.0,
+    "labelGapPx": 6.0,
+    "linkZoneShare": 0.2,
+    "linkZoneMinShare": 0.15,
+    "tanglegramLabelColumnMaxShare": 0.25,
+    "argLabelColumnMaxShare": 0.25,
+    "branchWidthPx": 1.5,
+    "reassortmentWidthPx": 2.0,
+    "linkWidthPx": 1.0,
+    "leaderWidthPx": 1.0,
+    "leaderOpacity": 0.5,
+    "markRadiusPx": 3.5,
+    "markLinePx": 1.5,
+    "ribbonOpacity": 0.55,
+    "dashPx": [
+      4.0,
+      3.0
+    ],
+    "dotPx": [
+      1.0,
+      3.0
+    ]
+  },
+  "columns": [
+    {
+      "widthPx": 20.0,
+      "longestLabelPx": 0.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "leftLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "links": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "rightLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "right": {
+          "start": 16.0,
+          "end": 16.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 16.0
+      }
+    },
+    {
+      "widthPx": 20.0,
+      "longestLabelPx": 8.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "leftLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "links": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "rightLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "right": {
+          "start": 16.0,
+          "end": 16.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 16.0
+      }
+    },
+    {
+      "widthPx": 20.0,
+      "longestLabelPx": 18.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "leftLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "links": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "rightLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "right": {
+          "start": 16.0,
+          "end": 16.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 16.0
+      }
+    },
+    {
+      "widthPx": 20.0,
+      "longestLabelPx": 88.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "leftLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "links": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "rightLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "right": {
+          "start": 16.0,
+          "end": 16.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 16.0
+      }
+    },
+    {
+      "widthPx": 20.0,
+      "longestLabelPx": 500.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "leftLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "links": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "rightLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "right": {
+          "start": 16.0,
+          "end": 16.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 16.0
+      }
+    },
+    {
+      "widthPx": 32.0,
+      "longestLabelPx": 0.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "leftLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "links": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "rightLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "right": {
+          "start": 16.0,
+          "end": 16.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 16.0
+      }
+    },
+    {
+      "widthPx": 32.0,
+      "longestLabelPx": 8.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "leftLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "links": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "rightLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "right": {
+          "start": 16.0,
+          "end": 16.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 16.0
+      }
+    },
+    {
+      "widthPx": 32.0,
+      "longestLabelPx": 18.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "leftLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "links": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "rightLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "right": {
+          "start": 16.0,
+          "end": 16.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 16.0
+      }
+    },
+    {
+      "widthPx": 32.0,
+      "longestLabelPx": 88.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "leftLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "links": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "rightLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "right": {
+          "start": 16.0,
+          "end": 16.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 16.0
+      }
+    },
+    {
+      "widthPx": 32.0,
+      "longestLabelPx": 500.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "leftLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "links": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "rightLabels": {
+          "start": 16.0,
+          "end": 16.0
+        },
+        "right": {
+          "start": 16.0,
+          "end": 16.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 16.0
+      }
+    },
+    {
+      "widthPx": 800.0,
+      "longestLabelPx": 0.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 323.2
+        },
+        "leftLabels": {
+          "start": 323.2,
+          "end": 323.2
+        },
+        "links": {
+          "start": 323.2,
+          "end": 476.8
+        },
+        "rightLabels": {
+          "start": 476.8,
+          "end": 476.8
+        },
+        "right": {
+          "start": 476.8,
+          "end": 784.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 784.0
+      }
+    },
+    {
+      "widthPx": 800.0,
+      "longestLabelPx": 8.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 322.4
+        },
+        "leftLabels": {
+          "start": 322.4,
+          "end": 342.4
+        },
+        "links": {
+          "start": 342.4,
+          "end": 457.59999999999997
+        },
+        "rightLabels": {
+          "start": 457.59999999999997,
+          "end": 477.59999999999997
+        },
+        "right": {
+          "start": 477.59999999999997,
+          "end": 784.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 764.0
+      }
+    },
+    {
+      "widthPx": 800.0,
+      "longestLabelPx": 18.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 312.4
+        },
+        "leftLabels": {
+          "start": 312.4,
+          "end": 342.4
+        },
+        "links": {
+          "start": 342.4,
+          "end": 457.59999999999997
+        },
+        "rightLabels": {
+          "start": 457.59999999999997,
+          "end": 487.59999999999997
+        },
+        "right": {
+          "start": 487.59999999999997,
+          "end": 784.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 754.0
+      }
+    },
+    {
+      "widthPx": 800.0,
+      "longestLabelPx": 88.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 246.39999999999998
+        },
+        "leftLabels": {
+          "start": 246.39999999999998,
+          "end": 342.4
+        },
+        "links": {
+          "start": 342.4,
+          "end": 457.59999999999997
+        },
+        "rightLabels": {
+          "start": 457.59999999999997,
+          "end": 553.5999999999999
+        },
+        "right": {
+          "start": 553.5999999999999,
+          "end": 783.9999999999999
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 684.0
+      }
+    },
+    {
+      "widthPx": 800.0,
+      "longestLabelPx": 500.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 246.39999999999998
+        },
+        "leftLabels": {
+          "start": 246.39999999999998,
+          "end": 342.4
+        },
+        "links": {
+          "start": 342.4,
+          "end": 457.59999999999997
+        },
+        "rightLabels": {
+          "start": 457.59999999999997,
+          "end": 553.5999999999999
+        },
+        "right": {
+          "start": 553.5999999999999,
+          "end": 783.9999999999999
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 592.0
+      }
+    },
+    {
+      "widthPx": 1232.0,
+      "longestLabelPx": 0.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 496.0
+        },
+        "leftLabels": {
+          "start": 496.0,
+          "end": 496.0
+        },
+        "links": {
+          "start": 496.0,
+          "end": 736.0
+        },
+        "rightLabels": {
+          "start": 736.0,
+          "end": 736.0
+        },
+        "right": {
+          "start": 736.0,
+          "end": 1216.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 1216.0
+      }
+    },
+    {
+      "widthPx": 1232.0,
+      "longestLabelPx": 8.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 496.0
+        },
+        "leftLabels": {
+          "start": 496.0,
+          "end": 516.0
+        },
+        "links": {
+          "start": 516.0,
+          "end": 716.0
+        },
+        "rightLabels": {
+          "start": 716.0,
+          "end": 736.0
+        },
+        "right": {
+          "start": 736.0,
+          "end": 1216.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 1196.0
+      }
+    },
+    {
+      "widthPx": 1232.0,
+      "longestLabelPx": 18.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 496.0
+        },
+        "leftLabels": {
+          "start": 496.0,
+          "end": 526.0
+        },
+        "links": {
+          "start": 526.0,
+          "end": 706.0
+        },
+        "rightLabels": {
+          "start": 706.0,
+          "end": 736.0
+        },
+        "right": {
+          "start": 736.0,
+          "end": 1216.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 1186.0
+      }
+    },
+    {
+      "widthPx": 1232.0,
+      "longestLabelPx": 88.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 426.0
+        },
+        "leftLabels": {
+          "start": 426.0,
+          "end": 526.0
+        },
+        "links": {
+          "start": 526.0,
+          "end": 706.0
+        },
+        "rightLabels": {
+          "start": 706.0,
+          "end": 806.0
+        },
+        "right": {
+          "start": 806.0,
+          "end": 1216.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 1116.0
+      }
+    },
+    {
+      "widthPx": 1232.0,
+      "longestLabelPx": 500.0,
+      "tanglegram": {
+        "left": {
+          "start": 16.0,
+          "end": 376.0
+        },
+        "leftLabels": {
+          "start": 376.0,
+          "end": 526.0
+        },
+        "links": {
+          "start": 526.0,
+          "end": 706.0
+        },
+        "rightLabels": {
+          "start": 706.0,
+          "end": 856.0
+        },
+        "right": {
+          "start": 856.0,
+          "end": 1216.0
+        }
+      },
+      "argColumn": {
+        "start": 16.0,
+        "end": 916.0
+      }
+    }
+  ],
+  "rows": [
+    {
+      "rowPx": 5.5,
+      "labelsShown": false,
+      "ribbonsShown": true
+    },
+    {
+      "rowPx": 6.0,
+      "labelsShown": false,
+      "ribbonsShown": false
+    },
+    {
+      "rowPx": 9.5,
+      "labelsShown": false,
+      "ribbonsShown": false
+    },
+    {
+      "rowPx": 10.0,
+      "labelsShown": true,
+      "ribbonsShown": false
+    }
+  ]
+}

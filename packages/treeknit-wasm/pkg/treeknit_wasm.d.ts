@@ -1181,6 +1181,11 @@ export interface AuspiceFiles {
  * `link_zone_share` of the inner width minus both label columns, at least `link_zone_min_share`
  * of the inner width, and the two trees share the rest equally. The ARG has its tree, then its
  * labels.
+ *
+ * The methods of `DrawingRules` (`display/rules.rs`) are the reference of these formulas: the SVG
+ * figures call them, and the web app, which applies them on every zoom frame and resize without
+ * a round trip to its worker, checks its own copy against the table of
+ * `examples/drawing_cases.rs`.
  */
 export interface DrawingRules {
     /**
@@ -1196,6 +1201,10 @@ export interface DrawingRules {
      * `DrawNode.short_name` and `ArgNodeView.short_label` hold the shortened labels.
      */
     labelMaxChars: number;
+    /**
+     * Font size of the leaf labels, in px.
+     */
+    labelFontPx: number;
     /**
      * Space around a drawing, in px.
      */

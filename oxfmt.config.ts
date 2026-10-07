@@ -10,6 +10,7 @@ export default defineConfig({
     "kb",
     "packages/treeknit-cli/tests/data",
     "packages/treeknit-wasm/pkg",
+    "packages/web/src/drawing/__tests__/__fixtures__/drawing_cases.json",
     "ref",
   ],
   printWidth: 120,

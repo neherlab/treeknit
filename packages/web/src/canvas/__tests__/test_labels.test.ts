@@ -7,9 +7,6 @@ const RULES = exampleDrawingRules();
 
 describe("labelsVisible", () => {
   test.each([
-    ["auto", 9.99, false],
-    ["auto", 10, true],
-    ["auto", 30, true],
     ["on", 0.5, true],
     ["on", 30, true],
     ["off", 0.5, false],

@@ -130,6 +130,7 @@ export function exampleDrawingRules(): DrawingRules {
     labelAutoMinRowPx: 10,
     linkMinRowPx: 6,
     labelMaxChars: 40,
+    labelFontPx: 12,
     marginPx: 16,
     labelGapPx: 6,
     linkZoneShare: 0.2,

@@ -16,6 +16,7 @@ mod constellation;
 mod lengths;
 mod names;
 mod pair;
+mod rules;
 mod shapes;
 mod slots;
 mod tree;
@@ -26,6 +27,7 @@ pub use constellation::constellation;
 pub(crate) use names::grapheme_count;
 pub use names::shorten;
 pub use pair::pair_view;
+pub use rules::{ColumnPx, TanglegramColumns};
 pub(crate) use shapes::s_curve;
 
 use serde::{Deserialize, Serialize};
@@ -42,6 +44,7 @@ pub const DRAWING_RULES: DrawingRules = DrawingRules {
   label_auto_min_row_px: 10,
   link_min_row_px: 6,
   label_max_chars: 40,
+  label_font_px: 12.0,
   margin_px: 16.0,
   label_gap_px: 6.0,
   link_zone_share: 0.2,
@@ -78,6 +81,11 @@ pub(crate) fn label_max_chars() -> usize {
 /// `link_zone_share` of the inner width minus both label columns, at least `link_zone_min_share`
 /// of the inner width, and the two trees share the rest equally. The ARG has its tree, then its
 /// labels.
+///
+/// The methods of `DrawingRules` (`display/rules.rs`) are the reference of these formulas: the SVG
+/// figures call them, and the web app, which applies them on every zoom frame and resize without
+/// a round trip to its worker, checks its own copy against the table of
+/// `examples/drawing_cases.rs`.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
@@ -89,6 +97,8 @@ pub struct DrawingRules {
   /// A longer leaf label is shortened in the middle to this many characters (grapheme clusters);
   /// `DrawNode.short_name` and `ArgNodeView.short_label` hold the shortened labels.
   pub label_max_chars: u32,
+  /// Font size of the leaf labels, in px.
+  pub label_font_px: f64,
   /// Space around a drawing, in px.
   pub margin_px: f64,
   /// Space on each side of a label column, between it and the tree and the link zone, in px.
@@ -855,7 +865,7 @@ mod tests {
   #[test]
   fn drawing_rules_serialize_camel_case() {
     let expected = json!({
-      "labelAutoMinRowPx": 10, "linkMinRowPx": 6, "labelMaxChars": 40, "marginPx": 16.0, "labelGapPx": 6.0,
+      "labelAutoMinRowPx": 10, "linkMinRowPx": 6, "labelMaxChars": 40, "labelFontPx": 12.0, "marginPx": 16.0, "labelGapPx": 6.0,
       "linkZoneShare": 0.2, "linkZoneMinShare": 0.15, "tanglegramLabelColumnMaxShare": 0.25,
       "argLabelColumnMaxShare": 0.25, "branchWidthPx": 1.5, "reassortmentWidthPx": 2.0, "linkWidthPx": 1.0,
       "leaderWidthPx": 1.0, "leaderOpacity": 0.5, "markRadiusPx": 3.5, "markLinePx": 1.5, "ribbonOpacity": 0.55,

@@ -3,8 +3,8 @@
 
 use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes};
 use crate::figure::svg::{
-  BRANCH_WIDTH, Column, LABEL_GAP, LINK_WIDTH, LabelColumn, LegendEntry, MARGIN, Path, REASSORTMENT_WIDTH,
-  RIBBON_OPACITY, RING_AT_BRANCH_MIDDLE, RING_AT_LEAF_TIP, Rows, Svg, Symbol, drawing_top, figure, inner_width,
+  BRANCH_WIDTH, Column, LABEL_GAP, LINK_WIDTH, LabelColumn, LegendEntry, Path, REASSORTMENT_WIDTH, RIBBON_OPACITY,
+  RING_AT_BRANCH_MIDDLE, RING_AT_LEAF_TIP, Rows, Svg, Symbol, drawing_top, figure,
   label_column, num,
 };
 use crate::figure::{FigureOptions, labels_shown};
@@ -75,39 +75,32 @@ struct Layout {
 impl Layout {
   /// The columns of `DrawingRules`; labels that do not fit their column are shortened.
   fn new(view: &PairView, options: &FigureOptions) -> Layout {
-    let rules = DRAWING_RULES;
-    let inner = inner_width(options.width);
     let labels = label_column(
       view.left.leaves().chain(view.right.leaves()).map(|n| n.name.as_str()),
       labels_shown(options),
-      rules.tanglegram_label_column_max_share * inner / 2.0,
+      DRAWING_RULES.tanglegram_label_max_px(options.width),
     );
-    let label = labels.width;
-    let links = (rules.link_zone_share * inner - 2.0 * label).max(rules.link_zone_min_share * inner);
-    let tree = ((inner - links - 2.0 * label) / 2.0).max(0.0);
-    let left_end = MARGIN + tree;
-    let links_start = left_end + label;
-    let links_end = links_start + links;
-    let right_start = links_end + label;
+    let columns = DRAWING_RULES.tanglegram_columns(options.width, labels.width);
     Layout {
       left: Column {
-        start: MARGIN,
-        end: left_end,
+        start: columns.left.start,
+        end: columns.left.end,
       },
       links: Column {
-        start: links_start,
-        end: links_end,
+        start: columns.links.start,
+        end: columns.links.end,
       },
+      // The right tree is mirrored: its root is at the right edge.
       right: Column {
-        start: right_start + tree,
-        end: right_start,
+        start: columns.right.end,
+        end: columns.right.start,
       },
       rows: Rows {
         top: drawing_top(),
         row_height: options.row_height,
       },
       rows_count: view.left.leaves().count().max(view.right.leaves().count()).max(1),
-      ribbons: options.row_height < f64::from(DRAWING_RULES.link_min_row_px),
+      ribbons: DRAWING_RULES.ribbons_shown(options.row_height),
       labels,
     }
   }

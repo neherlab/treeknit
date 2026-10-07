@@ -13,7 +13,7 @@ pub(super) const MARGIN: f64 = DRAWING_RULES.margin_px;
 /// Space on each side of a label column, in px.
 pub(super) const LABEL_GAP: f64 = DRAWING_RULES.label_gap_px;
 /// Font size of the leaf labels and the legend, in px.
-pub(super) const FONT_SIZE: f64 = 12.0;
+pub(super) const FONT_SIZE: f64 = DRAWING_RULES.label_font_px;
 /// Font size of the title, in px.
 const TITLE_SIZE: f64 = 16.0;
 /// Height of the title band above the drawing, in px.
@@ -373,11 +373,6 @@ impl Svg {
   }
 }
 
-/// The width between the margins of a figure `width` px wide.
-pub(super) fn inner_width(width: f64) -> f64 {
-  (width - 2.0 * MARGIN).max(0.0)
-}
-
 /// A figure document of `width` px on the color `ground`, high enough for `rows` rows of
 /// `row_height` px and the legend `entries`, with `title` above the drawing in `ink`. The figure
 /// ends with `Svg::finish_figure`.
@@ -497,21 +492,21 @@ pub(super) fn label_column<'a>(names: impl Iterator<Item = &'a str>, shown: bool
   let Some(longest) = names.iter().map(|n| advance(&shorten(n, label_max_chars()))).max() else {
     return LabelColumn::NONE;
   };
-  let wanted = em_px(longest) + 2.0 * LABEL_GAP;
-  if wanted <= max_width {
-    return LabelColumn {
-      width: wanted,
-      room: longest,
-    };
+  let longest_px = em_px(longest);
+  let width = DRAWING_RULES.label_column_px(longest_px, max_width);
+  if width >= longest_px + 2.0 * LABEL_GAP {
+    return LabelColumn { width, room: longest };
   }
-  let room = px_em(max_width - 2.0 * LABEL_GAP);
+  // Only the figure shortens labels to fit a capped column, and it drops the column when not even
+  // the one-character form of a label fits.
+  let room = px_em(width - 2.0 * LABEL_GAP);
   let narrowest = names
     .iter()
     .map(|n| advance(&shorten(n, shortest(n))))
     .min()
     .unwrap_or(u32::MAX);
   if narrowest <= room {
-    LabelColumn { width: max_width, room }
+    LabelColumn { width, room }
   } else {
     LabelColumn::NONE
   }

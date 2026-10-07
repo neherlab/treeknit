@@ -2,8 +2,8 @@
 
 use crate::display::{ArgView, DRAWING_RULES, EdgePath};
 use crate::figure::svg::{
-  BRANCH_WIDTH, Column, DASH, LABEL_GAP, LegendEntry, MARGIN, Path, RING_AT_CURVE_END, Rows, Symbol, dash_array,
-  drawing_top, figure, inner_width, label_column, num,
+  BRANCH_WIDTH, Column, DASH, LABEL_GAP, LegendEntry, Path, RING_AT_CURVE_END, Rows, Symbol, dash_array, drawing_top,
+  figure, label_column, num,
 };
 use crate::figure::{FigureOptions, labels_shown};
 use crate::palette::{ThemeColors, palette};
@@ -14,16 +14,15 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
   let colors = palette().light;
   let leaves = || view.nodes.iter().filter(|n| n.leaf);
   let rows_count = leaves().count().max(1);
-  let inner = inner_width(options.width);
   let labels = label_column(
     leaves().map(|n| n.label.as_str()),
     labels_shown(options),
-    DRAWING_RULES.arg_label_column_max_share * inner,
+    DRAWING_RULES.arg_label_max_px(options.width),
   );
-  let label = labels.width;
+  let arg_column = DRAWING_RULES.arg_column(options.width, labels.width);
   let column = Column {
-    start: MARGIN,
-    end: MARGIN + inner - label,
+    start: arg_column.start,
+    end: arg_column.end,
   };
   let rows = Rows {
     top: drawing_top(),

@@ -123,7 +123,7 @@ fn labels_shown(options: &FigureOptions) -> bool {
   match options.labels {
     LabelMode::On => true,
     LabelMode::Off => false,
-    LabelMode::Auto => options.row_height >= f64::from(DRAWING_RULES.label_auto_min_row_px),
+    LabelMode::Auto => DRAWING_RULES.auto_labels_shown(options.row_height),
   }
 }
 

@@ -16,7 +16,6 @@ import {
   linkColor,
   type PairStyle,
   ribbonColor,
-  ribbonsShown,
   selectionPositions,
   tanglegramLayers,
 } from "../layers";
@@ -63,17 +62,6 @@ const STYLE: PairStyle = {
 const SLOT_0 = COLORS.mcc[0] ?? COLORS.mccNone;
 
 const SLOT_3 = COLORS.mcc[3] ?? COLORS.mccNone;
-
-describe("ribbonsShown", () => {
-  test.each([
-    [0.1, true],
-    [5.99, true],
-    [6, false],
-    [30, false],
-  ] as const)("at %f px per row draws ribbons: %s", (rowPx, ribbons) => {
-    expect(ribbonsShown(rowPx, RULES)).toBe(ribbons);
-  });
-});
 
 describe("branch colors", () => {
   test.each([

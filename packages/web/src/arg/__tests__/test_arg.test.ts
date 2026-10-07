@@ -31,12 +31,6 @@ const SEGMENT_COLORS: Pick<DrawingColors, "segmentA" | "segmentB" | "ink"> = {
   ink: [31, 43, 48, 255],
 };
 
-describe("argColumn", () => {
-  test("leaves the 16 px margins and a label column of a 100 px label and its 6 px gaps at the right of a 1000 px drawing", () => {
-    expect(COLUMN).toStrictEqual({ start: 16, end: 872, mirrored: false });
-  });
-});
-
 describe("argEdgeColor", () => {
   test.each([
     ["segment A only", [0], SEGMENT_COLORS.segmentA],
