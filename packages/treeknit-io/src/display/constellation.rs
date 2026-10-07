@@ -1,7 +1,7 @@
 //! The MCC of every leaf in every pair.
 
-use super::pair::pair_slots;
-use super::{ConstellationCell, ConstellationTable};
+use crate::display::pair::pair_slots;
+use crate::display::{ConstellationCell, ConstellationTable};
 use crate::run::RunResult;
 use treeknit_core::mcc_map::leaf_mcc_map;
 

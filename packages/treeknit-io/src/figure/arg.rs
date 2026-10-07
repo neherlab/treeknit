@@ -1,11 +1,11 @@
 //! The SVG figure of the ARG of two trees: one tree column with the labels at its right.
 
-use super::svg::{
+use crate::display::{ArgView, DRAWING_RULES, EdgePath};
+use crate::figure::svg::{
   BRANCH_WIDTH, Column, DASH, LABEL_GAP, LegendEntry, MARGIN, Path, RING_AT_CURVE_END, Rows, Symbol, dash_array,
   drawing_top, figure, inner_width, label_column, num,
 };
-use super::{FigureOptions, labels_shown};
-use crate::display::{ArgView, DRAWING_RULES, EdgePath};
+use crate::figure::{FigureOptions, labels_shown};
 use crate::palette::{ThemeColors, palette};
 
 /// The SVG text of the ARG `view` of the trees labeled `segments` (A, then B) with valid

@@ -1,10 +1,10 @@
 //! The tanglegram of a pair: both trees sorted for the pair, links, blocks, and MCCs.
 
-use super::lengths::mean_lengths;
-use super::shapes::pair_shapes;
-use super::slots::{block_neighbors, color_slots};
-use super::tree::draw_tree;
-use super::{Block, DrawNode, DrawTree, Link, MccInfo, PairView, Scale, TreeVersion};
+use crate::display::lengths::mean_lengths;
+use crate::display::shapes::pair_shapes;
+use crate::display::slots::{block_neighbors, color_slots};
+use crate::display::tree::draw_tree;
+use crate::display::{Block, DrawNode, DrawTree, Link, MccInfo, PairView, Scale, TreeVersion};
 use crate::run::RunResult;
 use std::borrow::Cow;
 use std::collections::BTreeMap;

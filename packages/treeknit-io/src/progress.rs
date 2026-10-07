@@ -1,7 +1,7 @@
 //! Progress of a run at the WebAssembly boundary, built from `treeknit_core::Progress`.
 
 use serde::Serialize;
-use treeknit_core::progress as core;
+use treeknit_core::progress;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
@@ -38,20 +38,20 @@ pub struct Progress {
   pub pairs: usize,
 }
 
-impl From<core::Phase> for Phase {
-  fn from(p: core::Phase) -> Phase {
+impl From<progress::Phase> for Phase {
+  fn from(p: progress::Phase) -> Phase {
     match p {
-      core::Phase::Pairs => Phase::Pairs,
-      core::Phase::Matching => Phase::Matching,
-      core::Phase::Done => Phase::Done,
+      progress::Phase::Pairs => Phase::Pairs,
+      progress::Phase::Matching => Phase::Matching,
+      progress::Phase::Done => Phase::Done,
     }
   }
 }
 
-impl From<core::Progress> for Progress {
-  fn from(p: core::Progress) -> Progress {
+impl From<progress::Progress> for Progress {
+  fn from(p: progress::Progress) -> Progress {
     // Destructured without `..`, so a new field of the core type stops the build here.
-    let core::Progress {
+    let progress::Progress {
       phase,
       fraction,
       round,
@@ -78,8 +78,8 @@ mod tests {
 
   #[test]
   fn progress_from_core_serializes_phase_as_lowercase_string() {
-    let p = core::Progress {
-      phase: core::Phase::Matching,
+    let p = progress::Progress {
+      phase: progress::Phase::Matching,
       fraction: 0.5,
       round: 1,
       rounds: 1,

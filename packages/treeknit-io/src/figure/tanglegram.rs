@@ -1,13 +1,13 @@
 //! The SVG tanglegram of a pair: the columns of the drawing rules, then the shapes of the pair
 //! view mapped to px.
 
-use super::svg::{
+use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes};
+use crate::figure::svg::{
   BRANCH_WIDTH, Column, LABEL_GAP, LINK_WIDTH, LabelColumn, LegendEntry, MARGIN, Path, REASSORTMENT_WIDTH,
   RIBBON_OPACITY, RING_AT_BRANCH_MIDDLE, RING_AT_LEAF_TIP, Rows, Svg, Symbol, drawing_top, figure, inner_width,
   label_column, num,
 };
-use super::{FigureOptions, labels_shown};
-use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes};
+use crate::figure::{FigureOptions, labels_shown};
 use crate::palette::{ThemeColors, palette};
 
 /// The SVG text of the tanglegram of `view` with valid `options`.

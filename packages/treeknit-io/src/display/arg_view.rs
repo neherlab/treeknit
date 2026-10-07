@@ -1,11 +1,11 @@
 //! The ARG of two trees laid out in one tree column.
 
-use super::coordinate;
-use super::label_max_chars;
-use super::names::{shorten, unique_labels};
-use super::shapes::arg_shapes;
-use super::tree::add_length;
-use super::{ArgEdge, ArgNodeView, ArgView, RootCase, Scale};
+use crate::display::coordinate;
+use crate::display::label_max_chars;
+use crate::display::names::{shorten, unique_labels};
+use crate::display::shapes::arg_shapes;
+use crate::display::tree::add_length;
+use crate::display::{ArgEdge, ArgNodeView, ArgView, RootCase, Scale};
 use crate::run::RunResult;
 use std::collections::{BTreeMap, VecDeque};
 use treeknit_core::arg::{Anc, Arg};

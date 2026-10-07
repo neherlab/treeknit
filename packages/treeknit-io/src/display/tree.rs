@@ -1,7 +1,7 @@
 //! Layout of one tree: node coordinates, MCCs, and the flags of resolution and imputation.
 
-use super::names::{shorten, unique_labels};
-use super::{DrawNode, DrawTree, coordinate, label_max_chars};
+use crate::display::names::{shorten, unique_labels};
+use crate::display::{DrawNode, DrawTree, coordinate, label_max_chars};
 use std::collections::BTreeSet;
 use treeknit_core::Tree;
 use treeknit_core::mcc_map::map_mccs;

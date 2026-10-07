@@ -1,7 +1,7 @@
 //! The two trees of a pair as Auspice datasets, for the Auspice view of the web app.
 
-use super::pair::{mcc_infos, pair_layout};
-use super::{
+use crate::display::pair::{mcc_infos, pair_layout};
+use crate::display::{
   AuspiceBranchAttrs, AuspiceBranchLabels, AuspiceColoring, AuspiceColoringKind, AuspiceDataset,
   AuspiceDisplayDefaults, AuspiceMccRoot, AuspiceMeta, AuspiceNode, AuspiceNodeAttrs, AuspiceNumber, AuspicePair,
   AuspicePanel, AuspiceSchema, AuspiceSharing, AuspiceValue, DrawTree, MCC_SLOTS, MccInfo, Scale, TreeVersion,

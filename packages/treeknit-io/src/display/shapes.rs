@@ -1,7 +1,7 @@
 //! The shapes of the drawing rules in normalized units: x from 0 to 1 across the column of a
 //! shape, y in leaf rows. The SVG figures and the interactive views draw only these shapes.
 
-use super::{
+use crate::display::{
   ArgEdge, ArgEdgeShape, ArgNodeView, ArgShapes, Bezier, Block, DrawTree, EdgePath, Elbow, Leader, Link, LinkCurve,
   Mark, MarkKind, PairShapes, Point, Ribbon, Scale, TreeShapes,
 };

@@ -13,7 +13,7 @@
 //! Neighbors get different slots as long as an MCC has fewer than `MCC_SLOTS` colored neighbors
 //! when it is visited; with more, it shares the slot used least among them.
 
-use super::{Block, MCC_SLOTS};
+use crate::display::{Block, MCC_SLOTS};
 use std::collections::BTreeSet;
 
 /// For each of `n_mccs` MCCs, the MCCs it neighbors: two MCCs are neighbors when two of their
