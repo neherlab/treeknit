@@ -1120,7 +1120,8 @@ export interface LinkCurve {
 }
 
 /**
- * The TreeKnit version, the source repository, and its release page.
+ * The TreeKnit version, the source repository, its release page, and the page that opens a new
+ * issue.
  */
 export interface AppVersion {
     /**
@@ -1135,6 +1136,10 @@ export interface AppVersion {
      * URL of the release page of the repository, where the command-line binaries are published.
      */
     releases: string;
+    /**
+     * URL of the page of the repository that opens a new issue, where users report bugs.
+     */
+    newIssue: string;
 }
 
 /**

@@ -181,7 +181,11 @@ describe("analysis client", () => {
   test("a utility worker that cannot be constructed rejects the call with a start error and starts again", async () => {
     const host = new FakeHost({
       utility: [
-        fakeApi({ stateless: { version: () => ({ version: "0.5.0", repository: "r", releases: "r/releases" }) } }),
+        fakeApi({
+          stateless: {
+            version: () => ({ version: "0.5.0", repository: "r", releases: "r/releases", newIssue: "r/issues/new" }),
+          },
+        }),
       ],
       job: [],
     });
@@ -193,7 +197,7 @@ describe("analysis client", () => {
 
     expect({ refused, answered }).toStrictEqual({
       refused: "WorkerStartError",
-      answered: { version: "0.5.0", repository: "r", releases: "r/releases" },
+      answered: { version: "0.5.0", repository: "r", releases: "r/releases", newIssue: "r/issues/new" },
     });
     client.dispose();
   });
@@ -218,7 +222,11 @@ describe("analysis client", () => {
     const host = new FakeHost({
       utility: [
         fakeApi({ stateless: { version: trap } }),
-        fakeApi({ stateless: { version: () => ({ version: "0.5.0", repository: "r", releases: "r/releases" }) } }),
+        fakeApi({
+          stateless: {
+            version: () => ({ version: "0.5.0", repository: "r", releases: "r/releases", newIssue: "r/issues/new" }),
+          },
+        }),
       ],
       job: [],
     });
@@ -230,7 +238,7 @@ describe("analysis client", () => {
 
     expect({ trapped, answered, terminated: host.terminatedNames() }).toStrictEqual({
       trapped: "RuntimeError",
-      answered: { version: "0.5.0", repository: "r", releases: "r/releases" },
+      answered: { version: "0.5.0", repository: "r", releases: "r/releases", newIssue: "r/issues/new" },
       terminated: ["treeknit-utility#0"],
     });
     client.dispose();
@@ -405,10 +413,24 @@ describe("analysis client", () => {
     const host = new FakeHost({
       utility: [
         fakeApi({
-          stateless: { version: () => ({ version: "0.5.0", repository: "first", releases: "first/releases" }) },
+          stateless: {
+            version: () => ({
+              version: "0.5.0",
+              repository: "first",
+              releases: "first/releases",
+              newIssue: "first/issues/new",
+            }),
+          },
         }),
         fakeApi({
-          stateless: { version: () => ({ version: "0.5.0", repository: "second", releases: "second/releases" }) },
+          stateless: {
+            version: () => ({
+              version: "0.5.0",
+              repository: "second",
+              releases: "second/releases",
+              newIssue: "second/issues/new",
+            }),
+          },
         }),
       ],
       job: [],
@@ -654,7 +676,7 @@ class SlowCall {
         this.#started.resolve(undefined);
         await this.#result.promise;
 
-        return { version: "0.5.0", repository: "slow", releases: "slow/releases" };
+        return { version: "0.5.0", repository: "slow", releases: "slow/releases", newIssue: "slow/issues/new" };
       },
       treeLabels: () => {
         received.push("treeLabels");

@@ -49,7 +49,7 @@ export function failureNotice(kind: FailureKind, message: string): FailureNotice
     .exhaustive();
 }
 
-export function bugReportUrl(repository: string, report: BugReport): string {
+export function bugReportUrl(newIssue: string, report: BugReport): string {
   const body = [
     `Failure: ${report.kind}`,
     `Version: ${report.version}`,
@@ -67,7 +67,7 @@ export function bugReportUrl(repository: string, report: BugReport): string {
 
   const query = new URLSearchParams({ title: REPORT_TITLE, body });
 
-  return `${repository.replace(/\/+$/u, "")}/issues/new?${query.toString()}`;
+  return `${newIssue}?${query.toString()}`;
 }
 
 function danger(title: string, details: readonly string[], internal: boolean): FailureNotice {

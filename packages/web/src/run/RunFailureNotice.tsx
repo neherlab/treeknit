@@ -18,7 +18,7 @@ export function RunFailureNotice({ kind, message, request, runBlocked, onRunAgai
     () =>
       version === undefined
         ? undefined
-        : bugReportUrl(version.repository, {
+        : bugReportUrl(version.newIssue, {
             kind,
             version: version.version,
             userAgent: navigator.userAgent,

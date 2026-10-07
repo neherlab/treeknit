@@ -1078,6 +1078,7 @@ mod tests {
       "version": version,
       "repository": "https://github.com/neherlab/treeknit-rs",
       "releases": "https://github.com/neherlab/treeknit-rs/releases",
+      "newIssue": "https://github.com/neherlab/treeknit-rs/issues/new",
     });
     assert_eq!(expected, plain(&treeknit_wasm::version().unwrap().js_value()));
   }
