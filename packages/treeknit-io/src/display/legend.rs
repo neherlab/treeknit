@@ -24,11 +24,7 @@ pub(super) fn pair_legend(shapes: &PairShapes) -> Vec<LegendItem> {
   let trees = [&shapes.left, &shapes.right];
   let elbows = || trees.into_iter().flat_map(|t: &TreeShapes| &t.elbows);
   let marks = || trees.into_iter().flat_map(|t: &TreeShapes| &t.marks);
-  let branch = |color, stroke| LegendMark::Branch {
-    color,
-    stroke,
-    dashed: false,
-  };
+  let branch = |color, stroke| LegendMark::Branch { color, stroke };
   [
     elbows().any(|e| e.mcc_break).then(|| {
       item(
@@ -48,7 +44,6 @@ pub(super) fn pair_legend(shapes: &PairShapes) -> Vec<LegendItem> {
         vec![LegendMark::Branch {
           color: ColorRole::InkMuted,
           stroke: Stroke::Branch,
-          dashed: false,
         }],
       )
     }),
@@ -89,7 +84,6 @@ pub(super) fn arg_legend(shapes: &ArgShapes, [a, b]: [&str; 2]) -> Vec<LegendIte
   let line = |color| LegendMark::Branch {
     color,
     stroke: Stroke::Branch,
-    dashed: false,
   };
   let segment = |kind: LegendKind, label: &str, color| LegendItem {
     kind,
@@ -182,12 +176,8 @@ impl LegendKind {
   reason = "a legend has a handful of marks, built once per view, so the size of a mark does not matter"
 )]
 pub enum LegendMark {
-  /// A branch across the symbol, `dashed` with `DrawingRules.dash_px`.
-  Branch {
-    color: ColorRole,
-    stroke: Stroke,
-    dashed: bool,
-  },
+  /// A branch across the symbol.
+  Branch { color: ColorRole, stroke: Stroke },
   /// The links of one MCC as an S-curve, drawn where the drawing shows each link as a curve.
   LinkCurve { color: ColorRole },
   /// The links of one MCC as a ribbon, drawn where the drawing shows ribbons

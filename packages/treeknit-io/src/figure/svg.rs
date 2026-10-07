@@ -658,17 +658,13 @@ pub(super) struct LegendEntry {
 pub(super) fn legend_entries(items: &[LegendItem], colors: &ThemeColors<String>, ribbons: bool) -> Vec<LegendEntry> {
   let color = |role: ColorRole| colors.role(role, Some(0)).clone();
   let symbol = |mark: &LegendMark| match *mark {
-    LegendMark::Branch {
-      color: role,
-      stroke,
-      dashed,
-    } => Some(Symbol::Line {
+    LegendMark::Branch { color: role, stroke } => Some(Symbol::Line {
       color: color(role),
       width: match stroke {
         Stroke::Branch => BRANCH_WIDTH,
         Stroke::Reassortment => REASSORTMENT_WIDTH,
       },
-      dash: dashed.then_some(DASH),
+      dash: None,
     }),
     LegendMark::LinkRibbon { color: role } => ribbons.then(|| Symbol::Ribbon { color: color(role) }),
     LegendMark::LinkCurve { color: role } => (!ribbons).then(|| Symbol::Curve {

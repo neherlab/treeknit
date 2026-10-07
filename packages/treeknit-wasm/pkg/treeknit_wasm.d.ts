@@ -289,7 +289,7 @@ export type AuspicePanel = "tree";
  * A part of a legend symbol, `DrawingRules.legend_symbol_px` wide; each consumer draws it with
  * the widths of the drawing rules.
  */
-export type LegendMark = { kind: "branch"; color: ColorRole; stroke: Stroke; dashed: boolean } | { kind: "linkCurve"; color: ColorRole } | { kind: "linkRibbon"; color: ColorRole } | { kind: "reticulation"; color: ColorRole } | { kind: "ring"; color: ColorRole; at: number };
+export type LegendMark = { kind: "branch"; color: ColorRole; stroke: Stroke } | { kind: "linkCurve"; color: ColorRole } | { kind: "linkRibbon"; color: ColorRole } | { kind: "reticulation"; color: ColorRole } | { kind: "ring"; color: ColorRole; at: number };
 
 /**
  * A point `[x, y]` in normalized units.

@@ -236,14 +236,14 @@ export function examplePairLegend(): LegendItem[] {
       kind: "reassortmentBranch",
       label: "Reassortment branch",
       marks: [
-        { kind: "branch", color: "signal", stroke: "reassortment", dashed: false },
+        { kind: "branch", color: "signal", stroke: "reassortment" },
         { kind: "ring", color: "signal", at: 0.5 },
       ],
     },
     {
       kind: "addedNode",
       label: "Node added by resolution or imputation",
-      marks: [{ kind: "branch", color: "inkMuted", stroke: "branch", dashed: false }],
+      marks: [{ kind: "branch", color: "inkMuted", stroke: "branch" }],
     },
     {
       kind: "imputedLeaf",
@@ -263,7 +263,7 @@ export function examplePairLegend(): LegendItem[] {
 }
 
 function branchMark(color: ColorRole): LegendMark {
-  return { kind: "branch", color, stroke: "branch", dashed: false };
+  return { kind: "branch", color, stroke: "branch" };
 }
 
 export function exampleConstellation(): ConstellationTable {

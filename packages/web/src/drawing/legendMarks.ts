@@ -27,13 +27,12 @@ function symbolMark(mark: LegendMark, { colors, rules, colorByMcc, ribbons }: Le
 
   return match(mark)
     .returnType<SymbolMark[]>()
-    .with({ kind: "branch" }, ({ color, stroke, dashed }) => [
+    .with({ kind: "branch" }, ({ color, stroke }) => [
       {
         kind: "line",
         path: horizontalPath(width),
         color: roleColorByMcc(colors, color, LEGEND_SLOT, colorByMcc),
         widthPx: stroke === "reassortment" ? rules.reassortmentWidthPx : rules.branchWidthPx,
-        ...(dashed ? { dashPx: rules.dashPx } : undefined),
       },
     ])
     .with({ kind: "linkRibbon" }, () =>
