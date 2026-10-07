@@ -1199,6 +1199,20 @@ mod tests {
   }
 
   #[wasm_bindgen_test]
+  fn result_names_are_those_of_the_command_line() {
+    // Oracle: the default `--outdir` of the command line, zipped, and its file paths.
+    let expected = json!({
+        "archive": "treeknit_results.zip", "archiveMediaType": "application/zip", "resultsDir": "treeknit_results",
+        "commandLineResultsDir": "treeknit_results_cli", "argNewick": "ARG/arg.nwk",
+        "auspiceFiles": ["auspice_ha.json", "auspice_na.json"],
+    });
+    assert_eq!(
+      expected,
+      plain(&treeknit_wasm::result_names("ha", "na").unwrap().js_value())
+    );
+  }
+
+  #[wasm_bindgen_test]
   fn url_place_names_the_host_and_the_decoded_file_name() {
     // Oracle: the host without the port, and the last path segment with %20 decoded.
     assert_eq!(

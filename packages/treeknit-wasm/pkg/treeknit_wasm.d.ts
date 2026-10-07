@@ -1420,6 +1420,30 @@ export interface LinkLimits {
 export type ExampleGroup = "small" | "real" | "simulated";
 
 /**
+ * The names of the result files that the web app downloads and its help texts name.
+ */
+export interface ResultNames {
+    /**
+     * File name of the ZIP archive of `results_dir`.
+     */
+    archive: string;
+    archiveMediaType: string;
+    resultsDir: string;
+    /**
+     * Results directory of `command_line`.
+     */
+    commandLineResultsDir: string;
+    /**
+     * Path of the ARG in extended Newick, written for two trees.
+     */
+    argNewick: string;
+    /**
+     * Paths of the Auspice JSON files of the two trees of a pair.
+     */
+    auspiceFiles: [string, string];
+}
+
+/**
  * The node where an MCC starts in each tree of a pair: the node whose branch above is the
  * MCC's reassortment branch, or the root when the MCC holds the root; `None` for a tree without
  * a node of the MCC.
@@ -1986,6 +2010,12 @@ export function parseLaunch(entries: LinkEntry[], viewKeys: string[]): LaunchPar
 export function readSession(text: string): AnalysisRequest;
 
 /**
+ * The names of the result files that the web app downloads and its help texts name, with the
+ * Auspice files of the trees labeled `a` and `b`.
+ */
+export function resultNames(a: string, b: string): ResultNames;
+
+/**
  * The session file of a request, `treeknit_session.json`.
  */
 export function sessionFile(request: AnalysisRequest): OutputFile;
@@ -2053,6 +2083,7 @@ export interface InitOutput {
     readonly palette: () => [number, number, number];
     readonly parseLaunch: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly readSession: (a: number, b: number) => [number, number, number];
+    readonly resultNames: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly sessionFile: (a: any) => [number, number, number];
     readonly session_argFigure: (a: number, b: any) => [number, number, number];
     readonly session_argView: (a: number, b: any) => [number, number, number];

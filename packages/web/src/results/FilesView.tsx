@@ -7,7 +7,7 @@ import ArchiveIcon from "~icons/lucide/file-archive";
 import SaveIcon from "~icons/lucide/save";
 
 import { useAnalysisClient } from "../analysis/context";
-import { analysisKeys, useCommandLine, useSessionFiles } from "../analysis/queries";
+import { analysisKeys, resultNamesQuery, useCommandLine, useResultNames, useSessionFiles } from "../analysis/queries";
 import { downloadFile } from "../download";
 import { INDICATOR_SPIN_DELAY } from "../indicator/timing";
 import { Button } from "../ui/Button";
@@ -18,7 +18,7 @@ import { InlineNotice } from "../ui/InlineNotice";
 import { ProgressBar } from "../ui/ProgressBar";
 import { Cell, Column, Row, Table, TableBody, TableHeader } from "../ui/Table";
 import { useCurrentRequest, useWorkspace } from "../workspace/context";
-import { type FileRow, fileRow, RESULTS_ARCHIVE_NAME, ZIP_MEDIA_TYPE } from "./fileRows";
+import { type FileRow, fileRow, PLACEHOLDER_LABELS } from "./fileRows";
 import { useSaveSessionFile } from "./useSaveSessionFile";
 
 export function FilesView() {
@@ -39,10 +39,13 @@ function SessionFiles({ sessionId }: SessionFilesProps) {
   const commandLine = useCommandLine(sessionId);
   const loading = useSpinDelay(files.isPending, INDICATOR_SPIN_DELAY);
 
+  const names = useResultNames(...PLACEHOLDER_LABELS).data;
+
   const zip = useMutation({
-    mutationFn: async () => client.zip(sessionId),
-    onSuccess: (bytes) => {
-      downloadFile({ name: RESULTS_ARCHIVE_NAME, mediaType: ZIP_MEDIA_TYPE, content: new Uint8Array(bytes) });
+    mutationFn: async () =>
+      Promise.all([client.zip(sessionId), queryClient.query(resultNamesQuery(client, ...PLACEHOLDER_LABELS))]),
+    onSuccess: ([bytes, { archive, archiveMediaType }]) => {
+      downloadFile({ name: archive, mediaType: archiveMediaType, content: new Uint8Array(bytes) });
     },
   });
 
@@ -99,7 +102,7 @@ function SessionFiles({ sessionId }: SessionFilesProps) {
         {loading ? <ProgressBar label="Listing the files" labelHidden isIndeterminate className="max-w-xs" /> : null}
         {files.data === undefined ? null : <FileTable files={files.data} onDownload={entry.mutate} />}
       </section>
-      {commandLine.data === undefined ? null : (
+      {commandLine.data === undefined || names === undefined ? null : (
         <section aria-labelledby="files-command" className="flex flex-col gap-3">
           <div className="flex items-center gap-1">
             <h2 id="files-command" className="text-base font-semibold">
@@ -107,9 +110,9 @@ function SessionFiles({ sessionId }: SessionFilesProps) {
             </h2>
             <InfoButton topic="the command line">
               <p>
-                Extract {RESULTS_ARCHIVE_NAME} and run this command in the directory that holds the extracted
-                treeknit_results directory. The command line then writes the same files into treeknit_results_cli, next
-                to treeknit_results, so you can compare the two directories.
+                Extract {names.archive} and run this command in the directory that holds the extracted{" "}
+                {names.resultsDir} directory. The command line then writes the same files into{" "}
+                {names.commandLineResultsDir}, next to {names.resultsDir}, so you can compare the two directories.
               </p>
             </InfoButton>
           </div>

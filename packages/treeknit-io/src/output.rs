@@ -604,6 +604,9 @@ pub fn zip_archive(files: &[OutputFile]) -> Result<Vec<u8>, ArchiveError> {
   archive.finish()
 }
 
+/// Media type of the ZIP archive of the results.
+pub const ARCHIVE_MEDIA_TYPE: &str = "application/zip";
+
 /// A ZIP archive under construction, so that each file can be added while its text exists. Each
 /// file is under `treeknit_results/` at its path. Every entry is deflated, dated 1980-01-01 00:00
 /// (the earliest ZIP time), and made by a Unix system with the permissions `rw-r--r--`, so equal
@@ -698,6 +701,35 @@ pub fn command_line() -> String {
   format!("treeknit --session {RESULTS_DIR}/{SESSION_FILE} --outdir {COMMAND_LINE_RESULTS_DIR} {flags}")
 }
 
+/// The names of the result files that the web app downloads and its help texts name.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct ResultNames {
+  /// File name of the ZIP archive of `results_dir`.
+  pub archive: String,
+  pub archive_media_type: String,
+  pub results_dir: String,
+  /// Results directory of `command_line`.
+  pub command_line_results_dir: String,
+  /// Path of the ARG in extended Newick, written for two trees.
+  pub arg_newick: String,
+  /// Paths of the Auspice JSON files of the two trees of a pair.
+  pub auspice_files: [String; 2],
+}
+
+/// The names of the result files, with the Auspice files of the trees labeled `labels`.
+pub fn result_names(labels: [&str; 2]) -> ResultNames {
+  ResultNames {
+    archive: format!("{RESULTS_DIR}.zip"),
+    archive_media_type: ARCHIVE_MEDIA_TYPE.to_owned(),
+    results_dir: RESULTS_DIR.to_owned(),
+    command_line_results_dir: COMMAND_LINE_RESULTS_DIR.to_owned(),
+    arg_newick: ARG_NEWICK.to_owned(),
+    auspice_files: labels.map(auspice_path),
+  }
+}
+
 /// Path of a tree file: `<dir><label><suffix><ext>`, such as `ARG/ha_liberal_resolved.nwk`.
 fn tree_path(dir: &str, label: &str, suffix: &str, ext: &str) -> String {
   format!("{dir}{label}{suffix}{ext}")
@@ -715,7 +747,7 @@ fn mccs_lines_path(k: usize, a: &str, b: &str) -> String {
 }
 
 /// Path of the Auspice JSON file of the tree labeled `label`.
-fn auspice_path(label: &str) -> String {
+pub fn auspice_path(label: &str) -> String {
   format!("auspice_{label}.json")
 }
 
@@ -1262,6 +1294,22 @@ mod tests {
     );
     assert!(file.text.ends_with("}\n"));
     assert_eq!(Ok(request), analysis::read_session(&file.text));
+  }
+
+  #[test]
+  fn result_names_name_the_archive_and_the_files_of_the_help_texts() {
+    // Oracle: the results directory `treeknit_results` (the default `--outdir`), zipped; the
+    // command-line directory and the ARG path as the command line writes them; one Auspice file
+    // per label.
+    let expected = ResultNames {
+      archive: "treeknit_results.zip".to_owned(),
+      archive_media_type: "application/zip".to_owned(),
+      results_dir: "treeknit_results".to_owned(),
+      command_line_results_dir: "treeknit_results_cli".to_owned(),
+      arg_newick: "ARG/arg.nwk".to_owned(),
+      auspice_files: ["auspice_<a>.json".to_owned(), "auspice_ha.json".to_owned()],
+    };
+    assert_eq!(expected, result_names(["<a>", "ha"]));
   }
 
   #[test]

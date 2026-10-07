@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 
-import { useSettingsSchema, useVersion } from "../analysis/queries";
+import { useResultNames, useSettingsSchema, useVersion } from "../analysis/queries";
 import { KEEP_WORKSPACE } from "../persistence/PersistenceSwitch";
+import { PLACEHOLDER_LABELS } from "../results/fileRows";
 import { ModeList } from "../settings/ModeList";
 import { Header } from "../shell/Header";
 import { ExternalLink } from "../ui/ExternalLink";
@@ -56,6 +57,7 @@ export function HelpPage() {
   const settings = useWorkspace((state) => state.settings);
   const { data: schema } = useSettingsSchema(treeCount, settings);
   const { data: version } = useVersion();
+  const { data: names } = useResultNames(...PLACEHOLDER_LABELS);
 
   return (
     <>
@@ -133,18 +135,22 @@ export function HelpPage() {
             </p>
           </HelpSection>
           <HelpSection id="help-other-tools" title="Open the results in other tools">
-            <p>
-              Open <ExternalLink href="https://auspice.us">auspice.us</ExternalLink> and drop{" "}
-              <code className="font-mono text-sm">auspice_&lt;a&gt;.json</code> and{" "}
-              <code className="font-mono text-sm">auspice_&lt;b&gt;.json</code> on the page together. Auspice shows the
-              two trees side by side, with lines between the copies of each leaf.
-            </p>
-            <p>
-              Open <code className="font-mono text-sm">ARG/arg.nwk</code> in{" "}
-              <ExternalLink href="https://icytree.org">IcyTree</ExternalLink> to see the ARG. IcyTree cannot read the
-              file when leaf names contain spaces or any of the characters{" "}
-              <code className="font-mono text-sm">{ICYTREE_CHARACTERS}</code>.
-            </p>
+            {names === undefined ? null : (
+              <>
+                <p>
+                  Open <ExternalLink href="https://auspice.us">auspice.us</ExternalLink> and drop{" "}
+                  <code className="font-mono text-sm">{names.auspiceFiles[0]}</code> and{" "}
+                  <code className="font-mono text-sm">{names.auspiceFiles[1]}</code> on the page together. Auspice shows
+                  the two trees side by side, with lines between the copies of each leaf.
+                </p>
+                <p>
+                  Open <code className="font-mono text-sm">{names.argNewick}</code> in{" "}
+                  <ExternalLink href="https://icytree.org">IcyTree</ExternalLink> to see the ARG. IcyTree cannot read
+                  the file when leaf names contain spaces or any of the characters{" "}
+                  <code className="font-mono text-sm">{ICYTREE_CHARACTERS}</code>.
+                </p>
+              </>
+            )}
           </HelpSection>
           <HelpSection id="help-links" title="Open TreeKnit from a link">
             <LinkHelp />

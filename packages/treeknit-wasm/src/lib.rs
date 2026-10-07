@@ -18,7 +18,7 @@ use treeknit_io::launch::{
   self, LaunchKeyInfo, LaunchParse, LinkEntry, LinkLimits, LinkSource, SettingsPatch, UrlPlace,
 };
 use treeknit_io::output::{
-  self, Archive, AuspiceFiles, FigureDownload, FigureFile, FileEntry, OutputFile, OutputOptions, WebFile,
+  self, Archive, AuspiceFiles, FigureDownload, FigureFile, FileEntry, OutputFile, OutputOptions, ResultNames, WebFile,
 };
 use treeknit_io::palette::{self, Palette};
 use treeknit_io::progress::Progress;
@@ -196,6 +196,14 @@ pub fn launch_keys() -> Result<Vec<Ts<LaunchKeyInfo>>, JsError> {
 pub fn url_place(url: &str) -> Result<Ts<UrlPlace>, JsError> {
   let _log = log_capture::discard();
   to_js(&launch::url_place(url))
+}
+
+/// The names of the result files that the web app downloads and its help texts name, with the
+/// Auspice files of the trees labeled `a` and `b`.
+#[wasm_bindgen(js_name = resultNames)]
+pub fn result_names(a: &str, b: &str) -> Result<Ts<ResultNames>, JsError> {
+  let _log = log_capture::discard();
+  to_js(&output::result_names([a, b]))
 }
 
 /// The limits of downloads and links.

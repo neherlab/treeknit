@@ -56,6 +56,7 @@ export const analysisKeys = {
   version: () => ["version"] as const,
   examples: () => ["examples"] as const,
   launchKeys: () => ["launchKeys"] as const,
+  resultNames: (...args: StatelessArgs<"resultNames">) => ["resultNames", ...args] as const,
   inspectTree: (textId: number) => ["inspectTree", textId] as const,
   overlap: (textIds: readonly number[]) => ["overlap", textIds] as const,
   validate: (textIds: readonly number[], labels: readonly string[], settings: Settings | null | undefined) =>
@@ -122,6 +123,18 @@ export function useLaunchKeys(): Answer<StatelessResult<"launchKeys">> {
     queryFn: async ({ signal }) => client.stateless(async (api) => api.launchKeys(), { signal }),
     staleTime: Infinity,
   });
+}
+
+export function resultNamesQuery(client: AnalysisClient, ...args: StatelessArgs<"resultNames">) {
+  return queryOptions({
+    queryKey: analysisKeys.resultNames(...args),
+    queryFn: async ({ signal }) => client.stateless(async (api) => api.resultNames(...args), { signal }),
+    staleTime: "static",
+  });
+}
+
+export function useResultNames(...args: StatelessArgs<"resultNames">): Answer<StatelessResult<"resultNames">> {
+  return useQuery(resultNamesQuery(useAnalysisClient(), ...args));
 }
 
 export function useVersion(): Answer<StatelessResult<"version">> {
