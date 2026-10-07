@@ -22,8 +22,12 @@ fn format_number(value: f64, format: NumberFormat) -> Result<String, Report> {
   if !value.is_finite() {
     return Err(eyre!("Newick cannot represent the number {value}"));
   }
+  // Exponent notation outside 1e-4 <= |value| < 1e16, as Rust's `{:?}` writes floats, so that tree
+  // heights and lengths in generations or days stay plain decimals.
   let mut config = FmtFloatConfig::default()
     .add_point_zero(format.point_zero)
+    .upper_e_break(16)
+    .lower_e_break(-4)
     .radix_point('.');
   if let Some(significant_digits) = format.significant_digits {
     if significant_digits == 0 {
