@@ -1,5 +1,14 @@
 import type { AuspiceTrees, LabelMode, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
-import { LABEL_MODE_VALUES, SCALE_VALUES, TREE_VERSION_VALUES } from "@neherlab/treeknit-wasm/variants";
+import {
+  ARG_TREE_COUNT,
+  LABEL_MODE_DEFAULT,
+  LABEL_MODE_VALUES,
+  MIN_TREES,
+  SCALE_DEFAULT,
+  SCALE_VALUES,
+  TREE_VERSION_DEFAULT,
+  TREE_VERSION_VALUES,
+} from "@neherlab/treeknit-wasm/variants";
 import { isDeepEqual, isIncludedIn, omit } from "remeda";
 import * as z from "zod";
 
@@ -33,9 +42,9 @@ export type PairRef = z.output<typeof pairRefSchema>;
 
 export const WORKSPACE_SEARCH_DEFAULTS = {
   view: "overview",
-  version: "resolved",
-  scale: "div",
-  labels: "auto",
+  version: TREE_VERSION_DEFAULT,
+  scale: SCALE_DEFAULT,
+  labels: LABEL_MODE_DEFAULT,
 } as const;
 
 const pairCodec = z.codec(z.string(), pairRefSchema, {
@@ -196,8 +205,8 @@ export const NO_WORKSPACE: WorkspaceAvailability = {
 };
 
 const VIEW_TREE_COUNT: Partial<Record<WorkspaceView, (treeCount: number) => boolean>> = {
-  arg: (treeCount) => treeCount === 2,
-  constellation: (treeCount) => treeCount >= 3,
+  arg: (treeCount) => treeCount === ARG_TREE_COUNT,
+  constellation: hasSeveralPairs,
 };
 
 const VIEW_AVAILABLE: Record<WorkspaceView, (availability: WorkspaceAvailability) => boolean> = {
@@ -210,6 +219,10 @@ const VIEW_AVAILABLE: Record<WorkspaceView, (availability: WorkspaceAvailability
   files: ({ hasResult }) => hasResult,
   diagnostics: ({ hasResult }) => hasResult,
 };
+
+export function hasSeveralPairs(treeCount: number): boolean {
+  return treeCount > MIN_TREES;
+}
 
 export function viewFitsTreeCount(view: WorkspaceView, treeCount: number): boolean {
   return VIEW_TREE_COUNT[view]?.(treeCount) ?? true;

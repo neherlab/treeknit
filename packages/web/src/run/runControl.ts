@@ -1,4 +1,5 @@
 import type { Progress, ValidationError } from "@neherlab/treeknit-wasm";
+import { MIN_TREES } from "@neherlab/treeknit-wasm/variants";
 import { match } from "ts-pattern";
 
 import { formatSpan } from "../format/elapsed";
@@ -14,8 +15,6 @@ export const CHECK_FAILED = "The trees and settings could not be checked";
 export const MATCHING_TOPOLOGIES = "Matching topologies";
 
 export const STARTING_RUN = "Starting";
-
-const MIN_TREES = 2;
 
 const SECOND_MS = 1000;
 

@@ -1,6 +1,6 @@
 //! Output files of a run, as the command line writes them and the web app lists them.
 
-use crate::analysis::{AnalysisRequest, Field, ValidationError};
+use crate::analysis::{ARG_TREE_COUNT, AnalysisRequest, Field, ValidationError};
 use crate::display::{self, AuspiceTrees, Scale, TreeVersion};
 use crate::figure::{self, FigureOptions};
 use crate::run::RunResult;
@@ -359,7 +359,7 @@ pub fn web_files(
 /// the ARG files are listed, although a run writes them only when the ARG is built.
 fn output_paths(labels: &[String], options: &OutputOptions) -> Vec<String> {
   let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
-  let mut paths: Vec<String> = file_kinds(labels.len(), options, labels.len() == 2)
+  let mut paths: Vec<String> = file_kinds(labels.len(), options, labels.len() == ARG_TREE_COUNT)
     .into_iter()
     .map(|kind| kind.path(&labels, options))
     .collect();

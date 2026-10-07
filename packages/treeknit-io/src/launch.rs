@@ -14,7 +14,7 @@
 //! format. The web app owns the keys of its display (`view`, `pair`, ...), which this module
 //! leaves alone.
 
-use crate::analysis::{self, AnalysisRequest, Field, ResolveMode, Settings, ValidationError};
+use crate::analysis::{self, AnalysisRequest, Field, MIN_TREES, ResolveMode, Settings, ValidationError};
 use crate::examples;
 use crate::output;
 use crate::schema::{KeyValue, SETTING_KEYS, SettingKey, SettingName};
@@ -314,7 +314,7 @@ pub fn launch_pairs(
   base: &Settings,
   run: bool,
 ) -> Option<Vec<(String, String)>> {
-  if addresses.len() != request.trees.len() || request.trees.len() < 2 {
+  if addresses.len() != request.trees.len() || request.trees.len() < MIN_TREES {
     return None;
   }
   let mut pairs = match example_input(request, addresses) {
@@ -864,7 +864,7 @@ impl LaunchReader {
         },
       }
     }
-    if self.trees.len() < 2 {
+    if self.trees.len() < MIN_TREES {
       self.errors.push(ValidationError::at(
         Field::LinkKey { key: "tree".to_owned() },
         format!("a link needs at least two trees, got {}", self.trees.len()),

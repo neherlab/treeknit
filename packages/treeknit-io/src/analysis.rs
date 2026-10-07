@@ -313,12 +313,18 @@ pub fn labels(trees: &[TreeText]) -> Vec<String> {
   trees.iter().map(|t| t.label.clone()).collect()
 }
 
+/// Least number of trees of a run, because TreeKnit infers the MCCs of pairs of trees.
+pub const MIN_TREES: usize = 2;
+
+/// Number of trees of a run that builds an ARG: the ARG joins the two segments of one pair.
+pub const ARG_TREE_COUNT: usize = 2;
+
 /// Parse the trees of a request after checking their number, their labels, their Newick text,
 /// the output file names of their pairs, and the leaves each pair shares, or return every error
 /// those checks find.
 pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationError>> {
   let mut errors = Vec::new();
-  if trees.len() < 2 {
+  if trees.len() < MIN_TREES {
     errors.push(ValidationError::at(Field::Trees, "need at least two trees"));
   }
   let label_errors = check_labels(trees);

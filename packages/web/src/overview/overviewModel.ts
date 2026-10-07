@@ -1,5 +1,7 @@
 import type { ArgOutcome, Overlap, PairSummary, Summary } from "@neherlab/treeknit-wasm";
 
+import { hasSeveralPairs } from "../workspace/search";
+
 export interface MatrixCell<T> {
   row: number;
   column: number;
@@ -33,7 +35,7 @@ export function resultOverview(summary: Summary, labels: readonly string[]): Res
     rows: summary.pairs,
     arg: summary.arg,
     noReassortment: summary.noReassortment,
-    matrix: labels.length > 2 ? pairMatrix(summary.pairs, labels) : null,
+    matrix: hasSeveralPairs(labels.length) ? pairMatrix(summary.pairs, labels) : null,
   };
 }
 
