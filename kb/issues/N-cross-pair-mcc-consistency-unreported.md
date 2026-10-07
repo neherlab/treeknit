@@ -10,7 +10,9 @@ With three or more trees, two leaves can share an MCC in the pairs (1, 2) and (1
 The port violates the condition on simulated and real data ([`cross-pair-mcc-consistency.md`](../proposals/cross-pair-mcc-consistency.md#measured-inconsistency)):
 
 - **Simulated three-tree fixtures**: 3 of the 4 cases violate it with the default settings for at least one of five seeds, by up to 380 leaf pairs. The true MCCs give none
-- **`data/h3n2-2k-4-segments`**: all four triplets violate it in every orientation, with 14 to 46 violating groups per orientation with the default settings and 9 to 19 with `--resolve strict --pre-resolve`
+- **`data/h3n2-2k-4-segments`**: all four triplets violate it in every orientation. Violating groups per orientation:
+  - 14 to 46 with the default settings
+  - 9 to 19 with `--resolve strict --pre-resolve`
 - **Cause**: on the fully resolved fixture `sim_k3_n50_r0.05`, the count is the same for every seed and every resolution setting. The separate inference of each pair causes it
 
 ## Fix direction

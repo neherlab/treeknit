@@ -36,7 +36,9 @@ The counts below apply the check algorithm to the output of the port at commit `
 
 ### Simulated fixtures
 
-The four three-tree fixtures `fixtures/sim/sim_k3_*` are simulated with ARGTools under the Kingman coalescent with 50 leaves (see [`ref/README.md`](../../ref/README.md)). The `_poly` cases are separate simulations whose short branches were collapsed into polytomies. Each run was `treeknit tree1.nwk tree2.nwk tree3.nwk --resolve <mode> [--pre-resolve] --seed <s>` with seeds 1 to 5. The table gives the violating leaf pairs summed over the three orientations, each of which has 1225 leaf pairs. A single value is the same for all five seeds.
+- **Data**: the four three-tree fixtures `fixtures/sim/sim_k3_*`, simulated with ARGTools under the Kingman coalescent with 50 leaves (see [`ref/README.md`](../../ref/README.md)). The `_poly` cases are separate simulations whose short branches were collapsed into polytomies
+- **Runs**: `treeknit tree1.nwk tree2.nwk tree3.nwk --resolve <mode> [--pre-resolve] --seed <s>`, with seeds 1 to 5
+- **Values**: violating leaf pairs, summed over the three orientations, each of which has 1225 leaf pairs. A single value is the same for all five seeds, and a range covers the five seeds
 
 | Case                    | `matched` | `matched --pre-resolve` | `strict`  | `strict --pre-resolve` | `liberal`  | `none`  | `none --pre-resolve` |
 | ----------------------- | --------- | ----------------------- | --------- | ---------------------- | ---------- | ------- | -------------------- |
@@ -46,8 +48,11 @@ The four three-tree fixtures `fixtures/sim/sim_k3_*` are simulated with ARGTools
 | `sim_k3_n50_r0.1_poly`  | 54        | 54                      | 60 to 120 | 120                    | 120 to 260 | 5 to 8  | 97                   |
 
 - **True MCCs**: 0 in all four cases, as one ARG requires
-- **TreeKnit.jl**: the five seeded runs stored in the fixtures (`multi_runs`, the TreeKnit.jl default for three trees, which is `--resolve none --pre-resolve` in the port) give 380, 158, 0 to 3, and 97, the values of the port with the same settings
-- **Cause**: the fully resolved case `sim_k3_n50_r0.05` gives 380 in every setting and with every seed, so neither the resolution nor the randomness of the annealing causes the conflict. There, the pair (tree1, tree2) has one MCC fewer than the true MCCs, and the pair (tree1, tree3) has as many MCCs as the truth but a different partition. The pair (tree2, tree3) equals the truth
+- **TreeKnit.jl**: its default for three trees is `--resolve none --pre-resolve` in the port. The five seeded runs stored in the fixtures (`multi_runs`) give 380, 158, 0 to 3, and 97, the same values as the port
+- **Cause**: the fully resolved case `sim_k3_n50_r0.05` gives 380 in every setting and with every seed, so neither the resolution nor the randomness of the annealing causes the conflict. Compared with the true MCCs:
+  - the pair (tree1, tree2) has one MCC fewer
+  - the pair (tree1, tree3) has as many MCCs, but a different partition
+  - the pair (tree2, tree3) is equal
 - **Finer partitions**: `none` without pre-resolution gives few violations in the `_poly` cases, but 25 to 37 MCCs per pair with seed 1, against 3 to 17 with the other settings. Finer partitions satisfy the condition more easily, so a low count alone does not show good MCCs
 
 ### Four-segment H3N2 data

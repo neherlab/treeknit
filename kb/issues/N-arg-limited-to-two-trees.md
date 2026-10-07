@@ -1,6 +1,6 @@
 # No ARG for more than two trees
 
-With three or more segment trees, the port writes the MCCs of every pair and no ARG, as TreeKnit.jl does. The ARG code supports two segments only, and the pairwise MCCs that an ARG of all segments needs contradict each other on simulated and real data. [`multi-segment-arg.md`](../proposals/multi-segment-arg.md) describes the conditions, the measurements, and the open questions.
+With three or more segment trees, the port writes the MCCs of every pair and no ARG, as TreeKnit.jl does. The ARG code supports two segments only, and the pairwise MCCs that an ARG of all segments needs contradict each other on simulated and real data. [`multi-segment-arg.md`](../proposals/multi-segment-arg.md) gives the analysis.
 
 ## Locations
 
@@ -12,7 +12,20 @@ With three or more segment trees, the port writes the MCCs of every pair and no 
 - `packages/web/src/arg/`: the ARG view of the web app
 
 > [!IMPORTANT]
-> **Decision required.** Three choices are open, with the evidence in the proposal. The use of the ARG: counts of events with the segments they separate, a figure, or shared branches for joint estimation, which decides what a correct result is. The handling of conflicts between pairs: report them and build no ARG, merge MCCs, split MCCs to the meet of the other pairs, or infer all pairs with one joint score. The output of events at one node with three or more parents: one node with more than two parents, or a chain of two-parent nodes in a fixed order.
+> **Decision required.** Three choices are open. The proposal gives the evidence for each.
+>
+> - **Use of the ARG**, which decides what a correct result is:
+>   - counts of events with the segments they separate
+>   - a figure
+>   - shared branches for joint estimation
+> - **Conflicts between pairs**:
+>   - report them and build no ARG
+>   - merge MCCs
+>   - split MCCs to the meet of the other pairs
+>   - infer all pairs with one joint score
+> - **Events at one node with three or more parents**:
+>   - one node with more than two parents
+>   - a chain of two-parent nodes in a fixed order
 
 > [!IMPORTANT]
 > **Investigation required.** It is not known whether pairwise MCCs that satisfy topological compatibility and the triplet condition can always be joined into an acyclic ARG. Join the shared nodes of the true pairwise MCCs of simulated ARGs with three or more segments, and count the classes that contain two nodes of one tree and the cycles.
