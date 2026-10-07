@@ -9,6 +9,11 @@ use super::{
 /// Half a leaf row: a ribbon extends each y range of its block by this much.
 const HALF_ROW: f64 = 0.5;
 
+/// Shortest drawn length of the branch of an added node on the divergence scale, as a share of
+/// the tree column. Resolution inserts each split with branch length 0, so without it the new
+/// branch has no part across and the split is invisible.
+const ADDED_MIN_LENGTH: f64 = 0.02;
+
 /// The shapes of a tanglegram, with `slots[mcc]` the color slot of each MCC.
 pub(super) fn pair_shapes(
   left: &DrawTree,
@@ -46,7 +51,7 @@ pub(super) fn pair_shapes(
 
 /// Elbows and marks of one tree.
 fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
-  let x = normalized(tree.nodes.iter().map(|n| scaled(n, scale)));
+  let x = drawn_x(tree, &normalized(tree.nodes.iter().map(|n| scaled(n, scale))), scale);
   let mut elbows = Vec::new();
   let mut marks = Vec::new();
   let mut leaders = Vec::new();
@@ -144,6 +149,31 @@ fn leader(node: usize, at: Point) -> Leader {
     from: at,
     to: [1.0, at[1]],
   }
+}
+
+/// The x of each node of `tree` as drawn, from the normalized `x`: on the divergence scale the
+/// branch of an added node is drawn at least `ADDED_MIN_LENGTH` long, and the nodes below it move
+/// right by the same amount, so every other branch keeps its drawn length; the result is
+/// normalized again so that it fits the column. The depth scale draws every branch at least one
+/// step long and keeps `x`. The nodes are in preorder, so each parent is placed before its
+/// children.
+fn drawn_x(tree: &DrawTree, x: &[f64], scale: Scale) -> Vec<f64> {
+  let added_min_length = match scale {
+    Scale::Div => ADDED_MIN_LENGTH,
+    Scale::Depth => 0.0,
+  };
+  let mut shift = vec![0.0; x.len()];
+  for (i, node) in tree.nodes.iter().enumerate() {
+    if let Some(p) = node.parent {
+      let extension = if node.added {
+        (added_min_length - (x[i] - x[p])).max(0.0)
+      } else {
+        0.0
+      };
+      shift[i] = shift[p] + extension;
+    }
+  }
+  normalized(x.iter().zip(&shift).map(|(x, s)| x + s))
 }
 
 fn scaled(node: &DrawNode, scale: Scale) -> f64 {
@@ -296,6 +326,108 @@ mod tests {
     ];
     assert_eq!(expected, shapes.marks);
     assert!(shapes.elbows[1].mcc_break && shapes.elbows[1].added);
+  }
+
+  /// A tree of `(parent, x_div, added)` per node in preorder, at y 0, 1, 2, ...; a node
+  /// without children is a leaf.
+  fn tree_of(spec: &[(Option<usize>, f64, bool)]) -> DrawTree {
+    let mut nodes: Vec<DrawNode> = spec
+      .iter()
+      .zip(0_u32..)
+      .map(|(&(parent, x, added), y)| DrawNode {
+        added,
+        ..node(parent, x, f64::from(y))
+      })
+      .collect();
+    for i in 0..nodes.len() {
+      nodes[i].leaf = nodes.iter().all(|n| n.parent != Some(i));
+    }
+    DrawTree {
+      label: "t".to_owned(),
+      nodes,
+    }
+  }
+
+  fn elbow_points(tree: &DrawTree, scale: Scale) -> Vec<(usize, [Point; 3])> {
+    let shapes = tree_shapes(tree, &[0], scale);
+    shapes.elbows.iter().map(|e| (e.node, e.points)).collect()
+  }
+
+  #[test]
+  fn tree_shapes_draw_a_zero_length_added_branch_across_on_the_divergence_scale() {
+    // (A:1,(B:1,C:0.5)s:0)r with s added by resolution: s gets the shortest added length, B and
+    // C move right with it, and the drawing is scaled back into the column.
+    let tree = tree_of(&[
+      (None, 0.0, false),
+      (Some(0), 1.0, false),
+      (Some(0), 0.0, true),
+      (Some(2), 1.0, false),
+      (Some(2), 0.5, false),
+    ]);
+    let d = ADDED_MIN_LENGTH;
+    let width = 1.0 + d;
+    let (a, s, c) = (1.0 / width, d / width, (0.5 + d) / width);
+    let expected = vec![
+      (1, [[0.0, 0.0], [0.0, 1.0], [a, 1.0]]),
+      (2, [[0.0, 0.0], [0.0, 2.0], [s, 2.0]]),
+      (3, [[s, 2.0], [s, 3.0], [1.0, 3.0]]),
+      (4, [[s, 2.0], [s, 4.0], [c, 4.0]]),
+    ];
+    assert_eq!(expected, elbow_points(&tree, Scale::Div));
+  }
+
+  #[test]
+  fn tree_shapes_chain_nested_added_branches_and_shift_the_nodes_below_them() {
+    // (((A:0,B:1)s2:0)s1:0,C:1)r: s1 and s2 are added; A and B move right by both.
+    let tree = tree_of(&[
+      (None, 0.0, false),
+      (Some(0), 0.0, true),
+      (Some(1), 0.0, true),
+      (Some(2), 0.0, false),
+      (Some(2), 1.0, false),
+      (Some(0), 1.0, false),
+    ]);
+    let d = ADDED_MIN_LENGTH;
+    let width = 1.0 + 2.0 * d;
+    let x: Vec<(usize, f64)> = elbow_points(&tree, Scale::Div)
+      .iter()
+      .map(|&(n, points)| (n, points[2][0]))
+      .collect();
+    let expected = vec![
+      (1, d / width),
+      (2, 2.0 * d / width),
+      (3, 2.0 * d / width),
+      (4, 1.0),
+      (5, 1.0 / width),
+    ];
+    assert_eq!(expected, x);
+  }
+
+  #[test]
+  fn tree_shapes_keep_an_added_branch_longer_than_the_shortest_added_length() {
+    // An added node of imputation splits a branch and can have its own length.
+    let tree = tree_of(&[
+      (None, 0.0, false),
+      (Some(0), 1.0, false),
+      (Some(0), 0.5, true),
+      (Some(2), 1.0, false),
+      (Some(2), 0.75, false),
+    ]);
+    let x: Vec<f64> = elbow_points(&tree, Scale::Div).iter().map(|(_, p)| p[2][0]).collect();
+    assert_eq!(vec![1.0, 0.5, 1.0, 0.75], x);
+  }
+
+  #[test]
+  fn tree_shapes_keep_the_depth_of_an_added_node() {
+    let tree = tree_of(&[
+      (None, 0.0, false),
+      (Some(0), 1.0, false),
+      (Some(0), 0.0, true),
+      (Some(2), 1.0, false),
+      (Some(2), 1.0, false),
+    ]);
+    let x: Vec<f64> = elbow_points(&tree, Scale::Depth).iter().map(|(_, p)| p[2][0]).collect();
+    assert_eq!(vec![1.0, 0.0, 1.0, 1.0], x);
   }
 
   #[test]

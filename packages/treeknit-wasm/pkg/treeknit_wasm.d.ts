@@ -1239,7 +1239,7 @@ export interface DrawingRules {
      */
     ribbonOpacity: number;
     /**
-     * Dash and gap of a dashed line (added nodes, reticulations), in px.
+     * Dash and gap of a dashed line (reticulations), in px.
      */
     dashPx: [number, number];
     /**
@@ -1339,7 +1339,9 @@ export interface Elbow {
      */
     mccBreak: boolean;
     /**
-     * The node is `added`; its branch is dashed.
+     * The node is `added`: the part across, from `points[1]` to `points[2]`, is its new branch
+     * and is drawn in ink-muted; the part along the parent's x joins it to its parent like a plain
+     * branch.
      */
     added: boolean;
 }

@@ -115,7 +115,7 @@ pub struct DrawingRules {
   pub mark_line_px: f64,
   /// Opacity of the fill of a ribbon.
   pub ribbon_opacity: f64,
-  /// Dash and gap of a dashed line (added nodes, reticulations), in px.
+  /// Dash and gap of a dashed line (reticulations), in px.
   pub dash_px: [f64; 2],
   /// Dash and gap of a dotted line (leaders), in px.
   pub dot_px: [f64; 2],
@@ -336,7 +336,9 @@ pub struct Elbow {
   pub slot: Option<usize>,
   /// The branch is a reassortment branch.
   pub mcc_break: bool,
-  /// The node is `added`; its branch is dashed.
+  /// The node is `added`: the part across, from `points[1]` to `points[2]`, is its new branch
+  /// and is drawn in ink-muted; the part along the parent's x joins it to its parent like a plain
+  /// branch.
   pub added: bool,
 }
 
