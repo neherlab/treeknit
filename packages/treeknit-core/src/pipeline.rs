@@ -650,6 +650,8 @@ mod tests {
   use super::*;
   use crate::progress::{PAIRS_SHARE, Phase, ratio};
   use crate::tree::test_util::{splits, trees};
+  use pretty_assertions::assert_eq;
+  use rstest::rstest;
 
   fn ids(taxa: &Taxa, m: &[&[&str]]) -> Vec<Mcc> {
     sort_mccs(m.iter().map(|x| x.iter().map(|s| taxa.index[*s]).collect()).collect())
@@ -708,11 +710,9 @@ mod tests {
     let (mut ts, taxa) = trees(&["((A,(B,C)),(D,E));", "((A,B,C,D),E);", "((A,B),((C,D),E));"]);
     let o = Options::treeknit_jl(3, None);
     let res = run(&mut ts, &taxa, &o, 1);
-    assert_eq!(res.len(), 3);
-    for r in &res {
-      let total: usize = r.mccs.iter().map(|m| m.len()).sum();
-      assert_eq!(total, 5);
-    }
+    // Every pair's MCCs hold all five leaves.
+    let totals: Vec<usize> = res.iter().map(|r| r.mccs.iter().map(Vec::len).sum()).collect();
+    assert_eq!(vec![5, 5, 5], totals);
   }
 
   #[test]
@@ -739,46 +739,45 @@ mod tests {
     assert!(splits(&imp[0], &tb).contains(&vec!["D".to_owned(), "P".to_owned()]));
   }
 
-  /// Run two trees that share fewer than two leaves in every resolution mode, sequentially and in
-  /// parallel, and require no MCCs, no attachments, and unchanged trees.
-  fn assert_pair_skipped(nwks: [&str; 2]) {
-    let modes = [
-      Resolution::None,
-      Resolution::Strict,
-      Resolution::Liberal,
-      Resolution::Matched,
-    ];
-    for resolution in modes {
-      for parallel in [false, true] {
-        let (mut ts, taxa) = trees(&nwks);
-        let before: Vec<_> = ts.iter().map(|t| (t.leaf_names(), splits(t, &taxa))).collect();
-        let o = Options {
-          resolution,
-          parallel,
-          pre_resolve: true,
-          ..Options::for_trees(2)
-        };
-        let res = in_pool(parallel, || run(&mut ts, &taxa, &o, 1));
-        let after: Vec<_> = ts.iter().map(|t| (t.leaf_names(), splits(t, &taxa))).collect();
-        let case = format!("{resolution:?}, parallel {parallel}");
-        assert_eq!(res.len(), 1, "{case}");
-        assert!(res[0].mccs.is_empty(), "{case}: {:?}", res[0].mccs);
-        assert!(res[0].attached.is_empty(), "{case}");
-        assert_eq!(after, before, "{case}");
-      }
+  /// Run `f` in a pool of four threads when `parallel`, so that the pairs of a parallel run run
+  /// concurrently although the global pool of the tests has one thread.
+  fn in_pool<T: Send>(parallel: bool, f: impl FnOnce() -> T + Send) -> T {
+    if parallel {
+      rayon::ThreadPoolBuilder::new()
+        .num_threads(4)
+        .build()
+        .unwrap()
+        .install(f)
+    } else {
+      f()
     }
   }
 
-  #[test]
-  fn pair_without_shared_leaves_is_skipped() {
-    // Ladderizing either tree changes its leaf order, so an unchanged order shows that the
-    // pair was not sorted.
-    assert_pair_skipped(["(A,((B,C),D));", "(P,((Q,R),S));"]);
-  }
-
-  #[test]
-  fn pair_with_one_shared_leaf_is_skipped() {
-    assert_pair_skipped(["(A,((B,C),D));", "(A,((Q,R),S));"]);
+  /// Two trees that share fewer than two leaves get no MCCs and no attachments and stay
+  /// unchanged, in every resolution mode, sequentially and in parallel. Ladderizing either tree
+  /// changes its leaf order, so an unchanged order shows that the pair was not sorted.
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::no_shared_leaf( ["(A,((B,C),D));", "(P,((Q,R),S));"])]
+  #[case::one_shared_leaf(["(A,((B,C),D));", "(A,((Q,R),S));"])]
+  #[trace]
+  fn pair_sharing_fewer_than_two_leaves_is_skipped(
+    #[case] nwks: [&str; 2],
+    #[values(Resolution::None, Resolution::Strict, Resolution::Liberal, Resolution::Matched)] resolution: Resolution,
+    #[values(false, true)] parallel: bool,
+  ) {
+    let (mut ts, taxa) = trees(&nwks);
+    let before: Vec<_> = ts.iter().map(|t| (t.leaf_names(), splits(t, &taxa))).collect();
+    let o = Options {
+      resolution,
+      parallel,
+      pre_resolve: true,
+      ..Options::for_trees(2)
+    };
+    let res = in_pool(parallel, || run(&mut ts, &taxa, &o, 1));
+    let after: Vec<_> = ts.iter().map(|t| (t.leaf_names(), splits(t, &taxa))).collect();
+    let skipped = res.iter().map(|r| (r.mccs.len(), r.attached.len())).collect::<Vec<_>>();
+    assert_eq!((vec![(0, 0)], before), (skipped, after));
   }
 
   #[test]
@@ -819,55 +818,82 @@ mod tests {
       .collect()
   }
 
-  /// Two-tree inputs for the display sort: the two-tree example, a polytomy, and leaves in one
-  /// tree only (P in the first tree, Q in the second).
-  const PAIR_INPUTS: [[&str; 2]; 3] = [
-    ["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));"],
-    ["((A,B,C),(D,X),E);", "((A,(B,X)),(C,D),E);"],
-    ["((A,B),((C,P),(D,X)));", "((A,(B,X)),(C,(D,Q)));"],
-  ];
+  /// The two-tree example: X moved between the trees.
+  const TWO_TREE_EXAMPLE: [&str; 2] = ["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));"];
+
+  /// A polytomy in the first tree.
+  const POLYTOMY_PAIR: [&str; 2] = ["((A,B,C),(D,X),E);", "((A,(B,X)),(C,D),E);"];
+
+  /// Leaves in one tree only: P in the first tree, Q in the second.
+  const ONE_TREE_LEAVES: [&str; 2] = ["((A,B),((C,P),(D,X)));", "((A,(B,X)),(C,(D,Q)));"];
+
+  /// The two-tree inputs of the display sort.
+  const PAIR_INPUTS: [[&str; 2]; 3] = [TWO_TREE_EXAMPLE, POLYTOMY_PAIR, ONE_TREE_LEAVES];
+
+  /// The trees of a run of the pair `nwks` with `resolution`, sorted by the run, and the same
+  /// trees rebuilt from the input with the run's own steps before its sort: unchanged without
+  /// resolution, resolved with the MCCs in strict mode, and in matched mode also matched within
+  /// MCCs. The MCCs are those of the result restricted to the shared leaves; in matched mode no
+  /// MCC is split, so they are also the MCCs before matching.
+  fn run_and_rebuilt(nwks: [&str; 2], resolution: Resolution) -> (Vec<Tree>, Vec<Tree>) {
+    let o = Options {
+      n_t: 10,
+      resolution,
+      ..Options::for_trees(2)
+    };
+    let (mut ran, taxa) = trees(&nwks);
+    let n = taxa.len();
+    let res = run(&mut ran, &taxa, &o, 3);
+    let mccs = res[0].shared_mccs(&ran, n);
+    let (mut copies, _) = trees(&nwks);
+    if resolution != Resolution::None {
+      resolve_pair(&mut copies, 0, 1, &mccs, n, true);
+    }
+    if resolution == Resolution::Matched {
+      let mut matched = vec![mccs.clone()];
+      let (_, split) = match_topologies(&mut copies, &[(0, 1)], &mut matched, n);
+      assert_eq!((0, &mccs), (split, &matched[0]));
+    }
+    let rebuilt = copies.clone();
+    let [left, right] = copies.get_disjoint_mut([0, 1]).unwrap();
+    sort_for_pair(left, right, &mccs, n, sort_strictness(&o, 2));
+    assert_eq!(
+      (layout(&ran[0]), layout(&ran[1])),
+      (layout(&copies[0]), layout(&copies[1]))
+    );
+    (ran, rebuilt)
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::two_tree_example(TWO_TREE_EXAMPLE)]
+  #[case::polytomy(        POLYTOMY_PAIR)]
+  #[case::one_tree_leaves( ONE_TREE_LEAVES)]
+  #[trace]
+  fn sort_for_pair_reproduces_the_run_order_of_two_trees(
+    #[case] nwks: [&str; 2],
+    #[values(Resolution::None, Resolution::Strict, Resolution::Matched)] resolution: Resolution,
+  ) {
+    run_and_rebuilt(nwks, resolution);
+  }
 
   #[test]
-  fn sort_for_pair_reproduces_the_run_order_of_two_trees() {
-    // The trees that the run's sort received are rebuilt from the input with the run's own
-    // steps: unchanged without resolution, resolved with the MCCs in strict mode, and in
-    // matched mode also matched within MCCs. The MCCs are those of the result restricted to the
-    // shared leaves; in matched mode no MCC is split, so they are also the MCCs before matching.
-    let mut reordered = false;
-    for resolution in [Resolution::None, Resolution::Strict, Resolution::Matched] {
-      for nwks in PAIR_INPUTS {
-        let o = Options {
-          n_t: 10,
-          resolution,
-          ..Options::for_trees(2)
-        };
-        let case = format!("{resolution:?}, {nwks:?}");
-        let (mut ran, taxa) = trees(&nwks);
-        let n = taxa.len();
-        let res = run(&mut ran, &taxa, &o, 3);
-        let mccs = res[0].shared_mccs(&ran, n);
-        let (mut copies, _) = trees(&nwks);
-        if resolution != Resolution::None {
-          resolve_pair(&mut copies, 0, 1, &mccs, n, true);
-        }
-        if resolution == Resolution::Matched {
-          let mut matched = vec![mccs.clone()];
-          let (_, split) = match_topologies(&mut copies, &[(0, 1)], &mut matched, n);
-          assert_eq!((0, &mccs), (split, &matched[0]), "{case}");
-        }
-        reordered |= copies.iter().zip(&ran).any(|(c, r)| c.leaf_names() != r.leaf_names());
-        let [left, right] = copies.get_disjoint_mut([0, 1]).unwrap();
-        sort_for_pair(left, right, &mccs, n, sort_strictness(&o, 2));
-        assert_eq!(layout(&ran[0]), layout(&copies[0]), "{case}");
-        assert_eq!(layout(&ran[1]), layout(&copies[1]), "{case}");
-      }
-    }
-    assert!(reordered, "no input was reordered by the sort");
+  fn the_run_sort_reorders_some_pair_input() {
+    // Without a reordered input, the order check of the sort would hold for an identity sort.
+    let reordered: Vec<bool> = [Resolution::None, Resolution::Strict, Resolution::Matched]
+      .into_iter()
+      .flat_map(|resolution| PAIR_INPUTS.map(|nwks| (nwks, resolution)))
+      .map(|(nwks, resolution)| {
+        let (ran, rebuilt) = run_and_rebuilt(nwks, resolution);
+        rebuilt.iter().zip(&ran).any(|(c, r)| c.leaf_names() != r.leaf_names())
+      })
+      .collect();
+    assert!(reordered.contains(&true), "{reordered:?}");
   }
 
   #[test]
   fn shared_mccs_drop_the_leaves_of_one_tree_only() {
-    let (mut ts, taxa) = trees(&PAIR_INPUTS[2]);
+    let (mut ts, taxa) = trees(&ONE_TREE_LEAVES);
     let o = Options {
       resolution: Resolution::None,
       ..Options::for_trees(2)
@@ -941,25 +967,18 @@ mod tests {
     assert_eq!(Vec::<(usize, usize, Mcc)>::new(), conflicting);
   }
 
-  #[test]
-  fn sort_for_pair_leaves_a_skipped_pair_unchanged() {
-    // Ladderizing the first tree would reorder it, so an unchanged order shows no sort.
-    for nwks in [
-      ["(A,((B,C),D));", "(P,((Q,R),S));"],
-      ["(A,((B,C),D));", "(A,((Q,R),S));"],
-    ] {
-      for strict in [false, true] {
-        let (mut ts, taxa) = trees(&nwks);
-        let before: Vec<_> = ts.iter().map(layout).collect();
-        let [left, right] = ts.get_disjoint_mut([0, 1]).unwrap();
-        sort_for_pair(left, right, &[], taxa.len(), strict);
-        assert_eq!(
-          before,
-          ts.iter().map(layout).collect::<Vec<_>>(),
-          "{nwks:?}, strict {strict}"
-        );
-      }
-    }
+  /// Ladderizing the first tree would reorder it, so an unchanged order shows no sort.
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::no_shared_leaf( ["(A,((B,C),D));", "(P,((Q,R),S));"])]
+  #[case::one_shared_leaf(["(A,((B,C),D));", "(A,((Q,R),S));"])]
+  #[trace]
+  fn sort_for_pair_leaves_a_skipped_pair_unchanged(#[case] nwks: [&str; 2], #[values(false, true)] strict: bool) {
+    let (mut ts, taxa) = trees(&nwks);
+    let before: Vec<_> = ts.iter().map(layout).collect();
+    let [left, right] = ts.get_disjoint_mut([0, 1]).unwrap();
+    sort_for_pair(left, right, &[], taxa.len(), strict);
+    assert_eq!(before, ts.iter().map(layout).collect::<Vec<_>>());
   }
 
   /// Log lines, each with the thread that logged it.
@@ -1023,36 +1042,31 @@ mod tests {
     );
   }
 
-  #[test]
-  fn sort_strictness_follows_the_last_round_of_the_run() {
-    let o = |resolution, k, final_unresolved_round, sort_strict| Options {
+  /// The extra round of strict resolution with three trees runs without resolution and sorts
+  /// non-strictly; matched trees agree within MCCs, so their sort is never strict.
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::strict_two_trees(          (Resolution::Strict,  2, true,  None),        true)]
+  #[case::strict_extra_round(        (Resolution::Strict,  3, true,  None),        false)]
+  #[case::strict_without_extra_round((Resolution::Strict,  3, false, None),        true)]
+  #[case::liberal(                   (Resolution::Liberal, 2, true,  None),        false)]
+  #[case::none(                      (Resolution::None,    2, true,  None),        false)]
+  #[case::none_forced_strict(        (Resolution::None,    2, true,  Some(true)),  true)]
+  #[case::strict_forced_lax(         (Resolution::Strict,  2, true,  Some(false)), false)]
+  #[case::matched(                   (Resolution::Matched, 2, true,  None),        false)]
+  #[case::matched_forced_strict(     (Resolution::Matched, 2, true,  Some(true)),  false)]
+  #[trace]
+  fn sort_strictness_follows_the_last_round_of_the_run(
+    #[case] (resolution, k, final_unresolved_round, sort_strict): (Resolution, usize, bool, Option<bool>),
+    #[case] strict: bool,
+  ) {
+    let opts = Options {
       resolution,
       final_unresolved_round,
       sort_strict,
       ..Options::for_trees(k)
     };
-    let cases = [
-      (o(Resolution::Strict, 2, true, None), true),
-      // The extra round without resolution comes last, and it sorts non-strictly.
-      (o(Resolution::Strict, 3, true, None), false),
-      (o(Resolution::Strict, 3, false, None), true),
-      (o(Resolution::Liberal, 2, true, None), false),
-      (o(Resolution::None, 2, true, None), false),
-      (o(Resolution::None, 2, true, Some(true)), true),
-      (o(Resolution::Strict, 2, true, Some(false)), false),
-      // Matched trees agree within MCCs, so their sort is never strict.
-      (o(Resolution::Matched, 2, true, None), false),
-      (o(Resolution::Matched, 2, true, Some(true)), false),
-    ];
-    for (opts, strict) in cases {
-      let case = format!(
-        "{:?}, k {}, {:?}",
-        opts.resolution,
-        opts.seq_lengths.len(),
-        opts.sort_strict
-      );
-      assert_eq!(strict, sort_strictness(&opts, opts.seq_lengths.len()), "{case}");
-    }
+    assert_eq!(strict, sort_strictness(&opts, k));
   }
 
   /// `k` trees on the same leaves.
@@ -1071,17 +1085,18 @@ mod tests {
     (last, kept)
   }
 
-  #[test]
-  fn last_sorting_pair_of_two_trees_is_their_pair() {
+  #[rstest]
+  #[trace]
+  fn last_sorting_pair_of_two_trees_is_their_pair(
+    #[values(Resolution::None, Resolution::Strict, Resolution::Matched)] resolution: Resolution,
+  ) {
     let (ts, taxa) = same_leaves(2);
-    for resolution in [Resolution::None, Resolution::Strict, Resolution::Matched] {
-      let o = Options {
-        resolution,
-        ..Options::for_trees(2)
-      };
-      let expected = (vec![Some((0, 1)), Some((0, 1))], vec![(0, 1)]);
-      assert_eq!(expected, sorting(&ts, &taxa, &o), "{resolution:?}");
-    }
+    let o = Options {
+      resolution,
+      ..Options::for_trees(2)
+    };
+    let expected = (vec![Some((0, 1)), Some((0, 1))], vec![(0, 1)]);
+    assert_eq!(expected, sorting(&ts, &taxa, &o));
   }
 
   #[test]
@@ -1358,20 +1373,6 @@ mod tests {
   }
 
   /// Progress events of a run of `nwks` with `opts` and seed 1.
-  /// Run `f` in a pool of four threads when `parallel`, so that the pairs of a parallel run run
-  /// concurrently although the global pool of the tests has one thread.
-  fn in_pool<T: Send>(parallel: bool, f: impl FnOnce() -> T + Send) -> T {
-    if parallel {
-      rayon::ThreadPoolBuilder::new()
-        .num_threads(4)
-        .build()
-        .unwrap()
-        .install(f)
-    } else {
-      f()
-    }
-  }
-
   fn observed(nwks: &[&str], opts: &Options) -> Vec<Progress> {
     let (mut ts, taxa) = trees(nwks);
     let events = std::cell::RefCell::new(Vec::new());
@@ -1556,11 +1557,31 @@ mod tests {
     assert_eq!(vec![1, 0, 0], added);
   }
 
-  /// Require that a run of `POLYTOMIES` in `resolution`, `parallel`, and `pre_resolve` reports
+  /// A run of `POLYTOMIES` in `resolution`, `parallel`, and `pre_resolve` reports
   /// fractions that never decrease and stay at most `PAIRS_SHARE` before the last event, which is
   /// `Done` with fraction 1, and the phases `Pairs`, then `Matching` for `Matched` resolution, then
   /// `Done`.
-  fn assert_progress_bounds(resolution: Resolution, parallel: bool, pre_resolve: bool) {
+  ///
+  /// Matched resolution resolves in every round, so its rounds run sequentially with or without
+  /// `parallel` and have no parallel cases.
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::none_sequential(                (Resolution::None,    false, false))]
+  #[case::none_sequential_pre_resolved(   (Resolution::None,    false, true))]
+  #[case::none_parallel(                  (Resolution::None,    true,  false))]
+  #[case::none_parallel_pre_resolved(     (Resolution::None,    true,  true))]
+  #[case::strict_sequential(              (Resolution::Strict,  false, false))]
+  #[case::strict_sequential_pre_resolved( (Resolution::Strict,  false, true))]
+  #[case::strict_parallel(                (Resolution::Strict,  true,  false))]
+  #[case::strict_parallel_pre_resolved(   (Resolution::Strict,  true,  true))]
+  #[case::liberal_sequential(             (Resolution::Liberal, false, false))]
+  #[case::liberal_sequential_pre_resolved((Resolution::Liberal, false, true))]
+  #[case::liberal_parallel(               (Resolution::Liberal, true,  false))]
+  #[case::liberal_parallel_pre_resolved(  (Resolution::Liberal, true,  true))]
+  #[case::matched(                        (Resolution::Matched, false, false))]
+  #[case::matched_pre_resolved(           (Resolution::Matched, false, true))]
+  #[trace]
+  fn progress_bounds(#[case] (resolution, parallel, pre_resolve): (Resolution, bool, bool)) {
     let o = Options {
       itmax: 2,
       n_t: 5,
@@ -1587,38 +1608,6 @@ mod tests {
       vec![Phase::Pairs, Phase::Done]
     };
     assert_eq!(expected, phases, "{events:?}");
-  }
-
-  /// One test per case of `assert_progress_bounds`.
-  macro_rules! progress_bounds {
-    ($($name:ident: ($resolution:ident, $parallel:literal, $pre_resolve:literal),)*) => {
-      $(
-        #[test]
-        fn $name() {
-          assert_progress_bounds(Resolution::$resolution, $parallel, $pre_resolve);
-        }
-      )*
-    };
-  }
-
-  // Matched resolution resolves in every round, so its rounds run sequentially with or without
-  // `parallel` and have no parallel cases.
-  #[rustfmt::skip]
-  progress_bounds! {
-    progress_bounds_none_sequential:                 (None,     false, false),
-    progress_bounds_none_sequential_pre_resolved:    (None,     false, true),
-    progress_bounds_none_parallel:                   (None,     true,  false),
-    progress_bounds_none_parallel_pre_resolved:      (None,     true,  true),
-    progress_bounds_strict_sequential:               (Strict,   false, false),
-    progress_bounds_strict_sequential_pre_resolved:  (Strict,   false, true),
-    progress_bounds_strict_parallel:                 (Strict,   true,  false),
-    progress_bounds_strict_parallel_pre_resolved:    (Strict,   true,  true),
-    progress_bounds_liberal_sequential:              (Liberal,  false, false),
-    progress_bounds_liberal_sequential_pre_resolved: (Liberal,  false, true),
-    progress_bounds_liberal_parallel:                (Liberal,  true,  false),
-    progress_bounds_liberal_parallel_pre_resolved:   (Liberal,  true,  true),
-    progress_bounds_matched:                         (Matched,  false, false),
-    progress_bounds_matched_pre_resolved:            (Matched,  false, true),
   }
 
   /// Events of a run with `Matched` resolution (whose rounds resolve, so they run sequentially):

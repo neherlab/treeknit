@@ -1152,9 +1152,11 @@ dependencies = [
  "indexmap",
  "log",
  "ordered-float",
+ "pretty_assertions",
  "rand",
  "rand_xoshiro",
  "rayon",
+ "rstest",
  "thiserror",
 ]
 

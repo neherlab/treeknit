@@ -554,7 +554,6 @@ mod tests {
   use crate::tree::test_util::{splits, trees};
 
   #[test]
-  #[allow(clippy::needless_range_loop)]
   fn one_reassortment() {
     let (ts, taxa) = trees(&[
       "((A:1,B:1):1,(C:1,(D:1,X:1):1):1);",
@@ -564,14 +563,20 @@ mod tests {
     let mccs = vec![vec![id("X")], vec![id("A"), id("B"), id("C"), id("D")]];
     let arg = arg_from_trees(&ts[0], &ts[1], &mccs, taxa.len()).unwrap();
     assert_eq!(arg.n_hybrids(), 1);
-    for c in 0..2 {
-      let mut seg = arg.segment_tree(c);
-      seg.assign_taxa(&taxa).unwrap();
-      let mut orig = ts[c].clone();
-      orig.remove_unary();
-      seg.remove_unary();
-      assert_eq!(splits(&seg, &taxa), splits(&orig, &taxa), "segment {c}");
-    }
+    // Each segment tree of the ARG has the splits of its input tree.
+    let (segments, inputs): (Vec<_>, Vec<_>) = ts
+      .iter()
+      .enumerate()
+      .map(|(c, input)| {
+        let mut seg = arg.segment_tree(c);
+        seg.assign_taxa(&taxa).unwrap();
+        seg.remove_unary();
+        let mut orig = input.clone();
+        orig.remove_unary();
+        (splits(&seg, &taxa), splits(&orig, &taxa))
+      })
+      .unzip();
+    assert_eq!(inputs, segments);
     let x = arg.nodes.iter().position(|n| n.label == "X").unwrap();
     let Anc::Node(h) = arg.nodes[x].anc[0] else { panic!() };
     assert!(arg.nodes[h].hybrid);

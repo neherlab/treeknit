@@ -548,31 +548,51 @@ pub fn branch_likelihood(t1: Option<f64>, t2: Option<f64>, l1: f64, l2: f64) -> 
 mod tests {
   use super::*;
   use crate::tree::test_util::trees;
+  use pretty_assertions::assert_eq;
+  use rstest::rstest;
+
+  /// The graph of the basic case of the Julia test suite (test/splitgraph/basic), whose leaves
+  /// are A to E in this order.
+  fn basic_graph() -> Graph {
+    let (ts, _) = trees(&["((A,B),((C,D),E));", "((A,(B,C)),(D,E));"]);
+    Graph::new(&[&ts[0], &ts[1]], 5)
+  }
+
+  /// `bits::full(5)` without the leaves `removed`.
+  fn without(removed: &[usize]) -> Bits {
+    let mut c = bits::full(5);
+    for &i in removed {
+      c.set(i, false);
+    }
+    c
+  }
 
   #[test]
   fn basic_energy() {
-    // From the Julia test suite (test/splitgraph/basic).
-    let (ts, _) = trees(&["((A,B),((C,D),E));", "((A,(B,C)),(D,E));"]);
-    let g = Graph::new(&[&ts[0], &ts[1]], 5);
-    let mut conf = bits::full(5);
-    assert_eq!(g.energy(&conf, false), 5);
-    conf.set(2, false); // remove C
-    assert_eq!(g.energy(&conf, false), 0);
-    for i in [0, 1, 3, 4] {
-      let mut c = conf.clone();
-      c.set(i, false);
-      assert_eq!(g.energy(&c, false), 0);
-    }
-    for i in [0, 1, 3, 4] {
-      let mut c = bits::full(5);
-      c.set(i, false);
-      assert_eq!(g.energy(&c, false), 4);
-    }
+    let g = basic_graph();
+    // Removing C, the leaf that reassorts, leaves no incompatibility.
+    assert_eq!(
+      (5, 0),
+      (g.energy(&bits::full(5), false), g.energy(&without(&[2]), false))
+    );
+  }
+
+  #[rstest]
+  #[trace]
+  fn basic_energy_without_c_and_another_leaf_is_zero(#[values(0, 1, 3, 4)] leaf: usize) {
+    assert_eq!(0, basic_graph().energy(&without(&[2, leaf]), false));
+  }
+
+  #[rstest]
+  #[trace]
+  fn basic_energy_without_a_leaf_other_than_c_is_four(#[values(0, 1, 3, 4)] leaf: usize) {
+    assert_eq!(4, basic_graph().energy(&without(&[leaf]), false));
   }
 
   /// Incremental energy equals the full recomputation along random flip sequences.
-  #[test]
-  fn incremental_energy_matches_full() {
+  #[rstest]
+  #[trace]
+  fn incremental_energy_matches_full(#[values(false, true)] resolve: bool) {
     use rand::{Rng, SeedableRng};
     let nwk = [
       "(((A,B),(C,(D,E))),((F,G),(H,(I,J))),K,L);",
@@ -583,17 +603,15 @@ mod tests {
     let refs: Vec<&Tree> = ts.iter().collect();
     let g = Graph::new(&refs, taxa.len());
     let mut rng = rand_xoshiro::Xoshiro256PlusPlus::seed_from_u64(3);
-    for resolve in [false, true] {
-      let mut st = EnergyState::new(&g, bits::full(g.n), resolve);
-      assert_eq!(st.energy(), g.energy(st.conf(), resolve));
-      for step in 0..3000 {
-        let j = rng.gen_range(0..g.n);
-        let e = st.flip(j);
-        assert_eq!(e, g.energy(st.conf(), resolve), "step {step} resolve {resolve}");
-        if rng.gen_bool(0.5) {
-          st.undo();
-          assert_eq!(st.energy(), g.energy(st.conf(), resolve), "undo {step}");
-        }
+    let mut st = EnergyState::new(&g, bits::full(g.n), resolve);
+    assert_eq!(st.energy(), g.energy(st.conf(), resolve));
+    for step in 0..3000 {
+      let j = rng.gen_range(0..g.n);
+      let e = st.flip(j);
+      assert_eq!(e, g.energy(st.conf(), resolve), "step {step}");
+      if rng.gen_bool(0.5) {
+        st.undo();
+        assert_eq!(st.energy(), g.energy(st.conf(), resolve), "undo {step}");
       }
     }
   }
