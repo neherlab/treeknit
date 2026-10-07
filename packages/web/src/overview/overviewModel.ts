@@ -31,7 +31,7 @@ export interface ResultOverview {
 export function resultOverview(summary: Summary, labels: readonly string[]): ResultOverview {
   return {
     rows: summary.pairs,
-    arg: labels.length === 2 ? summary.arg : null,
+    arg: summary.arg,
     noReassortment: summary.noReassortment,
     matrix: labels.length > 2 ? pairMatrix(summary.pairs, labels) : null,
   };
