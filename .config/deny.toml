@@ -54,6 +54,57 @@ skip = [
   { crate = "windows-sys:<0.61", reason = "ring 0.17.14, the TLS backend of ureq, requires windows-sys 0.52" },
   { crate = "syn:<3", reason = "tsify-macros 0.5.8 and serde_derive_internals 0.29, its derive helpers, require syn 2; serde_derive and clap_derive at the pinned versions require syn 3" },
 ]
+# Rejected crates, and crates that only the listed crates may use directly. A crate that a
+# third-party crate also uses directly lists that crate too, because cargo-deny checks every
+# direct dependent.
+deny = [
+  { crate = "anyhow", use-instead = "eyre", reason = "the command line reports errors with eyre and color-eyre" },
+  { crate = "url", reason = "its WHATWG parsing accepts https:ha.nwk and https:///ha.nwk, which links reject, and its idna dependency adds the ICU4X crates and about 250 KB to the WebAssembly module; treeknit_io::launch reads URLs with percent-encoding and form_urlencoded" },
+  { crate = "data-url", reason = "it ends the data at the first #, which extended Newick uses, and rejects the URL-safe base64 alphabet and the spaces that form decoding makes of +; treeknit_io::launch decodes data: locations" },
+  { crate = "clap", wrappers = [
+    "treeknit-cli",
+    "treeknit-io",
+  ], reason = "argument parsing belongs to the command line and the examples of treeknit-io" },
+  { crate = "rayon", wrappers = [
+    "treeknit-cli",
+    "treeknit-core",
+    "treeknit-io",
+  ], reason = "the core runs pairs in parallel; the command line sizes the pool, and treeknit-io tests build a one-thread pool" },
+  { crate = "simplelog", wrappers = [
+    "treeknit-cli",
+  ], reason = "the logging backend belongs to the command line; libraries log through the log macros" },
+  { crate = "ureq", wrappers = [
+    "treeknit-cli",
+  ], reason = "only the command line downloads files; the web app downloads through the browser" },
+  { crate = "tikv-jemallocator", wrappers = [
+    "treeknit-cli",
+  ], reason = "the allocator belongs to the binary" },
+  { crate = "color-eyre", wrappers = [
+    "treeknit-cli",
+  ], reason = "error reports belong to the command line; libraries return typed errors" },
+  { crate = "eyre", wrappers = [
+    "treeknit-cli",
+    "color-eyre",
+  ], reason = "error reports belong to the command line; libraries return typed errors" },
+  { crate = "ctor", wrappers = [
+    "treeknit-cli",
+    "treeknit-core",
+    "treeknit-io",
+  ], reason = "process and test initialization of the command line and the test binaries" },
+  { crate = "console_error_panic_hook", wrappers = [
+    "treeknit-wasm",
+  ], reason = "the panic hook belongs to the WebAssembly bindings" },
+  { crate = "serde_path_to_error", wrappers = [
+    "treeknit-wasm",
+  ], reason = "the WebAssembly bindings name the path of a malformed field" },
+  { crate = "wasm-bindgen-test", wrappers = [
+    "treeknit-wasm",
+  ], reason = "the tests of the WebAssembly bindings" },
+  { crate = "tsify", wrappers = [
+    "treeknit-io",
+    "treeknit-wasm",
+  ], reason = "the TypeScript declarations of the boundary types" },
+]
 
 [sources]
 unknown-registry = "deny"
