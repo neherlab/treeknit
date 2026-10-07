@@ -1,0 +1,351 @@
+{
+  "written": [
+    {
+      "pairs": [
+        [
+          "tree",
+          "https://x.org/a/ha.nwk"
+        ],
+        [
+          "tree",
+          "na=https://x.org/b/na.nwk"
+        ]
+      ],
+      "query": "tree=https://x.org/a/ha.nwk&tree=na=https://x.org/b/na.nwk",
+      "readBack": [
+        [
+          "tree",
+          "https://x.org/a/ha.nwk"
+        ],
+        [
+          "tree",
+          "na=https://x.org/b/na.nwk"
+        ]
+      ]
+    },
+    {
+      "pairs": [
+        [
+          "run",
+          ""
+        ],
+        [
+          "view",
+          "mccs"
+        ]
+      ],
+      "query": "run&view=mccs",
+      "readBack": [
+        [
+          "run",
+          ""
+        ],
+        [
+          "view",
+          "mccs"
+        ]
+      ]
+    },
+    {
+      "pairs": [
+        [
+          "label",
+          "a#b+c&d%e f"
+        ]
+      ],
+      "query": "label=a%23b%2Bc%26d%25e%20f",
+      "readBack": [
+        [
+          "label",
+          "a#b+c&d%e f"
+        ]
+      ]
+    },
+    {
+      "pairs": [
+        [
+          "a=b",
+          "c=d"
+        ]
+      ],
+      "query": "a%3Db=c=d",
+      "readBack": [
+        [
+          "a=b",
+          "c=d"
+        ]
+      ]
+    },
+    {
+      "pairs": [
+        [
+          "quote",
+          "\"<x>\""
+        ],
+        [
+          "tick",
+          "'"
+        ]
+      ],
+      "query": "quote=%22%3Cx%3E%22&tick='",
+      "readBack": [
+        [
+          "quote",
+          "\"<x>\""
+        ],
+        [
+          "tick",
+          "'"
+        ]
+      ]
+    },
+    {
+      "pairs": [
+        [
+          "readable",
+          ":/,;@()!*~$"
+        ]
+      ],
+      "query": "readable=:/,;@()!*~$",
+      "readBack": [
+        [
+          "readable",
+          ":/,;@()!*~$"
+        ]
+      ]
+    },
+    {
+      "pairs": [
+        [
+          "control",
+          "a\u0001b\u001fcd"
+        ]
+      ],
+      "query": "control=a%01b%1Fc%7Fd",
+      "readBack": [
+        [
+          "control",
+          "a\u0001b\u001fcd"
+        ]
+      ]
+    },
+    {
+      "pairs": [
+        [
+          "text",
+          "é名🧬"
+        ],
+        [
+          "名",
+          "ö"
+        ]
+      ],
+      "query": "text=%C3%A9%E5%90%8D%F0%9F%A7%AC&%E5%90%8D=%C3%B6",
+      "readBack": [
+        [
+          "text",
+          "é名🧬"
+        ],
+        [
+          "名",
+          "ö"
+        ]
+      ]
+    },
+    {
+      "pairs": [
+        [
+          "empty",
+          ""
+        ],
+        [
+          "empty",
+          ""
+        ],
+        [
+          "empty",
+          "x"
+        ]
+      ],
+      "query": "empty&empty&empty=x",
+      "readBack": [
+        [
+          "empty",
+          ""
+        ],
+        [
+          "empty",
+          ""
+        ],
+        [
+          "empty",
+          "x"
+        ]
+      ]
+    },
+    {
+      "pairs": [
+        [
+          "",
+          "no key"
+        ]
+      ],
+      "query": "=no%20key",
+      "readBack": [
+        [
+          "",
+          "no key"
+        ]
+      ]
+    }
+  ],
+  "read": [
+    {
+      "query": "a=x+y&&b=%2B&run&c=1=2",
+      "pairs": [
+        [
+          "a",
+          "x y"
+        ],
+        [
+          "b",
+          "+"
+        ],
+        [
+          "run",
+          ""
+        ],
+        [
+          "c",
+          "1=2"
+        ]
+      ]
+    },
+    {
+      "query": "tree=ha%3Dx&tree=na",
+      "pairs": [
+        [
+          "tree",
+          "ha=x"
+        ],
+        [
+          "tree",
+          "na"
+        ]
+      ]
+    },
+    {
+      "query": "a=%E2%82%AC&b=%FF&c=%ZZ&d=%",
+      "pairs": [
+        [
+          "a",
+          "€"
+        ],
+        [
+          "b",
+          "�"
+        ],
+        [
+          "c",
+          "%ZZ"
+        ],
+        [
+          "d",
+          "%"
+        ]
+      ]
+    },
+    {
+      "query": "=v&k=",
+      "pairs": [
+        [
+          "",
+          "v"
+        ],
+        [
+          "k",
+          ""
+        ]
+      ]
+    },
+    {
+      "query": "",
+      "pairs": []
+    },
+    {
+      "query": "&&",
+      "pairs": []
+    }
+  ],
+  "links": [
+    {
+      "url": "https://h/p/?run&view=mccs#session=data:,x",
+      "pairs": [
+        [
+          "run",
+          ""
+        ],
+        [
+          "view",
+          "mccs"
+        ],
+        [
+          "session",
+          "data:,x"
+        ]
+      ]
+    },
+    {
+      "url": "https://h/p/help?example=a#help-cite",
+      "pairs": [
+        [
+          "example",
+          "a"
+        ]
+      ]
+    },
+    {
+      "url": "https://h/p/",
+      "pairs": []
+    },
+    {
+      "url": "https://h/p/?a=1#b=2&c",
+      "pairs": [
+        [
+          "a",
+          "1"
+        ],
+        [
+          "b",
+          "2"
+        ],
+        [
+          "c",
+          ""
+        ]
+      ]
+    },
+    {
+      "url": "https://h/p/#?a=1",
+      "pairs": [
+        [
+          "?a",
+          "1"
+        ]
+      ]
+    },
+    {
+      "url": "https://h/p/?a=%23#b=%26",
+      "pairs": [
+        [
+          "a",
+          "#"
+        ],
+        [
+          "b",
+          "&"
+        ]
+      ]
+    }
+  ]
+}
