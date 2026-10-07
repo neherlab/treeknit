@@ -113,6 +113,7 @@ equivalents:
 |---|---|
 | `treeknit-core` | Algorithms, no IO. Arena trees and bitset clades (`tree`, `bits`), naive MCCs, split graph energy and likelihood, simulated annealing, pair inference, resolution, the K-tree pipeline, imputation of missing leaves, ARG construction. |
 | `treeknit-io` | Newick, MCC JSON, extended Newick, node table, auspice JSON. |
+| `util-newick` | Newick and NEXUS reader and writer in the common dialects, a copy of the crate of TreeTime (`packages/util-newick/README.md`). |
 | `treeknit-cli` | The `treeknit` binary. |
 | `treeknit-wasm` | WebAssembly bindings of the core, with TypeScript declarations (`packages/treeknit-wasm/README.md`). |
 | `web` | The web app: React, runs analyses in the browser (`packages/web/README.md`). |
@@ -141,4 +142,6 @@ These differ from the released TreeKnit.jl 0.5.8. The first two are also fixed o
 - **Negative and non-finite branch lengths count as missing in the likelihood tie-break.** The Poisson model of the tie-break has no likelihood for them. Such lengths occur in time trees and neighbor-joining trees. Julia stops with `DomainError` from `log` of a negative number.
 - **Node labels are deterministic counters** (`ARGNode_17`, `Singleton_3`) instead of random strings.
 - **The ARG is built from the resolved output trees,** not from the raw inputs. The liberally resolved trees written next to it are exactly the ones the ARG was built from, including inserted singletons. In Julia, `nodes.dat` refers to singleton nodes that are absent from those files.
+- **An invalid branch length is a parse error.** TreeKnit.jl reads a length that is not a number, such as the root length `:0.R` of its own tests, as missing. The port reports the error with its line and column, because a broken length usually means a broken file. The comparison with TreeKnit.jl reads the trees of `test_srg_2` without that root length, which both implementations ignore.
+- **ARG labels are quoted.** `ARG/arg.nwk` quotes labels that Newick reads differently without quotes, such as `'B,1'`. TreeKnit.jl writes them as they are, which makes the file unreadable for such labels.
 - **Parallelism is used only where it is race-free:** independent pairs, and rounds without resolution. TreeKnit.jl's parallel mode resolves shared trees concurrently.
