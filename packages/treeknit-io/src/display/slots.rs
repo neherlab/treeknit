@@ -60,7 +60,10 @@ pub(super) fn color_slots(sizes: &[usize], neighbors: &[BTreeSet<usize>]) -> Vec
     // Ordered by uses among the neighbors, so a free slot comes first, then by uses in the pair,
     // then by slot; the first slot of this order wins.
     let key = |s: usize| (uses[s], if uses[s] == 0 { total[s] } else { 0 }, s);
-    let best = (1..MCC_SLOTS).fold(0, |best, s| if key(s) < key(best) { s } else { best });
+    #[expect(clippy::expect_used, reason = "MCC_SLOTS is a positive constant")]
+    let best = (0..MCC_SLOTS)
+      .min_by_key(|&s| key(s))
+      .expect("there is at least one slot");
     slot[m] = best;
     colored[m] = true;
     total[best] += 1;
