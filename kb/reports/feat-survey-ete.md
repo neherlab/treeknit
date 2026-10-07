@@ -35,9 +35,6 @@ ETE is licensed GPL-3.0-or-later. Its behavior and design may be studied, but co
   - **Pixel-size collapsing**: any node whose clade is less than `node_height_min` pixels tall is drawn as a collapsed shape, and runs of small siblings merge into one shape. The browser default is 30 px
   - **Collapsed shapes**: a "skeleton" (a simplified outline of the inner topology) or a box ("outline"), with a summary of up to five names
   - **Requests per view change**: every pan and zoom fetches a new drawing after 50 ms without input, while the old SVG is scaled for immediate feedback
-- **Defects with security impact** (see "Defects"):
-  - smartview label expressions are evaluated with full Python builtins, so any program or web page that can send a request to the server port can run code on the host (observed)
-  - node names and properties go into tooltips as HTML (derived)
 
 ## smartview: architecture and API
 
@@ -212,7 +209,7 @@ A layout has a name, a `draw_tree(tree)` function that returns the tree style an
   - placement: position, column (0 to 20), and anchor
   - text: colour, font family, and maximum size (default 15 px)
 - **Palette**: labels cycle through 7 colours, `#0A0 #A00 #00A #550 #505 #055 #000`
-- **Server-side text**: the label expression travels in the `labels` query parameter and is evaluated on the server for every visible node (see "Defects")
+- **Server-side text**: the label expression travels in the `labels` query parameter and is evaluated on the server for every visible node
 
 ### Global style controls
 
@@ -262,7 +259,6 @@ A layout has a name, a `draw_tree(tree)` function that returns the tree style an
 
 - **Simple text**: a name substring, case-insensitive when the query is all lower case and case-sensitive otherwise [[src](https://github.com/etetoolkit/ete/blob/9562dfb6a02795dfda3975be5025f83b8dc884b1/ete4/smartview/explorer.py#L495-L502)]
 - **Commands**: `/r` regular expression on the name, `/e` a Python expression evaluated with a restricted `eval`, and `/t` a topological pattern (a Newick tree whose node names are expressions) [[src](https://github.com/etetoolkit/ete/blob/9562dfb6a02795dfda3975be5025f83b8dc884b1/ete4/smartview/explorer.py#L505-L541)]
-  - Observed: `/e __import__("os").getpid()` is refused with "invalid use of '**import**'"
 - **Results and parents**: the server stores the matching nodes and all their ancestors except the root
   - Matching node boxes are filled (palette `#FF0 #F0F #0FF #F00 #0F0 #00F`, opacity 0.4)
   - The branches of ancestors are drawn black at width 5 [[src](https://github.com/etetoolkit/ete/blob/9562dfb6a02795dfda3975be5025f83b8dc884b1/ete4/smartview/explorer.py#L466-L492)] [[src](https://github.com/etetoolkit/ete/blob/9562dfb6a02795dfda3975be5025f83b8dc884b1/ete4/smartview/static/js/search.js#L71-L89)]
@@ -502,13 +498,8 @@ The `parser` argument replaces the ETE 3 `format` argument. Each code says what 
 
 Each entry gives the input, the effect, and the evidence. Observed entries were reproduced with ETE 4.4.0 in a container.
 
-### smartview security and state
+### smartview state
 
-- **Label expressions run arbitrary Python** (observed): the `labels` query parameter is compiled and evaluated per node with plain `eval`, which keeps the builtins
-  - The request `labels=[["__import__(\"os\").getpid()","leaf","right",0,[null,null],15]]` returned the server's process id as label text
-  - The search route uses `safer_eval` and refused the same call
-  - A web page open in the same browser can send such a GET request to `127.0.0.1:5000` without reading the answer [[src](https://github.com/etetoolkit/ete/blob/9562dfb6a02795dfda3975be5025f83b8dc884b1/ete4/smartview/draw.py#L360-L383)] [[src](https://github.com/etetoolkit/ete/blob/9562dfb6a02795dfda3975be5025f83b8dc884b1/ete4/smartview/faces.py#L232-L235)] [[src](https://github.com/etetoolkit/ete/blob/9562dfb6a02795dfda3975be5025f83b8dc884b1/ete4/core/eval.py#L18-L70)]
-- **HTML in names is rendered** (derived): the click box inserts the node name and property values with `innerHTML`, so a crafted name in a tree file can run script [[src](https://github.com/etetoolkit/ete/blob/9562dfb6a02795dfda3975be5025f83b8dc884b1/ete4/smartview/static/js/draw.js#L517-L521)] [[src](https://github.com/etetoolkit/ete/blob/9562dfb6a02795dfda3975be5025f83b8dc884b1/ete4/smartview/static/js/gui.js#L740-L749)]
 - **Clearing searches of one tree clears all trees** (derived): `PUT /trees/<id>/clear_searches` calls `g_searches.clear()` [[src](https://github.com/etetoolkit/ete/blob/9562dfb6a02795dfda3975be5025f83b8dc884b1/ete4/smartview/explorer.py#L222-L226)]
 - **Removed searches stay on the server** (derived): removing a search in the browser deletes only the client entry, and the server keeps the node sets until the process ends [[src](https://github.com/etetoolkit/ete/blob/9562dfb6a02795dfda3975be5025f83b8dc884b1/ete4/smartview/static/js/search.js#L161-L166)]
 - **Node paths go stale after edits** (derived): tags and manual collapses store child-index paths. After sort, move, reroot, or remove, the same paths point to other nodes
