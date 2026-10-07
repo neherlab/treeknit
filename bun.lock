@@ -63,6 +63,7 @@
         "redux": "catalog:",
         "redux-thunk": "catalog:",
         "remeda": "catalog:",
+        "spin-delay": "catalog:",
         "styled-components": "catalog:",
         "ts-pattern": "catalog:",
         "zod": "catalog:",
@@ -151,6 +152,7 @@
     "redux": "4.2.1",
     "redux-thunk": "2.4.2",
     "remeda": "2.50.0",
+    "spin-delay": "2.0.1",
     "styled-components": "5.3.11",
     "tailwindcss": "4.3.3",
     "ts-pattern": "5.9.0",
@@ -2513,6 +2515,8 @@
     "source-map-js": ["source-map-js@1.2.1", "", {}, "sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA=="],
 
     "source-map-support": ["source-map-support@0.5.21", "", { "dependencies": { "buffer-from": "^1.0.0", "source-map": "^0.6.0" } }, "sha512-uBHU3L3czsIyYXKX88fdrGovxdSCoTGDRZ6SYXtSRxLZUzHg5P/66Ht6uoUlHu9EZod+inXhKo3qQgwXUT/y1w=="],
+
+    "spin-delay": ["spin-delay@2.0.1", "", { "peerDependencies": { "react": ">=17.0.1" } }, "sha512-ilggKXKqAMwk21PSYvxuF/KCnrsGFDrnO6mXa629mj8fvfo+dOQfubDViqsRjRX5U1jd3Xb8FTsV+m4Tg7YeUg=="],
 
     "sprintf-js": ["sprintf-js@1.0.3", "", {}, "sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g=="],
 

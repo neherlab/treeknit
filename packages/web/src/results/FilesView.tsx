@@ -1,6 +1,7 @@
 import type { FileEntry } from "@neherlab/treeknit-wasm";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
+import { useSpinDelay } from "spin-delay";
 import DownloadIcon from "~icons/lucide/download";
 import ArchiveIcon from "~icons/lucide/file-archive";
 import SaveIcon from "~icons/lucide/save";
@@ -8,7 +9,7 @@ import SaveIcon from "~icons/lucide/save";
 import { useAnalysisClient } from "../analysis/context";
 import { analysisKeys, useCommandLine, useSessionFiles } from "../analysis/queries";
 import { downloadFile } from "../download";
-import { useDelayedIndicator } from "../indicator/useDelayedIndicator";
+import { INDICATOR_SPIN_DELAY } from "../indicator/timing";
 import { Button } from "../ui/Button";
 import { CodeBlock } from "../ui/CodeBlock";
 import { IconButton } from "../ui/IconButton";
@@ -35,7 +36,7 @@ function SessionFiles({ sessionId }: SessionFilesProps) {
   const request = useCurrentRequest();
   const files = useSessionFiles(sessionId);
   const commandLine = useCommandLine(sessionId);
-  const loading = useDelayedIndicator(files.isPending);
+  const loading = useSpinDelay(files.isPending, INDICATOR_SPIN_DELAY);
 
   const zip = useMutation({
     mutationFn: async () => client.zip(sessionId),

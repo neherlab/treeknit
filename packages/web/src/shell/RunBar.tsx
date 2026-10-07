@@ -1,11 +1,12 @@
 import { useCallback, useState } from "react";
+import { useSpinDelay } from "spin-delay";
 import ErrorIcon from "~icons/lucide/circle-alert";
 import PlayIcon from "~icons/lucide/play";
 import RetryIcon from "~icons/lucide/refresh-cw";
 import StopIcon from "~icons/lucide/square";
 
 import { formatElapsed } from "../format/elapsed";
-import { useDelayedIndicator } from "../indicator/useDelayedIndicator";
+import { INDICATOR_SPIN_DELAY } from "../indicator/timing";
 import { CopyLinkButton } from "../launch/CopyLinkButton";
 import { CHECK_FAILED, CHECKING_INPUT, progressLabel, progressPercent, runTime } from "../run/runControl";
 import { RunFailureNotice } from "../run/RunFailureNotice";
@@ -27,8 +28,8 @@ export function RunBar() {
   const { run: start, cancel } = useRunAnalysis();
   const { blockedReason, generalErrors, retryCheck } = useRunReadiness();
   const running = run.status === "running";
-  const showProgress = useDelayedIndicator(running);
-  const showChecking = useDelayedIndicator(blockedReason === CHECKING_INPUT);
+  const showProgress = useSpinDelay(running, INDICATOR_SPIN_DELAY);
+  const showChecking = useSpinDelay(blockedReason === CHECKING_INPUT, INDICATOR_SPIN_DELAY);
   const shownReason = blockedReason === CHECKING_INPUT && !showChecking ? null : blockedReason;
   const [shownRun, setShownRun] = useState<RunningState | null>(null);
 

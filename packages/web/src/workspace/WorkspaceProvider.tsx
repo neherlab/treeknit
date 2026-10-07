@@ -1,7 +1,8 @@
 import { type ReactNode, Suspense, use } from "react";
 import { ErrorBoundary, type FallbackProps, getErrorMessage } from "react-error-boundary";
+import { useSpinDelay } from "spin-delay";
 
-import { useDelayedIndicator } from "../indicator/useDelayedIndicator";
+import { INDICATOR_SPIN_DELAY } from "../indicator/timing";
 import { failureNotice } from "../run/failure";
 import { SettingsFormProvider } from "../settings/SettingsFormProvider";
 import { InlineNotice } from "../ui/InlineNotice";
@@ -36,7 +37,7 @@ function ReadyWorkspace({ runtime, children }: WorkspaceProviderProps) {
 }
 
 function Starting() {
-  const visible = useDelayedIndicator(true);
+  const visible = useSpinDelay(true, INDICATOR_SPIN_DELAY);
 
   return visible ? <output className="text-ink-muted block p-6 text-sm">Starting TreeKnit</output> : null;
 }

@@ -1,9 +1,10 @@
 import { useCallback, useMemo } from "react";
+import { useSpinDelay } from "spin-delay";
 import BlockedIcon from "~icons/lucide/circle-alert";
 
 import { useInspectTrees, useOverlap } from "../analysis/queries";
 import { formatCount } from "../format/count";
-import { useDelayedIndicator } from "../indicator/useDelayedIndicator";
+import { INDICATOR_SPIN_DELAY } from "../indicator/timing";
 import { BRANCH_LENGTH_VALUES } from "../inputs/treeFacts";
 import { InfoButton } from "../ui/InfoButton";
 import { Cell, Column, Row, Table, TableBody, TableHeader } from "../ui/Table";
@@ -20,7 +21,7 @@ export function InputOverview() {
   const inspections = useInspectTrees(trees);
   const { data: overlap, isPending: overlapPending } = useOverlap(trees);
   const labels = useMemo(() => trees.map(({ label }) => label), [trees]);
-  const counting = useDelayedIndicator(overlapPending && labels.length >= 2);
+  const counting = useSpinDelay(overlapPending && labels.length >= 2, INDICATOR_SPIN_DELAY);
   const matrix = useMemo(() => (overlap === undefined ? null : overlapMatrix(overlap, labels)), [labels, overlap]);
   const anyBlocked = overlap?.pairs.some(({ blocked }) => blocked) ?? false;
 

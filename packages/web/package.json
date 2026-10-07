@@ -43,6 +43,7 @@
     "redux": "catalog:",
     "redux-thunk": "catalog:",
     "remeda": "catalog:",
+    "spin-delay": "catalog:",
     "styled-components": "catalog:",
     "ts-pattern": "catalog:",
     "zod": "catalog:",
