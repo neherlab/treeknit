@@ -684,7 +684,7 @@ Trial inputs were the expected outputs of the two-tree CLI test in `packages/tre
 
 ### ARG
 
-The ARG file `ARG/arg.nwk` is written by `fn extended_newick()` in [packages/treeknit-io/src/arg.rs#L14-L66](../../packages/treeknit-io/src/arg.rs#L14-L66). It reads with `read.evonet()` (observed).
+The ARG file `ARG/arg.nwk` is written by `fn extended_newick()` in [packages/treeknit-io/src/arg.rs#L19-L44](../../packages/treeknit-io/src/arg.rs#L19-L44). It reads with `read.evonet()` (observed).
 
 - **Structure**: 5 tips, 6 internal nodes, and 1 reticulation from `ARGNode_8` to `ARGNode_10#H1`
   - **Label form**: TreeKnit writes the occurrence with children first and repeats the full label `ARGNode_10#H1` on the leaf occurrence, which is exactly the form that ape's exact label match needs

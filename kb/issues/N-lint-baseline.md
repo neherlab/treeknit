@@ -18,9 +18,7 @@ The workspace enables the Clippy `restriction` group, plus `unwrap_used`, `expec
 | `packages/treeknit-core/src/resolve.rs`    | `unwrap_used`                                                         |
 | `packages/treeknit-core/src/splitgraph.rs` | `as_conversions`, `expect_used`, `unwrap_used`                        |
 | `packages/treeknit-core/src/tree.rs`       | `disallowed_types`, `expect_used`, `unwrap_used`                      |
-| `packages/treeknit-io/src/arg.rs`          | `disallowed_types`                                                    |
 | `packages/treeknit-io/src/auspice.rs`      | `unwrap_used`                                                         |
-| `packages/treeknit-io/src/newick.rs`       | `disallowed_types`, `unwrap_used`                                     |
 
 `just review-suppressions` lists the attributes.
 

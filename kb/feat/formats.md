@@ -4,20 +4,21 @@ Counterpart: [`v0/formats.md`](v0/formats.md). `treeknit-io` reads and writes al
 
 ## Input: Newick
 
-`fn parse` and `fn parse_first` [[src](../../packages/treeknit-io/src/newick.rs#L257-L288)]:
+`fn parse` and `fn parse_first` [[src](../../packages/treeknit-io/src/newick.rs#L18-L59)] read the classic dialect of `util-newick` ([README](../../packages/util-newick/README.md)): standard Newick, with comments as text:
 
-- [/] **Several trees in one file**: the first tree is used, with the warning "<label>: more than one tree in file, using the first". A tree ends at the first `;` outside quoted labels and `[...]` comments, so `('a;b',C);[x;y]` is one tree. The validation logs the warning and the tree inspection of the web app reports it, also when the first tree does not parse. TreeKnit.jl reads a vector, which its command line does not handle
-- [x] **Terminator**: `;` is required. Whitespace and `\r` after it are accepted; TreeTools.jl rejects them
-- [x] **Branch lengths**: parsed as `f64`. An invalid length becomes missing with the warning "<label>: ignoring invalid branch length '<x>'" [[src](../../packages/treeknit-io/src/newick.rs#L171-L192)]. TreeTools.jl gives no warning
+- [/] **Several trees in one file**: the first tree is used, with the warning "<label>: more than one tree in file, using the first". A tree ends at the first `;` outside quoted labels and `[...]` comments, and any text after it other than comments counts as more trees, so `('a;b',C);[x;y]` is one tree and `(A,B);x` gives the warning. The validation logs the warning and the tree inspection of the web app reports it, also when the first tree has an unnamed or a duplicate leaf; a first tree that does not parse gives its parse error alone. TreeKnit.jl reads a vector, which its command line does not handle
+- [x] **Terminator**: `;` is required. Whitespace, `\r`, and comments after it are accepted; TreeTools.jl rejects them. A byte order mark is a parse error
+- [/] **Branch lengths**: numbers with an optional sign, a leading point (`.5`), and an exponent, read as `f64`. A length that is not a number (`0.R`) or too large for `f64` (`1e999`) is a parse error with its line and column. TreeTools.jl reads an invalid length as missing; this differs on purpose ([README](../../README.md#deliberate-differences-from-treeknitjl))
 - [x] **Root**: the root branch length is dropped. A root polytomy stays a polytomy
-- [x] **Unnamed internal nodes**: `NODE_<k>`, numbered in pre-order for each tree [[src](../../packages/treeknit-io/src/newick.rs#L305-L336)]
+- [x] **Unnamed internal nodes**: `NODE_<k>`, numbered in pre-order for each tree [[src](../../packages/treeknit-io/src/newick.rs#L187-L218)]
 - [/] **Unnamed leaves**: an error "unnamed leaf". TreeTools.jl names them `NODE_<k>`
-- [/] **Numeric internal labels**: support values such as `87` or `0.95` become `NODE_<k>`, so the output has the same names in every run and loses the support values. TreeTools.jl renames them `<label>__<random>`
+- [/] **Numeric internal labels**: support values such as `87`, `0.95`, or `80.5/95`, and quoted numbers such as `'95'`, become `NODE_<k>`, so the output has the same names in every run and loses the support values. TreeTools.jl renames them `<label>__<random>`
 - [x] **Duplicate leaf names**: an error, as in TreeTools.jl
 - [/] **Duplicate internal names**: renamed `NODE_<k>`. TreeTools.jl raises an error
-- [x] **Quoted labels (new)**: `'a b'`, with `''` for a quote character [[src](../../packages/treeknit-io/src/newick.rs#L137-L169)]
-- [x] **Comments (new)**: `[...]` is skipped, including annotations such as `[&x=1]`
+- [x] **Quoted labels (new)**: `'a b'`, with `''` for a quote character. `#` is part of a label
+- [x] **Comments (new)**: `[...]` is skipped, including annotations such as `[&x=1]`. Brackets inside a comment nest, so `[a[;]b]` is one comment
 - [x] **Whitespace (new)**: allowed between all tokens
+- [x] **Deep trees (new)**: the reader keeps its own stack of open nodes; a test reads and writes back a caterpillar tree of depth 200,000
 - [x] **Nodes with one child**: accepted without a warning
 
 The differences in this list need a decision ([`N-undocumented-differences-from-treeknit-jl.md`](../issues/N-undocumented-differences-from-treeknit-jl.md)).
@@ -37,19 +38,19 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 
 ## Resolved trees
 
-`fn write` [[src](../../packages/treeknit-io/src/newick.rs#L338-L391)]:
+`fn write` [[src](../../packages/treeknit-io/src/newick.rs#L63-L78)], in the classic dialect of `util-newick`:
 
 - [x] **Order**: children in stored order
 - [x] **Labels**: every node label, including internal nodes
-- [x] **Lengths**: shortest round-trip form, for example `1.0` and `1e-20`. Missing lengths are omitted
+- [x] **Lengths**: shortest exact text, with `.0` on whole numbers: `1.0`, `0.25`, `19329.779261588275`. Exponent notation below 1e-4 and from 1e16, with a point in the mantissa: `1.0e-20`, `2.5e16`. Missing lengths are omitted. A length that is not a finite number, which arithmetic on lengths can produce, stops the output with an error that names the file
 - [/] **Root**: no length. TreeTools.jl always writes `:0` after the root
-- [x] **Quoting (new)**: labels with `(),:;[]'` or whitespace are quoted
+- [x] **Quoting (new)**: labels that the reader would read differently without quotes: with `(),:;[]'` or whitespace, and labels that end like an extended Newick hybrid tag, so `EPI_ISL#402124` is written `'EPI_ISL#402124'`
 - [x] **Line end**: one tree, then a newline
-- [x] **Deep trees (new)**: an iterative writer, so deep ladder trees cannot overflow the stack
+- [x] **Deep trees (new)**: the writer keeps its own stack, so deep ladder trees cannot overflow the stack
 
 ## `parameters.json`
 
-`fn parameters_file` [[src](../../packages/treeknit-io/src/output.rs#L559-L563)]:
+`fn parameters_file` [[src](../../packages/treeknit-io/src/output.rs#L596-L598)]:
 
 - [x] **Time of writing**: before the inference, so the file exists when a run fails
 - [x] **Line end**: no newline after the closing brace
@@ -59,7 +60,7 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 ## `log.txt`
 
 - [/] **Format**: `<RFC 3339 time> [LEVEL] <message>` (see [`cli.md`](cli.md#logging))
-- [x] **Web app (new)**: `fn log_file` writes the records of a run in the same layout, without a thread ID, with the time of the JavaScript clock in UTC with milliseconds [[src](../../packages/treeknit-io/src/output.rs#L565-L574)]
+- [x] **Web app (new)**: `fn log_file` writes the records of a run in the same layout, without a thread ID, with the time of the JavaScript clock in UTC with milliseconds [[src](../../packages/treeknit-io/src/output.rs#L602-L609)]
 
 ## `ARG/arg.nwk`
 
@@ -68,12 +69,12 @@ See [`arg.md`](arg.md#extended-newick-output).
 - [x] **Syntax**: `<label>[&segments={...}]:<length>`, hybrids `label#H<i>`, extra `GlobalRoot`
 - [/] **Lengths**: without the `eps()` offset of TreeKnit.jl
 - [x] **Labels**: deterministic, from counters
-- [/] **Quoting**: none ([`M-arg-outputs-unquoted-labels.md`](../issues/M-arg-outputs-unquoted-labels.md))
+- [x] **Quoting (new)**: labels quoted as in the resolved trees. TreeKnit.jl writes them as they are
 - [x] **Line end**: a newline after the tree
 
 ## `ARG/nodes.dat`
 
-`fn node_table` [[src](../../packages/treeknit-io/src/arg.rs#L89-L105)]:
+`fn node_table` [[src](../../packages/treeknit-io/src/arg.rs#L47-L62)]:
 
 - [x] **Lines**: `<ARG label>,<label in tree 1>,<label in tree 2>`, with one space for an absent node, in ARG node order
 - [x] **Consistency**: the tree labels name nodes of the trees in `ARG/*_liberal_resolved*`, including the inserted singletons. In TreeKnit.jl, those files lack the singletons. This differs on purpose ([README](../../README.md#deliberate-differences-from-treeknitjl))
@@ -94,7 +95,7 @@ The analysis request of the web app: the trees with their labels and Newick text
 
 ## ZIP archive (new)
 
-`fn zip_archive` packs the output files of a web app run [[src](../../packages/treeknit-io/src/output.rs#L576-L683)].
+`fn zip_archive` packs the output files of a web app run [[src](../../packages/treeknit-io/src/output.rs#L612-L618)].
 
 - [x] **Entries**: every file under `treeknit_results/`, the default results directory of the command line, at its path in that directory (`treeknit_results/ARG/arg.nwk`)
 - [x] **Reproducible bytes**: every entry is deflated and dated 1980-01-01 00:00, the earliest ZIP time, so equal files give a byte-identical archive. `log.txt` carries clock times, so the archives of two runs differ in that entry

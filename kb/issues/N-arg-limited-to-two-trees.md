@@ -6,7 +6,7 @@ With three or more segment trees, the port writes the MCCs of every pair and no 
 
 - `pub struct ArgNode`, `pub struct Arg` [packages/treeknit-core/src/arg.rs#L30-L51](../../packages/treeknit-core/src/arg.rs#L30-L51): parents, branch lengths, roots, and trees for two segments
 - `pub fn arg_from_trees()` [packages/treeknit-core/src/arg.rs#L140-L170](../../packages/treeknit-core/src/arg.rs#L140-L170): builds the ARG from one pair of trees
-- `pub fn extended_newick()` [packages/treeknit-io/src/arg.rs#L14-L30](../../packages/treeknit-io/src/arg.rs#L14-L30): writes `GlobalRoot[&segments={0,1}]`
+- `pub fn extended_newick()` [packages/treeknit-io/src/arg.rs#L19-L44](../../packages/treeknit-io/src/arg.rs#L19-L44): writes `GlobalRoot[&segments={0,1}]`
 - `pub struct ArgNodeView` [packages/treeknit-io/src/display.rs#L445-L474](../../packages/treeknit-io/src/display.rs#L445-L474): the node type that the web app receives through WebAssembly
 - `pub(super) fn draw()` [packages/treeknit-io/src/figure/arg.rs#L13](../../packages/treeknit-io/src/figure/arg.rs#L13): the SVG figure for two segment names
 - `packages/web/src/arg/`: the ARG view of the web app

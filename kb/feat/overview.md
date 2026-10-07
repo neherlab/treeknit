@@ -52,7 +52,7 @@ The tests compare the port with fixtures that TreeKnit.jl writes (see [`ref/READ
 ## Issues found in this survey
 
 - [`M-arg-fails-after-imputation.md`](../issues/M-arg-fails-after-imputation.md): the ARG construction fails when imputed trees disagree inside an MCC
-- [`M-arg-outputs-unquoted-labels.md`](../issues/M-arg-outputs-unquoted-labels.md): `ARG/arg.nwk` writes labels without quotes
+- [`M-arg-outputs-unquoted-labels.md`](../issues/M-arg-outputs-unquoted-labels.md): `ARG/nodes.dat` writes labels without quotes
 - [`N-undocumented-differences-from-treeknit-jl.md`](../issues/N-undocumented-differences-from-treeknit-jl.md): differences from TreeKnit.jl that need a decision
 - [`N-reference-comparison-gaps.md`](../issues/N-reference-comparison-gaps.md): features without a comparison with TreeKnit.jl
 - [`N-cli-help-lists-match-topologies-as-former-option.md`](../issues/N-cli-help-lists-match-topologies-as-former-option.md): the help text names an option that TreeKnit.jl never had

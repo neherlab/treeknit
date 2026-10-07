@@ -87,7 +87,7 @@ The run on the four segments of `data/h3n2-2k-4-segments` gives 606 to 1067 MCCs
 - **Two segments in the types and outputs**:
   - `pub struct ArgNode` and `pub struct Arg` store parents, branch lengths, roots, and trees in arrays of length 2 ([packages/treeknit-core/src/arg.rs#L30-L51](../../packages/treeknit-core/src/arg.rs#L30-L51))
   - `pub struct ArgNodeView` has the same arrays ([packages/treeknit-io/src/display.rs#L445-L474](../../packages/treeknit-io/src/display.rs#L445-L474)). The web app receives it through WebAssembly, so a change also changes the generated TypeScript declarations
-  - The extended Newick writer writes a fixed `GlobalRoot[&segments={0,1}]` ([packages/treeknit-io/src/arg.rs#L14-L30](../../packages/treeknit-io/src/arg.rs#L14-L30))
+  - The extended Newick writer writes a fixed `GlobalRoot[&segments={0,1}]` ([packages/treeknit-io/src/arg.rs#L19-L44](../../packages/treeknit-io/src/arg.rs#L19-L44))
   - The SVG figure takes two segment names ([packages/treeknit-io/src/figure/arg.rs#L13](../../packages/treeknit-io/src/figure/arg.rs#L13))
   - The web app draws the ARG of two segments (`packages/web/src/arg/`)
 - **Construction from one pair**: `pub fn arg_from_trees()` builds the ARG of the first tree and maps the second tree onto it through the shared nodes of the pair ([packages/treeknit-core/src/arg.rs#L140-L170](../../packages/treeknit-core/src/arg.rs#L140-L170)). A third tree needs partner nodes from two pairs, and these must agree

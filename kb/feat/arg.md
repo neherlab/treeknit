@@ -1,6 +1,6 @@
 # Ancestral reassortment graph: parity checklist
 
-Counterpart: [`v0/arg.md`](v0/arg.md). `treeknit_core::arg` builds the ARG of two trees [[src](../../packages/treeknit-core/src/arg.rs#L140-L170)], and `treeknit_io::arg` writes it [[src](../../packages/treeknit-io/src/arg.rs#L12-L105)].
+Counterpart: [`v0/arg.md`](v0/arg.md). `treeknit_core::arg` builds the ARG of two trees [[src](../../packages/treeknit-core/src/arg.rs#L140-L170)], and `treeknit_io::arg` writes it [[src](../../packages/treeknit-io/src/arg.rs#L19-L62)].
 
 - [x] **Two segments only**: as in TreeKnit.jl. The command line and the web app build the ARG only for two trees
 
@@ -40,13 +40,14 @@ Counterpart: [`v0/arg.md`](v0/arg.md). `treeknit_core::arg` builds the ARG of tw
 
 ## Extended Newick output
 
-`fn extended_newick` [[src](../../packages/treeknit-io/src/arg.rs#L12-L33)]:
+`fn extended_newick` [[src](../../packages/treeknit-io/src/arg.rs#L19-L44)] writes the extended Newick structure with BEAST annotations of `util-newick` (`NewickDialect::ENEWICK_BEAST`):
 
 - [x] **Start node**: the shared root, an extra `GlobalRoot[&segments={0,1}]:0.0` above two unshared roots, or the unshared root when one root is shared. TreeKnit.jl writes `:0.` for the extra root
-- [x] **Hybrid nodes**: written in full when first reached and as a reference afterwards, with `label#H<i>` counted in traversal order
+- [x] **Hybrid nodes**: written in full when first reached and as a reference afterwards, with `label#H<i>`. `i` counts the nodes in the order in which their first copies end in a depth-first walk, as in TreeKnit.jl. Each copy carries the annotation and length of its parent's branch
 - [x] **Segment annotation**: `[&segments={0,1}]`, `{0}`, or `{1}` on each branch, 0-based
 - [x] **Lengths**: omitted when missing
-- [/] **Labels**: written without quotes, as in TreeKnit.jl. A label with `,():;[]#'` or whitespace makes the file unreadable ([`M-arg-outputs-unquoted-labels.md`](../issues/M-arg-outputs-unquoted-labels.md))
+- [x] **Labels (new)**: quoted where Newick needs it, so `B,1` is written `'B,1'` and the file stays readable. TreeKnit.jl writes labels without quotes, which breaks the file for such labels
+- [x] **Deep ARGs (new)**: written without recursion
 - [x] **Viewers**: the syntax equals the TreeKnit.jl output, which IcyTree reads
 
 ## Trees from an ARG

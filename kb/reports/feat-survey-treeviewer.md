@@ -678,7 +678,7 @@ TreeKnit writes resolved segment trees, an ARG in extended Newick, `MCCs.json`, 
 
 ### ARG
 
-- **ARG extended Newick** (Observed with a file written to the shape of `fn extended_newick()` in [packages/treeknit-io/src/arg.rs#L14-L86](../../packages/treeknit-io/src/arg.rs#L14-L86)):
+- **ARG extended Newick** (Observed with a file written to the shape of `fn extended_newick()` in [packages/treeknit-io/src/arg.rs#L19-L44](../../packages/treeknit-io/src/arg.rs#L19-L44)):
   - The file loads as a tree. The occurrence of `R1#H1` with children becomes a one-child internal node, which is invisible in the rectangular layout
   - The childless occurrence becomes an extra tip labelled `R1#H1` beside its other parent's clade
   - No reassortment edge is drawn, and nothing tells the user that the file is a network

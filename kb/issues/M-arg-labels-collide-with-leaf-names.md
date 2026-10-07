@@ -1,6 +1,6 @@
 # ARG files can give a leaf and an internal node the same label
 
-The ARG builder names internal nodes `ARGNode_<i>` ([arg.rs#L379](../../packages/treeknit-core/src/arg.rs#L379)) and leaves by their taxon names ([arg.rs#L396-L401](../../packages/treeknit-core/src/arg.rs#L396-L401)), without checking that the two sets of names are disjoint. When no segment root is shared, the extended Newick writer also adds a top root with the fixed label `GlobalRoot` ([arg.rs#L24-L28](../../packages/treeknit-io/src/arg.rs#L24-L28)). A leaf named `ARGNode_1` or `GlobalRoot` therefore gets the same label as another node of the ARG.
+The ARG builder names internal nodes `ARGNode_<i>` ([arg.rs#L379](../../packages/treeknit-core/src/arg.rs#L379)) and leaves by their taxon names ([arg.rs#L396-L401](../../packages/treeknit-core/src/arg.rs#L396-L401)), without checking that the two sets of names are disjoint. When no segment root is shared, the extended Newick writer also adds a top root with the fixed label `GlobalRoot` ([arg.rs#L24-L28](../../packages/treeknit-io/src/arg.rs#L25-L33)). A leaf named `ARGNode_1` or `GlobalRoot` therefore gets the same label as another node of the ARG.
 
 ## Reproduction
 

@@ -6,9 +6,10 @@ Evaluated on 2026-10-06. Versions are the newest releases on crates.io or npm on
 
 ## Summary
 
-- **Keep the hand-written code** for the annealing, the incremental energy, the masked bit-set operations, the tree arena, the Newick reader and writer, the node-to-MCC map, the tie-break formula, the polytomy sort, the seed mixing, the color slots, the layout, and the accuracy measure
+- **Keep the hand-written code** for the annealing, the incremental energy, the masked bit-set operations, the tree arena, the node-to-MCC map, the tie-break formula, the polytomy sort, the seed mixing, the color slots, the layout, and the accuracy measure
 - **Why**: no library meets the constraints below. The candidates change the random-number stream or the acceptance rule, lack a needed operation, have no extended-Newick support, or have a GPL or LGPL license
-- **Where improvements are**: in algorithms (constant-time LCA, canonical subtree identifiers, iterative parsing, a faster incremental step), all of which fit in the existing code without a new library
+- **Newick**: reading and writing, the ARG output included, go through a copy of the `util-newick` crate of TreeTime (see below)
+- **Where improvements are**: in algorithms (constant-time LCA, canonical subtree identifiers, a faster incremental step), all of which fit in the existing code without a new library
 
 ## Constraints
 
@@ -42,11 +43,11 @@ Evaluated on 2026-10-06. Versions are the newest releases on crates.io or npm on
 
 ## Newick reading and writing
 
-- **Code**: [`packages/treeknit-io/src/newick.rs`](../../packages/treeknit-io/src/newick.rs): quoted labels with `''` escapes, comments skipped, invalid lengths read as missing with a warning, the first of several trees, byte offsets in errors, a writer that quotes labels
+- **Code**: [`packages/treeknit-io/src/newick.rs`](../../packages/treeknit-io/src/newick.rs) and [`packages/treeknit-io/src/arg.rs`](../../packages/treeknit-io/src/arg.rs) on [`packages/util-newick`](../../packages/util-newick/README.md), a copy of the crate of [TreeTime](https://github.com/neherlab/treetime): a pest grammar per dialect, reading and writing without recursion, errors with byte offset, line, and column, and the extended Newick networks with BEAST annotations of the ARG output (`ENEWICK_BEAST`)
 - **`phylo` 6.0.0**: an iterative parser with the same quoting rules and a writer; its documentation states that "`#H` hybrid nodes are out of scope"
 - **`newick` 0.12.0** (2026-08-04): LGPL-3.0-or-later, no quoted labels
 - **`bio` 4.2.1** (2026-10-05, MIT): `bio::io::newick` reads without quoted labels or comments and has no writer
-- **Decision**: keep; the reader must become iterative ([`deep-trees.md`](../proposals/deep-trees.md))
+- **Decision**: `util-newick`, the only candidate that writes `#H` hybrid nodes together with `[&segments=...]` annotations and reads trees of any depth. It is not on crates.io, so the workspace holds a copy; a change to its reading or writing rules belongs in both copies
 
 ## Random numbers
 
