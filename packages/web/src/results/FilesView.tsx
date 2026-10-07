@@ -19,6 +19,7 @@ import { ProgressBar } from "../ui/ProgressBar";
 import { Cell, Column, Row, Table, TableBody, TableHeader } from "../ui/Table";
 import { useCurrentRequest, useWorkspace } from "../workspace/context";
 import { type FileRow, fileRow, RESULTS_ARCHIVE_NAME, ZIP_MEDIA_TYPE } from "./fileRows";
+import { useSaveSessionFile } from "./useSaveSessionFile";
 
 export function FilesView() {
   const sessionId = useWorkspace((state) => state.result?.sessionId);
@@ -45,12 +46,7 @@ function SessionFiles({ sessionId }: SessionFilesProps) {
     },
   });
 
-  const sessionFile = useMutation({
-    mutationFn: async () => client.stateless(async (api) => api.sessionFile(request)),
-    onSuccess: ({ path, mediaType, text }) => {
-      downloadFile({ name: path, mediaType, content: text });
-    },
-  });
+  const sessionFile = useSaveSessionFile();
 
   const entry = useMutation({
     mutationFn: async ({ file }: FileRow) => ({
@@ -71,8 +67,8 @@ function SessionFiles({ sessionId }: SessionFilesProps) {
   }, [zip]);
 
   const saveSession = useCallback(() => {
-    sessionFile.mutate();
-  }, [sessionFile]);
+    sessionFile.mutate(request);
+  }, [sessionFile, request]);
 
   const failure = zip.error ?? sessionFile.error ?? entry.error;
 
