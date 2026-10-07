@@ -81,20 +81,20 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::short(     "A/New York/392/2004", 40, "A/New York/392/2004")]
-  #[case::at_max(    "abcdef",              6,  "abcdef")]
+  #[case::short( "A/New York/392/2004", 40, "A/New York/392/2004")]
+  #[case::at_max("abcdef",              6,  "abcdef")]
   // Oracle: 5 kept characters, 3 from the start and 2 from the end.
-  #[case::odd_kept(  "abcdefgh",            6,  "abc\u{2026}gh")]
-  #[case::even_kept( "abcdefgh",            5,  "ab\u{2026}gh")]
-  #[case::multibyte( "αβγδεζηθ",            4,  "αβ\u{2026}θ")]
-  #[case::one(       "abc",                 1,  "\u{2026}")]
-  #[case::none(      "abc",                 0,  "")]
+  #[case::odd_kept( "abcdefgh",            6,  "abc\u{2026}gh")]
+  #[case::even_kept("abcdefgh",            5,  "ab\u{2026}gh")]
+  #[case::multibyte("αβγδεζηθ",            4,  "αβ\u{2026}θ")]
+  #[case::one(      "abc",                 1,  "\u{2026}")]
+  #[case::none(     "abc",                 0,  "")]
   // Oracle: e and the combining acute accent U+0301 form one grapheme cluster, which the cut
   // after two characters keeps whole.
-  #[case::combining( "ae\u{301}xyz",          4,  "ae\u{301}\u{2026}z")]
+  #[case::combining("ae\u{301}xyz",          4,  "ae\u{301}\u{2026}z")]
   // Oracle: the flag of the United States is the regional indicators U and S, one cluster.
-  #[case::flag(      "a\u{1F1FA}\u{1F1F8}cde", 4,  "a\u{1F1FA}\u{1F1F8}\u{2026}e")]
-  #[case::empty(     "",                    0,  "")]
+  #[case::flag( "a\u{1F1FA}\u{1F1F8}cde", 4,  "a\u{1F1FA}\u{1F1F8}\u{2026}e")]
+  #[case::empty("",                    0,  "")]
   #[trace]
   fn shorten_keeps_the_start_and_the_end(#[case] name: &str, #[case] max: usize, #[case] expected: &str) {
     assert_eq!(expected, shorten(name, max));

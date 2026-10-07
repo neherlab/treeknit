@@ -129,9 +129,11 @@ mod tests {
     }
   }
 
+  #[rustfmt::skip]
   #[rstest]
   #[case::light(Theme::Light)]
-  #[case::dark(Theme::Dark)]
+  #[case::dark( Theme::Dark)]
+  #[trace]
   fn mcc_and_no_mcc_colors_reach_three_to_one_against_the_ground(#[case] theme: Theme) {
     // Oracle: WCAG 2.2 non-text contrast, 3:1 for graphic marks.
     let c = colors(theme);
@@ -147,9 +149,11 @@ mod tests {
     assert_eq!(Vec::<(String, f64)>::new(), failing);
   }
 
+  #[rustfmt::skip]
   #[rstest]
   #[case::light(Theme::Light)]
-  #[case::dark(Theme::Dark)]
+  #[case::dark( Theme::Dark)]
+  #[trace]
   fn drawing_colors_equal_the_css_tokens(#[case] theme: Theme) {
     let c = colors(theme);
     let expected: BTreeMap<&str, String> = [
@@ -172,9 +176,11 @@ mod tests {
     assert_eq!(expected, actual);
   }
 
+  #[rustfmt::skip]
   #[rstest]
   #[case::light(Theme::Light)]
-  #[case::dark(Theme::Dark)]
+  #[case::dark( Theme::Dark)]
+  #[trace]
   fn mcc_tokens_equal_the_palette(#[case] theme: Theme) {
     // The web app writes the MCC tokens at start-up; the values in the CSS are the palette of
     // each theme, so the page draws with them before the palette arrives.
@@ -192,9 +198,11 @@ mod tests {
     assert_eq!(expected, actual);
   }
 
+  #[rustfmt::skip]
   #[rstest]
   #[case::black_on_white("#000000", "#ffffff", 21.0)]
-  #[case::equal_colors("#777777", "#777777", 1.0)]
+  #[case::equal_colors(  "#777777", "#777777", 1.0)]
+  #[trace]
   fn contrast_matches_the_wcag_bounds(#[case] a: &str, #[case] b: &str, #[case] expected: f64) {
     // Oracle: WCAG 2.2 defines contrast ratios from 1:1 to 21:1 (black on white).
     assert!((contrast(a, b) - expected).abs() < 1e-9, "{}", contrast(a, b));

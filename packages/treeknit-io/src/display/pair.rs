@@ -319,15 +319,15 @@ mod tests {
   }
 
   #[rustfmt::skip]
-  #[rstest::rstest]
+  #[rstest]
   // Oracle: a block holds leaves of one MCC that are consecutive in both trees, in left order,
   // with right rows that step by +1 throughout or by -1 throughout.
-  #[case::ascending(  &[("A", 0), ("B", 0), ("C", 0)], &["A", "B", "C"], vec![block_of(0, [0.0, 2.0], [0.0, 2.0])])]
+  #[case::ascending( &[("A", 0), ("B", 0), ("C", 0)], &["A", "B", "C"], vec![block_of(0, [0.0, 2.0], [0.0, 2.0])])]
   #[case::descending(&[("A", 0), ("B", 0), ("C", 0)], &["C", "B", "A"], vec![block_of(0, [0.0, 2.0], [2.0, 0.0])])]
-  #[case::jump(            &[("A", 0), ("B", 0), ("C", 0)], &["A", "C", "B"], vec![block_of(0, [0.0, 0.0], [0.0, 0.0]), block_of(0, [1.0, 2.0], [2.0, 1.0])])]
+  #[case::jump(      &[("A", 0), ("B", 0), ("C", 0)], &["A", "C", "B"], vec![block_of(0, [0.0, 0.0], [0.0, 0.0]), block_of(0, [1.0, 2.0], [2.0, 1.0])])]
   #[case::mcc_change(&[("A", 0), ("B", 1)],           &["A", "B"],      vec![block_of(0, [0.0, 0.0], [0.0, 0.0]), block_of(1, [1.0, 1.0], [1.0, 1.0])])]
   // X is in the left tree only, so it has no link and A and B are not consecutive there.
-  #[case::skipped(   &[("A", 0), ("X", 0), ("B", 0)], &["A", "B"],      vec![block_of(0, [0.0, 0.0], [0.0, 0.0]), block_of(0, [2.0, 2.0], [1.0, 1.0])])]
+  #[case::skipped(&[("A", 0), ("X", 0), ("B", 0)], &["A", "B"],      vec![block_of(0, [0.0, 0.0], [0.0, 0.0]), block_of(0, [2.0, 2.0], [1.0, 1.0])])]
   #[trace]
   fn blocks_join_links_consecutive_in_both_trees(
     #[case] left: &[(&str, usize)],
@@ -478,11 +478,12 @@ mod tests {
   }
 
   #[rustfmt::skip]
-  #[rstest::rstest]
+  #[rstest]
   #[case::strict_polytomy(      ResolveMode::Strict, "((A,B,C),(D,E,F));", "((A,(B,C)),((D,E),F));")]
   #[case::matched_polytomy(     ResolveMode::Matched, "((A,B,C),(D,E,F));", "((A,(B,C)),((D,E),F));")]
   #[case::strict_one_tree_only( ResolveMode::Strict, "((A,B),(C,(D,(E,P))));", "((A,(B,E)),(C,D,Q));")]
   #[case::matched_one_tree_only(ResolveMode::Matched, "((A,B),(C,(D,(E,P))));", "((A,(B,E)),(C,D,Q));")]
+  #[trace]
   fn pair_view_of_two_trees_has_the_leaf_order_of_the_resolved_files(
     #[case] resolve: ResolveMode,
     #[case] ha: &str,
@@ -499,10 +500,11 @@ mod tests {
   }
 
   #[rustfmt::skip]
-  #[rstest::rstest]
+  #[rstest]
   #[case::strict( ResolveMode::Strict)]
   #[case::matched(ResolveMode::Matched)]
   #[case::liberal(ResolveMode::Liberal)]
+  #[trace]
   fn pair_view_of_a_pair_the_run_kept_has_the_output_order_of_three_trees(#[case] resolve: ResolveMode) {
     let settings = Settings {
       resolve,

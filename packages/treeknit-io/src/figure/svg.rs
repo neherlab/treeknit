@@ -779,19 +779,19 @@ mod tests {
   #[rstest]
   // Oracle: a width of u units is u * 12 / 1000 px, and the column adds a 6 px gap on each side.
   // AW is 1611 units, 19.332 px, so its column is 31.332 px.
-  #[case::fits(     &["AW"],         100.0, ("31.33", vec!["AW"]))]
-  #[case::narrower( &["il", "AW"],   100.0, ("31.33", vec!["il", "AW"]))]
+  #[case::fits(    &["AW"],         100.0, ("31.33", vec!["AW"]))]
+  #[case::narrower(&["il", "AW"],   100.0, ("31.33", vec!["il", "AW"]))]
   // 40 px leave 28 px, 2333 units: "M…M" needs 833 + 1000 + 833 = 2666 units, "M…" 1833.
   #[case::shortened(&["MMMMMM"],     40.0,  ("40",    vec!["M\u{2026}"]))]
   // "a" alone needs 6.672 + 12 = 18.672 px.
-  #[case::one_char( &["a"],          19.0,  ("18.67", vec!["a"]))]
+  #[case::one_char(&["a"],          19.0,  ("18.67", vec!["a"]))]
   // 18 px leave 6 px, 500 units, less than the 556 of "a" and the 1000 of "…".
-  #[case::no_room(  &["a", "abc"],   18.0,  ("0",     vec!["", ""]))]
+  #[case::no_room(&["a", "abc"],   18.0,  ("0",     vec!["", ""]))]
   // 25 px leave 13 px, 1083 units: "…" (1000) fits, "a…" (1556) does not, and a bare ellipsis
   // shows nothing of a name.
-  #[case::ellipsis( &["abc"],        25.0,  ("0",     vec![""]))]
-  #[case::one_name( &["a", "abc"],   25.0,  ("25",    vec!["a", ""]))]
-  #[case::no_names( &[],             100.0, ("0",     vec![]))]
+  #[case::ellipsis(&["abc"],        25.0,  ("0",     vec![""]))]
+  #[case::one_name(&["a", "abc"],   25.0,  ("25",    vec!["a", ""]))]
+  #[case::no_names(&[],             100.0, ("0",     vec![]))]
   #[trace]
   fn label_column_fits_the_longest_label(
     #[case] names: &[&str],

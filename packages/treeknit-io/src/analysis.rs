@@ -863,8 +863,9 @@ mod tests {
     );
   }
 
+  #[rustfmt::skip]
   #[rstest]
-  #[case::parallel(true)]
+  #[case::parallel(  true)]
   #[case::sequential(false)]
   #[trace]
   fn options_take_the_thread_choice(#[case] parallel: bool) {
@@ -882,9 +883,10 @@ mod tests {
     assert_eq!(2, check_settings(&s, 2).len());
   }
 
+  #[rustfmt::skip]
   #[rstest]
   #[case::matched(ResolveMode::Matched, clades("((A,B),(C,D));"))]
-  #[case::none(ResolveMode::None, BTreeSet::new())]
+  #[case::none(   ResolveMode::None, BTreeSet::new())]
   #[trace]
   fn resolve_mode_controls_resolution(#[case] resolve: ResolveMode, #[case] expected: BTreeSet<BTreeSet<String>>) {
     // Matched resolution copies na's splits into ha's polytomy.
@@ -953,9 +955,9 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::dots_inside(&["ha", "a.b", "..c"])]
-  #[case::unicode(    &["A-H3N2 HA", "NA ü"])]
-  #[case::underscores(&["a_b", "c", "a"])]
+  #[case::dots_inside(  &["ha", "a.b", "..c"])]
+  #[case::unicode(      &["A-H3N2 HA", "NA ü"])]
+  #[case::underscores(  &["a_b", "c", "a"])]
   #[case::case_distinct(&["HA", "ha2"])]
   #[trace]
   fn usable_labels_are_accepted(#[case] labels: &[&str]) {
@@ -1002,8 +1004,8 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::no_semicolon(   "((A,B),(C,D))", "tree \"na\": Newick parse error: no ';' found")]
-  #[case::duplicate_leaf( "((A,A),(C,D));", "tree \"na\": Newick parse error: duplicate leaf name \"A\"")]
+  #[case::no_semicolon(  "((A,B),(C,D))", "tree \"na\": Newick parse error: no ';' found")]
+  #[case::duplicate_leaf("((A,A),(C,D));", "tree \"na\": Newick parse error: duplicate leaf name \"A\"")]
   #[trace]
   fn parse_error_without_position(#[case] newick: &str, #[case] message: &str) {
     let errors = check_trees(&texts(&[("ha", T), ("na", newick)]));
@@ -1064,15 +1066,15 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::negative_gamma( Settings { gamma: -1.0, ..Settings::default() },                       setting(SettingKey::Gamma),      "gamma must be a non-negative number, got -1")]
-  #[case::nan_gamma(      Settings { gamma: f64::NAN, ..Settings::default() },                   setting(SettingKey::Gamma),      "gamma must be a non-negative number, got NaN")]
-  #[case::infinite_gamma( Settings { gamma: f64::INFINITY, ..Settings::default() },              setting(SettingKey::Gamma),      "gamma must be a non-negative number, got inf")]
-  #[case::length_count(   Settings { seq_lengths: Some(vec![1.0]), ..Settings::default() },      setting(SettingKey::SeqLengths), "got 1 sequence lengths for 2 trees")]
-  #[case::zero_length(    Settings { seq_lengths: Some(vec![1.0, 0.0]), ..Settings::default() }, Field::SeqLength { index: 1 }, "sequence length 2 must be a positive number, got 0")]
-  #[case::nan_length(     Settings { seq_lengths: Some(vec![f64::NAN, 1.0]), ..Settings::default() }, Field::SeqLength { index: 0 }, "sequence length 1 must be a positive number, got NaN")]
-  #[case::zero_rounds(    Settings { rounds: 0, ..Settings::default() },                         setting(SettingKey::Rounds),     "rounds must be at least 1")]
-  #[case::zero_mcmc(      Settings { n_mcmc_it: 0, ..Settings::default() },                      setting(SettingKey::NMcmcIt),    "MCMC steps per leaf must be at least 1")]
-  #[case::large_seed(     Settings { seed: 1 << 53, ..Settings::default() },                     setting(SettingKey::Seed),       "seed must be at most 9007199254740991, got 9007199254740992")]
+  #[case::negative_gamma(Settings { gamma: -1.0, ..Settings::default() },                       setting(SettingKey::Gamma),      "gamma must be a non-negative number, got -1")]
+  #[case::nan_gamma(     Settings { gamma: f64::NAN, ..Settings::default() },                   setting(SettingKey::Gamma),      "gamma must be a non-negative number, got NaN")]
+  #[case::infinite_gamma(Settings { gamma: f64::INFINITY, ..Settings::default() },              setting(SettingKey::Gamma),      "gamma must be a non-negative number, got inf")]
+  #[case::length_count(  Settings { seq_lengths: Some(vec![1.0]), ..Settings::default() },      setting(SettingKey::SeqLengths), "got 1 sequence lengths for 2 trees")]
+  #[case::zero_length(   Settings { seq_lengths: Some(vec![1.0, 0.0]), ..Settings::default() }, Field::SeqLength { index: 1 }, "sequence length 2 must be a positive number, got 0")]
+  #[case::nan_length(    Settings { seq_lengths: Some(vec![f64::NAN, 1.0]), ..Settings::default() }, Field::SeqLength { index: 0 }, "sequence length 1 must be a positive number, got NaN")]
+  #[case::zero_rounds(   Settings { rounds: 0, ..Settings::default() },                         setting(SettingKey::Rounds),     "rounds must be at least 1")]
+  #[case::zero_mcmc(     Settings { n_mcmc_it: 0, ..Settings::default() },                      setting(SettingKey::NMcmcIt),    "MCMC steps per leaf must be at least 1")]
+  #[case::large_seed(    Settings { seed: 1 << 53, ..Settings::default() },                     setting(SettingKey::Seed),       "seed must be at most 9007199254740991, got 9007199254740992")]
   #[trace]
   fn invalid_settings_are_rejected(#[case] s: Settings, #[case] field: Field, #[case] message: &str) {
     assert_eq!(vec![ValidationError::at(field, message)], check_settings(&s, 2));
@@ -1122,10 +1124,10 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::largest_rounds(  Settings { rounds: 0xFFFF_FFFE, ..Settings::default() },    vec![])]
-  #[case::too_many_rounds( Settings { rounds: 0xFFFF_FFFF, ..Settings::default() },    vec![ValidationError::at(setting(SettingKey::Rounds), "rounds must be at most 4294967294, got 4294967295")])]
-  #[case::largest_mcmc(    Settings { n_mcmc_it: 0xFFFF_FFFF, ..Settings::default() }, vec![])]
-  #[case::too_many_mcmc(   Settings { n_mcmc_it: 0x1_0000_0000, ..Settings::default() }, vec![ValidationError::at(setting(SettingKey::NMcmcIt), "MCMC steps per leaf must be at most 4294967295, got 4294967296")])]
+  #[case::largest_rounds( Settings { rounds: 0xFFFF_FFFE, ..Settings::default() },    vec![])]
+  #[case::too_many_rounds(Settings { rounds: 0xFFFF_FFFF, ..Settings::default() },    vec![ValidationError::at(setting(SettingKey::Rounds), "rounds must be at most 4294967294, got 4294967295")])]
+  #[case::largest_mcmc(   Settings { n_mcmc_it: 0xFFFF_FFFF, ..Settings::default() }, vec![])]
+  #[case::too_many_mcmc(  Settings { n_mcmc_it: 0x1_0000_0000, ..Settings::default() }, vec![ValidationError::at(setting(SettingKey::NMcmcIt), "MCMC steps per leaf must be at most 4294967295, got 4294967296")])]
   #[trace]
   fn counts_are_checked_at_their_maximum(#[case] s: Settings, #[case] expected: Vec<ValidationError>) {
     let s = Settings { resolve: ResolveMode::Strict, ..s };
@@ -1216,22 +1218,22 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::extension(      &["ha.nwk", "na.tree"],          &[],             &["ha", "na"])]
-  #[case::last_extension( &["ha.tree.nwk"],                &[],             &["ha.tree"])]
-  #[case::no_extension(   &["ha"],                         &[],             &["ha"])]
-  #[case::dot_file(       &[".nwk"],                       &[],             &[".nwk"])]
-  #[case::empty_name(     &["", ""],                       &[],             &["tree", "tree_2"])]
-  #[case::existing(       &["ha.nwk"],                     &["ha"],         &["ha_2"])]
-  #[case::existing_case(  &["ha.nwk"],                     &["HA"],         &["ha_2"])]
-  #[case::new_repeated(   &["ha.nwk", "ha.tree", "ha.nwk"], &[],            &["ha", "ha_2", "ha_3"])]
-  #[case::suffix_taken(   &["ha.nwk"],                     &["ha", "ha_2"], &["ha_3"])]
-  #[case::no_files(       &[],                             &["ha"],         &[])]
-  #[case::reserved(       &["ha:1.nwk", "a<b>|c?*\"d.nwk"],  &[],            &["ha_1", "a_b__c___d"])]
-  #[case::separators(     &["a\\b.nwk"],                   &[],             &["a_b"])]
-  #[case::control(        &["a\tb.nwk"],                    &[],             &["a_b"])]
-  #[case::blank_stem(     &[" .nwk"],                      &[],             &["tree"])]
-  #[case::dot_stem(       &["..nwk"],                      &[],             &["tree"])]
-  #[case::dot_dot_stem(   &["...nwk", ".."],               &[],             &["tree", "tree_2"])]
+  #[case::extension(     &["ha.nwk", "na.tree"],          &[],             &["ha", "na"])]
+  #[case::last_extension(&["ha.tree.nwk"],                &[],             &["ha.tree"])]
+  #[case::no_extension(  &["ha"],                         &[],             &["ha"])]
+  #[case::dot_file(      &[".nwk"],                       &[],             &[".nwk"])]
+  #[case::empty_name(    &["", ""],                       &[],             &["tree", "tree_2"])]
+  #[case::existing(      &["ha.nwk"],                     &["ha"],         &["ha_2"])]
+  #[case::existing_case( &["ha.nwk"],                     &["HA"],         &["ha_2"])]
+  #[case::new_repeated(  &["ha.nwk", "ha.tree", "ha.nwk"], &[],            &["ha", "ha_2", "ha_3"])]
+  #[case::suffix_taken(  &["ha.nwk"],                     &["ha", "ha_2"], &["ha_3"])]
+  #[case::no_files(      &[],                             &["ha"],         &[])]
+  #[case::reserved(      &["ha:1.nwk", "a<b>|c?*\"d.nwk"],  &[],            &["ha_1", "a_b__c___d"])]
+  #[case::separators(    &["a\\b.nwk"],                   &[],             &["a_b"])]
+  #[case::control(       &["a\tb.nwk"],                    &[],             &["a_b"])]
+  #[case::blank_stem(    &[" .nwk"],                      &[],             &["tree"])]
+  #[case::dot_stem(      &["..nwk"],                      &[],             &["tree"])]
+  #[case::dot_dot_stem(  &["...nwk", ".."],               &[],             &["tree", "tree_2"])]
   #[trace]
   fn tree_labels_follow_the_web_label_policy(#[case] files: &[&str], #[case] existing: &[&str], #[case] expected: &[&str]) {
     assert_eq!(strings(expected), tree_labels(&strings(files), &strings(existing)));

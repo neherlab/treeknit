@@ -524,10 +524,10 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::naive_none(    true,  ResolveMode::None,    false)]
-  #[case::naive_strict(  true,  ResolveMode::Strict,  true)]
-  #[case::naive_matched( true,  ResolveMode::Matched, true)]
-  #[case::inferred_none( false, ResolveMode::None,    true)]
+  #[case::naive_none(   true,  ResolveMode::None,    false)]
+  #[case::naive_strict( true,  ResolveMode::Strict,  true)]
+  #[case::naive_matched(true,  ResolveMode::Matched, true)]
+  #[case::inferred_none(false, ResolveMode::None,    true)]
   #[trace]
   fn rounds_apply_unless_naive_mccs_meet_unchanged_trees(
     #[case] naive: bool,
@@ -562,17 +562,19 @@ mod tests {
     );
   }
 
+  #[rustfmt::skip]
   #[rstest]
   #[case::matched_three_trees(
     ResolveMode::Matched,
     3,
     Some("Only strict and liberal resolution run a final round.")
   )]
-  #[case::none_three_trees(ResolveMode::None, 3, Some("Only strict and liberal resolution run a final round."))]
-  #[case::strict_two_trees(ResolveMode::Strict, 2, Some("A final round runs only with more than two trees."))]
-  #[case::liberal_two_trees(ResolveMode::Liberal, 2, Some("A final round runs only with more than two trees."))]
-  #[case::strict_three_trees(ResolveMode::Strict, 3, None)]
+  #[case::none_three_trees(   ResolveMode::None, 3, Some("Only strict and liberal resolution run a final round."))]
+  #[case::strict_two_trees(   ResolveMode::Strict, 2, Some("A final round runs only with more than two trees."))]
+  #[case::liberal_two_trees(  ResolveMode::Liberal, 2, Some("A final round runs only with more than two trees."))]
+  #[case::strict_three_trees( ResolveMode::Strict, 3, None)]
   #[case::liberal_three_trees(ResolveMode::Liberal, 3, None)]
+  #[trace]
   fn final_round_applies_to_strict_and_liberal_with_more_than_two_trees(
     #[case] resolve: ResolveMode,
     #[case] k: usize,

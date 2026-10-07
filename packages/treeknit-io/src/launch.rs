@@ -1357,9 +1357,9 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::trees_then_example( "tree=https://x/a&tree=https://x/b&example=h3n2-2017", "example")]
-  #[case::example_then_tree(  "example=h3n2-2017&tree=https://x/a",                "tree")]
-  #[case::example_then_from(  "example=h3n2-2017&from=opener",                     "from")]
+  #[case::trees_then_example("tree=https://x/a&tree=https://x/b&example=h3n2-2017", "example")]
+  #[case::example_then_tree( "example=h3n2-2017&tree=https://x/a",                "tree")]
+  #[case::example_then_from( "example=h3n2-2017&from=opener",                     "from")]
   #[trace]
   fn a_second_input_kind_is_an_error_and_the_first_one_loads(#[case] query: &str, #[case] key: &str) {
     let parsed = parse(query);
@@ -1395,10 +1395,10 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::absent(  "example=5-leaves",      true,  vec![])]
-  #[case::one(     "example=5-leaves&v=1",  true,  vec![])]
-  #[case::newer(   "example=5-leaves&v=2",  false, vec![error("v", "This link needs a newer version of TreeKnit")])]
-  #[case::invalid( "example=5-leaves&v=x",  true,  vec![error("v", "v must be a whole number, got \"x\"")])]
+  #[case::absent( "example=5-leaves",      true,  vec![])]
+  #[case::one(    "example=5-leaves&v=1",  true,  vec![])]
+  #[case::newer(  "example=5-leaves&v=2",  false, vec![error("v", "This link needs a newer version of TreeKnit")])]
+  #[case::invalid("example=5-leaves&v=x",  true,  vec![error("v", "v must be a whole number, got \"x\"")])]
   #[trace]
   fn version_one_and_absent_versions_load(#[case] query: &str, #[case] loads: bool, #[case] errors: Vec<ValidationError>) {
     let parsed = parse(query);
@@ -1578,12 +1578,12 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::doctype(   b"  <!DOCTYPE html><html></html>".as_slice(), Err("a web page, not a tree file".to_owned()))]
-  #[case::html(      b"\n<HTML lang=en>".as_slice(),              Err("a web page, not a tree file".to_owned()))]
-  #[case::not_utf8(  b"(A,\xff);".as_slice(),                     Err("not a UTF-8 text file: invalid utf-8 sequence of 1 bytes from index 3".to_owned()))]
-  #[case::broken_gz( b"\x1f\x8b\x08\x00garbage".as_slice(),        Err("not a valid gzip file: incomplete deflate stream".to_owned()))]
-  #[case::newick(    b"((A,B),C);\n".as_slice(),                  Ok("((A,B),C);\n".to_owned()))]
-  #[case::html_name( b"(<html>,B);".as_slice(),                   Ok("(<html>,B);".to_owned()))]
+  #[case::doctype(  b"  <!DOCTYPE html><html></html>".as_slice(), Err("a web page, not a tree file".to_owned()))]
+  #[case::html(     b"\n<HTML lang=en>".as_slice(),              Err("a web page, not a tree file".to_owned()))]
+  #[case::not_utf8( b"(A,\xff);".as_slice(),                     Err("not a UTF-8 text file: invalid utf-8 sequence of 1 bytes from index 3".to_owned()))]
+  #[case::broken_gz(b"\x1f\x8b\x08\x00garbage".as_slice(),        Err("not a valid gzip file: incomplete deflate stream".to_owned()))]
+  #[case::newick(   b"((A,B),C);\n".as_slice(),                  Ok("((A,B),C);\n".to_owned()))]
+  #[case::html_name(b"(<html>,B);".as_slice(),                   Ok("(<html>,B);".to_owned()))]
   #[trace]
   fn tree_bytes_are_checked(#[case] bytes: &[u8], #[case] expected: Result<String, String>) {
     assert_eq!(expected, decode_tree_bytes(bytes).map_err(|e| e.to_string()));
@@ -1618,13 +1618,13 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::leaf(       &[("leaf", "A/New York/392/2004")],         "leaf=A/New%20York/392/2004")]
-  #[case::auspice(    &[("auspice", "legend=open&l=radial")],     "auspice=legend=open%26l=radial")]
-  #[case::flag(       &[("example", "5-leaves"), ("run", "")],   "example=5-leaves&run")]
-  #[case::readable(   &[("tree", "ha=https://x/a.nwk?b=c")],      "tree=ha=https://x/a.nwk?b=c")]
-  #[case::plus_hash(  &[("s", "a+b#c%d")],                       "s=a%2Bb%23c%25d")]
-  #[case::unicode(    &[("leaf", "Ä")],                           "leaf=%C3%84")]
-  #[case::key_equals( &[("a=b", "c")],                            "a%3Db=c")]
+  #[case::leaf(      &[("leaf", "A/New York/392/2004")],         "leaf=A/New%20York/392/2004")]
+  #[case::auspice(   &[("auspice", "legend=open&l=radial")],     "auspice=legend=open%26l=radial")]
+  #[case::flag(      &[("example", "5-leaves"), ("run", "")],   "example=5-leaves&run")]
+  #[case::readable(  &[("tree", "ha=https://x/a.nwk?b=c")],      "tree=ha=https://x/a.nwk?b=c")]
+  #[case::plus_hash( &[("s", "a+b#c%d")],                       "s=a%2Bb%23c%25d")]
+  #[case::unicode(   &[("leaf", "Ä")],                           "leaf=%C3%84")]
+  #[case::key_equals(&[("a=b", "c")],                            "a%3Db=c")]
   #[trace]
   fn link_query_encodes_only_what_a_reader_misreads(#[case] given: &[(&str, &str)], #[case] expected: &str) {
     let given: Vec<(String, String)> = given.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())).collect();
@@ -1771,8 +1771,8 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::no_tree(  &[],     &[])]
-  #[case::one_tree( &["ha"], &[Some(TreeAddress::Data)])]
+  #[case::no_tree( &[],     &[])]
+  #[case::one_tree(&["ha"], &[Some(TreeAddress::Data)])]
   #[trace]
   fn fewer_than_two_trees_have_no_link_even_with_settings(#[case] labels: &[&str], #[case] addresses: &[Option<TreeAddress>]) {
     // A link with settings and no input would fail to read: "gamma needs an input".

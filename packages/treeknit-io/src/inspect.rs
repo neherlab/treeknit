@@ -218,12 +218,14 @@ mod tests {
     assert_eq!(expected, inspect_tree("ha", "((A:1,B:1):1,C:1,(D:1,X:1):1);\n"));
   }
 
+  #[rustfmt::skip]
   #[rstest]
-  #[case::all("((A:1,B:2):3,C:4);", BranchLengths::All)]
-  #[case::root_length_is_ignored("((A:1,B:2):3,C:4):5;", BranchLengths::All)]
-  #[case::some("((A:1,B):3,C);", BranchLengths::Some)]
-  #[case::none("((A,B),C);", BranchLengths::None)]
+  #[case::all(                             "((A:1,B:2):3,C:4);", BranchLengths::All)]
+  #[case::root_length_is_ignored(          "((A:1,B:2):3,C:4):5;", BranchLengths::All)]
+  #[case::some(                            "((A:1,B):3,C);", BranchLengths::Some)]
+  #[case::none(                            "((A,B),C);", BranchLengths::None)]
   #[case::invalid_length_counts_as_missing("((A:1,B:x):3,C:4);", BranchLengths::Some)]
+  #[trace]
   fn inspect_tree_classifies_branch_lengths(#[case] newick: &str, #[case] expected: BranchLengths) {
     assert_eq!(expected, inspect_tree("t", newick).branch_lengths);
   }

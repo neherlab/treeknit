@@ -794,17 +794,17 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::width_smallest(         (33.0,              1.0),      vec![])]
-  #[case::width_below_margins(    (32.5,              12.0),     vec![error(FigureOptionKey::Width, "figure width must be at least 33 px, got 32.5")])]
-  #[case::width_tiny(             (f64::MIN_POSITIVE, 12.0),     vec![error(FigureOptionKey::Width, &format!("figure width must be at least 33 px, got {}", f64::MIN_POSITIVE))])]
-  #[case::row_height_below_px(    (1200.0,            0.004),    vec![error(FigureOptionKey::RowHeight, "row height must be at least 1 px, got 0.004")])]
-  #[case::width_zero(             (0.0,               12.0),     vec![error(FigureOptionKey::Width, "figure width must be a positive number, got 0")])]
-  #[case::width_negative(         (-1.0,              12.0),     vec![error(FigureOptionKey::Width, "figure width must be a positive number, got -1")])]
-  #[case::width_nan(              (f64::NAN,          12.0),     vec![error(FigureOptionKey::Width, "figure width must be a positive number, got NaN")])]
-  #[case::width_infinite(         (f64::INFINITY,     12.0),     vec![error(FigureOptionKey::Width, "figure width must be a positive number, got inf")])]
-  #[case::row_height_zero(        (1200.0,            0.0),      vec![error(FigureOptionKey::RowHeight, "row height must be a positive number, got 0")])]
-  #[case::row_height_infinite(    (1200.0,            f64::NEG_INFINITY), vec![error(FigureOptionKey::RowHeight, "row height must be a positive number, got -inf")])]
-  #[case::both_invalid(           (0.0,               f64::NAN), vec![
+  #[case::width_smallest(     (33.0,              1.0),      vec![])]
+  #[case::width_below_margins((32.5,              12.0),     vec![error(FigureOptionKey::Width, "figure width must be at least 33 px, got 32.5")])]
+  #[case::width_tiny(         (f64::MIN_POSITIVE, 12.0),     vec![error(FigureOptionKey::Width, &format!("figure width must be at least 33 px, got {}", f64::MIN_POSITIVE))])]
+  #[case::row_height_below_px((1200.0,            0.004),    vec![error(FigureOptionKey::RowHeight, "row height must be at least 1 px, got 0.004")])]
+  #[case::width_zero(         (0.0,               12.0),     vec![error(FigureOptionKey::Width, "figure width must be a positive number, got 0")])]
+  #[case::width_negative(     (-1.0,              12.0),     vec![error(FigureOptionKey::Width, "figure width must be a positive number, got -1")])]
+  #[case::width_nan(          (f64::NAN,          12.0),     vec![error(FigureOptionKey::Width, "figure width must be a positive number, got NaN")])]
+  #[case::width_infinite(     (f64::INFINITY,     12.0),     vec![error(FigureOptionKey::Width, "figure width must be a positive number, got inf")])]
+  #[case::row_height_zero(    (1200.0,            0.0),      vec![error(FigureOptionKey::RowHeight, "row height must be a positive number, got 0")])]
+  #[case::row_height_infinite((1200.0,            f64::NEG_INFINITY), vec![error(FigureOptionKey::RowHeight, "row height must be a positive number, got -inf")])]
+  #[case::both_invalid(       (0.0,               f64::NAN), vec![
     error(FigureOptionKey::Width, "figure width must be a positive number, got 0"),
     error(FigureOptionKey::RowHeight, "row height must be a positive number, got NaN"),
   ])]

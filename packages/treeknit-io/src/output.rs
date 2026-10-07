@@ -926,9 +926,9 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::pair_and_tree(     &["a", "resolved", "MCCs_a"], &[".nwk", ".nwk", ".dat"], "two output files are named \"MCCs_a_resolved.dat\"; rename a tree")]
+  #[case::pair_and_tree(   &["a", "resolved", "MCCs_a"], &[".nwk", ".nwk", ".dat"], "two output files are named \"MCCs_a_resolved.dat\"; rename a tree")]
   #[case::auspice_and_tree(&["auspice_x", "x_resolved"], &[".json", ".nwk"],       "two output files are named \"auspice_x_resolved.json\"; rename a tree")]
-  #[case::case_only(             &["a", "Resolved", "mccs_a"], &[".nwk", ".nwk", ".dat"], "the output files \"MCCs_a_Resolved.dat\" and \"mccs_a_resolved.dat\" differ only in case; rename a tree")]
+  #[case::case_only(       &["a", "Resolved", "mccs_a"], &[".nwk", ".nwk", ".dat"], "the output files \"MCCs_a_Resolved.dat\" and \"mccs_a_resolved.dat\" differ only in case; rename a tree")]
   #[trace]
   fn check_output_paths_reports_files_of_different_kinds_with_one_name(
     #[case] names: &[&str],
@@ -1113,9 +1113,9 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::none(                 HA,                                      NA,                                      Scale::Depth, Scale::Depth)]
-  #[case::both(                 "((A:1,B:1):1,(C:1,(D:1,X:1):1):1);",    "((A:1,(B:1,X:1):1):1,(C:1,D:1):1);",    Scale::Div,   Scale::Div)]
-  #[case::one_tree(         "((A:1,B:1):1,(C:1,(D:1,X:1):1):1);",    NA,                                      Scale::Depth, Scale::Div)]
+  #[case::none(         HA,                                      NA,                                      Scale::Depth, Scale::Depth)]
+  #[case::both(         "((A:1,B:1):1,(C:1,(D:1,X:1):1):1);",    "((A:1,(B:1,X:1):1):1,(C:1,D:1):1);",    Scale::Div,   Scale::Div)]
+  #[case::one_tree(     "((A:1,B:1):1,(C:1,(D:1,X:1):1):1);",    NA,                                      Scale::Depth, Scale::Div)]
   #[case::some_branches("((A:1,B),(C,(D,X)));",                 "((A:1,(B:1,X:1):1):1,(C:1,D:1):1);",    Scale::Div,   Scale::Div)]
   #[trace]
   fn figures_with_the_div_scale_show_the_scale_of_the_views(
@@ -1205,10 +1205,10 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::listed(    TreeVersion::Resolved, 1200.0, 12.0, Scale::Div,   LabelMode::Auto, "tanglegram_ha_na.svg",                                  "arg.svg")]
-  #[case::version(  TreeVersion::Imputed,  1200.0, 12.0, Scale::Div,   LabelMode::Auto, "tanglegram_ha_na_imputed_depth.svg",                    "arg.svg")]
-  #[case::scale(      TreeVersion::Resolved, 1200.0, 12.0, Scale::Depth, LabelMode::Auto, "tanglegram_ha_na_resolved_depth.svg",                   "arg_depth.svg")]
-  #[case::options(  TreeVersion::Input,    640.5,  20.0, Scale::Div,   LabelMode::Off,  "tanglegram_ha_na_input_depth_w640.5_row20_labels-off.svg", "arg_depth_w640.5_row20_labels-off.svg")]
+  #[case::listed( TreeVersion::Resolved, 1200.0, 12.0, Scale::Div,   LabelMode::Auto, "tanglegram_ha_na.svg",                                  "arg.svg")]
+  #[case::version(TreeVersion::Imputed,  1200.0, 12.0, Scale::Div,   LabelMode::Auto, "tanglegram_ha_na_imputed_depth.svg",                    "arg.svg")]
+  #[case::scale(  TreeVersion::Resolved, 1200.0, 12.0, Scale::Depth, LabelMode::Auto, "tanglegram_ha_na_resolved_depth.svg",                   "arg_depth.svg")]
+  #[case::options(TreeVersion::Input,    640.5,  20.0, Scale::Div,   LabelMode::Off,  "tanglegram_ha_na_input_depth_w640.5_row20_labels-off.svg", "arg_depth_w640.5_row20_labels-off.svg")]
   #[trace]
   fn figure_downloads_name_the_version_and_the_options_that_differ_from_the_listed_figure(
     #[case] version: TreeVersion,
@@ -1268,14 +1268,14 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::mccs_json(  "MCCs.json",                   true)]
-  #[case::mccs_dat(    "MCCs.dat",                    false)]
-  #[case::resolved(    "ha_resolved.nwk",             true)]
-  #[case::imputed(      "ha_imputed.nwk",              true)]
-  #[case::auspice(      "auspice_ha.json",             false)]
-  #[case::arg(              "ARG/arg.nwk",                 true)]
-  #[case::nodes(          "ARG/nodes.dat",               true)]
-  #[case::liberal(      "ARG/ha_liberal_resolved.nwk", true)]
+  #[case::mccs_json("MCCs.json",                   true)]
+  #[case::mccs_dat( "MCCs.dat",                    false)]
+  #[case::resolved( "ha_resolved.nwk",             true)]
+  #[case::imputed(  "ha_imputed.nwk",              true)]
+  #[case::auspice(  "auspice_ha.json",             false)]
+  #[case::arg(      "ARG/arg.nwk",                 true)]
+  #[case::nodes(    "ARG/nodes.dat",               true)]
+  #[case::liberal(  "ARG/ha_liberal_resolved.nwk", true)]
   #[trace]
   fn output_files_end_with_a_newline_as_the_command_line_writes_them(#[case] path: &str, #[case] newline: bool) {
     // Oracle: the newline rule of the command line before the shared output files.
@@ -1469,12 +1469,12 @@ mod tests {
   }
   #[rustfmt::skip]
   #[rstest]
-  #[case::json(    "MCCs.json",   "application/json")]
-  #[case::upper(  "A.JSON",      "application/json")]
+  #[case::json(  "MCCs.json",   "application/json")]
+  #[case::upper( "A.JSON",      "application/json")]
   #[case::newick("ha.nwk",      "text/plain")]
-  #[case::table(  "ARG/nodes.dat", "text/plain")]
-  #[case::none(    "ha_resolved", "text/plain")]
-  #[case::svg(      "ARG/arg.svg", "image/svg+xml")]
+  #[case::table( "ARG/nodes.dat", "text/plain")]
+  #[case::none(  "ha_resolved", "text/plain")]
+  #[case::svg(   "ARG/arg.svg", "image/svg+xml")]
   #[trace]
   fn output_file_media_type_follows_the_extension(#[case] path: &str, #[case] expected: &str) {
     assert_eq!(expected, OutputFile::new(path.to_owned(), String::new()).media_type);
@@ -1492,7 +1492,7 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::top(            "MCCs.json",                   "MCCs.json")]
+  #[case::top(      "MCCs.json",                   "MCCs.json")]
   #[case::directory("ARG/ha_liberal_resolved.nwk", "ha_liberal_resolved.nwk")]
   #[trace]
   fn file_entry_names_the_file_by_the_last_segment_of_its_path(#[case] path: &str, #[case] expected: &str) {

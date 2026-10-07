@@ -115,13 +115,13 @@ mod tests {
   #[rustfmt::skip]
   #[rstest]
   #[case::gamma_negative(&["--gamma=-1"],                            "gamma must be a non-negative number, got -1")]
-  #[case::gamma_nan(          &["--gamma=nan"],                           "gamma must be a non-negative number, got NaN")]
-  #[case::lengths_zero(    &["--seq-lengths", "0 0"],                  "sequence length 1 must be a positive number, got 0\nsequence length 2 must be a positive number, got 0")]
+  #[case::gamma_nan(     &["--gamma=nan"],                           "gamma must be a non-negative number, got NaN")]
+  #[case::lengths_zero(  &["--seq-lengths", "0 0"],                  "sequence length 1 must be a positive number, got 0\nsequence length 2 must be a positive number, got 0")]
   #[case::lengths_former(&["--better-MCCs", "--seq-lengths", "0 0"], "sequence length 1 must be a positive number, got 0\nsequence length 2 must be a positive number, got 0")]
-  #[case::seed_large(        &["--seed", "9007199254740992"],            "seed must be at most 9007199254740991, got 9007199254740992")]
-  #[case::mcmc_zero(          &["--n-mcmc-it", "0"],                      "MCMC steps per leaf must be at least 1")]
-  #[case::mcmc_former(      &["--better-MCCs", "--n-mcmc-it", "0"],     "MCMC steps per leaf must be at least 1")]
-  #[case::rounds_former(  &["--better-MCCs", "--rounds", "0"],        "rounds must be at least 1")]
+  #[case::seed_large(    &["--seed", "9007199254740992"],            "seed must be at most 9007199254740991, got 9007199254740992")]
+  #[case::mcmc_zero(     &["--n-mcmc-it", "0"],                      "MCMC steps per leaf must be at least 1")]
+  #[case::mcmc_former(   &["--better-MCCs", "--n-mcmc-it", "0"],     "MCMC steps per leaf must be at least 1")]
+  #[case::rounds_former( &["--better-MCCs", "--rounds", "0"],        "rounds must be at least 1")]
   #[trace]
   fn invalid_settings_exit_with_their_message(#[case] args: &[&str], #[case] message: &str) {
     assert_failed(&fail("settings", &[HA, NA], args), message);
@@ -297,10 +297,10 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::disjoint_resolve(    "(P,(Q,R));", &["--resolve", "strict"])]
+  #[case::disjoint_resolve(  "(P,(Q,R));", &["--resolve", "strict"])]
   #[case::one_shared_resolve("(A,(Q,R));", &["--resolve", "matched"])]
-  #[case::disjoint_former(      "(P,(Q,R));", &["--better-trees"])]
-  #[case::one_shared_former(  "(A,(Q,R));", &["--better-MCCs"])]
+  #[case::disjoint_former(   "(P,(Q,R));", &["--better-trees"])]
+  #[case::one_shared_former( "(A,(Q,R));", &["--better-MCCs"])]
   #[trace]
   fn pairs_sharing_fewer_than_two_leaves_exit_with_their_message(#[case] other: &str, #[case] args: &[&str]) {
     assert_failed(&fail("pairs", &[HA, other], args), "trees \"t0\" and \"t1\" share fewer than 2 leaves");
@@ -615,8 +615,8 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::same_stem(          "stems-dirs", ("ha", "ha"), ["ha_a_resolved.nwk", "ha_b_resolved.nwk"], "ha_resolved.nwk")]
-  #[case::stems_in_case(  "stems-case", ("HA", "ha"), ["HA_a_resolved.nwk", "ha_b_resolved.nwk"], "HA_resolved.nwk")]
+  #[case::same_stem(    "stems-dirs", ("ha", "ha"), ["ha_a_resolved.nwk", "ha_b_resolved.nwk"], "ha_resolved.nwk")]
+  #[case::stems_in_case("stems-case", ("HA", "ha"), ["HA_a_resolved.nwk", "ha_b_resolved.nwk"], "HA_resolved.nwk")]
   #[trace]
   fn files_with_one_stem_give_resolved_trees_named_by_label(
     #[case] name: &str,
@@ -935,14 +935,14 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::pre_resolve(       "pair-1", &["--no-pre-resolve", "--pre-resolve"],    "pre_resolve",            true)]
-  #[case::no_pre_resolve( "pair-2", &["--pre-resolve", "--no-pre-resolve"],    "pre_resolve",            false)]
-  #[case::final_round(       "pair-3", &["--no-final-round", "--final-round"],    "final_unresolved_round", true)]
-  #[case::no_final_round( "pair-4", &["--final-round", "--no-final-round"],    "final_unresolved_round", false)]
-  #[case::likelihood(         "pair-5", &["--no-likelihood", "--likelihood"],      "likelihood_sort",        true)]
-  #[case::no_likelihood(   "pair-6", &["--likelihood", "--no-likelihood"],      "likelihood_sort",        false)]
-  #[case::naive(                   "pair-7", &["--no-naive", "--naive"],                "naive",                  true)]
-  #[case::no_naive(             "pair-8", &["--naive", "--no-naive"],                "naive",                  false)]
+  #[case::pre_resolve(   "pair-1", &["--no-pre-resolve", "--pre-resolve"],    "pre_resolve",            true)]
+  #[case::no_pre_resolve("pair-2", &["--pre-resolve", "--no-pre-resolve"],    "pre_resolve",            false)]
+  #[case::final_round(   "pair-3", &["--no-final-round", "--final-round"],    "final_unresolved_round", true)]
+  #[case::no_final_round("pair-4", &["--final-round", "--no-final-round"],    "final_unresolved_round", false)]
+  #[case::likelihood(    "pair-5", &["--no-likelihood", "--likelihood"],      "likelihood_sort",        true)]
+  #[case::no_likelihood( "pair-6", &["--likelihood", "--no-likelihood"],      "likelihood_sort",        false)]
+  #[case::naive(         "pair-7", &["--no-naive", "--naive"],                "naive",                  true)]
+  #[case::no_naive(      "pair-8", &["--naive", "--no-naive"],                "naive",                  false)]
   #[trace]
   fn the_last_of_a_flag_and_its_opposite_wins(#[case] name: &str, #[case] flags: &[&str], #[case] key: &str, #[case] expected: bool) {
     let dir = TempDir::new(name);
