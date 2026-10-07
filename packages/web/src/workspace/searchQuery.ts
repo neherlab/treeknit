@@ -20,7 +20,7 @@ export function readQuery(query: string): QueryEntry[] {
     .split("&")
     .filter((part) => part !== "")
     .map((part) => {
-      const [[key, value] = ["", ""]] = new URLSearchParams(part);
+      const [[key, value] = ["", ""]] = new URLSearchParams(`&${part}`);
 
       return { key, value: part.includes("=") ? value : true };
     });
