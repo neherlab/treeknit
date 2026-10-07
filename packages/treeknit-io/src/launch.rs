@@ -171,7 +171,7 @@ pub fn parse_location(value: &str) -> Result<LinkLocation, LocationError> {
 /// file page (`github.com/<owner>/<repo>/blob/<ref>/<path>` or `.../raw/...`) becomes its file
 /// on `raw.githubusercontent.com`, and a Zenodo file (`zenodo.org/records/<id>/files/<name>`)
 /// its `/content` address of the Zenodo API. Other URLs stay as they are.
-pub fn fetch_url(url: &str) -> String {
+fn fetch_url(url: &str) -> String {
   let Some(parts) = UrlParts::of(url) else {
     return url.to_owned();
   };
@@ -381,7 +381,7 @@ pub fn web_link(query: &[(String, String)], fragment: &[(String, String)]) -> St
 
 /// Address of the web app: the GitHub Pages site of the repository of the workspace, such as
 /// `https://neherlab.github.io/treeknit-rs/` for `https://github.com/neherlab/treeknit-rs`.
-pub fn web_app_url() -> String {
+fn web_app_url() -> String {
   let repository = env!("CARGO_PKG_REPOSITORY").trim_end_matches('/');
   match repository
     .strip_prefix("https://github.com/")

@@ -357,7 +357,7 @@ pub fn web_files(
 /// Every path that a run of the trees labeled `labels` can write with `options`, in the order of
 /// `output_files`, followed by `parameters.json`, `log.txt`, and the session file. For two trees
 /// the ARG files are listed, although a run writes them only when the ARG is built.
-pub fn output_paths(labels: &[String], options: &OutputOptions) -> Vec<String> {
+fn output_paths(labels: &[String], options: &OutputOptions) -> Vec<String> {
   let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
   let mut paths: Vec<String> = file_kinds(labels.len(), options, labels.len() == 2)
     .into_iter()
@@ -571,7 +571,7 @@ fn download_name(path: &str, version: Option<TreeVersion>, options: &FigureOptio
 
 /// The labels of the two trees of an ARG, segment A and then B; `None` for another number of
 /// trees.
-pub fn segment_labels(run: &RunResult) -> Option<[&str; 2]> {
+pub(crate) fn segment_labels(run: &RunResult) -> Option<[&str; 2]> {
   match run.trees.as_slice() {
     [a, b] => Some([a.label.as_str(), b.label.as_str()]),
     _ => None,

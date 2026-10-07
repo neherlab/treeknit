@@ -53,7 +53,7 @@ impl Graph {
     bits::from_iter(self.n, conf.ones().map(|i| self.bit[i]))
   }
 
-  pub fn k(&self) -> usize {
+  fn k(&self) -> usize {
     self.colors.len()
   }
 
@@ -534,7 +534,7 @@ impl<'g> EnergyState<'g> {
 /// Log-ratio of the Poisson likelihoods of branches `t1`, `t2` (segment lengths `l1`, `l2`)
 /// being equal versus independent. A missing, negative, or non-finite length gives 0: the model
 /// has no likelihood for it.
-pub fn branch_likelihood(t1: Option<f64>, t2: Option<f64>, l1: f64, l2: f64) -> f64 {
+fn branch_likelihood(t1: Option<f64>, t2: Option<f64>, l1: f64, l2: f64) -> f64 {
   let valid = |t: &f64| t.is_finite() && *t >= 0.0;
   let (Some(t1), Some(t2)) = (t1.filter(valid), t2.filter(valid)) else {
     return 0.0;

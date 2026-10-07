@@ -197,7 +197,7 @@ pub fn reduce_to_mccs(tree: &Tree, mccs: &[Mcc], n_taxa: usize) -> Tree {
 }
 
 /// Remove the clades `mccs` from `t`.
-pub fn prune_mccs(t: &mut Tree, mccs: &[Mcc], n_taxa: usize) {
+fn prune_mccs(t: &mut Tree, mccs: &[Mcc], n_taxa: usize) {
   for m in mccs {
     let leaf_of = t.leaf_of(n_taxa);
     let r: NodeId = t.lca_of(m.iter().map(|&x| leaf_of[x].unwrap())).unwrap();

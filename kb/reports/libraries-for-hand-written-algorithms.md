@@ -60,7 +60,7 @@ Evaluated on 2026-10-06. Versions are the newest releases on crates.io or npm on
 
 - **Meet of MCC partitions** (needed only by the check in [`cross-pair-mcc-consistency.md`](../proposals/cross-pair-mcc-consistency.md)): union-find crates such as `petgraph::unionfind::UnionFind` compute the join of partitions, which merges blocks; the meet groups leaves by their tuple of block indices, a hash-map grouping without a library
 - **Node-to-MCC map** (`pub fn map_mccs()`, [packages/treeknit-core/src/mcc_map.rs#L29-L65](../../packages/treeknit-core/src/mcc_map.rs#L29-L65)): `cyanea-phylo` 0.1.1 (2026-07-30, Apache-2.0) has Fitch and Sankoff parsimony with states limited to `u8` and an error for leaves without a state, so it cannot express leaves without an MCC as wildcards. Keep
-- **Tie-break** (`pub fn branch_likelihood()`, [packages/treeknit-core/src/splitgraph.rs#L359-L366](../../packages/treeknit-core/src/splitgraph.rs#L359-L366)): the term is a Poisson log-likelihood ratio in which the factorials cancel, so non-integer mutation counts are allowed; `statrs` 0.19.1 (2026-08-11) `Poisson::ln_pmf` takes integer counts. Keep
+- **Tie-break** (`fn branch_likelihood()`, [packages/treeknit-core/src/splitgraph.rs#L537-L545](../../packages/treeknit-core/src/splitgraph.rs#L537-L545)): the term is a Poisson log-likelihood ratio in which the factorials cancel, so non-integer mutation counts are allowed; `statrs` 0.19.1 (2026-08-11) `Poisson::ln_pmf` takes integer counts. Keep
 
 ## Polytomy sort
 

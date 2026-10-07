@@ -8,7 +8,7 @@ Functions whose doc comments do not name the algorithm:
 
 - `pub fn naive_mccs()` [packages/treeknit-core/src/naive.rs#L24-L56](../../packages/treeknit-core/src/naive.rs#L24-L56): subtree reduction
 - `pub fn infer_pair()` [packages/treeknit-core/src/pair.rs#L34-L83](../../packages/treeknit-core/src/pair.rs#L34-L83): prune-and-grow of agreement-forest algorithms, with annealing
-- `pub fn branch_likelihood()` [packages/treeknit-core/src/splitgraph.rs#L359-L366](../../packages/treeknit-core/src/splitgraph.rs#L359-L366): Poisson deviance
+- `fn branch_likelihood()` [packages/treeknit-core/src/splitgraph.rs#L537-L545](../../packages/treeknit-core/src/splitgraph.rs#L537-L545): Poisson deviance
 - `pub fn resolve_trees()` [packages/treeknit-core/src/resolve.rs#L72-L157](../../packages/treeknit-core/src/resolve.rs#L72-L157): refinement by the loose consensus
 - `pub fn match_topologies()` [packages/treeknit-core/src/pipeline.rs#L285-L327](../../packages/treeknit-core/src/pipeline.rs#L285-L327): common refinement within MCCs
 - `packages/treeknit-core/src/impute.rs`: tree completion

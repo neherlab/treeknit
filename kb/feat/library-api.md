@@ -23,7 +23,7 @@ Counterpart: [`v0/julia-api.md`](v0/julia-api.md). The Rust crates `treeknit-cor
 - [x] **`run_standard_treeknit!`, `run_parallel_treeknit!`**: both inside `run`, selected by the round and `Options::parallel`
 - [/] **`sort_polytomies!`**: `mcc_map::sort_polytomies_by_mccs` is public and does the non-strict sort of one tree along another. `sort_for_pair` sorts two trees for display with the run's sort of a pair, strictly or not, and always ladderizes the left tree (see [`pipeline.md`](pipeline.md#display-sort-new))
 - [x] **`write_auspice_json`, `get_auspice_json`**: `auspice::auspice_json` returns the content for one tree
-- [x] **`name_mcc_clades!`, `reduce_to_mcc`, `pruneconf!`**: `pair::reduce_to_mccs` and `pair::prune_mccs`
+- [x] **`name_mcc_clades!`, `reduce_to_mcc`, `pruneconf!`**: `pair::reduce_to_mccs`; the pruning of a configuration is internal to the pair inference (`fn prune_mccs`)
 - [x] **`new_splits`, `splits_in_mcc`, `splits_in_mccs`, `map_splits_to_tree!`**: private functions behind `resolve_with_mccs`
 - [x] **`SplitGraph.trees2graph`, `compute_energy`, `count_mismatches`, `conf_likelihood`**: `splitgraph::Graph::new`, `Graph::energy`, and `Graph::likelihood`
 - [x] **`SplitGraph.sa_opt`**: `anneal::optimize`

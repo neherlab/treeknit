@@ -22,7 +22,7 @@ Counterpart: [`v0/mcc-inference.md`](v0/mcc-inference.md). `fn infer_pair` takes
 - [x] **Resolution of the copies**: `resolve_trees` on both copies when the round resolves
 - [x] **Steps per temperature**: $M = \lceil n \cdot n_{MCMC} / n_{temp} \rceil$ with the number of remaining leaves, at most 2^32 - 1 on every target [[src](../../packages/treeknit-core/src/pair.rs#L85-L95)]
 - [x] **Stop rules**: nothing removed, removed MCCs cover all leaves, one naive MCC left, or the iteration counter above `itmax`, so at most `itmax + 1` annealing runs [[src](../../packages/treeknit-core/src/pair.rs#L63-L80)]
-- [x] **Pruning**: `prune_mccs` removes each removed MCC and splices out unary nodes, adding branch lengths [[src](../../packages/treeknit-core/src/pair.rs#L189-L197)]
+- [x] **Pruning**: `prune_mccs` removes each removed MCC and splices out unary nodes, adding branch lengths [[src](../../packages/treeknit-core/src/pair.rs#L200-L207)]
 - [ ] **Tree check after each iteration**: TreeKnit.jl asserts `check_tree`. `Tree::check` exists [[src](../../packages/treeknit-core/src/tree.rs#L455-L462)], but `infer_pair` does not call it
 - [ ] **`output = :all`**: TreeKnit.jl can also return the two pruned trees. `infer_pair` returns only the MCCs
 

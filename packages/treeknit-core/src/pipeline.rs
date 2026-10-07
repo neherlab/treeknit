@@ -387,7 +387,7 @@ fn mismatched_restrictions(t1: &Tree, t2: &Tree, m: &Mcc, n: usize) -> Option<(T
 }
 
 /// Clades of the internal non-root nodes of `t`.
-pub fn internal_clades(t: &Tree, n: usize) -> std::collections::HashSet<Bits> {
+fn internal_clades(t: &Tree, n: usize) -> std::collections::HashSet<Bits> {
   let c = t.clades(n);
   t.internals()
     .into_iter()
