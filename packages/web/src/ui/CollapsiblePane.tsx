@@ -1,6 +1,7 @@
 import { cva } from "class-variance-authority";
 import { cn } from "cn";
-import { type ReactNode, useCallback, useId, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useCallback, useId, useLayoutEffect, useRef, useState } from "react";
+import { useOverlay } from "react-aria";
 import { Button } from "react-aria-components";
 import ChevronLeftIcon from "~icons/lucide/chevron-left";
 import ChevronRightIcon from "~icons/lucide/chevron-right";
@@ -8,7 +9,6 @@ import ChevronRightIcon from "~icons/lucide/chevron-right";
 import { PANE_WIDTHS, type PaneWidthPx } from "./paneWidths";
 import { focusRing } from "./styles";
 import { TooltipTrigger } from "./TooltipTrigger";
-import { useEscapeKey } from "./useEscapeKey";
 
 const railStyle = cva(
   [
@@ -91,22 +91,17 @@ const tabStyle = cva(["absolute flex h-11 cursor-pointer items-center justify-ce
 });
 
 export function CollapsiblePane({ children, className, ...pane }: CollapsiblePaneProps) {
-  const { side, isOverlay, isOpen, onOpenChange } = pane;
-
-  const close = useCallback(() => {
-    onOpenChange(false);
-  }, [onOpenChange]);
-
-  const sidePane = <SidePane {...pane} />;
+  const area = useRef<HTMLDivElement>(null);
+  const sidePane = <SidePane {...pane} dismissArea={area} />;
 
   return (
-    <div className={cn("@container relative isolate flex min-h-0 min-w-0 flex-1 overflow-hidden", className)}>
-      {side === "left" ? sidePane : null}
-      {isOverlay && isOpen ? (
-        <div aria-hidden role="presentation" className="absolute inset-0 z-2" onPointerDown={close} />
-      ) : null}
+    <div
+      ref={area}
+      className={cn("@container relative isolate flex min-h-0 min-w-0 flex-1 overflow-hidden", className)}
+    >
+      {pane.side === "left" ? sidePane : null}
       <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
-      {side === "right" ? sidePane : null}
+      {pane.side === "right" ? sidePane : null}
     </div>
   );
 }
@@ -127,6 +122,7 @@ export function SidePane({
   isOverlay,
   look,
   pane,
+  dismissArea,
   className,
 }: SidePaneProps & { className?: string }) {
   const paneId = useId();
@@ -152,11 +148,24 @@ export function SidePane({
     onOpenChange(false);
   }, [onOpenChange]);
 
-  const escapeProps = useEscapeKey(isOverlay && isOpen ? close : null);
+  function shouldCloseOnInteractOutside(element: Element): boolean {
+    return dismissArea?.current?.contains(element) === true;
+  }
+
+  const overlayOpen = isOverlay && isOpen;
+
+  const { overlayProps } = useOverlay(
+    { isOpen: overlayOpen, onClose: close, isDismissable: true, shouldCloseOnInteractOutside },
+    railRef,
+  );
 
   return (
     <div className={cn("relative z-3 shrink-0", !isOverlay && reserved ? PANE_WIDTHS[width] : "w-0", className)}>
-      <div ref={railRef} {...escapeProps} className={cn(railStyle({ side, isOpen }), PANE_WIDTHS[width])}>
+      <div
+        ref={railRef}
+        {...(overlayOpen ? overlayProps : undefined)}
+        className={cn(railStyle({ side, isOpen }), PANE_WIDTHS[width])}
+      >
         <aside
           ref={paneRef}
           id={paneId}
@@ -194,6 +203,7 @@ export interface SidePaneProps {
   isOverlay: boolean;
   look: "app" | "auspice";
   pane: ReactNode;
+  dismissArea?: RefObject<HTMLElement | null>;
 }
 
 function useReservedSpace(rail: { current: HTMLElement | null }, isOpen: boolean): boolean {
