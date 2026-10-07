@@ -219,6 +219,21 @@ CPU time (task clock) of the whole command, median of the runs.
 | Base                              | 10.0 to 10.4 µs    | 34.9 to 38.2 µs |
 | With the changes                  | 4.3 to 4.8 µs      | 9.7 to 10.9 µs  |
 
+### Allocator and library replacements
+
+Later changes replaced hand-written code with crates and moved the command line on Linux to the jemalloc allocator (`tikv-jemallocator`). They were measured with the method above on four `prod` builds: the base, after the crate replacements of the core (among them an `IndexSet` for the distinct minimum configurations of the annealing chain), after the allocator, and with every change. The `energy_cost` example ran 20000 steps per temperature on the pair `ha`, `na`. Every output file except `log.txt` was byte-identical to that of the base build.
+
+Ratio of user-space instructions to the base build, medians of 5 rounds:
+
+| Build                 | 428 leaves, 8 seeds | 4-segment subset, 400 leaves | `ha`, `na`, 1997 leaves | Four segments, 1997 leaves, 3 seeds | `energy_cost` |
+| --------------------- | ------------------- | ---------------------------- | ----------------------- | ----------------------------------- | ------------- |
+| Crate replacements    | 1.000               | 1.000                        | 1.003                   | 1.003                               | 1.000         |
+| jemalloc              | 0.644               | 0.984                        | 0.809                   | 0.995                               | 1.001         |
+| Every change          | 0.644               | 0.984                        | 0.810                   | 0.995                               | 1.000         |
+
+- **jemalloc**: the runs on two trees allocate in resolution, the ARG and file output, so they gain most; the annealing of four segments allocates little and gains 0.5%. The instructions of `ha`, `na` vary by 0.5% between runs of one build, the other benchmarks by at most 0.1%
+- **`IndexSet`**: on the four segments it adds 0.27% of instructions, all in the function that holds the inlined annealing loop (`infer_pair`), with the same outputs. The set hashes each configuration once where the hand-written set hashed it into a `HashSet` and kept a second copy in a `Vec`; the difference is the code of the two set types in the loop. jemalloc more than recovers it
+
 ## Discussion
 
 - **The speed-up comes from the algorithm, not from compromises in the computation**: both implementations evaluate the same energy at every step of the same chain; [`julia-rust-equivalence.md`](julia-rust-equivalence.md) compares the results
