@@ -17,6 +17,8 @@ use crate::bits::Bits;
 use crate::mcc_map::{leaf_mcc_map, map_mccs};
 use crate::naive::Mcc;
 use crate::tree::{NodeId, Tree};
+use ordered_float::OrderedFloat;
+use std::cmp::Reverse;
 
 /// A subtree of the source tree attached to an MCC of the pair.
 #[derive(Clone, Debug)]
@@ -64,8 +66,10 @@ pub fn attach_private(t: &Tree, source: usize, shared: &Bits, mccs: &[Mcc], n_ta
   out
 }
 
-/// Among MCCs with leaves in `below`, the one whose root is fewest edges from `p`;
-/// ties by branch-length distance, then larger MCC, then lower index.
+/// Among MCCs with leaves in `below`, the one whose root is fewest edges from `p`; ties by
+/// branch-length distance, then larger MCC, then lower index. A distance that is missing,
+/// negative, or not finite counts as infinite, as in the branch likelihood: the rule applies to
+/// the summed path length, so a path with a negative edge and a positive sum keeps its sum.
 fn closest_mcc(
   t: &Tree,
   p: NodeId,
@@ -81,15 +85,18 @@ fn closest_mcc(
     let mcc_root = t.lca_of(mccs[m].iter().filter_map(|&x| leaf_of[x])).unwrap();
     let ancestor = t.lca(p, mcc_root);
     let edges = t.depth(p) + t.depth(mcc_root) - 2 * t.depth(ancestor);
-    let dist = match (t.divtime(p, ancestor), t.divtime(mcc_root, ancestor)) {
-      (Some(up), Some(down)) => up + down,
-      _ => f64::INFINITY,
-    };
-    (edges, dist, std::cmp::Reverse(mccs[m].len()), m)
+    let dist = t
+      .divtime(p, ancestor)
+      .zip(t.divtime(mcc_root, ancestor))
+      .map(|(up, down)| up + down)
+      .filter(|d| d.is_finite() && *d >= 0.0)
+      .unwrap_or(f64::INFINITY);
+    // OrderedFloat orders -0.0 and +0.0 as equal, so the tie goes to the next key.
+    (edges, OrderedFloat(dist), Reverse(mccs[m].len()), m)
   };
   cand
     .into_iter()
-    .min_by(|&lhs, &rhs| key(lhs).partial_cmp(&key(rhs)).unwrap())
+    .min_by_key(|&m| key(m))
     .expect("no MCC below attachment point")
 }
 
@@ -168,6 +175,55 @@ mod tests {
     assert_eq!(a.len(), 1);
     assert_eq!(a[0].mcc, 1);
     assert!(a[0].ambiguous);
+  }
+
+  /// The index of the MCC that [`closest_mcc`] picks for the root of `newick`, with the MCCs
+  /// `mccs` named by their leaves.
+  fn closest_to_root(newick: &str, mccs: &[&[&str]]) -> usize {
+    let (ts, taxa) = trees(&[newick]);
+    let n = taxa.len();
+    let mccs: Vec<Mcc> = mccs
+      .iter()
+      .map(|m| m.iter().map(|x| taxa.index[*x]).collect())
+      .collect();
+    let below: Vec<usize> = (0..n).collect();
+    let t = &ts[0];
+    closest_mcc(t, t.root, &below, &leaf_mcc_map(&mccs, n), &mccs, &t.leaf_of(n))
+  }
+
+  #[test]
+  fn closest_mcc_counts_a_nan_distance_as_missing() {
+    // The NaN distance of (A,B) used to panic in the comparison; as a missing distance it loses
+    // to the 1 of (C,D).
+    let picked = closest_to_root("((A,B):NaN,(C,D):1);", &[&["A", "B"], &["C", "D"]]);
+    assert_eq!(1, picked);
+  }
+
+  #[test]
+  fn closest_mcc_counts_a_negative_distance_as_missing() {
+    let picked = closest_to_root("((A,B):-1,(C,D):2);", &[&["A", "B"], &["C", "D"]]);
+    assert_eq!(1, picked);
+  }
+
+  #[test]
+  fn closest_mcc_ties_signed_zero_distances() {
+    // Both MCCs have size 2 and distance zero, so the lower index wins whatever the sign.
+    let picked = [
+      closest_to_root("((A,B):-0,(C,D):0);", &[&["A", "B"], &["C", "D"]]),
+      closest_to_root("((A,B):0,(C,D):-0);", &[&["A", "B"], &["C", "D"]]),
+    ];
+    assert_eq!([0, 0], picked);
+  }
+
+  #[test]
+  fn closest_mcc_keeps_a_positive_sum_with_a_negative_edge() {
+    // Both MCC roots are two edges below the root: (A,B) at -1 + 3 = 2, (C,D) at 1.5 + 1 = 2.5.
+    // The single leaves E and F are further away.
+    let picked = closest_to_root(
+      "(((A,B):-1,E:10):3,((C,D):1.5,F:10):1);",
+      &[&["A", "B"], &["C", "D"], &["E"], &["F"]],
+    );
+    assert_eq!(0, picked);
   }
 
   #[test]

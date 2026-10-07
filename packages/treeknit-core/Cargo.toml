@@ -14,6 +14,7 @@ license.workspace = true
 fixedbitset.workspace = true
 indexmap.workspace = true
 log.workspace = true
+ordered-float.workspace = true
 rand.workspace = true
 rand_xoshiro.workspace = true
 rayon.workspace = true
