@@ -1,0 +1,22 @@
+# cargo-hawk configuration -- finds unnecessary public surface in the workspace.
+# https://github.com/astral-sh/hawk
+
+# Clippy's `partial_pub_fields` requires every field of a struct to share one
+# visibility, so Hawk keeps a struct's fields uniform instead of narrowing them
+# one by one.
+preserve-uniform-field-visibility = true
+
+# `[[production]]` names the reachability roots (the shipped binaries). Public
+# items unreachable from a root are candidates for the `hawk::dead_public`
+# diagnostic.
+# `[[exclude]]` silences diagnostics for a module or file; whole library
+# crates at an external API boundary, and the crates only tests use, are excluded
+# through the `public_api_crates` justfile variable, which the `hawk` recipe reads.
+# `[[override]]` records a single item deliberately kept public
+# despite being unreachable, each with a mandatory reason.
+
+# Shipped command-line binary; reachability root for the whole workspace.
+[[production]]
+package = "treeknit-cli"
+bin = "treeknit"
+reason = "the shipped treeknit CLI is the primary product entry point"

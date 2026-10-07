@@ -33,7 +33,7 @@ RUN set -euxo pipefail >/dev/null \
 COPY dev/docker/files/fetch dev/docker/files/checksums /
 
 # The Rust toolchain of rust-toolchain.toml, then the pinned nightly of the lint
-# libraries.
+# libraries and the toolchain that cargo-hawk is built against.
 ENV RUSTUP_HOME="/usr/local/rustup"
 ENV CARGO_HOME="/usr/local/cargo"
 ENV PATH="/usr/local/cargo/bin:${PATH}"
@@ -42,12 +42,14 @@ COPY rust-toolchain.toml /tmp/rust/
 COPY dev/lints/dylint-custom/rust-toolchain.toml /tmp/lints/dylint-custom/
 COPY dev/lints/dylint-mordant/rust-toolchain.toml /tmp/lints/dylint-mordant/
 COPY dev/lints/dylint-trailofbits/rust-toolchain.toml /tmp/lints/dylint-trailofbits/
+COPY dev/docker/files/hawk-toolchain /tmp/
 # hadolint ignore=DL3003
 RUN set -euxo pipefail >/dev/null \
 && /install-rust "/tmp/rust" \
 && for dir in /tmp/lints/*; do (cd "${dir}" && rustup toolchain install); done \
+&& rustup toolchain install "$(cat /tmp/hawk-toolchain)" --profile minimal --component rustc-dev,llvm-tools-preview,rust-src \
 && chmod -R a+w "${RUSTUP_HOME}" "${CARGO_HOME}" \
-&& rm -rf /install-rust /tmp/rust /tmp/lints
+&& rm -rf /install-rust /tmp/rust /tmp/lints /tmp/hawk-toolchain
 
 # mise installs every tool of .config/mise.toml at the URL and sha256 of .config/mise.lock and
 # links their executables into /usr/local/bin. The cargo registry that source

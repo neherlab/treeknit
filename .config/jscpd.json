@@ -1,0 +1,14 @@
+{
+  "format": ["rust", "typescript", "tsx"],
+  "ignore": [
+    "**/target/**",
+    "**/.build/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/tmp/**",
+    "packages/treeknit-wasm/pkg/**"
+  ],
+  "reporters": ["console", "json"],
+  "output": "tmp/jscpd",
+  "absolute": true
+}

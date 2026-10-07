@@ -241,6 +241,62 @@ checksum = "sha256:13a9b90be775c6389ce3d1f879cb8627bea56708ba8c122983941d53a8199
 url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-macos.tar.gz"
 url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580039734"
 
+[[tools."github:astral-sh/hawk"]]
+version = "0.1.14"
+backend = "github:astral-sh/hawk"
+
+[tools."github:astral-sh/hawk"."platforms.linux-arm64"]
+checksum = "sha256:2a36ed6244a7b646ada0c7e9bc90cbc1757f17cc4af6675ecb32eec29d7dde23"
+url = "https://github.com/astral-sh/hawk/releases/download/0.1.14/cargo-hawk-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/hawk/releases/assets/544384043"
+provenance = "github-attestations"
+
+[tools."github:astral-sh/hawk"."platforms.linux-x64"]
+checksum = "sha256:6cc8b57e0d91edbdf70388254c73e2dcf7653929d83081e47dc2a6d6c85b0369"
+url = "https://github.com/astral-sh/hawk/releases/download/0.1.14/cargo-hawk-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/hawk/releases/assets/544384072"
+provenance = "github-attestations"
+
+[tools."github:astral-sh/hawk"."platforms.macos-arm64"]
+checksum = "sha256:a1379620245ba56d53bca3727f57b1db959b6085b4a64dc42a56f12367fd64c6"
+url = "https://github.com/astral-sh/hawk/releases/download/0.1.14/cargo-hawk-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/hawk/releases/assets/544384048"
+provenance = "github-attestations"
+
+[tools."github:astral-sh/hawk"."platforms.macos-x64"]
+checksum = "sha256:73483c42cb80b880d3a407201216aa90df8808546f90ab1cdbe5cd678d891cda"
+url = "https://github.com/astral-sh/hawk/releases/download/0.1.14/cargo-hawk-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/hawk/releases/assets/544384063"
+provenance = "github-attestations"
+
+[[tools."github:kucherenko/jscpd"]]
+version = "5.2.1"
+backend = "github:kucherenko/jscpd"
+
+[tools."github:kucherenko/jscpd"."platforms.linux-arm64"]
+checksum = "sha256:35beb27a3bde88fcc0bd5173238b0f6ebdfed95cf0e692c29d3599ed7d3d3153"
+url = "https://github.com/kucherenko/jscpd/releases/download/v5.2.1/jscpd-linux-arm64-gnu.tar.gz"
+url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/565085639"
+provenance = "github-attestations"
+
+[tools."github:kucherenko/jscpd"."platforms.linux-x64"]
+checksum = "sha256:1030dfff5e4b0525f4804c12e49cdce40a8140935f9453b312fdb9da45eac743"
+url = "https://github.com/kucherenko/jscpd/releases/download/v5.2.1/jscpd-linux-x64-gnu.tar.gz"
+url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/565085641"
+provenance = "github-attestations"
+
+[tools."github:kucherenko/jscpd"."platforms.macos-arm64"]
+checksum = "sha256:0b166a710f62a674fa0d81850e1f005069e05d8b1170e8ffed36baa0305f5340"
+url = "https://github.com/kucherenko/jscpd/releases/download/v5.2.1/jscpd-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/565085640"
+provenance = "github-attestations"
+
+[tools."github:kucherenko/jscpd"."platforms.macos-x64"]
+checksum = "sha256:c9a28525e986029c062b8ef5e0c872b11eb4934d545cab13b2ff6fa942caa702"
+url = "https://github.com/kucherenko/jscpd/releases/download/v5.2.1/jscpd-darwin-x64.tar.gz"
+url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/565085643"
+provenance = "github-attestations"
+
 [[tools."github:kunobi-ninja/kache"]]
 version = "0.26.3"
 backend = "github:kunobi-ninja/kache"
