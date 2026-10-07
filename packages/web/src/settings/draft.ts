@@ -1,4 +1,5 @@
 import type { NumberSetting, SettingFields, Settings, ToggleSetting } from "@neherlab/treeknit-wasm";
+import { fromKeys } from "remeda";
 
 import { everyVariantOf } from "../variants";
 
@@ -18,10 +19,7 @@ export const ENTER_A_NUMBER = "Enter a number";
 
 export function draftFromSettings(settings: Settings, treeIds: readonly string[]): SettingsDraft {
   return {
-    gamma: settings.gamma ?? Number.NaN,
-    nMcmcIt: settings.nMcmcIt ?? Number.NaN,
-    rounds: settings.rounds ?? Number.NaN,
-    seed: settings.seed ?? Number.NaN,
+    ...numberDraft((key) => settings[key] ?? Number.NaN),
     seqLengths: Object.fromEntries(
       (settings.seqLengths ?? []).flatMap((length, index) => {
         const id = treeIds[index];
@@ -45,14 +43,15 @@ export function syncDraft(draft: SettingsDraft, settings: Settings, treeIds: rea
   const stored = draftFromSettings(settings, treeIds);
 
   return {
-    gamma: keepDraft(draft.gamma, stored.gamma),
-    nMcmcIt: keepDraft(draft.nMcmcIt, stored.nMcmcIt),
-    rounds: keepDraft(draft.rounds, stored.rounds),
-    seed: keepDraft(draft.seed, stored.seed),
+    ...numberDraft((key) => keepDraft(draft[key], stored[key])),
     seqLengths: Object.fromEntries(
       Object.entries(stored.seqLengths).map(([id, length]) => [id, keepDraft(draft.seqLengths[id], length)]),
     ),
   };
+}
+
+function numberDraft(value: (key: NumberSettingKey) => number): Record<NumberSettingKey, number> {
+  return fromKeys(NUMBER_SETTINGS, value);
 }
 
 function keepDraft(current: number | undefined, value: number): number {
