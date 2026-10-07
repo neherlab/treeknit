@@ -1,6 +1,6 @@
 import type { ConstellationCell, ConstellationTable } from "@neherlab/treeknit-wasm";
 
-import { leafCount, mccTitle } from "../drawing/format";
+import { leafCount } from "../drawing/format";
 import { itemAt } from "../drawing/lookup";
 
 export const CONSTELLATION_INFO =
@@ -37,6 +37,6 @@ function pairTitle(a: string, b: string): string {
   return `${a} and ${b}`;
 }
 
-export function cellLabel(cell: ConstellationCell, leaf: string, pair: string): string {
-  return `${mccTitle(cell.mcc)} of ${leafCount(cell.size)}: show ${leaf} in ${pair}`;
+export function cellLabel(cell: ConstellationCell, mccNames: readonly string[], leaf: string, pair: string): string {
+  return `${itemAt(mccNames, cell.mcc, "MCC name")} of ${leafCount(cell.size)}: show ${leaf} in ${pair}`;
 }

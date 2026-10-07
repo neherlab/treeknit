@@ -27,8 +27,8 @@ pub use arg_view::arg_view;
 pub use auspice::auspice_view;
 pub use constellation::constellation;
 pub use legend::{LegendItem, LegendKind, LegendMark, Stroke};
-pub(crate) use names::grapheme_count;
 pub use names::shorten;
+pub(crate) use names::{grapheme_count, mcc_name};
 pub use pair::pair_view;
 pub use rows::RowSpan;
 pub use rules::{ColumnPx, TanglegramColumns};
@@ -351,6 +351,11 @@ pub struct MccInfo {
   pub ambiguous_leaves: Vec<String>,
   /// Color slot, from 0 to `MCC_SLOTS` - 1, the same in every version of the pair.
   pub slot: usize,
+  /// The name of the MCC: "MCC 1" for index 0.
+  pub name: String,
+  /// Rank of the MCC by size, largest first, then by index: 0 for the largest MCC. The color
+  /// slots are given in this order.
+  pub rank: usize,
   /// The rows of the leaves of the MCC in both drawn trees; `None` when neither drawn tree has a
   /// leaf of it.
   pub rows: Option<RowSpan>,
@@ -635,6 +640,8 @@ pub struct ConstellationTable {
   /// `cells[leaf][pair]`; `None` when the leaf is in neither tree of the pair, or the pair has no
   /// MCCs (its trees share fewer than two leaves).
   pub cells: Vec<Vec<Option<ConstellationCell>>>,
+  /// The name of each MCC index of the cells, `mcc_names[cell.mcc]`, as `MccInfo.name`.
+  pub mcc_names: Vec<String>,
 }
 
 /// The MCC of one leaf in one pair.

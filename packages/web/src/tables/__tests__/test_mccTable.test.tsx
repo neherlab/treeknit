@@ -8,7 +8,6 @@ import {
   leavesPreview,
   MCC_COLUMN,
   mccColumns,
-  mccsBySize,
   mccTableFeatures,
   sortDirection,
 } from "../mccTable";
@@ -26,14 +25,6 @@ const MCCS: MccInfo[] = [
 describe("hasAmbiguousAttachment", () => {
   test("holds for an MCC with at least one ambiguously attached member", () => {
     expect(MCCS.map(hasAmbiguousAttachment)).toStrictEqual([true, false, false]);
-  });
-});
-
-describe("mccsBySize", () => {
-  test("lists the largest MCC first and breaks size ties by MCC number", () => {
-    const tied = [...MCCS, mcc(3, ["C/1", "C/2"], [], [])];
-
-    expect(mccsBySize(tied).map(({ index }) => index)).toStrictEqual([0, 2, 3, 1]);
   });
 });
 
@@ -109,6 +100,8 @@ function mcc(index: number, leaves: string[], imputedLeaves: string[], ambiguous
     imputedLeaves,
     ambiguousLeaves,
     slot: index,
+    name: `MCC ${String(index + 1)}`,
+    rank: index,
     rows: null,
   };
 }

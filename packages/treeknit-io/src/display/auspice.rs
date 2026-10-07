@@ -8,7 +8,6 @@ use crate::display::{
 };
 use crate::palette::palette;
 use crate::run::RunResult;
-use std::cmp::Reverse;
 use std::collections::BTreeSet;
 
 /// Key of the MCC coloring and node attribute.
@@ -105,21 +104,16 @@ pub fn auspice_view(run: &RunResult, pair: usize, version: TreeVersion, scale: S
   })
 }
 
-/// The name of MCC `mcc` (an index into the pair's MCCs) as the legend and the filters show it.
-fn mcc_name(mcc: usize) -> String {
-  format!("MCC {}", mcc + 1)
-}
-
 /// The number of MCC `mcc` as its branch label shows it.
 fn mcc_number(mcc: usize) -> String {
   (mcc + 1).to_string()
 }
 
-/// The indices of the largest MCCs, at most `MCC_SLOTS` of them, by leaf count; ties keep the
-/// order of `MCCs.json`. The rank of an MCC in the result picks its color slot.
+/// The indices of the largest MCCs, at most `MCC_SLOTS` of them, in the order of `MccInfo.rank`.
+/// The rank of an MCC in the result picks its color slot.
 fn largest_mccs(mccs: &[MccInfo]) -> Vec<usize> {
   let mut order: Vec<usize> = (0..mccs.len()).collect();
-  order.sort_by_key(|&i| Reverse(mccs[i].size));
+  order.sort_by_key(|&i| mccs[i].rank);
   order.truncate(MCC_SLOTS);
   order
 }
@@ -147,7 +141,7 @@ fn colorings(mccs: &[MccInfo], largest: &[usize], left: &str, right: &str) -> Ve
   let mut largest_scale: Vec<(String, String)> = largest
     .iter()
     .enumerate()
-    .map(|(rank, &mcc)| (mcc_name(mcc), colors.mcc[rank].clone()))
+    .map(|(rank, &mcc)| (mccs[mcc].name.clone(), colors.mcc[rank].clone()))
     .collect();
   if mccs.len() > largest.len() {
     largest_scale.push((OTHER_MCC.to_owned(), colors.no_mcc.clone()));
@@ -158,7 +152,7 @@ fn colorings(mccs: &[MccInfo], largest: &[usize], left: &str, right: &str) -> Ve
       &format!("MCC ({left} and {right})"),
       mccs
         .iter()
-        .map(|m| (mcc_name(m.index), colors.mcc[m.slot].clone()))
+        .map(|m| (m.name.clone(), colors.mcc[m.slot].clone()))
         .collect(),
     ),
     categorical(LARGEST_MCC_KEY, "Largest MCCs", largest_scale),
@@ -215,10 +209,10 @@ fn auspice_tree(tree: &DrawTree, context: &TreeContext) -> AuspiceNode {
       name: n.name.clone(),
       node_attrs: AuspiceNodeAttrs {
         div: context.scale.x(n.x_div, n.x_depth),
-        mcc: mcc.and_then(|m| value(&mcc_name(m.index))),
+        mcc: mcc.and_then(|m| value(&m.name)),
         largest_mcc: mcc.and_then(|m| {
           if context.largest.contains(&m.index) {
-            value(&mcc_name(m.index))
+            value(&m.name)
           } else {
             value(OTHER_MCC)
           }

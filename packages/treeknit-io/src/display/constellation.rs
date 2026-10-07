@@ -1,7 +1,7 @@
 //! The MCC of every leaf in every pair.
 
 use crate::display::pair::pair_slots;
-use crate::display::{ConstellationCell, ConstellationTable};
+use crate::display::{ConstellationCell, ConstellationTable, mcc_name};
 use crate::run::RunResult;
 use treeknit_core::mcc_map::leaf_mcc_map;
 
@@ -51,6 +51,9 @@ pub fn constellation(run: &RunResult) -> ConstellationTable {
       .map(|p| [run.trees[p.i].label.clone(), run.trees[p.j].label.clone()])
       .collect(),
     cells,
+    mcc_names: (0..run.pairs.iter().map(|p| p.mccs.len()).max().unwrap_or(0))
+      .map(mcc_name)
+      .collect(),
   }
 }
 
@@ -76,6 +79,8 @@ mod tests {
     assert_eq!(&vec![cell(1, 4, 0)], row("A"));
     let view = pair_view(&r, 0, TreeVersion::Resolved, Scale::Div).unwrap();
     assert_eq!(view.mccs[0].slot, row("X")[0].unwrap().slot);
+    // Oracle: the pair has the MCCs [X] and [A,B,C,D], named in the order of `MCCs.json`.
+    assert_eq!(vec!["MCC 1".to_owned(), "MCC 2".to_owned()], table.mcc_names);
   }
 
   #[test]

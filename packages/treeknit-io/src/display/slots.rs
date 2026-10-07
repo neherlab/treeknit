@@ -14,6 +14,7 @@
 //! when it is visited; with more, it shares the slot used least among them.
 
 use crate::display::{Block, MCC_SLOTS};
+use std::cmp::Reverse;
 use std::collections::BTreeSet;
 
 /// For each of `n_mccs` MCCs, the MCCs it neighbors: two MCCs are neighbors when two of their
@@ -46,8 +47,7 @@ fn low(range: [f64; 2]) -> f64 {
 /// its colored neighbors use every slot, the slot used least among them (the lowest on ties).
 /// Neighbors therefore share a slot only when an MCC has at least `MCC_SLOTS` colored neighbors.
 pub(super) fn color_slots(sizes: &[usize], neighbors: &[BTreeSet<usize>]) -> Vec<usize> {
-  let mut order: Vec<usize> = (0..sizes.len()).collect();
-  order.sort_by_key(|&m| (std::cmp::Reverse(sizes[m]), m));
+  let order = rank_order(sizes);
   let mut slot = vec![0; sizes.len()];
   let mut colored = vec![false; sizes.len()];
   // Uses of each slot by the MCCs colored so far.
@@ -71,12 +71,21 @@ pub(super) fn color_slots(sizes: &[usize], neighbors: &[BTreeSet<usize>]) -> Vec
   slot
 }
 
+/// The MCCs of the sizes `sizes` in rank order: by size, largest first, then by index. The color
+/// slots, `MccInfo.rank`, and the largest MCCs that Auspice colors follow this order.
+pub(super) fn rank_order(sizes: &[usize]) -> Vec<usize> {
+  let mut order: Vec<usize> = (0..sizes.len()).collect();
+  order.sort_by_key(|&m| (Reverse(sizes[m]), m));
+  order
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
   use pretty_assertions::assert_eq;
   use rand::{Rng, SeedableRng};
   use rand_xoshiro::Xoshiro256PlusPlus;
+  use rstest::rstest;
 
   fn block(mcc: usize, left: f64, right: f64) -> Block {
     Block {
@@ -112,6 +121,16 @@ mod tests {
   fn block_neighbors_ignore_consecutive_blocks_of_one_mcc() {
     let blocks = [block(0, 0.0, 1.0), block(0, 1.0, 0.0)];
     assert_eq!(graph(1, &[]), block_neighbors(1, &blocks));
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::largest_first(  &[1, 5, 3],    vec![1, 2, 0])]
+  #[case::ties_by_index(  &[2, 4, 2, 4], vec![1, 3, 0, 2])]
+  #[case::none(           &[],           vec![])]
+  #[trace]
+  fn rank_order_is_by_size_then_by_index(#[case] sizes: &[usize], #[case] expected: Vec<usize>) {
+    assert_eq!(expected, rank_order(sizes));
   }
 
   #[test]

@@ -6,7 +6,7 @@ import { Button, useFilter } from "react-aria-components";
 import ShowIcon from "~icons/lucide/git-compare-arrows";
 
 import { usePairView } from "../analysis/queries";
-import { leafCount, mccTitle } from "../drawing/format";
+import { leafCount } from "../drawing/format";
 import { mccInTanglegram } from "../drawing/navigation";
 import { useDrawingSearch } from "../drawing/useDrawingSearch";
 import { counted, formatCount } from "../format/count";
@@ -206,7 +206,7 @@ function MccRow({ cells, mcc, index, selected, measure, onSelect, onShow }: MccR
         className={cn(inlineButtonStyle, "gap-2", selected && "font-semibold")}
       >
         <MccSwatch slot={mcc.slot} />
-        {mccTitle(mcc.index)}
+        {mcc.name}
       </Button>
     ),
     [MCC_COLUMN.size]: leafCount(mcc.size),
@@ -229,7 +229,7 @@ function MccRow({ cells, mcc, index, selected, measure, onSelect, onShow }: MccR
         </td>
       ))}
       <td className={cn(cellStyle("start"), "w-10")}>
-        <IconButton label={`Show ${mccTitle(mcc.index)} in the tanglegram`} icon={ShowIcon} size="xs" onPress={show} />
+        <IconButton label={`Show ${mcc.name} in the tanglegram`} icon={ShowIcon} size="xs" onPress={show} />
       </td>
     </tr>
   );

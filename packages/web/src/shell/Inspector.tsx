@@ -8,7 +8,7 @@ import ZoomIcon from "~icons/lucide/scan-search";
 import ClearIcon from "~icons/lucide/x";
 
 import { currentData, useArgView, useConstellation, usePairView } from "../analysis/queries";
-import { formatBranchLength, leafCount, mccSummary, mccTitle } from "../drawing/format";
+import { formatBranchLength, leafCount, mccSummary } from "../drawing/format";
 import { leafInPair, mccInTanglegram } from "../drawing/navigation";
 import { selectionOf, type Selection } from "../drawing/selection";
 import { segmentLabels, segmentList, segmentName, type SegmentLabels } from "../drawing/tooltip";
@@ -16,7 +16,7 @@ import { useDrawingSearch } from "../drawing/useDrawingSearch";
 import { counted } from "../format/count";
 import { NONE, yesNo } from "../format/words";
 import { inspectorParent, type InspectorSubject, inspectorSubject, type LeafPair } from "../inspector/subject";
-import { hasAmbiguousAttachment, mccsBySize } from "../tables/mccTable";
+import { hasAmbiguousAttachment } from "../tables/mccTable";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
 import { IconButton } from "../ui/IconButton";
@@ -88,14 +88,14 @@ function ResultInspector({ result }: { result: RunResult }) {
 }
 
 interface SubjectNavigationValue {
-  parent: Selection | null;
+  parent: MccInfo | null;
   onSelect: (selection: Selection) => void;
   onClear: () => void;
 }
 
 function NothingSelected({ mccs, onSelect }: { mccs: readonly MccInfo[]; onSelect: (selection: Selection) => void }) {
   const items = useMemo(
-    () => mccsBySize(mccs).map((mcc) => ({ id: mcc.index, text: mccTitle(mcc.index), mcc })),
+    () => mccs.toSorted((a, b) => a.rank - b.rank).map((mcc) => ({ id: mcc.index, text: mcc.name, mcc })),
     [mccs],
   );
 
@@ -122,7 +122,7 @@ function NothingSelected({ mccs, onSelect }: { mccs: readonly MccInfo[]; onSelec
         {({ mcc }) => (
           <>
             <MccSwatch slot={mcc.slot} />
-            <span className="w-20 shrink-0 whitespace-nowrap">{mccTitle(mcc.index)}</span>
+            <span className="w-20 shrink-0 whitespace-nowrap">{mcc.name}</span>
             <span className="text-ink-muted w-20 shrink-0 text-right tabular-nums">{leafCount(mcc.size)}</span>
             <span className="text-ink-muted min-w-0 truncate">{mcc.leaves[0] ?? ""}</span>
           </>
@@ -154,7 +154,7 @@ function MccDetails({ mcc, onSelect }: { mcc: MccInfo; onSelect: (selection: Sel
   );
 
   return (
-    <Section title={mccTitle(mcc.index)} swatch={mcc.slot}>
+    <Section title={mcc.name} swatch={mcc.slot}>
       <Facts>
         <Fact term="Size">{leafCount(mcc.size)}</Fact>
         <Fact term="Imputed members">
@@ -165,12 +165,7 @@ function MccDetails({ mcc, onSelect }: { mcc: MccInfo; onSelect: (selection: Sel
       <Button size="sm" icon={ZoomIcon} onPress={zoom} className="self-start">
         Zoom to MCC
       </Button>
-      <VirtualList
-        label={`Leaves of ${mccTitle(mcc.index)}`}
-        items={leaves}
-        onAction={chooseLeaf}
-        className={LIST_STYLE}
-      >
+      <VirtualList label={`Leaves of ${mcc.name}`} items={leaves} onAction={chooseLeaf} className={LIST_STYLE}>
         {({ text }) => <span className="min-w-0 truncate">{text}</span>}
       </VirtualList>
     </Section>
@@ -194,7 +189,7 @@ function LeafDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "
           </Fact>
         ))}
         <Fact term="MCC">
-          {mcc === undefined ? NONE : <MccValue mcc={mcc.index} size={mcc.size} slot={mcc.slot} />}
+          {mcc === undefined ? NONE : <MccValue name={mcc.name} size={mcc.size} slot={mcc.slot} />}
         </Fact>
         <Fact term="Attachment">{ambiguous ? "ambiguous" : "unambiguous"}</Fact>
       </Facts>
@@ -218,7 +213,7 @@ function LeafPairs({ name, pairs }: { name: string; pairs: readonly LeafPair[] }
             {cell === null ? (
               <span className="text-ink-muted">Not in this pair</span>
             ) : (
-              <MccValue mcc={cell.mcc} size={cell.size} slot={cell.slot} />
+              <MccValue name={cell.name} size={cell.size} slot={cell.slot} />
             )}
           </li>
         ))}
@@ -268,7 +263,7 @@ function NodeDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "
           <Fact term="Mean length of the trees">{formatBranchLength(node.meanLength)}</Fact>
         )}
         <Fact term="MCC">
-          {mcc === undefined ? NONE : <MccValue mcc={mcc.index} size={mcc.size} slot={mcc.slot} />}
+          {mcc === undefined ? NONE : <MccValue name={mcc.name} size={mcc.size} slot={mcc.slot} />}
         </Fact>
       </Facts>
     </Section>
@@ -298,15 +293,15 @@ function Section({ title, swatch, children }: { title: string; swatch?: number; 
 
   const stepUp = useCallback(() => {
     if (parent !== null) {
-      onSelect(parent);
+      onSelect({ mcc: parent.index });
     }
   }, [parent, onSelect]);
 
   return (
     <section aria-label={title} className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex items-start gap-1">
-        {parent?.mcc === undefined ? null : (
-          <IconButton label={`Show ${mccTitle(parent.mcc)}`} icon={BackIcon} size="sm" onPress={stepUp} />
+        {parent === null ? null : (
+          <IconButton label={`Show ${parent.name}`} icon={BackIcon} size="sm" onPress={stepUp} />
         )}
         <h2 className="text-ink flex min-w-0 flex-1 items-center gap-2 pt-0.5 text-base font-semibold wrap-anywhere">
           {swatch === undefined ? null : <MccSwatch slot={swatch} />}
@@ -335,11 +330,11 @@ function Fact({ term, description, children }: { term: string; description?: str
   );
 }
 
-function MccValue({ mcc, size, slot }: { mcc: number; size: number; slot: number }) {
+function MccValue({ name, size, slot }: { name: string; size: number; slot: number }) {
   return (
     <span className="inline-flex items-center gap-1.5">
       <MccSwatch slot={slot} />
-      {mccSummary(mcc, size)}
+      {mccSummary(name, size)}
     </span>
   );
 }

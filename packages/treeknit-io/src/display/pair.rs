@@ -3,9 +3,9 @@
 use crate::display::lengths::mean_lengths;
 use crate::display::legend::pair_legend;
 use crate::display::shapes::pair_shapes;
-use crate::display::slots::{block_neighbors, color_slots};
+use crate::display::slots::{block_neighbors, color_slots, rank_order};
 use crate::display::tree::draw_tree;
-use crate::display::{Block, DrawTree, Link, MccInfo, PairView, RowSpan, Scale, TreeVersion};
+use crate::display::{Block, DrawTree, Link, MccInfo, PairView, RowSpan, Scale, TreeVersion, mcc_name};
 use crate::run::RunResult;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -193,12 +193,19 @@ fn blocks(left: &DrawTree, right: &DrawTree, links: &[Link]) -> Vec<Block> {
     .collect()
 }
 
-/// The MCCs of pair `p`, with their attached members, color slots, and the rows of their leaves
-/// in the drawn `trees`.
+/// The MCCs of pair `p`, with their attached members, color slots, names, ranks, and the rows of
+/// their leaves in the drawn `trees`.
 pub(super) fn mcc_infos(run: &RunResult, p: &PairResult, slots: &[usize], trees: [&DrawTree; 2]) -> Vec<MccInfo> {
   let mut by_mcc: Vec<Vec<&Attachment>> = vec![Vec::new(); p.mccs.len()];
   for a in &p.attached {
     by_mcc[a.mcc].push(a);
+  }
+  let mut rank = vec![0; p.mccs.len()];
+  for (r, m) in rank_order(&p.mccs.iter().map(Vec::len).collect::<Vec<_>>())
+    .into_iter()
+    .enumerate()
+  {
+    rank[m] = r;
   }
   let mut rows: Vec<Option<RowSpan>> = vec![None; p.mccs.len()];
   for leaf in trees.into_iter().flat_map(DrawTree::leaves) {
@@ -223,6 +230,8 @@ pub(super) fn mcc_infos(run: &RunResult, p: &PairResult, slots: &[usize], trees:
           .flat_map(|a| run.taxa.names_of(&a.leaves))
           .collect(),
         slot: slots[i],
+        name: mcc_name(i),
+        rank: rank[i],
         rows: rows[i],
       }
     })
@@ -430,6 +439,17 @@ mod tests {
     let slots: Vec<usize> = v.mccs.iter().map(|m| m.slot).collect();
     assert_eq!(vec![1, 0], slots);
     assert_eq!(5, v.links.len());
+  }
+
+  #[test]
+  fn pair_view_names_the_mccs_in_file_order_and_ranks_them_by_size() {
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
+    let v = view(&r, 0, TreeVersion::Resolved);
+    // Oracle: MCCs.json lists [X] first and [A,B,C,D] second; the larger second MCC ranks first.
+    assert_eq!(
+      vec![("MCC 1", 1), ("MCC 2", 0)],
+      v.mccs.iter().map(|m| (m.name.as_str(), m.rank)).collect::<Vec<_>>()
+    );
   }
 
   #[test]

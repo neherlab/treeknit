@@ -4,6 +4,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 use unicode_segmentation::UnicodeSegmentation;
 
+/// The name of the MCC of index `mcc` in its pair: "MCC 1" for index 0. The views, the legends of
+/// Auspice, and its filters show it.
+pub(crate) fn mcc_name(mcc: usize) -> String {
+  format!("MCC {}", mcc + 1)
+}
+
 /// Replaces the middle of a shortened label (U+2026).
 const ELLIPSIS: char = '\u{2026}';
 

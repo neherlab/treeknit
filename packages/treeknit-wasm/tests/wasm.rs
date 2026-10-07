@@ -693,7 +693,7 @@ mod tests {
     assert_eq!(
       json!({
         "index": 0, "size": 1, "leaves": ["X"], "imputedLeaves": [], "ambiguousLeaves": [], "slot": 1,
-        "rows": {"first": 2, "last": 4},
+        "name": "MCC 1", "rank": 1, "rows": {"first": 2, "last": 4},
       }),
       view["mccs"][0]
     );

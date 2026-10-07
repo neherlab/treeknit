@@ -88,7 +88,9 @@ function tauOf(tau: readonly (number | null)[], segment: number): string {
 }
 
 function mccLine(view: PairView, mcc: number): string {
-  return mccSummary(mcc, itemAt(view.mccs, mcc, "MCC").size);
+  const { name, size } = itemAt(view.mccs, mcc, "MCC");
+
+  return mccSummary(name, size);
 }
 
 function blockLine([first, last]: [number, number]): string {

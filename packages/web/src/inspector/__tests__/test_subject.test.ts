@@ -79,7 +79,7 @@ describe("inspectorSubject", () => {
 describe("leafPairs", () => {
   test("gives the MCC of a leaf in every pair and none where the pair lacks it", () => {
     expect(leafPairs(exampleConstellation(), "C")).toStrictEqual([
-      { pair: 0, labels: ["ha", "na"], cell: { mcc: 0, size: 3, slot: 0 } },
+      { pair: 0, labels: ["ha", "na"], cell: { mcc: 0, size: 3, slot: 0, name: "MCC 1" } },
       { pair: 1, labels: ["ha", "mp"], cell: null },
       { pair: 2, labels: ["na", "mp"], cell: null },
     ]);
@@ -92,8 +92,8 @@ describe("leafPairs", () => {
 
 describe("inspectorParent", () => {
   test.each([
-    ["a leaf steps up to its MCC", { leaf: "X" }, { mcc: 1 }],
-    ["a node steps up to its MCC", { mcc: 0, node: { side: "right", name: "NODE_3" } }, { mcc: 0 }],
+    ["a leaf steps up to its MCC", { leaf: "X" }, PAIR.mccs[1]],
+    ["a node steps up to its MCC", { mcc: 0, node: { side: "right", name: "NODE_3" } }, PAIR.mccs[0]],
     ["an MCC has no parent; clearing reaches the MCC list", { mcc: 1 }, null],
     ["an ARG node has no MCC", { node: { side: "arg", name: "H" } }, null],
     ["nothing selected has no parent", {}, null],

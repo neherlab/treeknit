@@ -8,6 +8,7 @@ import type {
   PairView,
 } from "@neherlab/treeknit-wasm";
 
+import { itemAt } from "../drawing/lookup";
 import type { Selection } from "../drawing/selection";
 import { internalNodeIndex, leafIndex, TREE_SIDES, type TreeSide } from "../drawing/trees";
 
@@ -26,7 +27,11 @@ export interface LeafCopy {
 export interface LeafPair {
   pair: number;
   labels: readonly [string, string];
-  cell: ConstellationCell | null;
+  cell: NamedCell | null;
+}
+
+export interface NamedCell extends ConstellationCell {
+  name: string;
 }
 
 export type InspectorSubject =
@@ -36,12 +41,8 @@ export type InspectorSubject =
   | { kind: "node"; side: TreeSide; tree: string; node: DrawNode; mcc: MccInfo | undefined }
   | { kind: "argNode"; node: ArgNodeView };
 
-export function inspectorParent(subject: InspectorSubject): Selection | null {
-  if ((subject.kind === "leaf" || subject.kind === "node") && subject.mcc !== undefined) {
-    return { mcc: subject.mcc.index };
-  }
-
-  return null;
+export function inspectorParent(subject: InspectorSubject): MccInfo | null {
+  return (subject.kind === "leaf" || subject.kind === "node") && subject.mcc !== undefined ? subject.mcc : null;
 }
 
 export function inspectorSubject(selection: Selection, data: InspectorData): InspectorSubject {
@@ -83,7 +84,15 @@ export function leafPairs(constellation: ConstellationTable | undefined, name: s
   const row = constellation?.leaves.indexOf(name) ?? -1;
   const cells = row === -1 ? undefined : constellation?.cells[row];
 
-  return (constellation?.pairs ?? []).map((labels, pair) => ({ pair, labels, cell: cells?.[pair] ?? null }));
+  return (constellation?.pairs ?? []).map((labels, pair) => {
+    const cell = cells?.[pair] ?? null;
+
+    return {
+      pair,
+      labels,
+      cell: cell === null ? null : { ...cell, name: itemAt(constellation?.mccNames ?? [], cell.mcc, "MCC name") },
+    };
+  });
 }
 
 function leafSubject(name: string, { pair, constellation }: InspectorData): InspectorSubject {

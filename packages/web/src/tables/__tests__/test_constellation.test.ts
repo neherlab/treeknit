@@ -32,6 +32,8 @@ describe("constellationRows of a table without a row of cells for a leaf", () =>
 
 describe("cellLabel", () => {
   test("names the MCC, its size, and the navigation target", () => {
-    expect(cellLabel({ mcc: 1, size: 2, slot: 2 }, "A", "ha and mp")).toBe("MCC 2 of 2 leaves: show A in ha and mp");
+    expect(cellLabel({ mcc: 1, size: 2, slot: 2 }, TABLE.mccNames, "A", "ha and mp")).toBe(
+      "MCC 2 of 2 leaves: show A in ha and mp",
+    );
   });
 });

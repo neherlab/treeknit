@@ -494,6 +494,15 @@ export interface MccInfo {
      */
     slot: number;
     /**
+     * The name of the MCC: "MCC 1" for index 0.
+     */
+    name: string;
+    /**
+     * Rank of the MCC by size, largest first, then by index: 0 for the largest MCC. The color
+     * slots are given in this order.
+     */
+    rank: number;
+    /**
      * The rows of the leaves of the MCC in both drawn trees; `None` when neither drawn tree has a
      * leaf of it.
      */
@@ -1050,6 +1059,10 @@ export interface ConstellationTable {
      * MCCs (its trees share fewer than two leaves).
      */
     cells: (ConstellationCell | null)[][];
+    /**
+     * The name of each MCC index of the cells, `mcc_names[cell.mcc]`, as `MccInfo.name`.
+     */
+    mccNames: string[];
 }
 
 /**

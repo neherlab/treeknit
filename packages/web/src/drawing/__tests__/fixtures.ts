@@ -98,6 +98,8 @@ export function examplePairView(): PairView {
         imputedLeaves: [],
         ambiguousLeaves: [],
         slot: SLOT_ABCD,
+        name: "MCC 1",
+        rank: 0,
         rows: { first: 0, last: 4 },
       },
       {
@@ -107,6 +109,8 @@ export function examplePairView(): PairView {
         imputedLeaves: ["X"],
         ambiguousLeaves: ["X"],
         slot: SLOT_X,
+        name: "MCC 2",
+        rank: 1,
         rows: { first: 2, last: 4 },
       },
     ],
@@ -275,6 +279,7 @@ export function exampleConstellation(): ConstellationTable {
       [{ mcc: 0, size: 3, slot: 0 }, null, null],
       [null, null, { mcc: 0, size: 1, slot: 1 }],
     ],
+    mccNames: ["MCC 1", "MCC 2"],
   };
 }
 

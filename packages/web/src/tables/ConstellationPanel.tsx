@@ -93,7 +93,15 @@ function Constellation({ data }: { data: ConstellationTable }) {
               const row = rows[index];
 
               return row === undefined ? null : (
-                <LeafRow key={row.leaf} row={row} index={index} columns={columns} measure={measureRow} onOpen={open} />
+                <LeafRow
+                  key={row.leaf}
+                  row={row}
+                  index={index}
+                  columns={columns}
+                  mccNames={data.mccNames}
+                  measure={measureRow}
+                  onOpen={open}
+                />
               );
             })}
             <VirtualGap heightPx={after} />
@@ -104,7 +112,7 @@ function Constellation({ data }: { data: ConstellationTable }) {
   );
 }
 
-function LeafRow({ row, index, columns, measure, onOpen }: LeafRowProps) {
+function LeafRow({ row, index, columns, mccNames, measure, onOpen }: LeafRowProps) {
   return (
     <tr ref={measure} data-index={index} aria-rowindex={index + 2} className={nativeRowStyle}>
       <th scope="row" className={cn(cellStyle("start"), STICKY_COLUMN, "max-w-[32ch] truncate font-normal")}>
@@ -114,6 +122,7 @@ function LeafRow({ row, index, columns, measure, onOpen }: LeafRowProps) {
         <td key={id} className={cellStyle("start")}>
           <PairCell
             cell={itemAt(row.cells, pair, "constellation cell")}
+            mccNames={mccNames}
             leaf={row.leaf}
             pair={pair}
             title={title}
@@ -129,11 +138,12 @@ interface LeafRowProps {
   row: ConstellationRow;
   index: number;
   columns: readonly PairColumn[];
+  mccNames: readonly string[];
   measure: (row: HTMLTableRowElement | null) => void;
   onOpen: (pair: number, leaf: string) => void;
 }
 
-function PairCell({ cell, leaf, pair, title, onOpen }: PairCellProps) {
+function PairCell({ cell, mccNames, leaf, pair, title, onOpen }: PairCellProps) {
   const open = useCallback(() => {
     onOpen(pair, leaf);
   }, [leaf, onOpen, pair]);
@@ -149,7 +159,7 @@ function PairCell({ cell, leaf, pair, title, onOpen }: PairCellProps) {
 
   return (
     <Button
-      aria-label={cellLabel(cell, leaf, title)}
+      aria-label={cellLabel(cell, mccNames, leaf, title)}
       onPress={open}
       className={cn(inlineButtonStyle, "gap-1.5 tabular-nums")}
     >
@@ -161,6 +171,7 @@ function PairCell({ cell, leaf, pair, title, onOpen }: PairCellProps) {
 
 interface PairCellProps {
   cell: ConstellationCell | null;
+  mccNames: readonly string[];
   leaf: string;
   pair: number;
   title: string;
