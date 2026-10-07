@@ -182,7 +182,8 @@ struct Cli {
   #[arg(short, long, default_value_t = Settings::default().gamma, help_heading = ANALYSIS_HEADING)]
   gamma: f64,
 
-  /// Sequence lengths of the segments, e.g. 1500,2000 (used by the likelihood tie-break).
+  /// Sequence lengths of the segments, e.g. 1500,2000 (used by the likelihood tie-break and to
+  /// weigh the drawn length of a split that some trees lack).
   #[arg(long, value_name = "LENGTHS", help_heading = ANALYSIS_HEADING)]
   seq_lengths: Option<String>,
 

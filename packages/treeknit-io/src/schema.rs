@@ -39,7 +39,7 @@ pub const SETTING_KEYS: [SettingKey; 10] = [
     key: "seq-lengths",
     opposite: None,
     value: KeyValue::Numbers,
-    description: "Sequence length of each segment, in the order of the trees, for the likelihood tie-break.",
+    description: "Sequence length of each segment, in the order of the trees, for the likelihood tie-break and the drawn length of a split that some trees lack.",
   },
   SettingKey {
     setting: SettingName::NMcmcIt,
@@ -261,7 +261,8 @@ pub fn modes() -> Vec<ModeInfo> {
 
 /// The schema of the settings of a request with `k` trees and the settings `s`. Applicability
 /// follows `treeknit_core`: naive mode skips the pair inference, the only user of γ, the MCMC
-/// steps, the likelihood tie-break with its sequence lengths, and the random numbers; the final
+/// steps, the likelihood tie-break, and the random numbers; the sequence lengths also weigh the
+/// drawn lengths of splits that some trees lack, so they apply to every run; the final
 /// round runs only with strict or liberal resolution and more than two trees; and naive mode
 /// without resolution infers the same MCCs in every round. Bounds are those of
 /// `analysis::check_settings`.
@@ -299,8 +300,6 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
   } else {
     None
   };
-  let seq_lengths_skip =
-    naive.or_else(|| (!s.likelihood).then_some("Only the likelihood tie-break uses sequence lengths."));
   let seed_skip = s.naive.then_some("Naive MCCs use no random numbers.");
   let rounds_skip = (s.naive && s.resolve == ResolveMode::None)
     .then_some("Without resolution, every round infers the same naive MCCs of the unchanged trees.");
@@ -323,8 +322,8 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         None,
         None,
         false,
-        seq_lengths_skip,
-        "Sequence length of each segment, in the order of the trees, used by the likelihood tie-break.",
+        None,
+        "Sequence length of each segment, in the order of the trees, used by the likelihood tie-break and by the drawn length of a split that some trees lack.",
       ),
       n_mcmc_it: number(
         exact_u64(d.n_mcmc_it),
@@ -599,7 +598,7 @@ mod tests {
     let schema = settings_schema(3, &s);
     let expected = [
       ("gamma", false),
-      ("seqLengths", false),
+      ("seqLengths", true),
       ("nMcmcIt", false),
       ("rounds", true),
       ("seed", false),
@@ -610,33 +609,23 @@ mod tests {
     ];
     assert_eq!(expected, applies(&schema));
     let f = &schema.settings;
-    let reasons = [
-      &f.gamma.reason,
-      &f.seq_lengths.reason,
-      &f.n_mcmc_it.reason,
-      &f.likelihood.reason,
-    ];
-    assert_eq!([&Some(NAIVE_REASON.to_owned()); 4], reasons);
+    let reasons = [&f.gamma.reason, &f.n_mcmc_it.reason, &f.likelihood.reason];
+    assert_eq!([&Some(NAIVE_REASON.to_owned()); 3], reasons);
+    assert_eq!(None, f.seq_lengths.reason);
     assert_eq!(Some("Naive MCCs use no random numbers.".to_owned()), f.seed.reason);
   }
 
   #[test]
-  fn likelihood_off_disables_the_sequence_lengths() {
+  fn likelihood_off_keeps_the_sequence_lengths() {
     // Oracle: `choose_conf` in `treeknit_core::pair` reads the sequence lengths only with
-    // `likelihood_sort`.
+    // `likelihood_sort`, but `display::lengths::mean_lengths` weighs the trees by them in every run.
     let s = Settings {
       likelihood: false,
       ..Settings::default()
     };
     let f = settings_schema(2, &s).settings;
-    let expected = (
-      false,
-      Some("Only the likelihood tie-break uses sequence lengths.".to_owned()),
-      true,
-      true,
-    );
     assert_eq!(
-      expected,
+      (true, None, true, true),
       (
         f.seq_lengths.applies,
         f.seq_lengths.reason,
@@ -669,7 +658,7 @@ mod tests {
     let expected = serde_json::json!({
       "default": 1.0, "min": 0.0, "minExclusive": true, "max": null, "step": null, "integer": false, "applies": true,
       "reason": null,
-      "help": "Sequence length of each segment, in the order of the trees, used by the likelihood tie-break.",
+      "help": "Sequence length of each segment, in the order of the trees, used by the likelihood tie-break and by the drawn length of a split that some trees lack.",
     });
     assert_eq!(expected, json["settings"]["seqLengths"]);
     assert_eq!(serde_json::json!(TREE_ORDER_HELP), json["treeOrderHelp"]);

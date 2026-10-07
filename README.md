@@ -27,7 +27,7 @@ Main options:
 |---|---|
 | `-g/--gamma` | cost of a reassortment (default 2) |
 | `HA=seg4.nwk`, `https://...` | trees: files (gzip-compressed or not) or https: addresses, with an optional label |
-| `--seq-lengths 1700,1400` | segment lengths for the branch-length tie-break |
+| `--seq-lengths 1700,1400` | segment lengths for the branch-length tie-break and the drawn length of a split that some trees lack |
 | `--resolve matched\|strict\|liberal\|none` | how trees are resolved (default `matched`, see below); `--help-resolve` explains the modes |
 | `--pre-resolve`, `--rounds`, `--no-final-round` | further control of tree resolution; each flag has its opposite (`--no-pre-resolve`, `--final-round`, `--likelihood`, `--no-naive`) |
 | `--naive` | naive MCCs (γ → ∞) |
