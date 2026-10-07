@@ -17,9 +17,12 @@ tsify = ["dep:tsify", "dep:wasm-bindgen"]
 # The Newick texts of the examples in the binary, for `treeknit --example`. The WebAssembly build
 # leaves them out: the web app loads each example file on demand.
 embedded-examples = []
+# `clap::ValueEnum` on the resolution modes, for `--resolve` of the command line.
+clap = ["dep:clap"]
 
 [dependencies]
 base64.workspace = true
+clap = { workspace = true, optional = true }
 flate2.workspace = true
 form_urlencoded.workspace = true
 log.workspace = true

@@ -1000,6 +1000,7 @@ dependencies = [
  "rstest",
  "serde_json",
  "simplelog",
+ "strum",
  "treeknit-core",
  "treeknit-io",
  "treeknit-testing",
@@ -1025,6 +1026,7 @@ name = "treeknit-io"
 version = "1.0.0"
 dependencies = [
  "base64",
+ "clap",
  "flate2",
  "form_urlencoded",
  "log",

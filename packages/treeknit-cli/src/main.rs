@@ -3,7 +3,7 @@
 
 use anyhow::{Context, Result, bail};
 use clap::parser::ValueSource;
-use clap::{ArgMatches, CommandFactory, FromArgMatches, Parser, ValueEnum};
+use clap::{ArgMatches, CommandFactory, FromArgMatches, Parser};
 use simplelog::{ColorChoice, CombinedLogger, ConfigBuilder, LevelFilter, TermLogger, TerminalMode, WriteLogger};
 use std::collections::BTreeSet;
 use std::fs;
@@ -17,6 +17,7 @@ use treeknit_io::examples;
 use treeknit_io::launch::{self, LaunchInput, LinkLocation, LocationError, SettingsPatch, TreeAddress};
 use treeknit_io::output::{self, OutputFile, OutputOptions};
 use treeknit_io::schema::{KeyValue, SETTING_KEYS};
+use treeknit_io::wire::wire_name;
 use treeknit_io::{run, schema};
 
 const FORMER_OPTIONS_HELP: &str = "\
@@ -49,7 +50,7 @@ fn resolve_help() -> String {
   let modes = schema::modes()
     .iter()
     .map(|m| {
-      let name = resolve_value(m.mode);
+      let name = wire_name(&m.mode);
       let default = if m.mode == analysis::ResolveMode::default() {
         "(default) "
       } else {
@@ -66,21 +67,6 @@ fn resolve_help() -> String {
   )
 }
 
-/// The value of `--resolve` that selects `mode`.
-fn resolve_value(mode: analysis::ResolveMode) -> String {
-  #[expect(
-    clippy::expect_used,
-    reason = "`From<ResolveMode>` maps the variants one to one, and none is skipped"
-  )]
-  ResolveMode::value_variants()
-    .iter()
-    .filter(|&&v| analysis::ResolveMode::from(v) == mode)
-    .find_map(ValueEnum::to_possible_value)
-    .expect("every resolution mode of the settings has a --resolve value")
-    .get_name()
-    .to_owned()
-}
-
 /// The text of `--list-examples`: the id, the group, and the trees of each example.
 fn example_list() -> String {
   examples::EXAMPLES
@@ -91,26 +77,6 @@ fn example_list() -> String {
     })
     .collect::<Vec<_>>()
     .join("\n")
-}
-
-/// How trees are resolved (see --help-resolve).
-#[derive(ValueEnum, Clone, Copy, Debug)]
-enum ResolveMode {
-  None,
-  Strict,
-  Liberal,
-  Matched,
-}
-
-impl From<ResolveMode> for analysis::ResolveMode {
-  fn from(m: ResolveMode) -> analysis::ResolveMode {
-    match m {
-      ResolveMode::None => analysis::ResolveMode::None,
-      ResolveMode::Strict => analysis::ResolveMode::Strict,
-      ResolveMode::Liberal => analysis::ResolveMode::Liberal,
-      ResolveMode::Matched => analysis::ResolveMode::Matched,
-    }
-  }
 }
 
 /// Infer reassortment between segment trees: maximally compatible clades (MCCs) for every
@@ -193,7 +159,7 @@ struct Cli {
 
   /// How trees are resolved: matched, strict, liberal or none (see --help-resolve).
   #[arg(long, value_enum, value_name = "MODE", help_heading = ANALYSIS_HEADING)]
-  resolve: Option<ResolveMode>,
+  resolve: Option<analysis::ResolveMode>,
 
   /// Before inference, add to each tree the splits of other trees compatible with all trees.
   #[arg(long, overrides_with = "no_pre_resolve", help_heading = ANALYSIS_HEADING)]
@@ -845,7 +811,7 @@ fn options_patch(
     gamma: given("gamma").then_some(cli.gamma),
     seq_lengths: lengths.clone().and_then(Result::ok),
     n_mcmc_it: given("n_mcmc_it").then_some(cli.n_mcmc_it),
-    resolve: cli.resolve.map(Into::into),
+    resolve: cli.resolve,
     pre_resolve: pair(cli.pre_resolve, cli.no_pre_resolve),
     rounds: cli.rounds,
     final_round: pair(cli.final_round, cli.no_final_round),
@@ -1023,7 +989,7 @@ fn log_options(o: &Options, k: usize) {
   log::info!(
     "γ = {}, resolution: {}, pre-resolve: {}, {} round(s){}",
     o.gamma,
-    format!("{:?}", o.resolution).to_lowercase(),
+    wire_name(&analysis::ResolveMode::from(o.resolution)),
     o.pre_resolve,
     o.rounds,
     if extra { " + final round without resolution" } else { "" }
@@ -1247,9 +1213,11 @@ fn rayon_threads(n: usize) -> Result<()> {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use clap::ValueEnum;
   use pretty_assertions::assert_eq;
   use std::collections::BTreeMap;
   use std::iter;
+  use strum::VariantArray;
 
   const HA: &str = "((A,B),(C,(D,X)));";
   const NA: &str = "((A,(B,X)),(C,D));";
@@ -1284,6 +1252,18 @@ mod tests {
 
   fn url(u: &str) -> Option<TreeAddress> {
     Some(TreeAddress::Url { url: u.to_owned() })
+  }
+
+  #[test]
+  fn resolve_values_are_the_serde_names_of_the_modes() {
+    // Oracle: the names that session files and links write.
+    let values: Vec<String> = analysis::ResolveMode::value_variants()
+      .iter()
+      .filter_map(ValueEnum::to_possible_value)
+      .map(|v| v.get_name().to_owned())
+      .collect();
+    let names: Vec<String> = analysis::ResolveMode::VARIANTS.iter().map(wire_name).collect();
+    assert_eq!(names, values);
   }
 
   #[test]
