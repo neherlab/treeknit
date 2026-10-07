@@ -1,4 +1,4 @@
-import { createStore, get, promisifyRequest } from "idb-keyval";
+import { createStore, get, update } from "idb-keyval";
 
 import {
   type PersistenceChannel,
@@ -31,29 +31,14 @@ export function indexedDbStorage(): RecordStorage {
       return record.data;
     },
     async update(updater) {
-      await store(
-        "readwrite",
-        (objectStore) =>
-          new Promise<void>((resolve, reject) => {
-            const request = objectStore.get(RECORD_KEY);
+      await update<unknown>(
+        RECORD_KEY,
+        (stored) => {
+          const next = updater(readableRecordSchema.safeParse(stored).data);
 
-            request.addEventListener("success", () => {
-              try {
-                const next = updater(readableRecordSchema.safeParse(request.result).data);
-
-                if (next !== "keep") {
-                  objectStore.put(next, RECORD_KEY);
-                }
-
-                resolve(promisifyRequest(objectStore.transaction));
-              } catch (error) {
-                reject(error instanceof Error ? error : new Error(String(error)));
-              }
-            });
-            request.addEventListener("error", () => {
-              reject(request.error ?? new Error("The stored workspace could not be read."));
-            });
-          }),
+          return next === "keep" ? stored : next;
+        },
+        store,
       );
     },
   };
