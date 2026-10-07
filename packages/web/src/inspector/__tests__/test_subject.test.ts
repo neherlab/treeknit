@@ -55,10 +55,11 @@ describe("inspectorSubject", () => {
     });
   });
 
-  test("shows an ARG node", () => {
+  test("shows an ARG node with the segment labels of the ARG", () => {
     expect(inspectorSubject({ node: { side: "arg", name: "H" } }, DATA)).toStrictEqual({
       kind: "argNode",
       node: exampleArgView().nodes[4],
+      segments: ["ha", "na"],
     });
   });
 

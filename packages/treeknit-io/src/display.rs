@@ -522,6 +522,9 @@ pub struct ArgView {
   pub shapes: ArgShapes,
   /// The legend: the two segments, both, and reassortment when the ARG has a hybrid node.
   pub legend: Vec<LegendItem>,
+  /// The labels of the trees of segment A and segment B, which `ArgNodeView.segments` and
+  /// `ArgEdge.segments` index.
+  pub segments: [String; 2],
 }
 
 /// A node of an `ArgView`.

@@ -196,6 +196,7 @@ export function exampleArgView(): ArgView {
     edges,
     root: 0,
     rootCase: "shared",
+    segments: ["ha", "na"],
     scale: "div",
     // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated ArgView type
     shapes: {

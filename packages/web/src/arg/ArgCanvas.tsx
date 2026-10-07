@@ -6,17 +6,16 @@ import type { TreeViewHandle } from "../canvas/useTreeView";
 import { drawingCursor } from "../drawing/cursor";
 import { useDrawingPicking } from "../drawing/picking";
 import { argEmphasis, NO_SELECTION, type Selection } from "../drawing/selection";
-import type { SegmentLabels } from "../drawing/tooltip";
 import { argLeafLabels } from "../drawing/trees";
 import { useDrawingCanvas, useDrawingGeometry } from "../drawing/useDrawingCanvas";
 import { ArgLegend } from "./ArgLegend";
 import { argColumn, argCurves, argFrame } from "./geometry";
 import { argLayers, type ArgStyle } from "./layers";
-import { argPickRules } from "./picking";
+import { ARG_PICK_RULES } from "./picking";
 
 const ARG_GEOMETRY = { frame: argFrame, curves: argCurves };
 
-export default function ArgCanvas({ data, view, labels, selection, onSelect, segments, label }: ArgCanvasProps) {
+export default function ArgCanvas({ data, view, labels, selection, onSelect, label }: ArgCanvasProps) {
   const texts = useMemo(() => argLeafLabels(data), [data]);
   const canvas = useDrawingCanvas(view, labels, texts);
   const { colors, rules, tree, crossPx, labelsShown, leafLabels } = canvas;
@@ -50,8 +49,7 @@ export default function ArgCanvas({ data, view, labels, selection, onSelect, seg
     [geometry, colors, rules, data],
   );
 
-  const pickRules = useMemo(() => argPickRules(segments), [segments]);
-  const picking = useDrawingPicking(pickRules, data, geometry, selection, onSelect);
+  const picking = useDrawingPicking(ARG_PICK_RULES, data, geometry, selection, onSelect);
 
   return (
     <TreeCanvas
@@ -74,6 +72,5 @@ export interface ArgCanvasProps {
   labels: LabelMode;
   selection: Selection;
   onSelect: (selection: Selection) => void;
-  segments: SegmentLabels;
   label: string;
 }

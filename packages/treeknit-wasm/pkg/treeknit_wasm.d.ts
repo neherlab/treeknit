@@ -1037,6 +1037,11 @@ export interface ArgView {
      * The legend: the two segments, both, and reassortment when the ARG has a hybrid node.
      */
     legend: LegendItem[];
+    /**
+     * The labels of the trees of segment A and segment B, which `ArgNodeView.segments` and
+     * `ArgEdge.segments` index.
+     */
+    segments: [string, string];
 }
 
 /**

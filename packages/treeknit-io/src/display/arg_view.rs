@@ -83,6 +83,7 @@ fn layout(arg: &Arg, scale: Scale, segments: [&str; 2]) -> ArgView {
     root_case,
     scale,
     legend: arg_legend(&shapes, segments),
+    segments: segments.map(str::to_owned),
     shapes,
   }
 }
@@ -503,6 +504,14 @@ mod tests {
       parts.push(format!("({a},{b})"));
     }
     format!("{};", parts[0])
+  }
+
+  #[test]
+  fn arg_view_names_its_segments_by_their_trees() {
+    let r = run_trees(&[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")]);
+    let v = arg_view(&r, Scale::Div).unwrap();
+    // Oracle: segment A is the first tree of the run, labeled ha, and segment B the second.
+    assert_eq!(["ha".to_owned(), "na".to_owned()], v.segments);
   }
 
   #[test]

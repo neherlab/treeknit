@@ -11,7 +11,7 @@ import { currentData, useArgView, useConstellation, usePairView } from "../analy
 import { formatBranchLength, leafCount, mccSummary } from "../drawing/format";
 import { leafInPair, mccInTanglegram } from "../drawing/navigation";
 import { selectionOf, type Selection } from "../drawing/selection";
-import { segmentLabels, segmentList, segmentName, type SegmentLabels } from "../drawing/tooltip";
+import { segmentList, segmentName } from "../drawing/tooltip";
 import { useDrawingSearch } from "../drawing/useDrawingSearch";
 import { counted } from "../format/count";
 import { NONE, yesNo } from "../format/words";
@@ -67,8 +67,6 @@ function ResultInspector({ result }: { result: RunResult }) {
     [selection, pair, arg, constellation],
   );
 
-  const segments = useMemo(() => segmentLabels(result.request.trees), [result.request.trees]);
-
   const parent = inspectorParent(subject);
   const navigation = useMemo(() => ({ parent, onSelect: select, onClear: clear }), [parent, select, clear]);
 
@@ -77,7 +75,7 @@ function ResultInspector({ result }: { result: RunResult }) {
     .with({ kind: "mcc" }, ({ mcc }) => <MccDetails mcc={mcc} onSelect={select} />)
     .with({ kind: "leaf" }, (leaf) => <LeafDetails subject={leaf} />)
     .with({ kind: "node" }, (node) => <NodeDetails subject={node} />)
-    .with({ kind: "argNode" }, ({ node }) => <ArgNodeDetails node={node} segments={segments} />)
+    .with({ kind: "argNode" }, ({ node, segments }) => <ArgNodeDetails node={node} segments={segments} />)
     .exhaustive();
 
   return (
@@ -270,7 +268,7 @@ function NodeDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "
   );
 }
 
-function ArgNodeDetails({ node, segments }: { node: ArgNodeView; segments: SegmentLabels }) {
+function ArgNodeDetails({ node, segments }: { node: ArgNodeView; segments: readonly string[] }) {
   return (
     <Section title={node.label === "" ? "Unnamed node" : node.label}>
       <Facts>

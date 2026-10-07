@@ -39,7 +39,7 @@ export type InspectorSubject =
   | { kind: "leaf"; name: string; copies: LeafCopy[]; mcc: MccInfo | undefined; ambiguous: boolean; pairs: LeafPair[] }
   | { kind: "mcc"; mcc: MccInfo }
   | { kind: "node"; side: TreeSide; tree: string; node: DrawNode; mcc: MccInfo | undefined }
-  | { kind: "argNode"; node: ArgNodeView };
+  | { kind: "argNode"; node: ArgNodeView; segments: readonly [string, string] };
 
 export function inspectorParent(subject: InspectorSubject): MccInfo | null {
   return (subject.kind === "leaf" || subject.kind === "node") && subject.mcc !== undefined ? subject.mcc : null;
@@ -52,8 +52,8 @@ export function inspectorSubject(selection: Selection, data: InspectorData): Ins
   if (node?.side === "arg") {
     const argNode = arg?.nodes.find((candidate) => candidate.label === node.name);
 
-    if (argNode !== undefined) {
-      return { kind: "argNode", node: argNode };
+    if (arg !== undefined && arg !== null && argNode !== undefined) {
+      return { kind: "argNode", node: argNode, segments: arg.segments };
     }
   } else if (node !== undefined && pair !== undefined) {
     const tree = pair[node.side];

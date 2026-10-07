@@ -9,7 +9,6 @@ import { type DrawingNotice, DrawingPanel } from "../drawing/DrawingPanel";
 import { figureOptions } from "../drawing/figure";
 import { LeafSearch } from "../drawing/LeafSearch";
 import { shownScaleNotice } from "../drawing/scale";
-import { segmentLabels } from "../drawing/tooltip";
 import { argLeafNames, argLeafRows, rowCount } from "../drawing/trees";
 import { useDrawingSearch, useFindLeaf } from "../drawing/useDrawingSearch";
 import { useDrawingView } from "../drawing/useDrawingView";
@@ -37,7 +36,6 @@ function Arg({ result }: { result: RunResult }) {
   const rows = useMemo(() => (data === undefined ? 1 : rowCount(data)), [data]);
   const view = useDrawingView(rows);
   const failure = argFailure(result.summary.arg, query.data);
-  const segments = useMemo(() => segmentLabels(result.request.trees), [result.request.trees]);
   const names = useMemo(() => (data === undefined ? [] : argLeafNames(data)), [data]);
   const findLeaf = useFindLeaf(data, argLeafRows, select, view.actions);
 
@@ -87,8 +85,7 @@ function Arg({ result }: { result: RunResult }) {
               labels={labels}
               selection={selection}
               onSelect={select}
-              segments={segments}
-              label={`Ancestral reassortment graph of ${segments[0]} and ${segments[1]}`}
+              label={`Ancestral reassortment graph of ${shown.segments[0]} and ${shown.segments[1]}`}
             />
           </CanvasBoundary>
         )

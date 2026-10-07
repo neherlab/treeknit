@@ -6,14 +6,6 @@ import { formatBranchLength, leafCount, mccSummary } from "./format";
 import { itemAt } from "./lookup";
 import type { ArgTarget, PairTarget } from "./selection";
 
-export type SegmentLabels = readonly [string, string];
-
-export function segmentLabels(trees: readonly { label: string }[]): SegmentLabels {
-  const [first, second] = trees;
-
-  return [first?.label ?? "A", second?.label ?? "B"];
-}
-
 export function pairTooltip(view: PairView, target: PairTarget): string[] {
   return match(target)
     .returnType<string[]>()
@@ -48,7 +40,9 @@ export function pairTooltip(view: PairView, target: PairTarget): string[] {
     .exhaustive();
 }
 
-export function argTooltip(view: ArgView, target: ArgTarget, segments: SegmentLabels): string[] {
+export function argTooltip(view: ArgView, target: ArgTarget): string[] {
+  const { segments } = view;
+
   if (target.kind === "edge") {
     const edge = view.edges[target.edge];
 
@@ -73,11 +67,11 @@ export function argTooltip(view: ArgView, target: ArgTarget, segments: SegmentLa
   ];
 }
 
-export function segmentName(segment: number, segments: SegmentLabels): string {
-  return segments[segment] ?? `segment ${String(segment + 1)}`;
+export function segmentName(segment: number, segments: readonly string[]): string {
+  return itemAt(segments, segment, "segment");
 }
 
-export function segmentList(present: readonly number[], segments: SegmentLabels): string {
+export function segmentList(present: readonly number[], segments: readonly string[]): string {
   return present.length > 1
     ? LEGEND_LABELS.bothSegments
     : present.map((segment) => `${LEGEND_LABELS.segmentA} ${segmentName(segment, segments)}`).join("");

@@ -243,6 +243,7 @@ function argViewWith(labels: string[]): ArgView {
       rows: { first: 0, last: 0 },
     })),
     edges: [],
+    segments: ["ha", "na"],
     root: 0,
     rootCase: "synthetic",
     scale: "div",

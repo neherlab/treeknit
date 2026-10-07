@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { argTooltip, pairTooltip, segmentLabels, segmentList } from "../tooltip";
+import { argTooltip, pairTooltip, segmentList } from "../tooltip";
 import { exampleArgView, examplePairView } from "./fixtures";
 
 const VIEW = examplePairView();
@@ -44,18 +44,9 @@ describe("pairTooltip", () => {
   });
 });
 
-describe("segmentLabels", () => {
-  test("names the segments after the first two trees, or A and B without them", () => {
-    expect([segmentLabels([{ label: "ha" }, { label: "na" }, { label: "mp" }]), segmentLabels([])]).toStrictEqual([
-      ["ha", "na"],
-      ["A", "B"],
-    ]);
-  });
-});
-
 describe("argTooltip", () => {
-  test("shows both segments, the branch length per segment, and reassortment at a hybrid node", () => {
-    expect(argTooltip(exampleArgView(), { kind: "node", node: 4 }, SEGMENTS)).toStrictEqual([
+  test("shows both segments, the branch length per segment of the view's trees, and reassortment at a hybrid node", () => {
+    expect(argTooltip(exampleArgView(), { kind: "node", node: 4 })).toStrictEqual([
       "H",
       "Both segments",
       "Branch length in ha: 0.1",
@@ -65,10 +56,7 @@ describe("argTooltip", () => {
   });
 
   test("shows the segment of a reticulation edge", () => {
-    expect(argTooltip(exampleArgView(), { kind: "edge", edge: 4 }, SEGMENTS)).toStrictEqual([
-      "Segment na",
-      "Reticulation edge",
-    ]);
+    expect(argTooltip(exampleArgView(), { kind: "edge", edge: 4 })).toStrictEqual(["Segment na", "Reticulation edge"]);
   });
 
   test("names one segment after its tree, and two segments as both", () => {
