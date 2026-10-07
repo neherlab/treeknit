@@ -1,5 +1,5 @@
 import type { AnalysisRequest, LinkEntry, LinkSource, TreeAddress } from "@neherlab/treeknit-wasm";
-import { isDeepEqual } from "remeda";
+import { isDeepEqual, pick } from "remeda";
 import { match } from "ts-pattern";
 
 import type { AnalysisClient } from "../analysis/client";
@@ -43,11 +43,7 @@ export function treeAddress(source: TreeSource): TreeAddress | null {
 }
 
 export function linkSearch(previous: Readonly<SearchRecord>, pairs: readonly LinkEntry[] | null): SearchRecord {
-  const view = Object.fromEntries(
-    Object.entries(previous).filter(([key]) => VIEW_KEYS.some((viewKey) => viewKey === key)),
-  );
-
-  return { ...linkRecord(pairs ?? []), ...view };
+  return { ...linkRecord(pairs ?? []), ...pick(previous, VIEW_KEYS) };
 }
 
 export function linkRecord(pairs: readonly LinkEntry[]): SearchRecord {

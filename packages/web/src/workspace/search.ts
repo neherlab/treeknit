@@ -1,6 +1,6 @@
 import type { AuspiceTrees, LabelMode, Scale, TreeVersion } from "@neherlab/treeknit-wasm";
 import { LABEL_MODE_VALUES, SCALE_VALUES, TREE_VERSION_VALUES } from "@neherlab/treeknit-wasm/variants";
-import { isDeepEqual, omit } from "remeda";
+import { isDeepEqual, isIncludedIn, omit } from "remeda";
 import * as z from "zod";
 
 import type { RunOutcome } from "../analysis/client";
@@ -140,7 +140,7 @@ export function parseSearch(query: string): SearchRecord {
   return Object.fromEntries(
     Object.entries(queryRecord(readQuery(query.startsWith("?") ? query.slice(1) : query))).flatMap(
       ([key, value]): [string, SearchValue][] => {
-        if (!isViewKey(key)) {
+        if (!isIncludedIn(key, VIEW_KEYS)) {
           return [[key, value]];
         }
 
@@ -157,7 +157,7 @@ export function stringifySearch(search: Readonly<SearchRecord>): string {
   const record: QueryRecord = {};
 
   for (const [key, value] of Object.entries(search)) {
-    const written = isViewKey(key) ? encodeViewKey(key, value) : queryValueSchema.safeParse(value).data;
+    const written = isIncludedIn(key, VIEW_KEYS) ? encodeViewKey(key, value) : queryValueSchema.safeParse(value).data;
 
     if (written !== undefined) {
       record[key] = written;
@@ -314,10 +314,6 @@ function choice<const V extends string>(values: readonly [V, ...V[]], fallback: 
 
 function optional<T extends z.ZodType>(schema: T) {
   return schema.optional().catch(undefined);
-}
-
-function isViewKey(key: string): key is ViewKey {
-  return VIEW_KEYS.some((viewKey) => viewKey === key);
 }
 
 function encodeViewKey(key: ViewKey, value: SearchValue): string | undefined {
