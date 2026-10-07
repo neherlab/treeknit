@@ -100,7 +100,7 @@ async function readLimited(response: Response, maxBytes: number): Promise<Uint8A
     return bytes;
   }
 
-  const chunks: Uint8Array[] = [];
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
   let total = 0;
 
   for (let next = await reader.read(); !next.done; next = await reader.read()) {
@@ -115,15 +115,7 @@ async function readLimited(response: Response, maxBytes: number): Promise<Uint8A
     chunks.push(next.value);
   }
 
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-
-  return bytes;
+  return new Uint8Array(await new Blob(chunks).arrayBuffer());
 }
 
 function safeDecode(text: string): string {
