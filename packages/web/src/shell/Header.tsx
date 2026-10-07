@@ -7,6 +7,8 @@ import { useVersion } from "../analysis/queries";
 import { CiteButton } from "../help/CiteButton";
 import { ExternalIconLink } from "../ui/ExternalLink";
 import { Link } from "../ui/Link";
+import { PANE_WIDTHS } from "../ui/paneWidths";
+import { INSPECTOR_WIDTH_PX, RAIL_WIDTH_PX } from "./layout";
 import { usePaneOpen } from "./paneStore";
 import { ThemeToggle } from "./ThemeToggle";
 import { useShellLayout } from "./useShellLayout";
@@ -32,7 +34,10 @@ export function Header({ center, className }: { center?: ReactNode; className?: 
   return (
     <header className={cn("border-rule bg-ground flex h-12 shrink-0 items-stretch border-b", className)}>
       <div
-        className={cn("flex shrink-0 items-center gap-3 px-4 sm:gap-6", alignRail && "border-rule w-[336px] border-r")}
+        className={cn(
+          "flex shrink-0 items-center gap-3 px-4 sm:gap-6",
+          alignRail && ["border-rule border-r", PANE_WIDTHS[RAIL_WIDTH_PX]],
+        )}
       >
         <span className="text-ink text-lg font-semibold">TreeKnit</span>
         <nav aria-label="Main" className="flex items-center gap-1">
@@ -48,7 +53,7 @@ export function Header({ center, className }: { center?: ReactNode; className?: 
       <div
         className={cn(
           "flex shrink-0 items-center justify-end gap-1 px-2",
-          alignInspector && "border-rule w-[320px] border-l",
+          alignInspector && ["border-rule border-l", PANE_WIDTHS[INSPECTOR_WIDTH_PX]],
         )}
       >
         <CiteButton variant="quiet" size="sm" placement="bottom end" iconOnly={layout.inspector === "sheet"} />

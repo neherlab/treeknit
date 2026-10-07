@@ -1,10 +1,12 @@
+import type { PaneWidthPx } from "../ui/paneWidths";
+
 export const CARD_TITLE_HEIGHT_PX = 26;
 
 export const CHART_BOTTOM_GAP_PX = 16;
 
 export const MIN_TREE_WIDTH_PX = 320;
 
-export const SIDEBAR_WIDTH_PX = 260;
+export const SIDEBAR_WIDTH_PX: PaneWidthPx = 260;
 
 export const OVERLAY_MAX_WIDTH_PX = 900;
 

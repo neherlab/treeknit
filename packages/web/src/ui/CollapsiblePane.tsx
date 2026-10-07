@@ -5,17 +5,10 @@ import { Button } from "react-aria-components";
 import ChevronLeftIcon from "~icons/lucide/chevron-left";
 import ChevronRightIcon from "~icons/lucide/chevron-right";
 
+import { PANE_WIDTHS, type PaneWidthPx } from "./paneWidths";
 import { focusRing } from "./styles";
 import { TooltipTrigger } from "./TooltipTrigger";
 import { useEscapeKey } from "./useEscapeKey";
-
-export type PaneWidthPx = 260 | 320 | 336;
-
-const PANE_WIDTHS: Record<PaneWidthPx, string> = {
-  260: "w-[260px]",
-  320: "w-[320px]",
-  336: "w-[336px]",
-};
 
 const railStyle = cva(
   [

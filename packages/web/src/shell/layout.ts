@@ -1,6 +1,8 @@
-export const RAIL_WIDTH_PX = 336 as const;
+import type { PaneWidthPx } from "../ui/paneWidths";
 
-export const INSPECTOR_WIDTH_PX = 320 as const;
+export const RAIL_WIDTH_PX: PaneWidthPx = 336;
+
+export const INSPECTOR_WIDTH_PX: PaneWidthPx = 320;
 
 export const CENTER_MIN_WIDTH_PX = 640;
 
