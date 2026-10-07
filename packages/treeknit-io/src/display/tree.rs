@@ -193,7 +193,12 @@ mod tests {
 
   #[test]
   fn draw_tree_counts_missing_negative_and_non_finite_lengths_as_zero() {
-    let (t, taxa) = tree("((A:-1,B:inf)ab,C:NaN)r;");
+    // The reader rejects lengths that are not finite; arithmetic on lengths can still produce them.
+    let (mut t, taxa) = tree("((A:1,B:1)ab,C:1)r;");
+    for (name, length) in [("A", -1.0), ("B", f64::INFINITY), ("C", f64::NAN)] {
+      let n = t.preorder().into_iter().find(|&n| t.name(n) == name).unwrap();
+      t.nodes[n].branch_length = Some(length);
+    }
     let d = draw_tree(&t, &t, &vec![None; taxa.len()], &vec![None; t.nodes.len()]);
     assert_eq!(vec![0.0; 5], column(&d, |n| n.x_div));
     assert_eq!(

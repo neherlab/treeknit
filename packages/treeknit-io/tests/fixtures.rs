@@ -53,10 +53,25 @@ mod tests {
       .unwrap()
       .iter()
       .enumerate()
-      .map(|(i, s)| newick::parse(s.as_str().unwrap(), &format!("t{}", i + 1)).unwrap())
+      .map(|(i, s)| {
+        newick::parse(
+          &without_invalid_root_length(s.as_str().unwrap()),
+          &format!("t{}", i + 1),
+        )
+        .unwrap()
+      })
       .collect();
     let ParsedTrees { trees, taxa } = analysis::number_leaves(ts);
     (trees, taxa)
+  }
+
+  /// `newick` without the root length `:0.R` of the trees of `test_srg_2`, which come from the
+  /// TreeKnit.jl tests. TreeKnit.jl reads an invalid branch length as missing and the port rejects
+  /// it (README, "Deliberate differences from TreeKnit.jl"); both ignore the root length.
+  fn without_invalid_root_length(newick: &str) -> String {
+    newick
+      .strip_suffix(":0.R;")
+      .map_or_else(|| newick.to_owned(), |tree| format!("{tree};"))
   }
 
   fn clades_json(v: &Value) -> Clades {

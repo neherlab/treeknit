@@ -1,55 +1,106 @@
-//! Newick reading and writing.
+//! Newick reading and writing, in the classic dialect of `util_newick`: standard Newick, with
+//! comments read as text.
 //!
 //! Supported: quoted labels (`'a b'`, with `''` for a quote), comments in square brackets
-//! (skipped; they do not nest, so a comment ends at its first `]`), branch lengths, whitespace.
-//! Unnamed or numeric (support value) internal nodes and duplicate internal names are renamed
-//! `NODE_i`.
+//! (skipped; brackets inside a comment nest), branch lengths, whitespace, and trees of any depth.
+//! `#` is part of a label. Unnamed internal nodes, internal nodes labeled with a support value
+//! (`95`, `0.95`, `80.5/95`) or another number, and duplicate internal names are renamed `NODE_i`.
 
-#![expect(
-  clippy::disallowed_types,
-  clippy::unwrap_used,
-  reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
-)]
-
-use std::collections::HashSet;
-use std::fmt::Write;
+use std::collections::BTreeSet;
+use std::fmt;
 use treeknit_core::{NodeId, Tree};
+use util_newick::{
+  Location, NewickDialect, NewickEdgeData, NewickError, NewickErrorKind, NewickGraph, NewickNodeData,
+  NewickReadOptions, NewickWriteOptions, NumberFormat, newick_from_str, newick_to_string, newick_trees,
+};
+
+/// Parse a single Newick tree, logging its warnings.
+pub fn parse(s: &str, label: &str) -> Result<Tree, ParseError> {
+  let parsed = parse_first(s, label)?;
+  parsed.log_warnings();
+  Ok(parsed.tree)
+}
+
+/// Parse the first tree of a Newick file's content. The warnings are returned, not logged:
+/// callers that read input files log them with `Parsed::log_warnings`.
+///
+/// The first tree ends at the first `;` outside quoted labels and comments. When text other than
+/// comments follows it, the first tree is read alone, with the warning `SeveralTrees`, which the
+/// error of a first tree with an unnamed or a duplicate leaf carries too.
+pub fn parse_first(content: &str, label: &str) -> Result<Parsed, ParseError> {
+  let options = NewickReadOptions::default();
+  let (tree, mut warnings) = match newick_from_str(content, &options) {
+    Ok(tree) => (tree, vec![]),
+    Err(error) if error.kind == NewickErrorKind::MultipleTrees => {
+      match newick_trees(content.as_bytes(), options).next() {
+        Some(Ok(tree)) => (tree, vec![ParseWarning::SeveralTrees]),
+        Some(Err(first_error)) => return Err(ParseError::from(first_error)),
+        None => return Err(ParseError::from(error)),
+      }
+    },
+    Err(error) => return Err(ParseError::from(error)),
+  };
+  warnings.splice(
+    0..0,
+    tree
+      .warnings
+      .iter()
+      .map(|warning| ParseWarning::Reader(warning.to_string())),
+  );
+  let mut tree = tree_from_graph(&tree.graph, label);
+  match fix_names(&mut tree) {
+    Ok(()) => Ok(Parsed { tree, warnings }),
+    Err(message) => Err(ParseError {
+      message,
+      location: None,
+      warnings,
+    }),
+  }
+}
+
+/// Newick string of `t`, with internal labels and branch lengths. A branch length that is not a
+/// finite number is an error, because Newick cannot hold it.
+pub fn write(t: &Tree) -> Result<String, WriteError> {
+  let mut graph = NewickGraph::new(node_data(t, t.root));
+  let mut ids = vec![graph.root(); t.nodes.len()];
+  for n in t.preorder() {
+    for &c in t.children(n) {
+      let edge = t
+        .node(c)
+        .branch_length
+        .map_or_else(NewickEdgeData::new, |length| NewickEdgeData::new().with_length(length));
+      ids[c] = graph
+        .add_child(ids[n], edge, node_data(t, c))
+        .map_err(WriteError::new)?;
+    }
+  }
+  newick_to_string(&graph, &write_options(NewickDialect::CLASSIC)).map_err(WriteError::new)
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("Newick parse error: {message}{}", at_byte(*.offset))]
+#[error("Newick parse error: {message}{}", at_byte(*.location))]
 pub struct ParseError {
   pub message: String,
-  /// Byte offset in the text where parsing stopped; `None` for errors of the whole tree, such
-  /// as duplicate leaf names.
-  pub offset: Option<usize>,
-  /// The warnings that hold although the tree does not parse: `SeveralTrees`.
+  /// Where parsing stopped; `None` for errors of the whole tree, such as duplicate leaf names.
+  pub location: Option<Location>,
+  /// The warnings that hold although the tree is rejected: `SeveralTrees` next to an error of the
+  /// whole tree.
   pub warnings: Vec<ParseWarning>,
 }
 
-impl ParseError {
-  fn new(message: impl Into<String>) -> Self {
+impl From<NewickError> for ParseError {
+  fn from(error: NewickError) -> Self {
     ParseError {
-      message: message.into(),
-      offset: None,
+      location: Some(error.location()),
+      message: error.message,
       warnings: Vec::new(),
     }
   }
 }
 
-/// The ` at byte <offset>` suffix of a [`ParseError`] that has an offset.
-fn at_byte(offset: Option<usize>) -> String {
-  offset.map(|o| format!(" at byte {o}")).unwrap_or_default()
-}
-
-/// 1-based line and column of byte `offset` in `text`, with the column counted in Unicode
-/// characters, as editors show positions. An offset past the end gives the end of the text.
-pub fn line_column(text: &str, offset: usize) -> (usize, usize) {
-  let before = &text.as_bytes()[..offset.min(text.len())];
-  let line_start = before.iter().rposition(|&b| b == b'\n').map_or(0, |i| i + 1);
-  let line = before.split(|&b| b == b'\n').count();
-  // Count the bytes that start a character, so an offset inside a character counts it.
-  let column = before[line_start..].iter().filter(|&&b| b & 0xC0 != 0x80).count() + 1;
-  (line, column)
+/// The ` at byte <offset>` suffix of a [`ParseError`] that has a location.
+fn at_byte(location: Option<Location>) -> String {
+  location.map(|l| format!(" at byte {}", l.offset)).unwrap_or_default()
 }
 
 /// A problem in a Newick text that parsing works around.
@@ -58,9 +109,9 @@ pub enum ParseWarning {
   /// The file holds more than one tree; only the first is read.
   #[strum(to_string = "more than one tree in file, using the first")]
   SeveralTrees,
-  /// A branch length that is not a number, read as a missing length.
-  #[strum(to_string = "ignoring invalid branch length '{0}'")]
-  InvalidLength(String),
+  /// A warning of the Newick reader, with its line and column.
+  #[strum(to_string = "{0}")]
+  Reader(String),
 }
 
 impl ParseWarning {
@@ -86,220 +137,62 @@ impl Parsed {
   }
 }
 
-struct Parser<'a> {
-  s: &'a [u8],
-  i: usize,
-  warnings: Vec<ParseWarning>,
+/// A tree that the Newick writer rejects.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("Newick write error: {message}")]
+pub struct WriteError {
+  pub message: String,
 }
 
-impl Parser<'_> {
-  fn err<T>(&self, msg: &str) -> Result<T, ParseError> {
-    Err(ParseError {
-      message: msg.to_owned(),
-      offset: Some(self.i),
-      warnings: Vec::new(),
-    })
-  }
-
-  /// Skip whitespace and `[...]` comments, which end at their first `]`.
-  fn skip(&mut self) -> Result<(), ParseError> {
-    loop {
-      while self.i < self.s.len() && self.s[self.i].is_ascii_whitespace() {
-        self.i += 1;
-      }
-      if self.peek() == Some(b'[') {
-        match self.s[self.i..].iter().position(|&c| c == b']') {
-          Some(k) => self.i += k + 1,
-          None => return self.err("unterminated comment"),
-        }
-      } else {
-        return Ok(());
-      }
+impl WriteError {
+  pub(crate) fn new(error: impl fmt::Display) -> Self {
+    WriteError {
+      message: format!("{error:#}"),
     }
-  }
-
-  fn peek(&self) -> Option<u8> {
-    self.s.get(self.i).copied()
-  }
-
-  fn label(&mut self) -> Result<String, ParseError> {
-    self.skip()?;
-    if self.peek() == Some(b'\'') {
-      let mut out = Vec::new();
-      self.i += 1;
-      loop {
-        match self.peek() {
-          None => return self.err("unterminated quoted label"),
-          Some(b'\'') if self.s.get(self.i + 1) == Some(&b'\'') => {
-            out.push(b'\'');
-            self.i += 2;
-          },
-          Some(b'\'') => {
-            self.i += 1;
-            break;
-          },
-          Some(c) => {
-            out.push(c);
-            self.i += 1;
-          },
-        }
-      }
-      // The bytes between two ASCII quotes of a UTF-8 text are UTF-8 themselves.
-      return Ok(String::from_utf8_lossy(&out).into_owned());
-    }
-    let start = self.i;
-    while let Some(c) = self.peek() {
-      if b"(),:;[".contains(&c) || c.is_ascii_whitespace() {
-        break;
-      }
-      self.i += 1;
-    }
-    Ok(String::from_utf8_lossy(&self.s[start..self.i]).into_owned())
-  }
-
-  fn length(&mut self) -> Result<Option<f64>, ParseError> {
-    self.skip()?;
-    if self.peek() != Some(b':') {
-      return Ok(None);
-    }
-    self.i += 1;
-    self.skip()?;
-    let start = self.i;
-    while let Some(c) = self.peek() {
-      if b"(),:;[".contains(&c) || c.is_ascii_whitespace() {
-        break;
-      }
-      self.i += 1;
-    }
-    let txt = String::from_utf8_lossy(&self.s[start..self.i]);
-    if let Ok(x) = txt.parse::<f64>() {
-      Ok(Some(x))
-    } else {
-      self.warnings.push(ParseWarning::InvalidLength(txt.into_owned()));
-      Ok(None)
-    }
-  }
-
-  /// Parse one tree up to its terminating `;`, and leave the position at that `;`.
-  fn tree(&mut self, label: &str) -> Result<Tree, ParseError> {
-    let mut t = Tree::new(label);
-    let root = t.root;
-    self.subtree(&mut t, root)?;
-    self.skip()?;
-    match self.peek() {
-      Some(b';') => {},
-      None => return Err(ParseError::new("no ';' found")),
-      Some(_) => return self.err("expected ';'"),
-    }
-    t.nodes[root].branch_length = None;
-    fix_names(&mut t)?;
-    Ok(t)
-  }
-
-  /// Move to the next `;` outside quoted labels and comments, the end of a tree, and return
-  /// whether there is one. The text is split into the tokens of the parser without building a
-  /// tree, so a syntax error does not stop the search; an unterminated quoted label or comment
-  /// ends it.
-  fn next_tree_end(&mut self) -> bool {
-    loop {
-      if self.skip().is_err() {
-        return false;
-      }
-      match self.peek() {
-        None => return false,
-        Some(b';') => return true,
-        Some(b'(' | b')' | b',' | b':') => self.i += 1,
-        Some(_) => {
-          if self.label().is_err() {
-            return false;
-          }
-        },
-      }
-    }
-  }
-
-  fn subtree(&mut self, t: &mut Tree, n: NodeId) -> Result<(), ParseError> {
-    self.skip()?;
-    if self.peek() == Some(b'(') {
-      self.i += 1;
-      loop {
-        let c = t.add_node("", None);
-        self.subtree(t, c)?;
-        t.attach(n, c);
-        self.skip()?;
-        match self.peek() {
-          Some(b',') => self.i += 1,
-          Some(b')') => {
-            self.i += 1;
-            break;
-          },
-          _ => return self.err("expected ',' or ')'"),
-        }
-      }
-    }
-    t.nodes[n].name = self.label()?;
-    t.nodes[n].branch_length = self.length()?;
-    Ok(())
   }
 }
 
-/// Parse a single Newick tree, logging its warnings.
-pub fn parse(s: &str, label: &str) -> Result<Tree, ParseError> {
-  let parsed = parse_first(s, label)?;
-  parsed.log_warnings();
-  Ok(parsed.tree)
-}
-
-/// Parse the first tree of a Newick file's content. The warnings are returned, not logged:
-/// callers that read input files log them with `Parsed::log_warnings`.
-///
-/// The first tree ends at the first `;` outside quoted labels and comments. The text after it
-/// is not parsed; a further `;` there gives the warning `SeveralTrees` (see [`holds_several_trees`]),
-/// which the parse error of a first tree that does not parse carries too.
-pub fn parse_first(content: &str, label: &str) -> Result<Parsed, ParseError> {
-  let mut p = Parser {
-    s: content.as_bytes(),
-    i: 0,
-    warnings: Vec::new(),
-  };
-  let several = holds_several_trees(content).then_some(ParseWarning::SeveralTrees);
-  match p.tree(label) {
-    // The further trees follow the first, so their warning comes after those of the first tree.
-    Ok(tree) => Ok(Parsed {
-      tree,
-      warnings: p.warnings.into_iter().chain(several).collect(),
-    }),
-    Err(e) => Err(ParseError {
-      warnings: several.into_iter().collect(),
-      ..e
-    }),
+/// Write options of the Newick files of TreeKnit in `dialect`: lengths in their shortest exact
+/// text, with `.0` on whole numbers (`1.0`), as TreeKnit.jl writes them.
+pub(crate) fn write_options(dialect: NewickDialect) -> NewickWriteOptions {
+  NewickWriteOptions {
+    numbers: NumberFormat {
+      point_zero: true,
+      ..NumberFormat::default()
+    },
+    ..NewickWriteOptions::new(dialect)
   }
 }
 
-/// Whether `content` holds more than one tree: two `;` outside quoted labels and comments. This
-/// holds whether or not the first tree parses, so callers can report it next to a parse error.
-fn holds_several_trees(content: &str) -> bool {
-  let mut p = Parser {
-    s: content.as_bytes(),
-    i: 0,
-    warnings: Vec::new(),
-  };
-  if !p.next_tree_end() {
-    return false;
+/// The tree `label` of the classic Newick `graph`, with its nodes, names, and branch lengths. A
+/// node without a name, such as an internal node labeled with a support value, has the name "".
+fn tree_from_graph(graph: &NewickGraph, label: &str) -> Tree {
+  let mut t = Tree::new(label);
+  t.nodes[t.root].name = graph.node(graph.root()).name().unwrap_or_default().to_owned();
+  let mut ids = vec![t.root; graph.node_count()];
+  for node in graph.preorder() {
+    for &edge in graph.child_edges(node) {
+      let entry = graph.edge(edge);
+      let name = graph.node(entry.child()).name().unwrap_or_default();
+      let child = t.add_node(name, entry.data().branch_length());
+      t.attach(ids[node], child);
+      ids[entry.child()] = child;
+    }
   }
-  p.i += 1;
-  p.next_tree_end()
+  t
 }
 
-fn fix_names(t: &mut Tree) -> Result<(), ParseError> {
-  let mut leaves = HashSet::new();
+/// Check that the leaves have distinct names and rename internal nodes without a usable name; the
+/// error is the message of the first broken rule.
+fn fix_names(t: &mut Tree) -> Result<(), String> {
+  let mut leaves = BTreeSet::new();
   for n in t.leaves() {
     let name = &t.nodes[n].name;
     if name.is_empty() {
-      return Err(ParseError::new("unnamed leaf"));
+      return Err("unnamed leaf".to_owned());
     }
     if !leaves.insert(name.clone()) {
-      return Err(ParseError::new(format!("duplicate leaf name {name:?}")));
+      return Err(format!("duplicate leaf name {name:?}"));
     }
   }
   let mut seen = leaves;
@@ -324,64 +217,14 @@ fn fix_names(t: &mut Tree) -> Result<(), ParseError> {
   Ok(())
 }
 
-fn quote(name: &str) -> String {
-  if name.bytes().any(|c| b"(),:;[]' \t\n".contains(&c)) {
-    format!("'{}'", name.replace('\'', "''"))
+/// The node data of node `n` of `t`: its name, or no name for "".
+fn node_data(t: &Tree, n: NodeId) -> NewickNodeData {
+  let name = t.name(n);
+  if name.is_empty() {
+    NewickNodeData::new()
   } else {
-    name.to_owned()
+    NewickNodeData::new().with_name(name)
   }
-}
-
-/// Newick string of `t`, with internal labels and branch lengths.
-pub fn write(t: &Tree) -> String {
-  // Iterative writer to avoid deep recursion on ladder-like trees.
-  enum Step {
-    Enter(NodeId),
-    Exit(NodeId),
-    Comma,
-  }
-  let mut s = String::new();
-  let mut stack = vec![Step::Enter(t.root)];
-  while let Some(step) = stack.pop() {
-    match step {
-      Step::Enter(n) => {
-        let ch = t.children(n);
-        if ch.is_empty() {
-          write_node(&mut s, t, n);
-        } else {
-          s.push('(');
-          stack.push(Step::Exit(n));
-          for (k, &c) in ch.iter().enumerate().rev() {
-            stack.push(Step::Enter(c));
-            if k > 0 {
-              stack.push(Step::Comma);
-            }
-          }
-        }
-      },
-      Step::Exit(n) => {
-        s.push(')');
-        write_node(&mut s, t, n);
-      },
-      Step::Comma => s.push(','),
-    }
-  }
-  s.push(';');
-  s
-}
-
-fn write_node(s: &mut String, t: &Tree, n: NodeId) {
-  s.push_str(&quote(t.name(n)));
-  if n != t.root {
-    if let Some(b) = t.node(n).branch_length {
-      write!(s, ":{}", fmt_f64(b)).unwrap();
-    }
-  }
-}
-
-/// Shortest representation that round-trips; exponent notation for very small/large values.
-pub fn fmt_f64(x: f64) -> String {
-  format!("{x:?}")
 }
 
 #[cfg(test)]
@@ -389,38 +232,101 @@ mod tests {
   use super::*;
   use pretty_assertions::assert_eq;
   use rstest::rstest;
+  use std::fmt::Write as _;
+
+  /// The parse error of `text`, or its tree written back as Newick, so a result compares whole.
+  fn parsed(text: &str) -> Result<String, ParseError> {
+    parse_first(text, "t").map(|p| write(&p.tree).unwrap())
+  }
+
+  /// A parse error with `message` at `location`, without warnings.
+  fn parse_error(message: &str, location: Option<Location>) -> ParseError {
+    ParseError {
+      message: message.to_owned(),
+      location,
+      warnings: Vec::new(),
+    }
+  }
+
+  /// The location at byte `offset`, line `line`, and column `column`.
+  fn at(offset: usize, line: usize, column: usize) -> Option<Location> {
+    Some(Location { offset, line, column })
+  }
 
   #[test]
   fn roundtrip() {
     let s = "((A:1.5,'b c':0.25)x:1.0,(C,D)NODE_7,E:1e-20)root;";
     let t = parse(s, "t").unwrap();
     assert_eq!(t.leaf_names(), vec!["A", "b c", "C", "D", "E"]);
-    assert_eq!(write(&t), "((A:1.5,'b c':0.25)x:1.0,(C,D)NODE_7,E:1e-20)root;");
+    assert_eq!(
+      Ok("((A:1.5,'b c':0.25)x:1.0,(C,D)NODE_7,E:1.0e-20)root;".to_owned()),
+      write(&t)
+    );
   }
 
   #[test]
   fn comments_whitespace_and_support_values() {
     let t = parse("( (A[&x=1]:1 , B ) 95 : 2 ,C)\n;", "t").unwrap();
     assert_eq!(t.leaf_names(), vec!["A", "B", "C"]);
-    assert_eq!(write(&t), "((A:1.0,B)NODE_2:2.0,C)NODE_1;");
+    assert_eq!(Ok("((A:1.0,B)NODE_2:2.0,C)NODE_1;".to_owned()), write(&t));
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::support_value(      "((A,B)95,C);",            "((A,B)NODE_2,C)NODE_1;")]
+  #[case::several_supports(   "((A,B)80.5/95,C);",       "((A,B)NODE_2,C)NODE_1;")]
+  #[case::quoted_number(      "((A,B)'95',C);",          "((A,B)NODE_2,C)NODE_1;")]
+  #[case::duplicate_internal( "((A,B)x,(C,D)x)r;",       "((A,B)x,(C,D)NODE_1)r;")]
+  #[case::numeric_leaf_names( "((1,2)x,3)r;",            "((1,2)x,3)r;")]
+  #[case::hash_in_names(      "(EPI_ISL#402124,B#H1)r;", "('EPI_ISL#402124','B#H1')r;")]
+  #[case::nested_comment(     "(A[a[b]c],B)r;",          "(A,B)r;")]
+  #[case::root_length_dropped("(A:1,B:2)r:3;",           "(A:1.0,B:2.0)r;")]
+  #[trace]
+  fn parse_and_write(#[case] text: &str, #[case] expected: &str) {
+    assert_eq!(Ok(expected.to_owned()), parsed(text));
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::whole(         1.0,       "1.0")]
+  #[case::fraction(      0.25,      "0.25")]
+  #[case::small(         0.0001,    "0.0001")]
+  #[case::smaller(       0.00001,   "1.0e-5")]
+  #[case::shortest_exact(0.1 + 0.2, "0.30000000000000004")]
+  #[case::zero(          0.0,       "0.0")]
+  #[case::large(         123456.5,  "123456.5")]
+  #[case::largest_plain( 1e15,      "1000000000000000.0")]
+  #[case::huge(          2.5e16,    "2.5e16")]
+  #[trace]
+  fn write_branch_length(#[case] length: f64, #[case] expected: &str) {
+    let mut t = Tree::new("t");
+    let a = t.add_node("A", Some(length));
+    t.attach(t.root, a);
+    let b = t.add_node("B", None);
+    t.attach(t.root, b);
+    assert_eq!(Ok(format!("(A:{expected},B);")), write(&t));
   }
 
   #[test]
-  fn invalid_length_is_missing() {
-    let t = parse("((A,B):0.R,C);", "t").unwrap();
-    assert_eq!(write(&t), "((A,B)NODE_2,C)NODE_1;");
+  fn write_rejects_a_length_that_is_not_finite() {
+    let mut t = Tree::new("t");
+    let a = t.add_node("A", Some(f64::INFINITY));
+    t.attach(t.root, a);
+    let expected = WriteError {
+      message:
+        "When writing Newick: When writing the branch above node 1 ('A'): Newick cannot represent the number inf"
+          .to_owned(),
+    };
+    assert_eq!(Err(expected), write(&t));
   }
 
-  #[test]
-  fn parse_first_returns_the_warnings_in_text_order() {
-    let parsed = parse_first("((A,B):0.R,C:x);\n(A,B,C);\n", "t").unwrap();
-    let expected = vec![
-      ParseWarning::InvalidLength("0.R".into()),
-      ParseWarning::InvalidLength("x".into()),
-      ParseWarning::SeveralTrees,
-    ];
-    assert_eq!(expected, parsed.warnings);
-    assert_eq!("((A,B)NODE_2,C)NODE_1;", write(&parsed.tree));
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::not_a_number(  "((A,B):0.R,C);", parse_error("expected comment, ')', ',', ';'", at(9, 1, 10)))]
+  #[case::out_of_range(  "(A:1e999,B);",   parse_error("\"1e999\" is too large for a 64-bit floating-point number", at(3, 1, 4)))]
+  #[trace]
+  fn invalid_length_is_an_error(#[case] text: &str, #[case] expected: ParseError) {
+    assert_eq!(Err(expected), parsed(text));
   }
 
   #[test]
@@ -433,55 +339,39 @@ mod tests {
   #[rstest]
   #[case::semicolon_in_quoted_label(    "('a;b',C);",          (vec!["a;b", "C"], vec![]))]
   #[case::semicolon_in_comment(         "(A[;],B);",           (vec!["A", "B"],   vec![]))]
-  #[case::semicolon_in_trailing_comment("(A,B);[x;y]\n",     (vec!["A", "B"],   vec![]))]
-  #[case::semicolon_in_trailing_quote(  "(A,B);\n('x;y'",     (vec!["A", "B"],   vec![]))]
+  #[case::semicolon_in_trailing_comment("(A,B);[x;y]\n",       (vec!["A", "B"],   vec![]))]
+  #[case::second_tree(                  "(A,B);\n(C,D);\n",    (vec!["A", "B"],   vec![ParseWarning::SeveralTrees]))]
   #[case::second_tree_after_comment(    "(A,B);[c](C,D);",     (vec!["A", "B"],   vec![ParseWarning::SeveralTrees]))]
-  #[case::second_tree_with_quotes(      "(A,B);\n('x;y',z);", (vec!["A", "B"],   vec![ParseWarning::SeveralTrees]))]
-  #[case::unterminated_trailing_comment("(A,B);[x;",          (vec!["A", "B"],   vec![]))]
+  #[case::second_tree_with_quotes(      "(A,B);\n('x;y',z);",  (vec!["A", "B"],   vec![ParseWarning::SeveralTrees]))]
+  #[case::broken_second_tree(           "(A,B);\n(C,,;",       (vec!["A", "B"],   vec![ParseWarning::SeveralTrees]))]
+  #[case::trailing_text(                "(A,B);\nx",           (vec!["A", "B"],   vec![ParseWarning::SeveralTrees]))]
   #[trace]
-  fn parse_first_ends_the_tree_at_a_semicolon_outside_quotes_and_comments(
+  fn parse_first_reads_the_tree_up_to_its_semicolon(
     #[case] text: &str,
     #[case] (leaves, warnings): (Vec<&str>, Vec<ParseWarning>),
   ) {
     let parsed = parse_first(text, "t").unwrap();
-    assert_eq!(leaves, parsed.tree.leaf_names());
-    assert_eq!(warnings, parsed.warnings);
+    let leaves: Vec<String> = leaves.into_iter().map(ToOwned::to_owned).collect();
+    assert_eq!((leaves, warnings), (parsed.tree.leaf_names(), parsed.warnings));
   }
 
-  #[rustfmt::skip]
-  #[rstest]
-  #[case::one_tree(            "(A,B);\n",         false)]
-  #[case::two_trees(           "(A,B);(C,D);",      true)]
-  #[case::broken_first_tree(   "(A,,;(C,D);",       true)]
-  #[case::semicolons_in_quotes("('a;b',C);[;]",     false)]
-  #[case::no_semicolon(        "(A,B)",             false)]
-  #[case::escaped_quote(       "('a'';',B);",       false)]
-  #[case::escaped_quote_after( "(A,B);'x'';'",      false)]
-  #[case::comments_do_not_nest("(A,B);[a[;]b;]",    true)]
-  #[trace]
-  fn holds_several_trees_counts_semicolons_outside_quotes_and_comments(#[case] text: &str, #[case] expected: bool) {
-    assert_eq!(expected, holds_several_trees(text));
-  }
-
-  /// The parse error of `text`, or its tree written back as Newick, so a result compares whole.
-  fn parsed(text: &str) -> Result<String, ParseError> {
-    parse_first(text, "t").map(|p| write(&p.tree))
-  }
-
-  /// A parse error with `message`, stopped at byte `offset`, without warnings.
-  fn parse_error(message: &str, offset: Option<usize>) -> ParseError {
-    ParseError {
-      message: message.to_owned(),
-      offset,
-      warnings: Vec::new(),
-    }
+  #[test]
+  fn several_trees_warning_stays_next_to_an_error_of_the_whole_tree() {
+    let expected = ParseError {
+      warnings: vec![ParseWarning::SeveralTrees],
+      ..parse_error("duplicate leaf name \"A\"", None)
+    };
+    assert_eq!(Err(expected), parsed("(A,A);\n(A,B);\n"));
   }
 
   #[test]
   fn parse_first_without_a_semicolon_outside_quotes_fails() {
-    let expected = parse_error("no ';' found", None);
+    let expected = parse_error("The tree does not end with ';'", at(9, 1, 10));
     assert_eq!(Err(expected.clone()), parsed("('a;b',C)"));
-    assert_eq!("Newick parse error: no ';' found", expected.to_string());
+    assert_eq!(
+      "Newick parse error: The tree does not end with ';' at byte 9",
+      expected.to_string()
+    );
   }
 
   #[test]
@@ -490,58 +380,54 @@ mod tests {
       "more than one tree in file, using the first",
       ParseWarning::SeveralTrees.to_string()
     );
-    assert_eq!(
-      "ignoring invalid branch length '0.R'",
-      ParseWarning::InvalidLength("0.R".into()).to_string()
-    );
   }
 
   #[test]
   fn duplicate_leaves_and_unclosed_trees_are_rejected() {
     let expected = [
       Err(parse_error("duplicate leaf name \"A\"", None)),
-      Err(parse_error("expected ',' or ')'", Some(4))),
+      Err(parse_error("The tree does not end with ';'", at(4, 1, 5))),
     ];
     assert_eq!(expected, [parsed("(A,A);"), parsed("(A,B")]);
   }
 
-  #[test]
-  fn syntax_error_has_its_byte_offset() {
-    let expected = parse_error("expected ',' or ')'", Some(7));
-    assert_eq!(Err(expected.clone()), parsed("((A,B)C;"));
-    assert_eq!(
-      "Newick parse error: expected ',' or ')' at byte 7",
-      expected.to_string()
-    );
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::unexpected_token("((A,B)C D);", parse_error("expected comment, ')', ',', ':', ';'", at(8, 1, 9)))]
+  #[case::unclosed(        "((A,B)C;",    parse_error("the '(' is never closed", at(0, 1, 1)))]
+  #[trace]
+  fn syntax_error_has_its_location(#[case] text: &str, #[case] expected: ParseError) {
+    assert_eq!(Err(expected), parsed(text));
   }
 
   #[test]
-  fn tree_error_has_no_offset() {
+  fn tree_error_has_no_location() {
     let expected = parse_error("duplicate leaf name \"A\"", None);
     assert_eq!(Err(expected.clone()), parsed("(A,A);"));
     assert_eq!("Newick parse error: duplicate leaf name \"A\"", expected.to_string());
   }
 
-  #[test]
-  fn line_column_counts_lines_and_characters() {
-    assert_eq!((1, 1), line_column("(A,B);", 0));
-    assert_eq!((1, 4), line_column("(A,B);", 3));
-    assert_eq!((2, 1), line_column("(A,\nB);", 4));
-    assert_eq!((2, 3), line_column("(A,\r\nB);", 7));
-    // "é" and "ü" are two bytes each but one column each.
-    assert_eq!((1, 4), line_column("(é,ü);", 4));
-    assert_eq!((1, 6), line_column("(é,ü);", 7));
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::second_line("(A,\n(B,C)D x);",   (2, 8))]
+  #[case::crlf(       "(A,\r\n(B,C)D x;", (2, 8))]
+  #[case::characters( "((é,ü)x y,C);",     (1, 9))]
+  #[trace]
+  fn error_location_counts_lines_and_characters(#[case] text: &str, #[case] (line, column): (usize, usize)) {
+    let position = parsed(text).map_err(|e| e.location.map(|l| (l.line, l.column)));
+    assert_eq!(Err(Some((line, column))), position);
   }
 
   #[test]
-  fn line_column_clamps_to_the_end() {
-    assert_eq!((2, 3), line_column("(A,\nB)", 100));
-  }
-
-  #[test]
-  fn error_offset_maps_to_line_and_column() {
-    let text = "(A,\n(B,C)D\n;";
-    assert_eq!(Err(parse_error("expected ',' or ')'", Some(11))), parsed(text));
-    assert_eq!((3, 1), line_column(text, 11));
+  fn deep_caterpillar_tree_reads_and_writes() {
+    let depth = 200_000;
+    let mut text = "(".repeat(depth - 1);
+    text.push_str("L0");
+    for i in 1..depth {
+      write!(text, ",L{i})NODE_{}", depth - i).unwrap();
+    }
+    text.push(';');
+    let t = parse(&text, "t").unwrap();
+    assert_eq!((depth, Ok(text.clone())), (t.n_leaves(), write(&t)));
   }
 }

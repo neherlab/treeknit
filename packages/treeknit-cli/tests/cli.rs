@@ -110,7 +110,7 @@ mod tests {
     ];
     let f = fail(&[HA, "(A,B"], &args);
     let expected = formatdoc! {r#"
-      {}:1:5: tree "t1": Newick parse error: expected ',' or ')' at byte 4
+      {}:1:5: tree "t1": Newick parse error: The tree does not end with ';' at byte 4
       --seq-lengths should look like 1500,2000, got "x 1": invalid float literal
       former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, --resolve-all-rounds, --match-topologies) cannot be combined with --resolve, --pre-resolve, --no-final-round or --final-round; see --help-resolve
       gamma must be a non-negative number, got -1"#,
@@ -138,7 +138,7 @@ mod tests {
     };
     let expected = formatdoc! {r#"
       missing-tree-file.nwk: cannot read the file: {os_error}
-      {}:1:5: tree "t1": Newick parse error: expected ',' or ')' at byte 4
+      {}:1:5: tree "t1": Newick parse error: The tree does not end with ';' at byte 4
       gamma must be a non-negative number, got -1"#,
       f.dir.path().join("t1.nwk").display()
     };
@@ -260,7 +260,7 @@ mod tests {
   fn tree_errors_name_the_input_file_and_position() {
     let f = fail(&[HA, "((A,B),\n(C,D)x y);", "((A,A),(C,D));"], &[]);
     let expected = formatdoc! {r#"
-      {}:2:8: tree "t1": Newick parse error: expected ',' or ')' at byte 15
+      {}:2:8: tree "t1": Newick parse error: expected comment, ')', ',', ':', ';' at byte 15
       {}: tree "t2": Newick parse error: duplicate leaf name "A""#,
       f.dir.path().join("t1.nwk").display(),
       f.dir.path().join("t2.nwk").display(),
@@ -297,7 +297,7 @@ mod tests {
     let ha = input.join("ha.nwk");
     let na = input.join("na.nwk");
     std::fs::write(&ha, format!("{HA}\n{NA}\n")).unwrap();
-    std::fs::write(&na, "((A:1,(B:1,X:1):1):x,(C:1,D:1):1);").unwrap();
+    std::fs::write(&na, "((A:1,(B:1,X:1):1):1,(C:1,D:1):1);\n(A,B);\n").unwrap();
     let out = dir.path().join("out");
     run(&[ha.to_str().unwrap(), na.to_str().unwrap()], &out);
     let log = std::fs::read_to_string(out.join("log.txt")).unwrap();
@@ -305,13 +305,16 @@ mod tests {
       log.contains("[WARN] ha: more than one tree in file, using the first\n"),
       "{log}"
     );
-    assert!(log.contains("[WARN] na: ignoring invalid branch length 'x'\n"), "{log}");
+    assert!(
+      log.contains("[WARN] na: more than one tree in file, using the first\n"),
+      "{log}"
+    );
   }
 
   #[test]
-  fn several_trees_warning_is_logged_for_a_tree_that_fails_to_parse() {
+  fn several_trees_warning_is_logged_for_a_tree_with_a_duplicate_leaf() {
     let dir = tempdir().unwrap();
-    let paths = write_trees(dir.path(), &[("ha", HA), ("na", "((A,B;\n(C,D);")]);
+    let paths = write_trees(dir.path(), &[("ha", HA), ("na", "((A,A),B);\n(C,D);")]);
     let out = dir.path().join("out");
     let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
       .args(&paths)
@@ -337,7 +340,7 @@ mod tests {
       format!("[INFO] results directory: {}", out.display()),
       "[WARN] na: more than one tree in file, using the first".to_owned(),
       format!(
-        "Error: {}:1:6: tree \"na\": Newick parse error: expected ',' or ')' at byte 5",
+        "Error: {}: tree \"na\": Newick parse error: duplicate leaf name \"A\"",
         paths[1].display()
       ),
     ];
@@ -744,7 +747,7 @@ mod tests {
       .output()
       .unwrap();
     let expected = format!(
-      "Error: {}: trees[1].newick: line 2, column 8: tree \"na\": Newick parse error: expected ',' or ')' at byte 15\n",
+      "Error: {}: trees[1].newick: line 2, column 8: tree \"na\": Newick parse error: expected comment, ')', ',', ':', ';' at byte 15\n",
       path.display()
     );
     assert_eq!(

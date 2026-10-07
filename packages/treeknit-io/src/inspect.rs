@@ -97,7 +97,8 @@ pub struct PairOverlap {
 
 /// Inspect the first tree of the Newick `text` of the tree labeled `label`: its counts, branch
 /// lengths, and parser warnings, or its parse error with the line and column. A text with
-/// several trees has the warning about them also when its first tree does not parse.
+/// several trees has the warning about them also when its first tree has an unnamed or a duplicate
+/// leaf.
 pub fn inspect_tree(label: &str, text: &str) -> TreeInspection {
   match newick::parse_first(text, label) {
     Ok(parsed) => {
@@ -113,21 +114,18 @@ pub fn inspect_tree(label: &str, text: &str) -> TreeInspection {
         error: None,
       }
     },
-    Err(e) => {
-      let position = e.offset.map(|o| newick::line_column(text, o));
-      TreeInspection {
-        label: label.to_owned(),
-        leaves: 0,
-        internal_nodes: 0,
-        polytomies: 0,
-        branch_lengths: BranchLengths::None,
-        warnings: e.warnings.iter().map(ToString::to_string).collect(),
-        error: Some(TreeError {
-          message: e.message,
-          line: position.map(|(l, _)| l),
-          column: position.map(|(_, c)| c),
-        }),
-      }
+    Err(e) => TreeInspection {
+      label: label.to_owned(),
+      leaves: 0,
+      internal_nodes: 0,
+      polytomies: 0,
+      branch_lengths: BranchLengths::None,
+      warnings: e.warnings.iter().map(ToString::to_string).collect(),
+      error: Some(TreeError {
+        message: e.message,
+        line: e.location.map(|l| l.line),
+        column: e.location.map(|l| l.column),
+      }),
     },
   }
 }
@@ -220,11 +218,10 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::all(                             "((A:1,B:2):3,C:4);", BranchLengths::All)]
-  #[case::root_length_is_ignored(          "((A:1,B:2):3,C:4):5;", BranchLengths::All)]
-  #[case::some(                            "((A:1,B):3,C);", BranchLengths::Some)]
-  #[case::none(                            "((A,B),C);", BranchLengths::None)]
-  #[case::invalid_length_counts_as_missing("((A:1,B:x):3,C:4);", BranchLengths::Some)]
+  #[case::all(                   "((A:1,B:2):3,C:4);", BranchLengths::All)]
+  #[case::root_length_is_ignored("((A:1,B:2):3,C:4):5;", BranchLengths::All)]
+  #[case::some(                  "((A:1,B):3,C);", BranchLengths::Some)]
+  #[case::none(                  "((A,B),C);", BranchLengths::None)]
   #[trace]
   fn inspect_tree_classifies_branch_lengths(#[case] newick: &str, #[case] expected: BranchLengths) {
     assert_eq!(expected, inspect_tree("t", newick).branch_lengths);
@@ -232,18 +229,15 @@ mod tests {
 
   #[test]
   fn inspect_tree_reports_parser_warnings() {
-    let inspection = inspect_tree("t", "((A,B):0.R,C);\n(A,B,C);\n");
-    let expected = vec![
-      "ignoring invalid branch length '0.R'".to_owned(),
-      "more than one tree in file, using the first".to_owned(),
-    ];
+    let inspection = inspect_tree("t", "((A,B):0.5,C);\n(A,B,C);\n");
+    let expected = vec!["more than one tree in file, using the first".to_owned()];
     assert_eq!(expected, inspection.warnings);
     assert_eq!(None, inspection.error);
   }
 
   #[test]
   fn inspect_tree_reports_a_parse_error_with_line_and_column() {
-    // The ';' at line 3 column 1 ends the text where a ',' or ')' is expected.
+    // The '(' at line 1 column 1 is never closed.
     let expected = TreeInspection {
       label: "t".into(),
       leaves: 0,
@@ -252,8 +246,8 @@ mod tests {
       branch_lengths: BranchLengths::None,
       warnings: vec![],
       error: Some(TreeError {
-        message: "expected ',' or ')'".into(),
-        line: Some(3),
+        message: "the '(' is never closed".into(),
+        line: Some(1),
         column: Some(1),
       }),
     };
@@ -272,9 +266,9 @@ mod tests {
 
   #[test]
   fn inspect_tree_column_counts_characters() {
-    // "é" is two bytes; the error is at the fifth character, the missing ')' before ';'.
-    let error = inspect_tree("t", "(é,B;").error.unwrap();
-    assert_eq!((Some(1), Some(5)), (error.line, error.column));
+    // "é" is two bytes; the error is at the eighth character, the label "y" after the label "x".
+    let error = inspect_tree("t", "(é,B)x y;").error.unwrap();
+    assert_eq!((Some(1), Some(8)), (error.line, error.column));
   }
 
   #[test]

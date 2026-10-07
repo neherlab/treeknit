@@ -53,7 +53,7 @@ mod tests {
     let expected = json!([
         {
             "field": {"kind": "treeNewick", "index": 1},
-            "message": "tree \"na\": Newick parse error: expected ',' or ')' at byte 15",
+            "message": "tree \"na\": Newick parse error: expected comment, ')', ',', ':', ';' at byte 15",
             "line": 2,
             "column": 8,
         },
@@ -279,7 +279,7 @@ mod tests {
     let request = json!({
         "trees": [
             {"label": "ha", "newick": "((A,B),(C,(D,X)));\n(A,B);"},
-            {"label": "na", "newick": "((A,(B,X)),(C,D):0.R);"},
+            {"label": "na", "newick": "((A,(B,X)),(C,D));\n(A,B,X);"},
         ],
     });
     let session = Session::run(&ts(&request), &Function::new_no_args("")).unwrap();
@@ -287,7 +287,7 @@ mod tests {
     // Oracle: the warning lines of `newick::ParseWarning::log`, which the command line writes.
     let expected = json!([
         {"level": "warn", "message": "ha: more than one tree in file, using the first"},
-        {"level": "warn", "message": "na: ignoring invalid branch length '0.R'"},
+        {"level": "warn", "message": "na: more than one tree in file, using the first"},
     ]);
     let without_time: Vec<Value> = diagnostics
       .as_array()
@@ -997,7 +997,7 @@ mod tests {
 
   #[wasm_bindgen_test]
   fn inspect_tree_returns_the_parse_error_with_its_position() {
-    let expected = json!({"message": "expected ',' or ')'", "line": 2, "column": 8});
+    let expected = json!({"message": "expected comment, ')', ',', ':', ';'", "line": 2, "column": 8});
     let actual = treeknit_wasm::inspect_tree("na", "((A,B),\n(C,D)x y);").unwrap();
     assert_eq!(expected, plain(&actual.js_value())["error"]);
   }

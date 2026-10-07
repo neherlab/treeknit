@@ -1472,6 +1472,7 @@ dependencies = [
  "treeknit-testing",
  "tsify",
  "unicode-segmentation",
+ "util-newick",
  "wasm-bindgen",
  "zip",
 ]

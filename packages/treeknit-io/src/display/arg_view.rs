@@ -1,5 +1,6 @@
 //! The ARG of two trees laid out in one tree column.
 
+use crate::arg::GLOBAL_ROOT;
 use crate::display::coordinate;
 use crate::display::label_max_chars;
 use crate::display::legend::arg_legend;
@@ -11,9 +12,6 @@ use crate::output::segment_labels;
 use crate::run::RunResult;
 use std::collections::{BTreeMap, VecDeque};
 use treeknit_core::arg::{Anc, Arg};
-
-/// Label of the synthetic top root, as in `ARG/arg.nwk`.
-const GLOBAL_ROOT: &str = "GlobalRoot";
 
 /// The ARG of `run` laid out with the shapes for `scale`, or for `depth` when `scale` is `div` and
 /// the ARG has no branch lengths (`ArgView.scale`); `None` when the run built no ARG (more
@@ -452,7 +450,7 @@ mod tests {
   fn arg_view_top_root_follows_the_extended_newick(#[case] ha: &str, #[case] na: &str) {
     let r = run_trees(&[("ha", ha), ("na", na)]);
     let v = arg_view(&r, Scale::Div).unwrap();
-    let newick = crate::arg::extended_newick(r.built_arg().unwrap());
+    let newick = crate::arg::extended_newick(r.built_arg().unwrap()).unwrap();
     let top = newick.trim_end_matches(';').rsplit(')').next().unwrap();
     let label = top.split(['[', '#', ':']).next().unwrap();
     assert_eq!(label, v.nodes[v.root].label);

@@ -59,7 +59,8 @@ fn write_pair(args: &Args) -> Result<(), String> {
   for (t, file) in [(&a, "tree_a.nwk"), (&b, "tree_b.nwk")] {
     let path = args.outdir.join(file);
     let io_err = |e: std::io::Error| format!("{}: {e}", path.display());
-    std::fs::write(&path, format!("{}\n", newick::write(t))).map_err(io_err)?;
+    let text = newick::write(t).map_err(|e| format!("{}: {e}", path.display()))?;
+    std::fs::write(&path, format!("{text}\n")).map_err(io_err)?;
     let parsed = newick::parse_first(&std::fs::read_to_string(&path).map_err(io_err)?, file)
       .map_err(|e| e.to_string())?
       .tree;
@@ -322,8 +323,8 @@ mod tests {
   fn test_large_tree_pair_same_seed_same_trees() {
     let (a1, b1) = tree_pair(100, 5, 10);
     let (a2, b2) = tree_pair(100, 5, 10);
-    assert_eq!(newick::write(&a1), newick::write(&a2));
-    assert_eq!(newick::write(&b1), newick::write(&b2));
+    assert_eq!(newick::write(&a1).unwrap(), newick::write(&a2).unwrap());
+    assert_eq!(newick::write(&b1).unwrap(), newick::write(&b2).unwrap());
   }
 
   #[test]
@@ -336,7 +337,7 @@ mod tests {
   #[test]
   fn test_large_tree_pair_no_moves_same_tree() {
     let (a, b) = tree_pair(100, 7, 0);
-    assert_eq!(newick::write(&a), newick::write(&b));
+    assert_eq!(newick::write(&a).unwrap(), newick::write(&b).unwrap());
   }
 
   /// For every seed, one move keeps the leaves and a binary tree B and changes its clades.
@@ -363,10 +364,10 @@ mod tests {
   #[test]
   fn test_large_tree_pair_newick_roundtrip() {
     let (a, b) = tree_pair(100, 11, 10);
-    let a2 = newick::parse_first(&format!("{}\n", newick::write(&a)), "a")
+    let a2 = newick::parse_first(&format!("{}\n", newick::write(&a).unwrap()), "a")
       .unwrap()
       .tree;
-    let b2 = newick::parse_first(&format!("{}\n", newick::write(&b)), "b")
+    let b2 = newick::parse_first(&format!("{}\n", newick::write(&b).unwrap()), "b")
       .unwrap()
       .tree;
     assert_eq!(clades(&a), clades(&a2));

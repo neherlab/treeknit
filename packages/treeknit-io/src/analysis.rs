@@ -671,12 +671,11 @@ fn check_pair_stems(trees: &[TreeText], valid: &[bool]) -> Vec<ValidationError> 
 }
 
 fn parse_error(i: usize, t: &TreeText, e: &newick::ParseError) -> ValidationError {
-  let position = e.offset.map(|o| newick::line_column(&t.newick, o));
   ValidationError {
     field: Some(Field::TreeNewick { index: i }),
     message: format!("tree {:?}: {e}", t.label),
-    line: position.map(|(l, _)| l),
-    column: position.map(|(_, c)| c),
+    line: e.location.map(|l| l.line),
+    column: e.location.map(|l| l.column),
   }
 }
 
@@ -907,7 +906,7 @@ mod tests {
     };
     let ParsedTrees { mut trees, taxa } = parse_trees(&texts(&[("ha", "(A,B,C,D);"), ("na", T)])).unwrap();
     treeknit_core::run(&mut trees, &taxa, &options(&s, 2, false).unwrap(), s.seed);
-    assert_eq!(expected, clades(&newick::write(&trees[0])));
+    assert_eq!(expected, clades(&newick::write(&trees[0]).unwrap()));
   }
 
   #[test]
@@ -1000,7 +999,7 @@ mod tests {
     let errors = tree_errors(&texts(&[("ha", T), ("na", "((A,B),\n(C,D)x y);")]));
     let expected = vec![ValidationError {
       field: Some(Field::TreeNewick { index: 1 }),
-      message: "tree \"na\": Newick parse error: expected ',' or ')' at byte 15".to_owned(),
+      message: "tree \"na\": Newick parse error: expected comment, ')', ',', ':', ';' at byte 15".to_owned(),
       line: Some(2),
       column: Some(8),
     }];
@@ -1015,7 +1014,6 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::no_semicolon(  "((A,B),(C,D))", "tree \"na\": Newick parse error: no ';' found")]
   #[case::duplicate_leaf("((A,A),(C,D));", "tree \"na\": Newick parse error: duplicate leaf name \"A\"")]
   #[trace]
   fn parse_error_without_position(#[case] newick: &str, #[case] message: &str) {

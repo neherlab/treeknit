@@ -265,9 +265,9 @@ impl FileKind {
     }
   }
 
-  /// The text of the file of `run`, with the bytes the command line writes; `None` when `run`
-  /// lacks the pair or the ARG of the file.
-  fn text(self, run: &RunResult) -> Option<String> {
+  /// The text of the file of `run` at `path`, with the bytes the command line writes; an error
+  /// when `run` lacks the pair or the ARG of the file, or when Newick cannot hold one of its trees.
+  fn text(self, run: &RunResult, path: &str) -> Result<String, FileError> {
     let RunResult {
       trees,
       taxa,
@@ -275,20 +275,30 @@ impl FileKind {
       imputed,
       ..
     } = run;
-    let newick = |t: &Tree| format!("{}\n", newick::write(t));
-    Some(match self {
+    let missing = || FileError::Missing { path: path.to_owned() };
+    let newick_error = |error| FileError::Newick {
+      path: path.to_owned(),
+      error,
+    };
+    let newick = |t: Option<&Tree>| {
+      let text = newick::write(t.ok_or_else(missing)?).map_err(newick_error)?;
+      Ok(format!("{text}\n"))
+    };
+    let arg = || run.built_arg().ok_or_else(missing);
+    Ok(match self {
       FileKind::Mccs => format!("{:#}\n", mccs::to_json(pairs, trees, taxa)),
       FileKind::MccLines { pair, .. } => {
-        let names: Vec<Vec<String>> = pairs.get(pair)?.mccs.iter().map(|m| taxa.names_of(m)).collect();
+        let pair = pairs.get(pair).ok_or_else(missing)?;
+        let names: Vec<Vec<String>> = pair.mccs.iter().map(|m| taxa.names_of(m)).collect();
         mccs::to_lines(&names)
       },
-      FileKind::Resolved { tree } => newick(trees.get(tree)?),
-      FileKind::Imputed { tree } => newick(imputed.get(tree)?),
+      FileKind::Resolved { tree } => newick(trees.get(tree))?,
+      FileKind::Imputed { tree } => newick(imputed.get(tree))?,
       FileKind::Auspice { tree } => format!("{:#}", auspice::auspice_json(tree, trees, pairs, taxa)),
-      FileKind::ArgNewick => format!("{}\n", arg::extended_newick(run.built_arg()?)),
-      FileKind::ArgNodes => format!("{}\n", arg::node_table(run.built_arg()?)),
-      FileKind::ArgTree { tree } => newick(run.built_arg()?.trees.get(tree)?),
-      FileKind::Figure { figure, .. } => figure_text(run, figure)?,
+      FileKind::ArgNewick => format!("{}\n", arg::extended_newick(arg()?).map_err(newick_error)?),
+      FileKind::ArgNodes => format!("{}\n", arg::node_table(arg()?)),
+      FileKind::ArgTree { tree } => newick(arg()?.trees.get(tree))?,
+      FileKind::Figure { figure, .. } => figure_text(run, figure).ok_or_else(missing)?,
     })
   }
 }
@@ -307,25 +317,29 @@ fn run_files(run: &RunResult, options: &OutputOptions) -> Vec<(FileKind, String)
     .collect()
 }
 
-/// A listed file of a run whose text cannot be made, because the run lacks its pair or its ARG.
+/// A listed file of a run whose text cannot be made.
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
-#[error("the run has no data for the output file {path}")]
-pub struct MissingFile {
-  pub path: String,
+pub enum FileError {
+  /// The run lacks the pair or the ARG of the file.
+  #[error("the run has no data for the output file {path}")]
+  Missing { path: String },
+  /// Newick cannot hold a tree of the file, such as a branch length that is not a finite number.
+  #[error("cannot write the output file {path}: {error}")]
+  Newick { path: String, error: newick::WriteError },
 }
 
 /// Every output file of `run` except `parameters.json` and `log.txt`, at its path in the results
 /// directory, with the bytes the command line writes: the MCCs as JSON and as lines, the
 /// resolved trees, the imputed trees and Auspice files when `options` asks for them, for two
 /// trees the ARG files, and the figures when `options` asks for them. File names follow the tree
-/// labels. The run of a request that passed `analysis::prepare` has every file it lists, so the
-/// error marks a broken run.
-pub fn output_files(run: &RunResult, options: &OutputOptions) -> Result<Vec<OutputFile>, MissingFile> {
+/// labels. The run of a request that passed `analysis::prepare` has every file it lists, so
+/// `FileError::Missing` marks a broken run.
+pub fn output_files(run: &RunResult, options: &OutputOptions) -> Result<Vec<OutputFile>, FileError> {
   run_files(run, options)
     .into_iter()
-    .map(|(kind, path)| match kind.text(run) {
-      Some(text) => Ok(OutputFile::new(path, text)),
-      None => Err(MissingFile { path }),
+    .map(|(kind, path)| {
+      let text = kind.text(run, &path)?;
+      Ok(OutputFile::new(path, text))
     })
     .collect()
 }
@@ -338,15 +352,14 @@ pub fn web_files(
   run: &RunResult,
   seed: u64,
   records: &[Diagnostic],
-) -> Result<Vec<WebFile>, MissingFile> {
+) -> Result<Vec<WebFile>, FileError> {
   let mut files = vec![WebFile::Text(session_file(request))];
   for (kind, path) in run_files(run, &OutputOptions::web(run.trees.len())) {
-    files.push(match kind {
-      FileKind::Figure { figure, .. } => WebFile::Figure(FigureFile { path, figure }),
-      _ => match kind.text(run) {
-        Some(text) => WebFile::Text(OutputFile::new(path, text)),
-        None => return Err(MissingFile { path }),
-      },
+    files.push(if let FileKind::Figure { figure, .. } = kind {
+      WebFile::Figure(FigureFile { path, figure })
+    } else {
+      let text = kind.text(run, &path)?;
+      WebFile::Text(OutputFile::new(path, text))
     });
   }
   files.push(WebFile::Text(parameters_file(&run.opts, seed)));
