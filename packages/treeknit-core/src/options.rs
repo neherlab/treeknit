@@ -122,6 +122,12 @@ impl Options {
     self.resolution != Resolution::None
   }
 
+  /// Whether a run on `k` trees ends with an extra round without resolution: strict or liberal
+  /// resolution, more than two trees, and `final_unresolved_round`.
+  pub fn extra_unresolved_round(&self, k: usize) -> bool {
+    matches!(self.resolution, Resolution::Strict | Resolution::Liberal) && k > 2 && self.final_unresolved_round
+  }
+
   pub fn temperatures(&self) -> Vec<f64> {
     crate::anneal::schedule(self.cooling, self.t_min, self.t_max, self.n_t)
   }

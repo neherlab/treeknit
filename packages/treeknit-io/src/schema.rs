@@ -7,6 +7,18 @@ use treeknit_core::Options;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
+/// Help on γ (`--gamma`).
+pub const GAMMA_HELP: &str = "Cost γ of a reassortment, that is of removing an MCC.";
+
+/// Help on the MCMC steps per leaf (`--n-mcmc-it`).
+pub const N_MCMC_IT_HELP: &str = "MCMC steps per leaf of the simulated annealing.";
+
+/// Help on the rounds (`--rounds`).
+pub const ROUNDS_HELP: &str = "Rounds of pair inference.";
+
+/// Help on the seed (`--seed`).
+pub const SEED_HELP: &str = "Seed of the random number generator, so that a run can be repeated.";
+
 /// Help on the order of the trees.
 pub const TREE_ORDER_HELP: &str = "With matched resolution, splits of earlier trees win conflicts.";
 
@@ -32,7 +44,7 @@ pub const SETTING_KEYS: [SettingKey; 10] = [
     key: "gamma",
     opposite: None,
     value: KeyValue::Number,
-    description: "Cost γ of a reassortment, that is of removing an MCC.",
+    description: GAMMA_HELP,
   },
   SettingKey {
     setting: SettingName::SeqLengths,
@@ -46,7 +58,7 @@ pub const SETTING_KEYS: [SettingKey; 10] = [
     key: "n-mcmc-it",
     opposite: None,
     value: KeyValue::Integer,
-    description: "MCMC steps per leaf of the simulated annealing.",
+    description: N_MCMC_IT_HELP,
   },
   SettingKey {
     setting: SettingName::Resolve,
@@ -67,7 +79,7 @@ pub const SETTING_KEYS: [SettingKey; 10] = [
     key: "rounds",
     opposite: None,
     value: KeyValue::Integer,
-    description: "Rounds of pair inference.",
+    description: ROUNDS_HELP,
   },
   SettingKey {
     setting: SettingName::FinalRound,
@@ -95,7 +107,7 @@ pub const SETTING_KEYS: [SettingKey; 10] = [
     key: "seed",
     opposite: None,
     value: KeyValue::Integer,
-    description: "Seed of the random number generator, so that a run can be repeated.",
+    description: SEED_HELP,
   },
 ];
 
@@ -305,16 +317,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
     .then_some("Without resolution, every round infers the same naive MCCs of the unchanged trees.");
   SettingsSchema {
     settings: SettingFields {
-      gamma: number(
-        d.gamma,
-        0.0,
-        false,
-        None,
-        None,
-        false,
-        naive,
-        "Cost γ of a reassortment, that is of removing an MCC.",
-      ),
+      gamma: number(d.gamma, 0.0, false, None, None, false, naive, GAMMA_HELP),
       seq_lengths: number(
         default_seq_length(),
         0.0,
@@ -333,7 +336,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         Some(1.0),
         true,
         naive,
-        "MCMC steps per leaf of the simulated annealing.",
+        N_MCMC_IT_HELP,
       ),
       rounds: number(
         exact_u64(d.rounds),
@@ -343,7 +346,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         Some(1.0),
         true,
         rounds_skip,
-        "Rounds of pair inference.",
+        ROUNDS_HELP,
       ),
       seed: number(
         exact_u64(d.seed),
@@ -353,7 +356,7 @@ pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
         Some(1.0),
         true,
         seed_skip,
-        "Seed of the random number generator, so that a run can be repeated.",
+        SEED_HELP,
       ),
       pre_resolve: toggle(d.pre_resolve, None, PRE_RESOLVE_HELP),
       final_round: toggle(d.final_round, final_round_skip, FINAL_ROUND_HELP),

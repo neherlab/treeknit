@@ -152,8 +152,7 @@ struct Cli {
   #[arg(short, long, default_value = output::RESULTS_DIR, help_heading = OUTPUT_HEADING)]
   outdir: PathBuf,
 
-  /// Cost γ of a reassortment (removing an MCC).
-  #[arg(short, long, default_value_t = Settings::default().gamma, help_heading = ANALYSIS_HEADING)]
+  #[arg(short, long, default_value_t = Settings::default().gamma, help = schema::GAMMA_HELP, help_heading = ANALYSIS_HEADING)]
   gamma: f64,
 
   /// Sequence lengths of the segments, e.g. 1500,2000 (used by the likelihood tie-break and to
@@ -161,8 +160,7 @@ struct Cli {
   #[arg(long, value_name = "LENGTHS", help_heading = ANALYSIS_HEADING)]
   seq_lengths: Option<String>,
 
-  /// MCMC steps per leaf.
-  #[arg(long, default_value_t = Settings::default().n_mcmc_it, help_heading = ANALYSIS_HEADING)]
+  #[arg(long, default_value_t = Settings::default().n_mcmc_it, help = schema::N_MCMC_IT_HELP, help_heading = ANALYSIS_HEADING)]
   n_mcmc_it: u64,
 
   /// How trees are resolved: matched, strict, liberal or none (see --help-resolve).
@@ -180,7 +178,7 @@ struct Cli {
   // No clap default: without the flag, the former options take the rounds of their preset.
   #[arg(
     long,
-    help = format!("Rounds of pair inference [default: {}]", Settings::default().rounds),
+    help = format!("{} [default: {}]", schema::ROUNDS_HELP, Settings::default().rounds),
     help_heading = ANALYSIS_HEADING,
   )]
   rounds: Option<u64>,
@@ -194,8 +192,7 @@ struct Cli {
   #[arg(long, overrides_with = "no_final_round", help_heading = ANALYSIS_HEADING)]
   final_round: bool,
 
-  /// Seed of the random number generator.
-  #[arg(long, default_value_t = Settings::default().seed, help_heading = ANALYSIS_HEADING)]
+  #[arg(long, default_value_t = Settings::default().seed, help = schema::SEED_HELP, help_heading = ANALYSIS_HEADING)]
   seed: u64,
 
   /// Naive MCCs (γ → ∞).
@@ -1082,7 +1079,7 @@ fn parse_lengths(s: &str) -> Result<Vec<f64>, ValidationError> {
 }
 
 fn log_options(o: &Options, k: usize) {
-  let extra = matches!(o.resolution, Resolution::Strict | Resolution::Liberal) && k > 2 && o.final_unresolved_round;
+  let extra = o.extra_unresolved_round(k);
   log::info!(
     "γ = {}, resolution: {}, pre-resolve: {}, {} round(s){}",
     o.gamma,

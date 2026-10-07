@@ -80,8 +80,7 @@ impl PairResult {
 /// Number of rounds of a run on `k` trees, and whether the last of them is the extra round
 /// without resolution.
 fn schedule(opts: &Options, k: usize) -> (usize, bool) {
-  let extra_round =
-    matches!(opts.resolution, Resolution::Strict | Resolution::Liberal) && k > 2 && opts.final_unresolved_round;
+  let extra_round = opts.extra_unresolved_round(k);
   (opts.rounds + extra_round as usize, extra_round)
 }
 
