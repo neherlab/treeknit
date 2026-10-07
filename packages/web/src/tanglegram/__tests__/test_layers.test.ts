@@ -39,7 +39,7 @@ const COLORS: DrawingColors = {
     [206, 121, 30, 255],
     [91, 124, 153, 255],
   ],
-  mccNone: [131, 144, 141, 255],
+  noMcc: [131, 144, 141, 255],
 };
 
 const VIEW = examplePairView();
@@ -59,14 +59,14 @@ const STYLE: PairStyle = {
   fade: 1,
 };
 
-const SLOT_0 = COLORS.mcc[0] ?? COLORS.mccNone;
+const SLOT_0 = COLORS.mcc[0] ?? COLORS.noMcc;
 
-const SLOT_3 = COLORS.mcc[3] ?? COLORS.mccNone;
+const SLOT_3 = COLORS.mcc[3] ?? COLORS.noMcc;
 
 describe("branch colors", () => {
   test.each([
     ["a plain branch takes its MCC slot", { mcc: 0, slot: 0 }, "plain", STYLE, SLOT_0],
-    ["a branch without an MCC takes the no-MCC color", { mcc: null, slot: null }, "plain", STYLE, COLORS.mccNone],
+    ["a branch without an MCC takes the no-MCC color", { mcc: null, slot: null }, "plain", STYLE, COLORS.noMcc],
     [
       "a branch with coloring off is ink-muted",
       { mcc: 0, slot: 0 },

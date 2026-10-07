@@ -1,7 +1,7 @@
 import type { Accessor, Color } from "@deck.gl/core";
-import type { DrawingRules } from "@neherlab/treeknit-wasm";
+import type { DrawingRules, Rgba } from "@neherlab/treeknit-wasm";
 
-import { type Rgba, withOpacity } from "../color";
+import { withOpacity } from "../color";
 import type { DrawingColors } from "../drawingColors";
 import type { WorldPosition } from "../projection";
 import { markLayer } from "./markLayer";

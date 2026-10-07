@@ -106,7 +106,7 @@ impl Layout {
   }
 }
 
-fn ribbons(svg: &mut Svg, view: &PairView, layout: &Layout, colors: &ThemeColors) {
+fn ribbons(svg: &mut Svg, view: &PairView, layout: &Layout, colors: &ThemeColors<String>) {
   svg.open("g", &[("fill-opacity", num(RIBBON_OPACITY))]);
   for ribbon in &view.shapes.ribbons {
     let d = ribbon
@@ -123,7 +123,7 @@ fn ribbons(svg: &mut Svg, view: &PairView, layout: &Layout, colors: &ThemeColors
   svg.close("g");
 }
 
-fn links(svg: &mut Svg, view: &PairView, layout: &Layout, colors: &ThemeColors) {
+fn links(svg: &mut Svg, view: &PairView, layout: &Layout, colors: &ThemeColors<String>) {
   svg.open("g", &[("fill", "none".to_owned()), ("stroke-width", num(LINK_WIDTH))]);
   for link in &view.shapes.links {
     let d = Path::new().curve(&layout.rows.bezier(layout.links, &link.curve));
@@ -145,7 +145,7 @@ struct TreeDrawing<'a> {
   shapes: &'a TreeShapes,
   column: Column,
   rows: Rows,
-  colors: &'a ThemeColors,
+  colors: &'a ThemeColors<String>,
 }
 
 impl TreeDrawing<'_> {
@@ -208,7 +208,7 @@ impl TreeDrawing<'_> {
 }
 
 /// The legend: the symbols that the drawing contains.
-fn legend(view: &PairView, layout: &Layout, colors: &ThemeColors) -> Vec<LegendEntry> {
+fn legend(view: &PairView, layout: &Layout, colors: &ThemeColors<String>) -> Vec<LegendEntry> {
   let elbows = || view.shapes.left.elbows.iter().chain(&view.shapes.right.elbows);
   let marks = || view.shapes.left.marks.iter().chain(&view.shapes.right.marks);
   let ring = |stroke: &str, at: f64| Symbol::Ring {
@@ -269,6 +269,6 @@ fn legend(view: &PairView, layout: &Layout, colors: &ThemeColors) -> Vec<LegendE
 
 /// The color of MCC slot `slot`, or the "no MCC" color for `None`. A slot is below `MCC_SLOTS`,
 /// so a slot out of range is a broken invariant and panics instead of taking the "no MCC" color.
-fn slot_color(colors: &ThemeColors, slot: Option<usize>) -> String {
+fn slot_color(colors: &ThemeColors<String>, slot: Option<usize>) -> String {
   slot.map_or(&colors.no_mcc, |s| &colors.mcc[s]).clone()
 }

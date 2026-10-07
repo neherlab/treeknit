@@ -25,85 +25,121 @@ use serde::Serialize;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
-/// Drawing colors of both themes.
+/// Drawing colors of both themes: as `#rrggbb` text for CSS and SVG, and as RGBA for the canvas
+/// of the web app, which would otherwise parse the text back into numbers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct Palette {
-  pub light: ThemeColors,
-  pub dark: ThemeColors,
+  pub light: ThemeColors<String>,
+  pub dark: ThemeColors<String>,
+  pub light_rgba: ThemeColors<Rgba>,
+  pub dark_rgba: ThemeColors<Rgba>,
 }
 
-// The TypeScript type of `ThemeColors.mcc` spells out a tuple of `MCC_SLOTS` strings.
+/// A color as red, green, blue, and alpha, each from 0 to 255.
+#[cfg_attr(feature = "tsify", tsify::declare)]
+pub type Rgba = [u8; 4];
+
+// The TypeScript type of `ThemeColors.mcc` spells out a tuple of `MCC_SLOTS` colors.
 const _: () = assert!(MCC_SLOTS == 8, "update the tsify type of `ThemeColors.mcc`");
 
-/// Drawing colors of one theme, each as `#rrggbb`.
+/// Drawing colors of one theme, each a `C`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
-pub struct ThemeColors {
+pub struct ThemeColors<C> {
   /// The MCC color slots, `MCC_SLOTS` of them; `MccInfo.slot` indexes them.
-  #[cfg_attr(
-    feature = "tsify",
-    tsify(type = "[string, string, string, string, string, string, string, string]")
-  )]
-  pub mcc: [String; MCC_SLOTS],
+  #[cfg_attr(feature = "tsify", tsify(type = "[C, C, C, C, C, C, C, C]"))]
+  pub mcc: [C; MCC_SLOTS],
   /// Branches of nodes without an MCC.
-  pub no_mcc: String,
-  pub ground: String,
-  pub ink: String,
-  pub ink_muted: String,
+  pub no_mcc: C,
+  pub ground: C,
+  pub ink: C,
+  pub ink_muted: C,
   /// Reassortment, and nothing else.
-  pub signal: String,
-  pub focus: String,
+  pub signal: C,
+  pub focus: C,
   /// Segment A (the first tree) of the ARG.
-  pub segment_a: String,
+  pub segment_a: C,
   /// Segment B (the second tree) of the ARG.
-  pub segment_b: String,
+  pub segment_b: C,
+}
+
+impl<C> ThemeColors<C> {
+  /// The colors with `f` applied to each.
+  fn map<D>(&self, f: impl Fn(&C) -> D) -> ThemeColors<D> {
+    ThemeColors {
+      mcc: self.mcc.each_ref().map(&f),
+      no_mcc: f(&self.no_mcc),
+      ground: f(&self.ground),
+      ink: f(&self.ink),
+      ink_muted: f(&self.ink_muted),
+      signal: f(&self.signal),
+      focus: f(&self.focus),
+      segment_a: f(&self.segment_a),
+      segment_b: f(&self.segment_b),
+    }
+  }
 }
 
 /// The drawing colors of both themes.
 pub fn palette() -> Palette {
+  let light = theme(
+    [
+      0x2f4b9a, 0x93771c, 0x2c8c83, 0x7c4fac, 0x7a5537, 0x677630, 0xce791e, 0x5b7c99,
+    ],
+    0x83908d,
+    [0xf3f5f4, 0x1f2b30, 0x55656b, 0xb0265e, 0x2457c5, 0x3e6a8a, 0x8a6a3e],
+  );
+  let dark = theme(
+    [
+      0x617ecf, 0xc9a227, 0x2c8c83, 0x8054b0, 0x89603e, 0x6f7f33, 0xd07a1e, 0x5b7c99,
+    ],
+    0x6e7c79,
+    [0x162024, 0xdce4e1, 0x9aaaa6, 0xe0619a, 0x7da2f0, 0x406e8f, 0x8a6a3e],
+  );
   Palette {
-    light: theme(
-      [
-        "#2f4b9a", "#93771c", "#2c8c83", "#7c4fac", "#7a5537", "#677630", "#ce791e", "#5b7c99",
-      ],
-      "#83908d",
-      [
-        "#f3f5f4", "#1f2b30", "#55656b", "#b0265e", "#2457c5", "#3e6a8a", "#8a6a3e",
-      ],
-    ),
-    dark: theme(
-      [
-        "#617ecf", "#c9a227", "#2c8c83", "#8054b0", "#89603e", "#6f7f33", "#d07a1e", "#5b7c99",
-      ],
-      "#6e7c79",
-      [
-        "#162024", "#dce4e1", "#9aaaa6", "#e0619a", "#7da2f0", "#406e8f", "#8a6a3e",
-      ],
-    ),
+    light: light.map(|&rgb| css(rgb)),
+    dark: dark.map(|&rgb| css(rgb)),
+    light_rgba: light.map(|&rgb| rgba(rgb)),
+    dark_rgba: dark.map(|&rgb| rgba(rgb)),
   }
 }
 
-/// The colors of one theme: the MCC slots, "no MCC", and the interface colors ground, ink,
-/// ink-muted, signal, focus, segment A, and segment B.
+/// The colors of one theme as `0xrrggbb` numbers: the MCC slots, "no MCC", and the interface
+/// colors ground, ink, ink-muted, signal, focus, segment A, and segment B.
 fn theme(
-  mcc: [&str; MCC_SLOTS],
-  no_mcc: &str,
-  [ground, ink, ink_muted, signal, focus, segment_a, segment_b]: [&str; 7],
-) -> ThemeColors {
+  mcc: [u32; MCC_SLOTS],
+  no_mcc: u32,
+  [ground, ink, ink_muted, signal, focus, segment_a, segment_b]: [u32; 7],
+) -> ThemeColors<u32> {
   ThemeColors {
-    mcc: mcc.map(str::to_owned),
-    no_mcc: no_mcc.to_owned(),
-    ground: ground.to_owned(),
-    ink: ink.to_owned(),
-    ink_muted: ink_muted.to_owned(),
-    signal: signal.to_owned(),
-    focus: focus.to_owned(),
-    segment_a: segment_a.to_owned(),
-    segment_b: segment_b.to_owned(),
+    mcc,
+    no_mcc,
+    ground,
+    ink,
+    ink_muted,
+    signal,
+    focus,
+    segment_a,
+    segment_b,
   }
+}
+
+/// The `#rrggbb` text of the color `0xrrggbb`.
+fn css(rgb: u32) -> String {
+  format!("#{rgb:06x}")
+}
+
+/// The opaque RGBA of the color `0xrrggbb`.
+#[expect(
+  clippy::big_endian_bytes,
+  reason = "the number 0xrrggbb holds red, green, and blue from its most significant byte down"
+)]
+fn rgba(rgb: u32) -> Rgba {
+  let [_, r, g, b] = rgb.to_be_bytes();
+  [r, g, b, u8::MAX]
 }
 
 #[cfg(test)]
@@ -121,7 +157,7 @@ mod tests {
     Dark,
   }
 
-  fn colors(theme: Theme) -> ThemeColors {
+  fn colors(theme: Theme) -> ThemeColors<String> {
     let p = palette();
     match theme {
       Theme::Light => p.light,
@@ -196,6 +232,15 @@ mod tests {
       .collect();
     actual.push(tokens["mcc-none"].clone());
     assert_eq!(expected, actual);
+  }
+
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::leading_zeros(0x0a_0b_0c, ("#0a0b0c", [0x0a, 0x0b, 0x0c, 0xff]))]
+  #[case::blue(         0x2f_4b_9a, ("#2f4b9a", [0x2f, 0x4b, 0x9a, 0xff]))]
+  #[trace]
+  fn colors_are_written_as_css_text_and_opaque_rgba(#[case] rgb: u32, #[case] (text, channels): (&str, Rgba)) {
+    assert_eq!((text.to_owned(), channels), (css(rgb), rgba(rgb)));
   }
 
   #[rustfmt::skip]

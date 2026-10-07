@@ -1,9 +1,9 @@
-import type { Palette, ThemeColors } from "@neherlab/treeknit-wasm";
+import type { Palette, Rgba, ThemeColors } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
 import { mccVariables, paletteCss } from "../paletteCss";
 
-const LIGHT: ThemeColors = {
+const LIGHT: ThemeColors<string> = {
   mcc: ["#000001", "#000002", "#000003", "#000004", "#000005", "#000006", "#000007", "#000008"],
   noMcc: "#00000a",
   ground: "#f3f5f4",
@@ -15,13 +15,27 @@ const LIGHT: ThemeColors = {
   segmentB: "#8a6a3e",
 };
 
-const DARK: ThemeColors = {
+const DARK: ThemeColors<string> = {
   ...LIGHT,
   mcc: ["#100001", "#100002", "#100003", "#100004", "#100005", "#100006", "#100007", "#100008"],
   noMcc: "#10000a",
 };
 
-const PALETTE: Palette = { light: LIGHT, dark: DARK };
+const BLACK: Rgba = [0, 0, 0, 255];
+
+const RGBA: ThemeColors<Rgba> = {
+  mcc: [BLACK, BLACK, BLACK, BLACK, BLACK, BLACK, BLACK, BLACK],
+  noMcc: BLACK,
+  ground: BLACK,
+  ink: BLACK,
+  inkMuted: BLACK,
+  signal: BLACK,
+  focus: BLACK,
+  segmentA: BLACK,
+  segmentB: BLACK,
+};
+
+const PALETTE: Palette = { light: LIGHT, dark: DARK, lightRgba: RGBA, darkRgba: RGBA };
 
 describe("palette CSS variables", () => {
   test("maps the eight slots and the no-MCC color of a theme to their variables", () => {

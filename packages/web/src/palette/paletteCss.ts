@@ -6,7 +6,7 @@ export function mccVariable(slot: number): string {
   return `--color-mcc-${String(slot)}`;
 }
 
-export function mccVariables(colors: ThemeColors): [string, string][] {
+export function mccVariables(colors: ThemeColors<string>): [string, string][] {
   return [
     ...colors.mcc.map((color, slot): [string, string] => [mccVariable(slot), color]),
     [NO_MCC_VARIABLE, colors.noMcc],
@@ -30,7 +30,7 @@ export function applyPalette(target: Document, palette: Palette): () => void {
   };
 }
 
-function rule(selector: string, colors: ThemeColors): string {
+function rule(selector: string, colors: ThemeColors<string>): string {
   const declarations = mccVariables(colors).map(([name, color]) => `  ${name}: ${color};`);
 
   return [`${selector} {`, ...declarations, "}"].join("\n");

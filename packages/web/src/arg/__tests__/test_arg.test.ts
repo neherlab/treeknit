@@ -1,6 +1,6 @@
+import type { Rgba } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
-import type { Rgba } from "../../canvas/color";
 import type { DrawingColors } from "../../canvas/drawingColors";
 import { columnPixel } from "../../canvas/projection";
 import {
@@ -99,6 +99,7 @@ describe("argGeometry labels", () => {
 describe("argLegend", () => {
   test("draws reassortment as dashed edges in their segment colors into a signal ring", () => {
     const signal: Rgba = [176, 38, 94, 255];
+    const { ink } = SEGMENT_COLORS;
 
     const colors: DrawingColors = {
       ...SEGMENT_COLORS,
@@ -106,8 +107,8 @@ describe("argLegend", () => {
       ground: SEGMENT_COLORS.ink,
       inkMuted: SEGMENT_COLORS.ink,
       focus: SEGMENT_COLORS.ink,
-      mcc: [],
-      mccNone: SEGMENT_COLORS.ink,
+      mcc: [ink, ink, ink, ink, ink, ink, ink, ink],
+      noMcc: ink,
     };
 
     const legend = argLegend(colors, RULES, ["ha", "na"]);

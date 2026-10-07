@@ -1,7 +1,6 @@
 import type { LayersList } from "@deck.gl/core";
-import type { DrawingRules } from "@neherlab/treeknit-wasm";
+import type { DrawingRules, Rgba } from "@neherlab/treeknit-wasm";
 
-import type { Rgba } from "../canvas/color";
 import type { DrawingColors } from "../canvas/drawingColors";
 import { labelLayer } from "../canvas/layers/labelLayer";
 import { leaderLayer } from "../canvas/layers/leaderLayer";

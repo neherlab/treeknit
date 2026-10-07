@@ -1,6 +1,11 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+ * A color as red, green, blue, and alpha, each from 0 to 255.
+ */
+export type Rgba = [number, number, number, number];
+
+/**
  * A coloring of the Auspice view.
  */
 export interface AuspiceColoring {
@@ -590,41 +595,44 @@ export interface TreeShapes {
 }
 
 /**
- * Drawing colors of both themes.
+ * Drawing colors of both themes: as `#rrggbb` text for CSS and SVG, and as RGBA for the canvas
+ * of the web app, which would otherwise parse the text back into numbers.
  */
 export interface Palette {
-    light: ThemeColors;
-    dark: ThemeColors;
+    light: ThemeColors<string>;
+    dark: ThemeColors<string>;
+    lightRgba: ThemeColors<Rgba>;
+    darkRgba: ThemeColors<Rgba>;
 }
 
 /**
- * Drawing colors of one theme, each as `#rrggbb`.
+ * Drawing colors of one theme, each a `C`.
  */
-export interface ThemeColors {
+export interface ThemeColors<C> {
     /**
      * The MCC color slots, `MCC_SLOTS` of them; `MccInfo.slot` indexes them.
      */
-    mcc: [string, string, string, string, string, string, string, string];
+    mcc: [C, C, C, C, C, C, C, C];
     /**
      * Branches of nodes without an MCC.
      */
-    noMcc: string;
-    ground: string;
-    ink: string;
-    inkMuted: string;
+    noMcc: C;
+    ground: C;
+    ink: C;
+    inkMuted: C;
     /**
      * Reassortment, and nothing else.
      */
-    signal: string;
-    focus: string;
+    signal: C;
+    focus: C;
     /**
      * Segment A (the first tree) of the ARG.
      */
-    segmentA: string;
+    segmentA: C;
     /**
      * Segment B (the second tree) of the ARG.
      */
-    segmentB: string;
+    segmentB: C;
 }
 
 /**

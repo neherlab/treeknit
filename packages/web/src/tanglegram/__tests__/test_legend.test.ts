@@ -23,7 +23,7 @@ const COLORS: DrawingColors = {
     [206, 121, 30, 255],
     [91, 124, 153, 255],
   ],
-  mccNone: [131, 144, 141, 255],
+  noMcc: [131, 144, 141, 255],
 };
 
 function marksOf(label: string, colorByMcc: boolean, ribbons: boolean): readonly SymbolMark[] {

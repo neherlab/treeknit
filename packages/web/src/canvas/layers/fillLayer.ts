@@ -1,7 +1,7 @@
 import type { Accessor, Color } from "@deck.gl/core";
 import { SolidPolygonLayer } from "@deck.gl/layers";
+import type { Rgba } from "@neherlab/treeknit-wasm";
 
-import type { Rgba } from "../color";
 import type { WorldPosition } from "../projection";
 
 export interface FillLayerOptions<D> {

@@ -78,7 +78,7 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
 
 /// The legend: the two segments, both, and reassortment when the ARG has a hybrid node, its curve
 /// in the color of the first reticulation the figure draws.
-fn legend(view: &ArgView, [a, b]: [&str; 2], colors: &ThemeColors) -> Vec<LegendEntry> {
+fn legend(view: &ArgView, [a, b]: [&str; 2], colors: &ThemeColors<String>) -> Vec<LegendEntry> {
   let line = |color: &str| Symbol::Line {
     color: color.to_owned(),
     width: BRANCH_WIDTH,
@@ -119,7 +119,7 @@ fn legend(view: &ArgView, [a, b]: [&str; 2], colors: &ThemeColors) -> Vec<Legend
 }
 
 /// Segment A or B for an edge of one segment, ink for an edge of both.
-fn segment_color(segments: &[usize], colors: &ThemeColors) -> String {
+fn segment_color(segments: &[usize], colors: &ThemeColors<String>) -> String {
   match segments {
     [0] => colors.segment_a.clone(),
     [1] => colors.segment_b.clone(),

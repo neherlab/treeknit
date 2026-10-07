@@ -1,4 +1,6 @@
-import { cssColor, type Rgba } from "../canvas/color";
+import type { Rgba } from "@neherlab/treeknit-wasm";
+
+import { cssColor } from "../canvas/color";
 import { SYMBOL_HEIGHT_PX, SYMBOL_WIDTH_PX } from "./legendSymbols";
 
 export type SymbolMark =

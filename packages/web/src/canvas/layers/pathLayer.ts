@@ -1,8 +1,8 @@
 import type { Accessor, Color } from "@deck.gl/core";
 import { PathStyleExtension, type PathStyleExtensionProps } from "@deck.gl/extensions";
 import { PathLayer, type PathLayerProps } from "@deck.gl/layers";
+import type { Rgba } from "@neherlab/treeknit-wasm";
 
-import type { Rgba } from "../color";
 import type { WorldPosition } from "../projection";
 
 const DASH_EXTENSIONS = [new PathStyleExtension({ dash: true })];

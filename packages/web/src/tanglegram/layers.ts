@@ -1,7 +1,7 @@
 import type { LayersList } from "@deck.gl/core";
-import type { DrawingRules } from "@neherlab/treeknit-wasm";
+import type { DrawingRules, Rgba } from "@neherlab/treeknit-wasm";
 
-import { type Rgba, withOpacity } from "../canvas/color";
+import { withOpacity } from "../canvas/color";
 import { type DrawingColors, mccColor } from "../canvas/drawingColors";
 import { fillLayer } from "../canvas/layers/fillLayer";
 import { labelLayer } from "../canvas/layers/labelLayer";

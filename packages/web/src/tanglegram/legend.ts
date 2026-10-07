@@ -1,4 +1,5 @@
-import type { Rgba } from "../canvas/color";
+import type { Rgba } from "@neherlab/treeknit-wasm";
+
 import type { LegendEntry } from "../drawing/Legend";
 import {
   bandPath,
