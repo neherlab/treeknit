@@ -1,20 +1,24 @@
 //! `treeknit`: infer maximally compatible clades (MCCs) and reassortment graphs from
 //! segment trees.
 
-use anyhow::{Context, Result, bail};
 use clap::parser::ValueSource;
 use clap::{ArgMatches, CommandFactory, FromArgMatches, Parser};
+use color_eyre::config::{HookBuilder, Theme};
+use ctor::ctor;
+use eyre::{Result, WrapErr};
 use simplelog::{ColorChoice, CombinedLogger, ConfigBuilder, LevelFilter, TermLogger, TerminalMode, WriteLogger};
 use std::collections::BTreeSet;
+use std::fmt::Display;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
+use std::process::ExitCode;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 use treeknit_core::{Options, Resolution};
 use treeknit_io::analysis::{self, AnalysisRequest, Field, SettingKey, Settings, TreeText, ValidationError};
 use treeknit_io::examples;
-use treeknit_io::launch::{self, LaunchInput, LinkLocation, LocationError, SettingsPatch, TreeAddress};
+use treeknit_io::launch::{self, DecodeError, LaunchInput, LinkLocation, LocationError, SettingsPatch, TreeAddress};
 use treeknit_io::output::{self, OutputFile, OutputOptions};
 use treeknit_io::schema::{KeyValue, SETTING_KEYS};
 use treeknit_io::wire::wire_name;
@@ -267,7 +271,51 @@ struct Cli {
   resolve_all_rounds: bool,
 }
 
-fn main() -> Result<()> {
+#[ctor(unsafe)]
+fn init() {
+  global_init();
+}
+
+/// Install the color-eyre handler of errors and panics. Its colors are off when stderr is not a
+/// terminal or `NO_COLOR` is set, because color-eyre writes escape codes into pipes otherwise.
+fn global_init() {
+  let theme = if io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none() {
+    Theme::dark()
+  } else {
+    Theme::new()
+  };
+  #[expect(
+    clippy::expect_used,
+    reason = "runs once before main, when no other handler is installed"
+  )]
+  HookBuilder::default()
+    .display_env_section(false)
+    .theme(theme)
+    .panic_section(format!("Report this bug at {}/issues", env!("CARGO_PKG_REPOSITORY")))
+    .install()
+    .expect("the color-eyre handler installs once");
+}
+
+/// Run the command line. A mistake in the input prints its plain list with exit code 1; color-eyre
+/// renders any other error with its chain of causes.
+fn main() -> Result<ExitCode> {
+  match run() {
+    Ok(()) => Ok(ExitCode::SUCCESS),
+    Err(report) => match report.downcast_ref::<InputError>() {
+      Some(error) => {
+        #[cfg_attr(
+          dylint_lib = "custom",
+          expect(debug_remnants, reason = "the CLI reports input errors on stderr")
+        )]
+        eprintln!("Error: {error}");
+        Ok(ExitCode::FAILURE)
+      },
+      None => Err(report),
+    },
+  }
+}
+
+fn run() -> Result<()> {
   let matches = Cli::command().get_matches();
   let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
   if cli.help_resolve || cli.help_defaults {
@@ -314,11 +362,11 @@ fn main() -> Result<()> {
   let settings = settings.map(|(s, _)| s);
   let seed = settings.as_ref().map_or(cli.seed, |s| s.seed);
   run::report_overlap(&parsed.trees, &parsed.taxa);
-  fs::create_dir_all(&cli.outdir).with_context(|| format!("creating {}", cli.outdir.display()))?;
+  fs::create_dir_all(&cli.outdir).wrap_err_with(|| format!("creating {}", cli.outdir.display()))?;
   let log_path = cli.outdir.join(output::LOG_FILE);
   log_file
     .open(&log_path)
-    .with_context(|| format!("writing {}", log_path.display()))?;
+    .wrap_err_with(|| format!("writing {}", log_path.display()))?;
   log_options(&opts, parsed.trees.len());
   log::debug!("parameters: {opts:?}");
   write_file(&cli.outdir, &output::parameters_file(&opts, seed))?;
@@ -355,12 +403,49 @@ fn main() -> Result<()> {
   Ok(())
 }
 
+/// A mistake in the input: the validation errors of the trees and settings, a link or example
+/// that names nothing to run, or a session file that cannot be read. `main` prints it as a plain
+/// list, while any other error is a failure that color-eyre renders with its chain of causes.
+#[derive(Debug, thiserror::Error)]
+enum InputError {
+  /// The validation errors, one per line.
+  #[error("{}", .0.join("\n"))]
+  Invalid(Vec<String>),
+  #[error("{0} (see --list-examples)")]
+  UnknownExample(String),
+  #[error("the link names no trees: it needs example=, tree=, or session=")]
+  LinkWithoutTrees,
+  #[error("from= receives the trees from another page of the browser; open this link in the web app")]
+  MessageLink,
+  /// The session file or address given on the command line.
+  #[error("reading {name}: {source}")]
+  UnreadableSession { name: String, source: ReadError },
+  /// The session file of a link.
+  #[error("{0}")]
+  UnreadableLinkSession(#[source] ReadError),
+}
+
+/// Why the text of a file or location cannot be read.
+#[derive(Debug, thiserror::Error)]
+enum ReadError {
+  #[error("{0}")]
+  File(#[source] io::Error),
+  #[error("{0}")]
+  FileText(#[source] DecodeError),
+  #[error(transparent)]
+  Location(#[from] LocationError),
+  #[error("cannot read {url}: {source}")]
+  Download { url: String, source: DownloadError },
+  #[error("cannot read {url}: {source}")]
+  DownloadText { url: String, source: DecodeError },
+}
+
 /// Reads the bytes at an `https:` address, or the error with the reason.
-type Fetch<'a> = &'a dyn Fn(&str) -> Result<Vec<u8>, String>;
+type Fetch<'a> = &'a dyn Fn(&str) -> Result<Vec<u8>, DownloadError>;
 
 /// The bytes at the `https:` address `url`, with the limits of the web app: an answer within
 /// [`launch::FETCH_TIMEOUT_SECONDS`] and at most [`launch::MAX_DOWNLOAD_BYTES`].
-fn http_get(url: &str) -> Result<Vec<u8>, String> {
+fn http_get(url: &str) -> Result<Vec<u8>, DownloadError> {
   let agent: ureq::Agent = ureq::Agent::config_builder()
     .timeout_global(Some(Duration::from_secs(launch::FETCH_TIMEOUT_SECONDS.into())))
     .build()
@@ -370,22 +455,40 @@ fn http_get(url: &str) -> Result<Vec<u8>, String> {
     .get(launch::request_url(url))
     .call()
     .and_then(|mut response| response.body_mut().with_config().limit(limit).read_to_vec())
-    .map_err(|e| http_error(&e))
+    .map_err(DownloadError::from)
 }
 
 /// The reason of a failed download, in the words of the web app.
-fn http_error(e: &ureq::Error) -> String {
-  match e {
-    ureq::Error::StatusCode(code) => {
-      let reason = ureq::http::StatusCode::from_u16(*code)
-        .ok()
-        .and_then(|s| s.canonical_reason());
-      reason.map_or_else(|| format!("{code}"), |r| format!("{code} {r}"))
-    },
-    ureq::Error::Timeout(_) => format!("no answer within {} seconds", launch::FETCH_TIMEOUT_SECONDS),
-    ureq::Error::BodyExceedsLimit(_) => format!("the file is larger than {} MiB", launch::MAX_DOWNLOAD_BYTES >> 20),
-    other => other.to_string(),
+#[derive(Debug, thiserror::Error)]
+enum DownloadError {
+  /// The server answered with this error status.
+  #[error("{}", status_text(*.0))]
+  Status(u16),
+  #[error("no answer within {} seconds", launch::FETCH_TIMEOUT_SECONDS)]
+  Timeout,
+  #[error("the file is larger than {} MiB", launch::MAX_DOWNLOAD_BYTES >> 20)]
+  TooLarge,
+  #[error(transparent)]
+  Other(ureq::Error),
+}
+
+impl From<ureq::Error> for DownloadError {
+  fn from(e: ureq::Error) -> Self {
+    match e {
+      ureq::Error::StatusCode(code) => Self::Status(code),
+      ureq::Error::Timeout(_) => Self::Timeout,
+      ureq::Error::BodyExceedsLimit(_) => Self::TooLarge,
+      other => Self::Other(other),
+    }
   }
+}
+
+/// An HTTP status with its reason phrase, such as `404 Not Found`, or the bare code.
+fn status_text(code: u16) -> String {
+  let reason = ureq::http::StatusCode::from_u16(code)
+    .ok()
+    .and_then(|s| s.canonical_reason());
+  reason.map_or_else(|| format!("{code}"), |r| format!("{code} {r}"))
 }
 
 /// The trees of a run with what the command line needs to report on them, to name their output
@@ -482,16 +585,8 @@ fn tree_input(args: &[PathBuf], fetch: Fetch<'_>) -> Input {
     .zip(labels)
     .enumerate()
     .map(|(i, (tree, label))| {
-      let newick = tree.read(fetch).unwrap_or_else(|message| {
-        read_errors.push((
-          i,
-          ValidationError {
-            field: Some(Field::Tree { index: i }),
-            message,
-            line: None,
-            column: None,
-          },
-        ));
+      let newick = tree.read(i, fetch).unwrap_or_else(|e| {
+        read_errors.push((i, e));
         String::new()
       });
       TreeText { label, newick }
@@ -541,12 +636,12 @@ impl TreeArg {
     }
   }
 
-  /// The Newick text, or the reason it cannot be read.
-  fn read(&self, fetch: Fetch<'_>) -> Result<String, String> {
+  /// The Newick text, or the error of the tree `index` that says why it cannot be read.
+  fn read(&self, index: usize, fetch: Fetch<'_>) -> Result<String, ValidationError> {
     match &self.tree {
-      TreeArgKind::File(path) => read_file(path).map_err(|e| format!("cannot read the file: {e}")),
-      TreeArgKind::Location(Ok(location)) => read_location(location, fetch),
-      TreeArgKind::Location(Err(e)) => Err(e.to_string()),
+      TreeArgKind::File(path) => read_file(path).map_err(|e| read_error(index, format!("cannot read the file: {e}"))),
+      TreeArgKind::Location(Ok(location)) => read_location(location, fetch).map_err(|e| read_error(index, e)),
+      TreeArgKind::Location(Err(e)) => Err(read_error(index, e)),
     }
   }
 
@@ -616,20 +711,35 @@ fn is_location(text: &str) -> bool {
   ["https:", "http:", "data:"].iter().any(|s| lower.starts_with(s))
 }
 
+/// The validation error of the tree `index`, which cannot be read for `reason`.
+fn read_error(index: usize, reason: impl Display) -> ValidationError {
+  ValidationError {
+    field: Some(Field::Tree { index }),
+    message: reason.to_string(),
+    line: None,
+    column: None,
+  }
+}
+
 /// The text of the file at `path`, decompressed when it is gzip-compressed.
-fn read_file(path: &Path) -> Result<String, String> {
-  let bytes = fs::read(path).map_err(|e| e.to_string())?;
-  launch::decode_tree_bytes(&bytes).map_err(|e| e.to_string())
+fn read_file(path: &Path) -> Result<String, ReadError> {
+  let bytes = fs::read(path).map_err(ReadError::File)?;
+  launch::decode_tree_bytes(&bytes).map_err(ReadError::FileText)
 }
 
 /// The text at `location`: downloaded with `fetch` from its address, or the text of `data:`.
-fn read_location(location: &LinkLocation, fetch: Fetch<'_>) -> Result<String, String> {
+fn read_location(location: &LinkLocation, fetch: Fetch<'_>) -> Result<String, ReadError> {
   match location {
     LinkLocation::Url { url, fetch: address } => {
       log::info!("reading {url}");
-      fetch(address)
-        .and_then(|bytes| launch::decode_tree_bytes(&bytes).map_err(|e| e.to_string()))
-        .map_err(|e| format!("cannot read {url}: {e}"))
+      let bytes = fetch(address).map_err(|source| ReadError::Download {
+        url: url.clone(),
+        source,
+      })?;
+      launch::decode_tree_bytes(&bytes).map_err(|source| ReadError::DownloadText {
+        url: url.clone(),
+        source,
+      })
     },
     LinkLocation::Data { text } => Ok(text.clone()),
   }
@@ -642,11 +752,14 @@ fn session_input(path: &Path, fetch: Fetch<'_>) -> Result<Input> {
   let name = path.display().to_string();
   let text = match path.to_str().filter(|p| is_location(p)) {
     Some(location) => launch::parse_location(location)
-      .map_err(|e| e.to_string())
+      .map_err(ReadError::from)
       .and_then(|l| read_location(&l, fetch)),
     None => read_file(path),
   };
-  let text = text.map_err(|e| anyhow::anyhow!("reading {name}: {e}"))?;
+  let text = text.map_err(|source| InputError::UnreadableSession {
+    name: name.clone(),
+    source,
+  })?;
   let source = Source::Named(name);
   let request = match analysis::read_session(&text) {
     Ok(r) => r,
@@ -660,7 +773,7 @@ fn example_input(id: &str) -> Result<Input> {
   let Some(example) = examples::example(id) else {
     let parsed = launch::parse_launch(&[("example".to_owned(), id.to_owned())], &[]);
     let message = parsed.errors.first().map_or("no such example", |e| e.message.as_str());
-    bail!("{message} (see --list-examples)");
+    return Err(InputError::UnknownExample(message.to_owned()).into());
   };
   log::info!("example: {id}");
   let request = AnalysisRequest {
@@ -704,7 +817,7 @@ fn link_input(url: &str, fetch: Fetch<'_>) -> Result<Input> {
     fail(&parsed.errors, &Source::Named("link".to_owned()))?;
   }
   let Some(link) = parsed.launch else {
-    bail!("the link names no trees: it needs example=, tree=, or session=");
+    return Err(InputError::LinkWithoutTrees.into());
   };
   let mut input = match link.input {
     LaunchInput::Example { id } => example_input(&id)?,
@@ -714,16 +827,8 @@ fn link_input(url: &str, fetch: Fetch<'_>) -> Result<Input> {
         .iter()
         .enumerate()
         .map(|(i, t)| {
-          let newick = read_location(&t.location, fetch).unwrap_or_else(|message| {
-            read_errors.push((
-              i,
-              ValidationError {
-                field: Some(Field::Tree { index: i }),
-                message,
-                line: None,
-                column: None,
-              },
-            ));
+          let newick = read_location(&t.location, fetch).unwrap_or_else(|e| {
+            read_errors.push((i, read_error(i, e)));
             String::new()
           });
           TreeText {
@@ -757,7 +862,7 @@ fn link_input(url: &str, fetch: Fetch<'_>) -> Result<Input> {
     },
     LaunchInput::Session { location } => {
       let source = Source::Named("session file of the link".to_owned());
-      let text = read_location(&location, fetch).map_err(|e| anyhow::anyhow!("{e}"))?;
+      let text = read_location(&location, fetch).map_err(InputError::UnreadableLinkSession)?;
       let request = match analysis::read_session(&text) {
         Ok(r) => r,
         Err(errors) => fail(&errors, &source)?,
@@ -765,7 +870,7 @@ fn link_input(url: &str, fetch: Fetch<'_>) -> Result<Input> {
       Input::of_request(request, source, Vec::new())
     },
     LaunchInput::Message { .. } => {
-      bail!("from= receives the trees from another page of the browser; open this link in the web app")
+      return Err(InputError::MessageLink.into());
     },
   };
   input.base = launch::apply(&input.base, &link.settings);
@@ -884,9 +989,9 @@ fn share_link(request: &AnalysisRequest, addresses: &[Option<TreeAddress>]) -> R
 fn write_file(dir: &Path, file: &OutputFile) -> Result<()> {
   let path = dir.join(&file.path);
   if let Some(parent) = path.parent() {
-    fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+    fs::create_dir_all(parent).wrap_err_with(|| format!("creating {}", parent.display()))?;
   }
-  fs::write(&path, &file.text).with_context(|| format!("writing {}", path.display()))
+  fs::write(&path, &file.text).wrap_err_with(|| format!("writing {}", path.display()))
 }
 
 /// Stop with every validation error, one per line. For tree arguments, an error of a tree starts
@@ -914,7 +1019,7 @@ fn fail<T>(errors: &[ValidationError], source: &Source) -> Result<T> {
       },
     })
     .collect();
-  bail!("{}", lines.join("\n"))
+  Err(InputError::Invalid(lines).into())
 }
 
 /// Options of the former options for `k` trees, or every error of the flags and of the shared
@@ -1207,7 +1312,7 @@ fn rayon_threads(n: usize) -> Result<()> {
   rayon::ThreadPoolBuilder::new()
     .num_threads(n)
     .build_global()
-    .context("configuring threads")
+    .wrap_err("configuring threads")
 }
 
 #[cfg(test)]
@@ -1227,17 +1332,12 @@ mod tests {
   }
 
   /// A fake of `http_get` that serves `files` by address and answers 404 otherwise.
-  fn server(files: &[(&str, &str)]) -> impl Fn(&str) -> Result<Vec<u8>, String> + use<> {
+  fn server(files: &[(&str, &str)]) -> impl Fn(&str) -> Result<Vec<u8>, DownloadError> + use<> {
     let files: BTreeMap<String, Vec<u8>> = files
       .iter()
       .map(|(url, text)| ((*url).to_owned(), text.as_bytes().to_vec()))
       .collect();
-    move |url| {
-      files
-        .get(url)
-        .cloned()
-        .ok_or_else(|| http_error(&ureq::Error::StatusCode(404)))
-    }
+    move |url| files.get(url).cloned().ok_or(DownloadError::Status(404))
   }
 
   fn trees(trees: &[(&str, &str)]) -> Vec<TreeText> {
@@ -1356,13 +1456,14 @@ mod tests {
   }
 
   #[test]
-  fn http_errors_name_the_status_and_the_limits() {
+  fn download_errors_name_the_status_and_the_limits() {
     let actual = [
-      http_error(&ureq::Error::StatusCode(404)),
-      http_error(&ureq::Error::StatusCode(599)),
-      http_error(&ureq::Error::BodyExceedsLimit(1)),
-      http_error(&ureq::Error::HostNotFound),
-    ];
+      ureq::Error::StatusCode(404),
+      ureq::Error::StatusCode(599),
+      ureq::Error::BodyExceedsLimit(1),
+      ureq::Error::HostNotFound,
+    ]
+    .map(|e| DownloadError::from(e).to_string());
     let expected = [
       "404 Not Found",
       "599",

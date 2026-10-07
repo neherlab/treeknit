@@ -184,6 +184,55 @@ mod tests {
   }
 
   #[test]
+  fn an_unexpected_failure_prints_its_chain_of_causes() {
+    // `-o` names a regular file, so creating the results directory fails after validation.
+    let dir = TempDir::new("outdir-is-file");
+    let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
+    let out = dir.path().join("out");
+    std::fs::write(&out, "").unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .args(&paths)
+      .arg("-o")
+      .arg(&out)
+      .args(["--verbosity-level", "-1"])
+      .env_remove("RUST_BACKTRACE")
+      .env_remove("RUST_LIB_BACKTRACE")
+      .output()
+      .unwrap();
+    // The text of the operating system error differs between systems.
+    let Err(os_error) = std::fs::create_dir_all(&out) else {
+      panic!("creating a directory over a file succeeded");
+    };
+    let expected = format!("Error: \n   0: creating {}\n   1: {os_error}\n", out.display());
+    assert_eq!(
+      (Some(1), expected),
+      (output.status.code(), String::from_utf8(output.stderr).unwrap())
+    );
+  }
+
+  #[test]
+  fn a_missing_session_file_is_an_input_error() {
+    let dir = TempDir::new("missing-session");
+    let path = dir.path().join("treeknit_session.json");
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .arg("--session")
+      .arg(&path)
+      .arg("-o")
+      .arg(dir.path().join("out"))
+      .args(["--verbosity-level", "-1"])
+      .output()
+      .unwrap();
+    let Err(os_error) = std::fs::read(&path) else {
+      panic!("the session file exists");
+    };
+    let expected = format!("Error: reading {}: {os_error}\n", path.display());
+    assert_eq!(
+      (Some(1), expected),
+      (output.status.code(), String::from_utf8(output.stderr).unwrap())
+    );
+  }
+
+  #[test]
   fn output_files_of_different_kinds_with_one_name_exit_before_writing_results() {
     // The resolved tree of `MCCs_a.dat` and the MCCs of the pair (`a`, `resolved`) are both
     // `MCCs_a_resolved.dat`.
