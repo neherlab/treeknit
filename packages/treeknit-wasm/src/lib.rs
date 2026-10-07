@@ -286,7 +286,7 @@ impl Session {
     }
     let records: Vec<Diagnostic> = unavailable.into_iter().chain(log_capture::take()).collect();
     let files = output::web_files(&request, &result, seed, &records)
-      .map_err(|e| JsError::new(&e.to_string()))?
+      .map_err(JsError::from)?
       .into_iter()
       .map(|f| match f {
         WebFile::Text(file) => SessionFile::Text(file),
@@ -340,7 +340,6 @@ impl Session {
   #[wasm_bindgen]
   pub fn zip(&self) -> Result<Vec<u8>, JsError> {
     let _log = log_capture::discard();
-    let archive_error = |e: output::ArchiveError| JsError::new(&e.to_string());
     // The texts known so far bound the archive; a figure not yet read lets the buffer grow.
     let mut archive = Archive::with_capacity(self.files.iter().filter_map(|f| f.entry().size).sum());
     for f in &self.files {
@@ -350,10 +349,9 @@ impl Session {
           Some(text) => archive.add(&file.path, text),
           None => archive.add(&file.path, &render(file, &self.run)?),
         },
-      }
-      .map_err(archive_error)?;
+      }?;
     }
-    archive.finish().map_err(archive_error)
+    Ok(archive.finish()?)
   }
 
   /// The command that reproduces the file set of the run from the extracted archive.
@@ -578,13 +576,7 @@ fn parse_js<T: DeserializeOwned + Tsify>(name: &str, value: &Ts<T>) -> Result<T,
     .as_string()
     .ok_or_else(|| format!("invalid {name}: expected a JSON value"))?;
   let mut deserializer = serde_json::Deserializer::from_str(&text);
-  let parsed = serde_path_to_error::deserialize(&mut deserializer).map_err(|e| {
-    if e.path().iter().next().is_none() {
-      format!("invalid {name}: {}", e.inner())
-    } else {
-      format!("invalid {name}: {}: {}", e.path(), e.inner())
-    }
-  })?;
+  let parsed = serde_path_to_error::deserialize(&mut deserializer).map_err(|e| format!("invalid {name}: {e}"))?;
   deserializer.end().map_err(|e| format!("invalid {name}: {e}"))?;
   Ok(parsed)
 }
@@ -601,9 +593,7 @@ fn to_js<T: Serialize + Tsify>(value: &T) -> Result<Ts<T>, JsError> {
       JsError::new(&format!("{name}: {} at {}", e.inner(), e.path()))
     }
   })?;
-  let text = serde_json::to_string(value).map_err(|e| JsError::new(&e.to_string()))?;
-  let js = JSON::parse(&text).map_err(|e| JsError::new(&js_message(&e)))?;
-  Ok(Ts::new_unchecked(js))
+  Ok(Ts::from_rust(value)?)
 }
 
 /// Write the text of a panic to the console, then pass it to the sink, if one is set. The hook
