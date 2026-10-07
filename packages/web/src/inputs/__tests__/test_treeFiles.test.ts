@@ -7,6 +7,7 @@ import {
   isSessionFileName,
   readFailures,
   sessionFailure,
+  sessionReadFailure,
 } from "../treeFiles";
 
 describe("tree files", () => {
@@ -19,12 +20,17 @@ describe("tree files", () => {
   test("says what failed and what to do", () => {
     expect({
       read: readFailures([{ name: "ha.nwk", cause: new Error("permission denied") }], 0),
-      session: sessionFailure("notes.json", new Error("missing field `trees`")),
+      sessionRead: sessionReadFailure("s.json", new Error("permission denied")),
+      session: sessionFailure(
+        "notes.json",
+        new Error("not a TreeKnit session file: missing field `trees` at line 1 column 2"),
+      ),
       add: addFailure("worker stopped"),
     }).toStrictEqual({
       add: "The trees could not be added: worker stopped. Try again.",
       read: "ha.nwk could not be read: permission denied. Check the file and add it again.",
-      session: "notes.json is not a TreeKnit session file: missing field `trees`. Open a treeknit_session.json file.",
+      sessionRead: "s.json could not be read: permission denied. Check the file and open it again.",
+      session: "notes.json: not a TreeKnit session file: missing field `trees` at line 1 column 2",
     });
   });
 

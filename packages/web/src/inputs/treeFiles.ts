@@ -44,8 +44,12 @@ function addedTrees(added: number): string {
   return added === 1 ? "1 tree was added." : `${String(added)} trees were added.`;
 }
 
+export function sessionReadFailure(name: string, cause: unknown): string {
+  return `${name} could not be read: ${getErrorMessage(cause) ?? String(cause)}. Check the file and open it again.`;
+}
+
 export function sessionFailure(name: string, cause: unknown): string {
-  return `${name} is not a TreeKnit session file: ${getErrorMessage(cause) ?? String(cause)}. Open a treeknit_session.json file.`;
+  return `${name}: ${getErrorMessage(cause) ?? String(cause)}`;
 }
 
 export function batchRejection(sessionNames: readonly string[], treeCount: number): string | null {

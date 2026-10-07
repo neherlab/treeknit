@@ -14,6 +14,7 @@ import {
   type ReadFailure,
   readFailures,
   sessionFailure,
+  sessionReadFailure,
 } from "./treeFiles";
 
 const PLAIN_TEXT = "text/plain";
@@ -88,8 +89,17 @@ export function useTreeInput(): TreeInputState {
     };
 
     const openSessionFile = async (file: File): Promise<void> => {
+      let text: string;
+
       try {
-        const text = await file.text();
+        text = await file.text();
+      } catch (cause) {
+        setError(sessionReadFailure(file.name, cause));
+
+        return;
+      }
+
+      try {
         const request = await client.stateless(async (api) => api.readSession(text));
 
         store.getState().loadRequest(request);
