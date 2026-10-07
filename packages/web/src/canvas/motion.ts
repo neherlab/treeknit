@@ -1,8 +1,12 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
+
+import { useMediaQueries } from "../ui/useMediaQueries";
 
 export const FADE_IN_MS = 300;
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+const REDUCED_MOTION_QUERIES = [REDUCED_MOTION_QUERY];
 
 export function fadeInOpacity(elapsedMs: number, durationMs = FADE_IN_MS): number {
   if (durationMs <= 0) {
@@ -14,26 +18,12 @@ export function fadeInOpacity(elapsedMs: number, durationMs = FADE_IN_MS): numbe
   return 1 - (1 - t) ** 2;
 }
 
-function subscribeReducedMotion(onChange: () => void): () => void {
-  const query = matchMedia(REDUCED_MOTION_QUERY);
-
-  query.addEventListener("change", onChange);
-
-  return () => {
-    query.removeEventListener("change", onChange);
-  };
-}
-
 function reducedMotion(): boolean {
   return matchMedia(REDUCED_MOTION_QUERY).matches;
 }
 
 function reducedMotionOnServer(): boolean {
   return true;
-}
-
-export function usePrefersReducedMotion(): boolean {
-  return useSyncExternalStore(subscribeReducedMotion, reducedMotion, reducedMotionOnServer);
 }
 
 export interface Fade {
@@ -58,7 +48,7 @@ export function reducedFade(fade: Fade, resultKey: string, reduced: boolean): Fa
 }
 
 export function useFadeIn(resultKey: string): number {
-  const reduced = usePrefersReducedMotion();
+  const reduced = useMediaQueries(REDUCED_MOTION_QUERIES, reducedMotion, reducedMotionOnServer);
   const [fade, setFade] = useState<Fade>({ key: resultKey, opacity: reduced ? 1 : 0 });
   const settled = reducedFade(fade, resultKey, reduced);
   const done = fadeDone(fade, resultKey);

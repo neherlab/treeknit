@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import PanelLeftIcon from "~icons/lucide/panel-left";
 import PanelRightIcon from "~icons/lucide/panel-right";
 
@@ -10,6 +10,7 @@ import { IconButton } from "../ui/IconButton";
 import { PanelBoundary } from "../ui/PanelBoundary";
 import { Tabs } from "../ui/Tabs";
 import { ActionToastRegion } from "../ui/Toast";
+import { useDocumentKeyDown } from "../ui/useDocumentKeyDown";
 import { useUndoToast } from "../workspace/useUndoToast";
 import { useViewTabs, ViewPanels, ViewTabList } from "./CenterViews";
 import { Header } from "./Header";
@@ -172,7 +173,7 @@ function RailPane({ showRunBar }: { showRunBar: boolean }) {
 }
 
 function usePaneShortcuts(root: { current: HTMLElement | null }, railPane: boolean, inspectorPane: boolean): void {
-  const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
+  useDocumentKeyDown((event: KeyboardEvent) => {
     const pane = paneShortcut(event);
     const element = root.current;
 
@@ -191,18 +192,6 @@ function usePaneShortcuts(root: { current: HTMLElement | null }, railPane: boole
       togglePane(pane);
     }
   });
-
-  useEffect(() => {
-    const listener = (event: KeyboardEvent): void => {
-      onKeyDown(event);
-    };
-
-    document.addEventListener("keydown", listener);
-
-    return () => {
-      document.removeEventListener("keydown", listener);
-    };
-  }, []);
 }
 
 function textEntryOf(element: HTMLElement) {

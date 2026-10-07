@@ -1,11 +1,12 @@
 import type { ValidationError } from "@neherlab/treeknit-wasm";
 import { CancelledError, useQueryClient } from "@tanstack/react-query";
-import { type RefObject, useEffect, useEffectEvent } from "react";
+import type { RefObject } from "react";
 import { useFormContext } from "react-hook-form";
 
 import { useAnalysisClient } from "../analysis/context";
 import { validationQuery } from "../analysis/queries";
 import { hasDraft, type SettingsDraft } from "../settings/draft";
+import { useDocumentKeyDown } from "../ui/useDocumentKeyDown";
 import { useWorkspaceStore } from "../workspace/context";
 import { selectRequest, selectTextIds } from "../workspace/store";
 import { useRunAnalysis } from "../workspace/useRunAnalysis";
@@ -18,7 +19,7 @@ export function useRunShortcut(workspace: RefObject<HTMLElement | null>): void {
   const store = useWorkspaceStore();
   const { getValues } = useFormContext<SettingsDraft>();
 
-  const runWhenReady = useEffectEvent(async (): Promise<void> => {
+  async function runWhenReady(): Promise<void> {
     const state = store.getState();
     const request = selectRequest(state);
     let errors: readonly ValidationError[];
@@ -50,31 +51,22 @@ export function useRunShortcut(workspace: RefObject<HTMLElement | null>): void {
     if (reason === null) {
       run();
     }
-  });
+  }
 
-  const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
-    const root = workspace.current;
+  useDocumentKeyDown(
+    (event: KeyboardEvent) => {
+      const root = workspace.current;
 
-    if (!isRunShortcut(event) || root === null || isBehindModal(root)) {
-      return;
-    }
+      if (!isRunShortcut(event) || root === null || isBehindModal(root)) {
+        return;
+      }
 
-    event.preventDefault();
-    commitFocusedField(root);
-    void runWhenReady();
-  });
-
-  useEffect(() => {
-    const listener = (event: KeyboardEvent): void => {
-      onKeyDown(event);
-    };
-
-    document.addEventListener("keydown", listener, { capture: true });
-
-    return () => {
-      document.removeEventListener("keydown", listener, { capture: true });
-    };
-  }, []);
+      event.preventDefault();
+      commitFocusedField(root);
+      void runWhenReady();
+    },
+    { capture: true },
+  );
 }
 
 function commitFocusedField(root: HTMLElement): void {

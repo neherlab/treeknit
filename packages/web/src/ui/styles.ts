@@ -6,6 +6,12 @@ export const focusRing =
 export const nativeFocusRing =
   "outline-hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
 
+export const linkStyle = [
+  "rounded-control text-ink decoration-rule cursor-pointer underline underline-offset-3",
+  "data-hovered:decoration-ink transition-colors duration-150 motion-reduce:transition-none",
+  focusRing,
+];
+
 export const groupFocusRing =
   "group-data-focus-visible:outline-2 group-data-focus-visible:outline-offset-2 group-data-focus-visible:outline-focus";
 
