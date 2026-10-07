@@ -127,15 +127,9 @@ struct Status {
 
 type StatusMap = HashMap<NodeId, Status>;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("ARG construction failed: {0}")]
 pub struct ArgError(pub String);
-
-impl std::fmt::Display for ArgError {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "ARG construction failed: {}", self.0)
-  }
-}
-impl std::error::Error for ArgError {}
 
 /// Build the ARG of `t1` and `t2` (same leaf set, taxa in `0..n_taxa`) given their MCCs.
 pub fn arg_from_trees(t1: &Tree, t2: &Tree, mccs: &[Mcc], n_taxa: usize) -> Result<Arg, ArgError> {

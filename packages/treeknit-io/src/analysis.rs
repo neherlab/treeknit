@@ -127,9 +127,10 @@ impl From<ResolveMode> for Resolution {
 }
 
 /// A problem with a request, at the field it concerns.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, thiserror::Error)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
+#[error("{message}")]
 pub struct ValidationError {
   /// The field the error concerns; `None` for the request as a whole.
   pub field: Option<Field>,
@@ -219,12 +220,6 @@ pub enum SettingKey {
   NMcmcIt,
   Rounds,
   Seed,
-}
-
-impl std::fmt::Display for ValidationError {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.write_str(&self.message)
-  }
 }
 
 /// The parsed trees of a request, with their leaves numbered by one taxon table.

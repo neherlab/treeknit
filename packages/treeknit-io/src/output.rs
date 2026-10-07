@@ -11,7 +11,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
-use std::fmt::{self, Write as _};
+use std::fmt::Write as _;
 use std::io::{Cursor, Write};
 use std::path::Path;
 use treeknit_core::{Options, Tree};
@@ -307,18 +307,11 @@ fn run_files(run: &RunResult, options: &OutputOptions) -> Vec<(FileKind, String)
 }
 
 /// A listed file of a run whose text cannot be made, because the run lacks its pair or its ARG.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+#[error("the run has no data for the output file {path}")]
 pub struct MissingFile {
   pub path: String,
 }
-
-impl fmt::Display for MissingFile {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "the run has no data for the output file {}", self.path)
-  }
-}
-
-impl std::error::Error for MissingFile {}
 
 /// Every output file of `run` except `parameters.json` and `log.txt`, at its path in the results
 /// directory, with the bytes the command line writes: the MCCs as JSON and as lines, the
@@ -694,41 +687,22 @@ impl Default for Archive {
 }
 
 /// Failure to build a ZIP archive.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ArchiveError {
   /// Two files have the same path, ignoring case.
+  #[error("cannot build the ZIP archive: {}", repeated_paths(.first, .path))]
   Repeated { first: String, path: String },
   /// The ZIP writer failed.
-  Zip(ZipError),
+  #[error("cannot build the ZIP archive: {0}")]
+  Zip(#[from] ZipError),
 }
 
-impl fmt::Display for ArchiveError {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match self {
-      ArchiveError::Repeated { first, path } if first == path => {
-        write!(f, "cannot build the ZIP archive: two files are named {path:?}")
-      },
-      ArchiveError::Repeated { first, path } => write!(
-        f,
-        "cannot build the ZIP archive: the files {first:?} and {path:?} differ only in case"
-      ),
-      ArchiveError::Zip(e) => write!(f, "cannot build the ZIP archive: {e}"),
-    }
-  }
-}
-
-impl std::error::Error for ArchiveError {
-  fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-    match self {
-      ArchiveError::Repeated { .. } => None,
-      ArchiveError::Zip(e) => Some(e),
-    }
-  }
-}
-
-impl From<ZipError> for ArchiveError {
-  fn from(e: ZipError) -> Self {
-    ArchiveError::Zip(e)
+/// The two paths of [`ArchiveError::Repeated`], which are equal or differ only in case.
+fn repeated_paths(first: &str, path: &str) -> String {
+  if first == path {
+    format!("two files are named {path:?}")
+  } else {
+    format!("the files {first:?} and {path:?} differ only in case")
   }
 }
 

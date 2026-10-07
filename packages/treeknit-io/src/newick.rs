@@ -15,7 +15,8 @@ use std::collections::HashSet;
 use std::fmt::Write;
 use treeknit_core::{NodeId, Tree};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("Newick parse error: {message}{}", at_byte(*.offset))]
 pub struct ParseError {
   pub message: String,
   /// Byte offset in the text where parsing stopped; `None` for errors of the whole tree, such
@@ -35,16 +36,10 @@ impl ParseError {
   }
 }
 
-impl std::fmt::Display for ParseError {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "Newick parse error: {}", self.message)?;
-    if let Some(offset) = self.offset {
-      write!(f, " at byte {offset}")?;
-    }
-    Ok(())
-  }
+/// The ` at byte <offset>` suffix of a [`ParseError`] that has an offset.
+fn at_byte(offset: Option<usize>) -> String {
+  offset.map(|o| format!(" at byte {o}")).unwrap_or_default()
 }
-impl std::error::Error for ParseError {}
 
 /// 1-based line and column of byte `offset` in `text`, with the column counted in Unicode
 /// characters, as editors show positions. An offset past the end gives the end of the text.
@@ -58,11 +53,13 @@ pub fn line_column(text: &str, offset: usize) -> (usize, usize) {
 }
 
 /// A problem in a Newick text that parsing works around.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, strum::Display)]
 pub enum ParseWarning {
   /// The file holds more than one tree; only the first is read.
+  #[strum(to_string = "more than one tree in file, using the first")]
   SeveralTrees,
   /// A branch length that is not a number, read as a missing length.
+  #[strum(to_string = "ignoring invalid branch length '{0}'")]
   InvalidLength(String),
 }
 
@@ -70,15 +67,6 @@ impl ParseWarning {
   /// Log the warning for the tree labeled `label`, as `<label>: <warning>`.
   pub fn log(&self, label: &str) {
     log::warn!("{label}: {self}");
-  }
-}
-
-impl std::fmt::Display for ParseWarning {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    match self {
-      ParseWarning::SeveralTrees => f.write_str("more than one tree in file, using the first"),
-      ParseWarning::InvalidLength(text) => write!(f, "ignoring invalid branch length '{text}'"),
-    }
   }
 }
 

@@ -94,6 +94,7 @@ serde_plain = "=1.0.2"
 simplelog = "=0.12.2"
 strsim = "=0.11.1"
 strum = { version = "=0.28.0", features = ["derive"] }
+thiserror = "=2.0.21"
 tsify = "=0.5.8"
 # HTTPS through rustls with ring and the compiled-in Mozilla root certificates of webpki-roots, so
 # the static musl and the Windows binaries need no certificate store of the system.

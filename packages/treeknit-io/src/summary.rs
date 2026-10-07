@@ -2,7 +2,6 @@
 
 use crate::run::RunResult;
 use serde::Serialize;
-use std::fmt;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
@@ -101,27 +100,17 @@ pub struct Diagnostic {
   pub time: String,
 }
 
-/// Severity of a diagnostic.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+/// Severity of a diagnostic. Its display is the upper-case name, as `log::Level` writes it in
+/// the command-line log.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, strum::Display)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "UPPERCASE")]
 pub enum Level {
   Error,
   Warn,
   Info,
   Debug,
-}
-
-impl fmt::Display for Level {
-  /// The upper-case name of the level, as `log::Level` writes it in the command-line log.
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.write_str(match self {
-      Level::Error => "ERROR",
-      Level::Warn => "WARN",
-      Level::Info => "INFO",
-      Level::Debug => "DEBUG",
-    })
-  }
 }
 
 impl From<log::Level> for Level {

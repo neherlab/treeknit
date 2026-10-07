@@ -4,7 +4,7 @@
 
 use serde::Serialize;
 use serde::ser;
-use std::fmt::{self, Display};
+use std::fmt::Display;
 
 /// The first NaN or infinite number of `value`, with the path of its field; `Ok` when every
 /// number is finite. The message of the error is `non-finite number <value>`.
@@ -14,22 +14,13 @@ pub(crate) fn check_finite<T: Serialize + ?Sized>(value: &T) -> Result<(), serde
 
 /// The error of [`check_finite`]: the first number that is not finite, or the message of a value
 /// whose `Serialize` implementation fails by itself.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub(crate) enum NonFinite {
+  #[error("non-finite number {0}")]
   Number(f64),
+  #[error("{0}")]
   Custom(String),
 }
-
-impl Display for NonFinite {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match self {
-      Self::Number(value) => write!(f, "non-finite number {value}"),
-      Self::Custom(message) => f.write_str(message),
-    }
-  }
-}
-
-impl std::error::Error for NonFinite {}
 
 impl ser::Error for NonFinite {
   fn custom<T: Display>(message: T) -> Self {
