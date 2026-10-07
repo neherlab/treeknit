@@ -119,7 +119,6 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       getColor: branch("added"),
       colors,
       widthPx: rules.branchWidthPx,
-      dashPx: rules.dashPx,
       colorTriggers: triggers,
     }),
     branchLayer({

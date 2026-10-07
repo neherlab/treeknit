@@ -44,7 +44,6 @@ export function tanglegramLegend({ colors, rules, colorByMcc, ribbons }: LegendS
           path: STRAIGHT,
           color: branchColor(EXAMPLE_MCC, "added", plain),
           widthPx: rules.branchWidthPx,
-          dashPx: rules.dashPx,
         },
       ],
     },

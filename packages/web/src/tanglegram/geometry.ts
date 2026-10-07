@@ -1,4 +1,4 @@
-import type { Elbow, Leader, Mark, PairView } from "@neherlab/treeknit-wasm";
+import type { Elbow, Leader, Mark, PairView, Point } from "@neherlab/treeknit-wasm";
 
 import {
   type Column,
@@ -174,12 +174,12 @@ function treeGeometry(view: PairView, side: TreeSide, column: Column, leafAxis: 
   const tree = view[side];
   const { elbows, marks, leaders } = view.shapes[side];
 
-  const branch = (elbow: Elbow): BranchItem => ({
+  const branch = (elbow: Elbow, points: readonly Point[] = elbow.points): BranchItem => ({
     side,
     node: elbow.node,
     mcc: elbow.mcc,
     slot: elbow.slot,
-    path: projectPath(elbow.points, column, leafAxis),
+    path: projectPath(points, column, leafAxis),
   });
 
   const mark = ({ node, mcc, slot, at }: Mark): MarkItem => ({
@@ -190,14 +190,14 @@ function treeGeometry(view: PairView, side: TreeSide, column: Column, leafAxis: 
     position: projectPoint(at, column, leafAxis),
   });
 
-  const branches = (keep: (elbow: Elbow) => boolean) => elbows.flatMap((elbow) => (keep(elbow) ? [branch(elbow)] : []));
+  const plain = (elbow: Elbow) => (elbow.added ? branch(elbow, elbow.points.slice(0, 2)) : branch(elbow));
   const marksOf = (kind: Mark["kind"]) => marks.flatMap((item) => (item.kind === kind ? [mark(item)] : []));
 
   return {
     branches: {
-      plain: branches((elbow) => !elbow.mccBreak && !elbow.added),
-      added: branches((elbow) => !elbow.mccBreak && elbow.added),
-      reassortment: branches((elbow) => elbow.mccBreak),
+      plain: elbows.flatMap((elbow) => (elbow.mccBreak ? [] : [plain(elbow)])),
+      added: elbows.flatMap((elbow) => (!elbow.mccBreak && elbow.added ? [branch(elbow, elbow.points.slice(1))] : [])),
+      reassortment: elbows.flatMap((elbow) => (elbow.mccBreak ? [branch(elbow)] : [])),
     },
     marks: { reassortment: marksOf("reassortment"), imputed: marksOf("imputed") },
     leaders: leaders.map(({ node, from, to }: Leader): LeaderItem => ({

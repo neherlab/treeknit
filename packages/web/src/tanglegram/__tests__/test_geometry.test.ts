@@ -9,7 +9,7 @@ import {
   LONG_LEAF_SHORT_NAME,
 } from "../../drawing/__tests__/fixtures";
 import { tanglegramColumns } from "../columns";
-import { PAIR_LAYER, pairTargetAt } from "../geometry";
+import { type BranchItem, PAIR_LAYER, pairTargetAt } from "../geometry";
 import { tanglegramGeometry } from "./geometry";
 
 const VIEW = examplePairView();
@@ -43,9 +43,31 @@ describe("tanglegramGeometry", () => {
     };
 
     expect(kinds).toStrictEqual({
-      plain: ["left2", "left3", "left4", "left6", "right1", "right7", "right8"],
+      plain: ["left2", "left3", "left4", "left6", "right1", "right3", "right7", "right8"],
       added: ["right3"],
       reassortment: ["left1", "left5", "left7", "left8", "right2", "right4", "right5", "right6"],
+    });
+  });
+
+  test("draws an added branch dashed across and joins it to its parent like a plain branch", () => {
+    const parts = (items: readonly BranchItem[]) =>
+      items.flatMap((item) => (item.side === "right" && item.node === 3 ? [item.path] : []));
+
+    const corner = columnPixel(COLUMNS.right, 0.5);
+
+    expect({ plain: parts(GEOMETRY.branches.plain), added: parts(GEOMETRY.branches.added) }).toStrictEqual({
+      plain: [
+        [
+          [corner, 0.75],
+          [corner, 1.5],
+        ],
+      ],
+      added: [
+        [
+          [corner, 1.5],
+          [columnPixel(COLUMNS.right, 0.75), 1.5],
+        ],
+      ],
     });
   });
 

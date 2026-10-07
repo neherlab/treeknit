@@ -53,10 +53,11 @@ describe("tanglegramLegend", () => {
     ]);
   });
 
-  test("draws an added node's branch dashed in ink-muted", () => {
-    expect(marksOf("Node added by resolution", true, true)).toMatchObject([
-      { kind: "line", color: COLORS.inkMuted, dashPx: [4, 3] },
-    ]);
+  test("draws an added node's branch solid in ink-muted", () => {
+    const marks = marksOf("Node added by resolution", true, true);
+
+    expect(marks).toMatchObject([{ kind: "line", color: COLORS.inkMuted }]);
+    expect(marks[0]).not.toHaveProperty("dashPx");
   });
 
   test("shows a ribbon at 55% opacity below 6 px per row, and a link line above", () => {
