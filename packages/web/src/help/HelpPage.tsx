@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { useSettingsSchema, useVersion } from "../analysis/queries";
 import { KEEP_WORKSPACE } from "../persistence/PersistenceSwitch";
+import { ModeList } from "../settings/ModeList";
 import { Header } from "../shell/Header";
 import { ExternalLink } from "../ui/ExternalLink";
 import { useWorkspace } from "../workspace/context";
@@ -88,14 +89,7 @@ export function HelpPage() {
           <HelpSection id="help-resolution" title="Resolution modes">
             {schema === undefined ? null : (
               <>
-                <dl className="flex flex-col gap-3">
-                  {schema.modes.map(({ mode, name, effect }) => (
-                    <div key={mode}>
-                      <dt className="font-semibold">{name}</dt>
-                      <dd>{effect}</dd>
-                    </div>
-                  ))}
-                </dl>
+                <ModeList modes={schema.modes} />
                 <p>{schema.treeOrderHelp}</p>
               </>
             )}

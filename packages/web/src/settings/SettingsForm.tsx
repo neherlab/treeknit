@@ -1,4 +1,4 @@
-import type { ModeInfo, ToggleSetting } from "@neherlab/treeknit-wasm";
+import type { ToggleSetting } from "@neherlab/treeknit-wasm";
 import { useCallback, useMemo, useState } from "react";
 import { getErrorMessage } from "react-error-boundary";
 import { useFormContext } from "react-hook-form";
@@ -17,6 +17,7 @@ import { fieldMessage } from "../workspace/fieldErrors";
 import { useFieldErrors } from "../workspace/useFieldErrors";
 import type { SettingsDraft, ToggleSettingKey } from "./draft";
 import { DraftNumberField } from "./DraftNumberField";
+import { ModeList } from "./ModeList";
 import { drawSeed } from "./seed";
 import { SettingInfo } from "./SettingInfo";
 import { useSettingsActions } from "./useSettingsActions";
@@ -81,7 +82,7 @@ export function SettingsForm() {
     setSeqLengthsFailure(null);
   }, []);
 
-  const modesInfo = useMemo(() => (schema === undefined ? null : <ModesInfo modes={schema.modes} />), [schema]);
+  const modesInfo = useMemo(() => (schema === undefined ? null : <ModeList modes={schema.modes} dense />), [schema]);
 
   const seqLengthsInfo = useMemo(
     () => (schema === undefined ? null : <SettingInfo setting={schema.settings.seqLengths} />),
@@ -189,21 +190,4 @@ interface SettingSwitchProps {
   name: ToggleSettingKey;
   label: string;
   setting: ToggleSetting;
-}
-
-function ModesInfo({ modes }: ModesInfoProps) {
-  return (
-    <dl className="flex flex-col gap-1.5">
-      {modes.map(({ mode, name, effect }) => (
-        <div key={mode}>
-          <dt className="font-semibold">{name}</dt>
-          <dd>{effect}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-interface ModesInfoProps {
-  modes: readonly ModeInfo[];
 }
