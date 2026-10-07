@@ -267,6 +267,7 @@ mod tests {
   use crate::display::{DrawNode, pair_view};
 
   use pretty_assertions::assert_eq;
+  use rstest::rstest;
   use serde_json::json;
 
   fn value(text: &str) -> Option<AuspiceValue> {
@@ -680,17 +681,29 @@ mod tests {
       .collect()
   }
 
-  #[test]
-  fn auspice_view_of_the_two_tree_example_has_the_trees_of_the_pair_view() {
+  #[rstest]
+  #[trace]
+  fn auspice_view_of_the_two_tree_example_has_the_trees_of_the_pair_view(
+    #[values(TreeVersion::Input, TreeVersion::Resolved, TreeVersion::Imputed)] version: TreeVersion,
+  ) {
     let r = run_trees(&[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")]);
-    for version in [TreeVersion::Input, TreeVersion::Resolved, TreeVersion::Imputed] {
-      let pair = pair_view(&r, 0, version, Scale::Div).unwrap();
-      let view = auspice_view(&r, 0, version, Scale::Div).unwrap();
-      assert_eq!(draw_preorder(&pair.left.nodes), preorder(&view.left.tree));
-      assert_eq!(draw_preorder(&pair.right.nodes), preorder(&view.right.tree));
-      // The trees have no branch lengths, so both views show the cladogram.
-      assert_eq!((Scale::Depth, Scale::Depth), (pair.scale, view.scale));
-    }
+    let pair = pair_view(&r, 0, version, Scale::Div).unwrap();
+    let view = auspice_view(&r, 0, version, Scale::Div).unwrap();
+    // The trees have no branch lengths, so both views show the cladogram.
+    assert_eq!(
+      (
+        draw_preorder(&pair.left.nodes),
+        draw_preorder(&pair.right.nodes),
+        Scale::Depth,
+        Scale::Depth
+      ),
+      (
+        preorder(&view.left.tree),
+        preorder(&view.right.tree),
+        pair.scale,
+        view.scale
+      )
+    );
   }
 
   #[test]

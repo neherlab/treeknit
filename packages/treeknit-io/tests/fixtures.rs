@@ -6,6 +6,7 @@
 #[cfg(test)]
 mod tests {
   use ctor::ctor;
+  use rstest::rstest;
   use serde_json::Value;
   use std::collections::BTreeSet;
   use std::path::PathBuf;
@@ -347,29 +348,30 @@ mod tests {
     assert!(bad.is_empty(), "Rust differs where Julia is unanimous: {bad:?}");
   }
 
-  /// With matched resolution, every MCC of every pair has the same topology in both output trees,
-  /// on simulated data with three segments (pairwise MCCs need not be transitive).
-  #[test]
-  fn matched_topologies_on_three_segments() {
-    for (case, f) in fixtures() {
-      if f["trees"].as_array().unwrap().len() < 3 {
-        continue;
-      }
-      let (ts, taxa) = load(&f);
-      let n = taxa.len();
-      for seed in 0..3 {
+  /// With matched resolution, every MCC of every pair has the same topology in both output trees
+  /// (pairwise MCCs need not be transitive), and matching only adds splits: every input split is
+  /// still present. Runs on every fixture of three or more trees and reports each failing one.
+  #[rstest]
+  #[trace]
+  fn matched_topologies_on_three_segments(#[values(0, 1, 2)] seed: u64) {
+    let failures: Vec<(String, Vec<(usize, usize)>, Vec<usize>)> = fixtures()
+      .into_iter()
+      .filter(|(_, f)| f["trees"].as_array().unwrap().len() >= 3)
+      .filter_map(|(case, f)| {
+        let (ts, taxa) = load(&f);
         let o = Options::for_trees(ts.len()); // matched resolution is the default
         let mut tt = ts.clone();
         let res = treeknit_core::run(&mut tt, &taxa, &o, seed);
-        let bad = treeknit_core::unmatched_mccs(&tt, &res, n);
-        assert!(bad.is_empty(), "{case} seed {seed}: unmatched MCCs {bad:?}");
-        // Matching only adds splits: every input split is still present.
-        for (t, t0) in tt.iter().zip(&ts) {
-          let before = tree_splits(t0, &taxa);
-          let after = tree_splits(t, &taxa);
-          assert!(before.iter().all(|s| after.contains(s)), "{case}: a split was removed");
-        }
-      }
-    }
+        let unmatched = treeknit_core::unmatched_mccs(&tt, &res, taxa.len());
+        let removed: Vec<usize> = (0..ts.len())
+          .filter(|&i| {
+            let after = tree_splits(&tt[i], &taxa);
+            !tree_splits(&ts[i], &taxa).iter().all(|s| after.contains(s))
+          })
+          .collect();
+        (!unmatched.is_empty() || !removed.is_empty()).then_some((case, unmatched, removed))
+      })
+      .collect();
+    assert_eq!(Vec::<(String, Vec<(usize, usize)>, Vec<usize>)>::new(), failures);
   }
 }

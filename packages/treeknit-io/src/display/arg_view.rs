@@ -278,6 +278,7 @@ mod tests {
   use pretty_assertions::assert_eq;
   use rand::{Rng, SeedableRng};
   use rand_xoshiro::Xoshiro256PlusPlus;
+  use rstest::rstest;
   use std::collections::BTreeSet;
 
   /// The invariants of every ARG view: one node per ARG node (plus the synthetic root), distinct
@@ -297,30 +298,53 @@ mod tests {
     assert_eq!(v.nodes.len(), order.len());
     assert_eq!(Some(&v.root), order.first());
     assert_eq!([None, None], v.nodes[v.root].parents);
-    for e in &v.edges {
-      for &c in &e.segments {
-        assert_eq!(Some(e.parent), v.nodes[e.child].parents[c]);
-      }
-      assert!(v.nodes[e.parent].children.contains(&e.child));
-    }
-    for (i, n) in v.nodes.iter().enumerate() {
-      let on_chain: Vec<&ArgEdge> = v.edges.iter().filter(|e| e.child == i && !e.reticulation).collect();
-      if i == v.root {
-        assert!(on_chain.is_empty());
-        continue;
-      }
-      assert_eq!(1, on_chain.len(), "node {} has one edge on its chain", n.label);
-      let p = &v.nodes[on_chain[0].parent];
-      assert!(n.x_div >= p.x_div, "node {} left of its parent", n.label);
-      assert!(n.x_depth > p.x_depth);
-      let numbers = [n.x_div, n.x_depth, n.y];
-      assert!(numbers.iter().all(|x| x.is_finite()));
-    }
-    assert_eq!(v.edges.len(), v.shapes.edges.len());
-    for (i, (e, s)) in v.edges.iter().zip(&v.shapes.edges).enumerate() {
-      assert_eq!(e.reticulation, matches!(s.path, EdgePath::Curve { .. }));
-      assert_eq!((i, &e.segments, e.reticulation), (s.edge, &s.segments, s.reticulation));
-    }
+    // Each edge is the parent link of its child in its segments and a child link of its parent.
+    let unlinked: Vec<usize> = (0..v.edges.len())
+      .filter(|&i| {
+        let e = &v.edges[i];
+        !e.segments
+          .iter()
+          .all(|&c| v.nodes[e.child].parents[c] == Some(e.parent))
+          || !v.nodes[e.parent].children.contains(&e.child)
+      })
+      .collect();
+    assert_eq!(Vec::<usize>::new(), unlinked);
+    // Each node but the top root has one edge on its chain, to a parent left of it, and finite
+    // coordinates; the top root has none.
+    let misplaced: Vec<&str> = v
+      .nodes
+      .iter()
+      .enumerate()
+      .filter(|&(i, n)| {
+        let on_chain: Vec<&ArgEdge> = v.edges.iter().filter(|e| e.child == i && !e.reticulation).collect();
+        match on_chain.as_slice() {
+          [] => i != v.root,
+          [e] => {
+            let p = &v.nodes[e.parent];
+            let finite = [n.x_div, n.x_depth, n.y].iter().all(|x| x.is_finite());
+            i == v.root || n.x_div < p.x_div || n.x_depth <= p.x_depth || !finite
+          },
+          _ => true,
+        }
+      })
+      .map(|(_, n)| n.label.as_str())
+      .collect();
+    assert_eq!(Vec::<&str>::new(), misplaced);
+    // Each edge has its shape, a curve for a reticulation.
+    let (expected, shapes): (Vec<_>, Vec<_>) = v
+      .edges
+      .iter()
+      .enumerate()
+      .zip(&v.shapes.edges)
+      .map(|((i, e), s)| {
+        let curve = matches!(s.path, EdgePath::Curve { .. });
+        (
+          (i, &e.segments, e.reticulation, e.reticulation),
+          (s.edge, &s.segments, s.reticulation, curve),
+        )
+      })
+      .unzip();
+    assert_eq!((v.edges.len(), expected), (v.shapes.edges.len(), shapes));
     let hybrids = v.nodes.iter().filter(|n| n.hybrid).count();
     assert_eq!(hybrids, v.shapes.marks.len());
     assert_eq!(hybrids, v.edges.iter().filter(|e| e.reticulation).count());
@@ -346,45 +370,50 @@ mod tests {
     assert!(v.nodes.iter().all(|n| n.short_label == n.label));
   }
 
-  #[rstest::rstest]
-  #[case::shared_identical("((A,B),(C,D));", "((A,B),(C,D));", RootCase::Shared)]
-  #[case::shared_moved_leaf("((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", RootCase::Shared)]
-  #[case::shared_two_moves("((A,(B,C)),((D,E),(F,G)));", "(((A,F),C),((D,B),(E,G)));", RootCase::Shared)]
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::shared_identical(      "((A,B),(C,D));", "((A,B),(C,D));", RootCase::Shared)]
+  #[case::shared_moved_leaf(     "((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", RootCase::Shared)]
+  #[case::shared_two_moves(      "((A,(B,C)),((D,E),(F,G)));", "(((A,F),C),((D,B),(E,G)));", RootCase::Shared)]
   #[case::shared_partial_overlap("((A,B),(C,(D,(E,P))));", "((A,(B,E)),(C,D));", RootCase::Shared)]
-  #[case::shared_polytomy("(A,B,C,D);", "((A,B),(C,D));", RootCase::Shared)]
-  #[case::one_shared_second("((A,B),(C,D));", "((A,C),(B,D));", RootCase::OneShared)]
-  #[case::one_shared_first("(((A,B),C),D);", "(((C,D),A),B);", RootCase::OneShared)]
-  #[case::synthetic("(A,((C,B),D));", "((D,(A,C)),B);", RootCase::Synthetic)]
-  #[case::synthetic_singletons("((B,(E,A)),(C,D));", "((B,(D,A)),(E,C));", RootCase::Synthetic)]
-  fn arg_view_invariants_hold_for_each_root_case(#[case] ha: &str, #[case] na: &str, #[case] root_case: RootCase) {
+  #[case::shared_polytomy(       "(A,B,C,D);", "((A,B),(C,D));", RootCase::Shared)]
+  #[case::one_shared_second(     "((A,B),(C,D));", "((A,C),(B,D));", RootCase::OneShared)]
+  #[case::one_shared_first(      "(((A,B),C),D);", "(((C,D),A),B);", RootCase::OneShared)]
+  #[case::synthetic(             "(A,((C,B),D));", "((D,(A,C)),B);", RootCase::Synthetic)]
+  #[case::synthetic_singletons(  "((B,(E,A)),(C,D));", "((B,(D,A)),(E,C));", RootCase::Synthetic)]
+  #[trace]
+  fn arg_view_invariants_hold_for_each_root_case(
+    #[case] ha: &str,
+    #[case] na: &str,
+    #[case] root_case: RootCase,
+    #[values(Scale::Div, Scale::Depth)] scale: Scale,
+  ) {
     let r = run_trees(&[("ha", ha), ("na", na)]);
-    for scale in [Scale::Div, Scale::Depth] {
-      let v = arg_view(&r, scale).unwrap();
-      assert_eq!(root_case, v.root_case);
-      check_invariants(&r, &v);
-    }
+    let v = arg_view(&r, scale).unwrap();
+    assert_eq!(root_case, v.root_case);
+    check_invariants(&r, &v);
   }
 
-  #[test]
-  fn arg_view_top_root_follows_the_extended_newick() {
-    // Oracle: ARG/arg.nwk names the top root last; the synthetic one is GlobalRoot.
-    for (ha, na) in [
-      ("((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));"),
-      ("((A,B),(C,D));", "((A,C),(B,D));"),
-      ("(((A,B),C),D);", "(((C,D),A),B);"),
-      ("(A,((C,B),D));", "((D,(A,C)),B);"),
-    ] {
-      let r = run_trees(&[("ha", ha), ("na", na)]);
-      let v = arg_view(&r, Scale::Div).unwrap();
-      let newick = crate::arg::extended_newick(r.built_arg().unwrap());
-      let top = newick.trim_end_matches(';').rsplit(')').next().unwrap();
-      let label = top.split(['[', '#', ':']).next().unwrap();
-      assert_eq!(label, v.nodes[v.root].label, "{ha} {na}");
-    }
+  /// Oracle: ARG/arg.nwk names the top root last; the synthetic one is GlobalRoot.
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::shared(           "((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));")]
+  #[case::one_shared_second("((A,B),(C,D));", "((A,C),(B,D));")]
+  #[case::one_shared_first( "(((A,B),C),D);", "(((C,D),A),B);")]
+  #[case::synthetic(        "(A,((C,B),D));", "((D,(A,C)),B);")]
+  #[trace]
+  fn arg_view_top_root_follows_the_extended_newick(#[case] ha: &str, #[case] na: &str) {
+    let r = run_trees(&[("ha", ha), ("na", na)]);
+    let v = arg_view(&r, Scale::Div).unwrap();
+    let newick = crate::arg::extended_newick(r.built_arg().unwrap());
+    let top = newick.trim_end_matches(';').rsplit(')').next().unwrap();
+    let label = top.split(['[', '#', ':']).next().unwrap();
+    assert_eq!(label, v.nodes[v.root].label);
   }
 
-  #[test]
-  fn arg_view_invariants_hold_on_a_simulated_fixture() {
+  #[rstest]
+  #[trace]
+  fn arg_view_invariants_hold_on_a_simulated_fixture(#[values(Scale::Div, Scale::Depth)] scale: Scale) {
     let fixture: serde_json::Value =
       serde_json::from_str(include_str!("../../../../fixtures/sim_k2_n50_r0.05.json")).unwrap();
     let trees: Vec<&str> = fixture["trees"]
@@ -394,9 +423,7 @@ mod tests {
       .map(|t| t.as_str().unwrap())
       .collect();
     let r = run_trees(&[("a", trees[0]), ("b", trees[1])]);
-    for scale in [Scale::Div, Scale::Depth] {
-      check_invariants(&r, &arg_view(&r, scale).unwrap());
-    }
+    check_invariants(&r, &arg_view(&r, scale).unwrap());
   }
 
   #[test]
@@ -436,12 +463,8 @@ mod tests {
     let labels: BTreeSet<&str> = v.nodes.iter().map(|n| n.label.as_str()).collect();
     assert_eq!(v.nodes.len(), labels.len());
     assert!(labels.iter().all(|l| !l.is_empty()));
-    for leaf in ["GlobalRoot", "ARGNode_1", "C", "D"] {
-      assert!(
-        v.nodes.iter().any(|n| n.leaf && n.label == leaf),
-        "leaf {leaf} keeps its label"
-      );
-    }
+    let leaves: BTreeSet<&str> = v.nodes.iter().filter(|n| n.leaf).map(|n| n.label.as_str()).collect();
+    assert_eq!(BTreeSet::from(["ARGNode_1", "C", "D", "GlobalRoot"]), leaves);
   }
 
   #[test]
@@ -525,19 +548,23 @@ mod tests {
 
   #[test]
   fn arg_view_top_root_of_one_shared_root_is_the_unshared_root_of_either_segment() {
-    let mut tops = BTreeSet::new();
-    for (ha, na) in [
+    let (cases, tops): (Vec<RootCase>, BTreeSet<usize>) = [
       ("((A,B),(C,D));", "((A,C),(B,D));"),
       ("(((A,B),C),D);", "(((C,D),A),B);"),
-    ] {
+    ]
+    .into_iter()
+    .map(|(ha, na)| {
       let r = run_trees(&[("ha", ha), ("na", na)]);
       let v = arg_view(&r, Scale::Div).unwrap();
-      assert_eq!(RootCase::OneShared, v.root_case);
       let roots = r.built_arg().unwrap().roots;
-      tops.insert(roots.iter().position(|&root| root == v.root).unwrap());
-    }
+      (v.root_case, roots.iter().position(|&root| root == v.root).unwrap())
+    })
+    .unzip();
     // Oracle: the cases cover both branches, a shared root of segment 0 and of segment 1.
-    assert_eq!(BTreeSet::from([0, 1]), tops);
+    assert_eq!(
+      (vec![RootCase::OneShared, RootCase::OneShared], BTreeSet::from([0, 1])),
+      (cases, tops)
+    );
   }
 
   #[test]

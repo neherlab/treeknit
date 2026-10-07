@@ -458,8 +458,12 @@ mod tests {
     let outline = ribbon(&block);
     assert_eq!(s_curve([0.0, -0.5], [1.0, 1.5]), outline[0]);
     assert_eq!(s_curve([1.0, 3.5], [0.0, 1.5]), outline[2]);
-    for (a, b) in outline.iter().zip(outline.iter().cycle().skip(1)) {
-      assert_eq!(a.to.map(f64::to_bits), b.from.map(f64::to_bits));
-    }
+    // Each curve ends where the next one starts, the last where the first starts.
+    let (ends, starts): (Vec<_>, Vec<_>) = outline
+      .iter()
+      .zip(outline.iter().cycle().skip(1))
+      .map(|(a, b)| (a.to.map(f64::to_bits), b.from.map(f64::to_bits)))
+      .unzip();
+    assert_eq!(ends, starts);
   }
 }

@@ -247,6 +247,7 @@ mod tests {
   use pretty_assertions::assert_eq;
   use rand::{Rng, SeedableRng};
   use rand_xoshiro::Xoshiro256PlusPlus;
+  use rstest::rstest;
   use std::collections::BTreeSet;
 
   /// The two-tree example: X moved between the trees.
@@ -321,9 +322,9 @@ mod tests {
   #[rstest::rstest]
   // Oracle: a block holds leaves of one MCC that are consecutive in both trees, in left order,
   // with right rows that step by +1 throughout or by -1 throughout.
-  #[case::ascending( &[("A", 0), ("B", 0), ("C", 0)], &["A", "B", "C"], vec![block_of(0, [0.0, 2.0], [0.0, 2.0])])]
+  #[case::ascending(  &[("A", 0), ("B", 0), ("C", 0)], &["A", "B", "C"], vec![block_of(0, [0.0, 2.0], [0.0, 2.0])])]
   #[case::descending(&[("A", 0), ("B", 0), ("C", 0)], &["C", "B", "A"], vec![block_of(0, [0.0, 2.0], [2.0, 0.0])])]
-  #[case::jump(      &[("A", 0), ("B", 0), ("C", 0)], &["A", "C", "B"], vec![block_of(0, [0.0, 0.0], [0.0, 0.0]), block_of(0, [1.0, 2.0], [2.0, 1.0])])]
+  #[case::jump(            &[("A", 0), ("B", 0), ("C", 0)], &["A", "C", "B"], vec![block_of(0, [0.0, 0.0], [0.0, 0.0]), block_of(0, [1.0, 2.0], [2.0, 1.0])])]
   #[case::mcc_change(&[("A", 0), ("B", 1)],           &["A", "B"],      vec![block_of(0, [0.0, 0.0], [0.0, 0.0]), block_of(1, [1.0, 1.0], [1.0, 1.0])])]
   // X is in the left tree only, so it has no link and A and B are not consecutive there.
   #[case::skipped(   &[("A", 0), ("X", 0), ("B", 0)], &["A", "B"],      vec![block_of(0, [0.0, 0.0], [0.0, 0.0]), block_of(0, [2.0, 2.0], [1.0, 1.0])])]
@@ -476,10 +477,11 @@ mod tests {
     assert!(pair_view(&r, 1, TreeVersion::Resolved, Scale::Div).is_none());
   }
 
+  #[rustfmt::skip]
   #[rstest::rstest]
-  #[case::strict_polytomy(ResolveMode::Strict, "((A,B,C),(D,E,F));", "((A,(B,C)),((D,E),F));")]
-  #[case::matched_polytomy(ResolveMode::Matched, "((A,B,C),(D,E,F));", "((A,(B,C)),((D,E),F));")]
-  #[case::strict_one_tree_only(ResolveMode::Strict, "((A,B),(C,(D,(E,P))));", "((A,(B,E)),(C,D,Q));")]
+  #[case::strict_polytomy(      ResolveMode::Strict, "((A,B,C),(D,E,F));", "((A,(B,C)),((D,E),F));")]
+  #[case::matched_polytomy(     ResolveMode::Matched, "((A,B,C),(D,E,F));", "((A,(B,C)),((D,E),F));")]
+  #[case::strict_one_tree_only( ResolveMode::Strict, "((A,B),(C,(D,(E,P))));", "((A,(B,E)),(C,D,Q));")]
   #[case::matched_one_tree_only(ResolveMode::Matched, "((A,B),(C,(D,(E,P))));", "((A,(B,E)),(C,D,Q));")]
   fn pair_view_of_two_trees_has_the_leaf_order_of_the_resolved_files(
     #[case] resolve: ResolveMode,
@@ -496,8 +498,9 @@ mod tests {
     assert_eq!(output_order(&r, "na_resolved.nwk"), leaf_names(&v.right));
   }
 
+  #[rustfmt::skip]
   #[rstest::rstest]
-  #[case::strict(ResolveMode::Strict)]
+  #[case::strict( ResolveMode::Strict)]
   #[case::matched(ResolveMode::Matched)]
   #[case::liberal(ResolveMode::Liberal)]
   fn pair_view_of_a_pair_the_run_kept_has_the_output_order_of_three_trees(#[case] resolve: ResolveMode) {
@@ -512,39 +515,33 @@ mod tests {
     ];
     let r = run_with(&trees, &settings);
     let n = r.taxa.len();
-    let mut kept = 0;
-    for (index, p) in r.pairs.iter().enumerate() {
-      if !keeps_run_order(&r.trees, &r.opts, n, p.i, p.j) {
-        continue;
-      }
-      kept += 1;
-      let v = view(&r, index, TreeVersion::Resolved);
-      assert_eq!(
-        output_order(&r, &format!("{}_resolved.nwk", trees[p.i].0)),
-        leaf_names(&v.left)
-      );
-      assert_eq!(
-        output_order(&r, &format!("{}_resolved.nwk", trees[p.j].0)),
-        leaf_names(&v.right)
-      );
-    }
-    assert!(kept > 0, "no pair kept the run order");
+    let output = |t: usize| output_order(&r, &format!("{}_resolved.nwk", trees[t].0));
+    let drawn_order = |tree: &DrawTree| -> Vec<String> { leaf_names(tree).into_iter().map(str::to_owned).collect() };
+    // The pairs whose order the run kept: both trees in the order of their output files.
+    let (expected, drawn): (Vec<_>, Vec<_>) = r
+      .pairs
+      .iter()
+      .enumerate()
+      .filter(|(_, p)| keeps_run_order(&r.trees, &r.opts, n, p.i, p.j))
+      .map(|(index, p)| {
+        let v = view(&r, index, TreeVersion::Resolved);
+        ((output(p.i), output(p.j)), (drawn_order(&v.left), drawn_order(&v.right)))
+      })
+      .unzip();
+    assert!(!expected.is_empty(), "no pair kept the run order");
+    assert_eq!(expected, drawn);
     // Every tree's last sorting pair: its own order in that pair's view, when the run kept it.
-    for t in 0..trees.len() {
-      let Some((i, j)) = treeknit_core::pipeline::last_sorting_pair(&r.trees, &r.opts, n, t) else {
-        continue;
-      };
-      if !keeps_run_order(&r.trees, &r.opts, n, i, j) {
-        continue;
-      }
-      let index = r.pairs.iter().position(|p| (p.i, p.j) == (i, j)).unwrap();
-      let v = view(&r, index, TreeVersion::Resolved);
-      let drawn = if t == i { &v.left } else { &v.right };
-      assert_eq!(
-        output_order(&r, &format!("{}_resolved.nwk", trees[t].0)),
-        leaf_names(drawn)
-      );
-    }
+    let (expected, drawn): (Vec<_>, Vec<_>) = (0..trees.len())
+      .filter_map(|t| {
+        let (i, j) = treeknit_core::pipeline::last_sorting_pair(&r.trees, &r.opts, n, t)?;
+        keeps_run_order(&r.trees, &r.opts, n, i, j).then(|| {
+          let index = r.pairs.iter().position(|p| (p.i, p.j) == (i, j)).unwrap();
+          let v = view(&r, index, TreeVersion::Resolved);
+          (output(t), drawn_order(if t == i { &v.left } else { &v.right }))
+        })
+      })
+      .unzip();
+    assert_eq!(expected, drawn);
   }
 
   #[test]
@@ -607,14 +604,18 @@ mod tests {
     );
   }
 
-  #[test]
-  fn pair_view_of_the_partial_overlap_input_flags_imputed_leaves() {
-    // The input of the command-line test `three_trees_partial_overlap_imputed`.
-    let r = run_trees(&[
+  /// The run of the input of the command-line test `three_trees_partial_overlap_imputed`.
+  fn partial_overlap_run() -> RunResult {
+    run_trees(&[
       ("seg0", "((A,B),(C,(D,(E,X))));"),
       ("seg1", "((A,(B,X)),(C,D,E,P));"),
       ("seg2", "((A,(B,P)),((C,D),(E,X)));"),
-    ]);
+    ])
+  }
+
+  #[test]
+  fn pair_view_of_the_partial_overlap_input_flags_imputed_leaves() {
+    let r = partial_overlap_run();
     // Pair (0,1): P is only in seg1. In the resolved version it has no link; in the imputed
     // version seg0 holds it as an imputed leaf, and it is an imputed member of its MCC.
     let resolved = view(&r, 0, TreeVersion::Resolved);
@@ -633,15 +634,17 @@ mod tests {
     assert_eq!(7, imputed.links.len());
     let marks: Vec<super::super::MarkKind> = imputed.shapes.left.marks.iter().map(|m| m.kind).collect();
     assert!(marks.contains(&super::super::MarkKind::Imputed));
-    // Every pair and version lays out without non-finite values.
-    for pair in 0..r.pairs.len() {
-      for version in [TreeVersion::Input, TreeVersion::Resolved, TreeVersion::Imputed] {
-        for scale in [Scale::Div, Scale::Depth] {
-          let v = pair_view(&r, pair, version, scale).unwrap();
-          assert!(numbers(&v).iter().all(|x| x.is_finite()));
-        }
-      }
-    }
+  }
+
+  #[rstest]
+  #[trace]
+  fn pair_views_of_the_partial_overlap_input_have_finite_numbers(
+    #[values(0, 1, 2)] pair: usize,
+    #[values(TreeVersion::Input, TreeVersion::Resolved, TreeVersion::Imputed)] version: TreeVersion,
+    #[values(Scale::Div, Scale::Depth)] scale: Scale,
+  ) {
+    let v = pair_view(&partial_overlap_run(), pair, version, scale).unwrap();
+    assert!(numbers(&v).iter().all(|x| x.is_finite()));
   }
 
   #[test]
@@ -665,24 +668,43 @@ mod tests {
   fn pair_view_shapes_carry_the_mcc_of_their_link_block_and_node() {
     let r = run_trees(&[("ha", HA), ("na", NA)]);
     let v = view(&r, 0, TreeVersion::Resolved);
-    for (i, c) in v.shapes.links.iter().enumerate() {
-      assert_eq!((i, v.links[i].mcc, v.mccs[c.mcc].slot), (c.link, c.mcc, c.slot));
-    }
-    for (i, ribbon) in v.shapes.ribbons.iter().enumerate() {
-      assert_eq!(
-        (i, v.blocks[i].mcc, v.mccs[ribbon.mcc].slot),
-        (ribbon.block, ribbon.mcc, ribbon.slot)
-      );
-    }
-    for (tree, shapes) in [(&v.left, &v.shapes.left), (&v.right, &v.shapes.right)] {
-      for e in &shapes.elbows {
-        assert_eq!(tree.nodes[e.node].mcc, e.mcc);
-      }
-      for m in &shapes.marks {
-        let mcc = tree.nodes[m.node].mcc;
-        assert_eq!((mcc, mcc.map(|x| v.mccs[x].slot)), (m.mcc, m.slot));
-      }
-    }
+    let (expected, actual): (Vec<_>, Vec<_>) = v
+      .shapes
+      .links
+      .iter()
+      .enumerate()
+      .map(|(i, c)| ((i, v.links[i].mcc, v.mccs[c.mcc].slot), (c.link, c.mcc, c.slot)))
+      .unzip();
+    assert_eq!(expected, actual);
+    let (expected, actual): (Vec<_>, Vec<_>) = v
+      .shapes
+      .ribbons
+      .iter()
+      .enumerate()
+      .map(|(i, ribbon)| {
+        (
+          (i, v.blocks[i].mcc, v.mccs[ribbon.mcc].slot),
+          (ribbon.block, ribbon.mcc, ribbon.slot),
+        )
+      })
+      .unzip();
+    assert_eq!(expected, actual);
+    let trees = [(&v.left, &v.shapes.left), (&v.right, &v.shapes.right)];
+    let (expected, actual): (Vec<_>, Vec<_>) = trees
+      .iter()
+      .flat_map(|(tree, shapes)| shapes.elbows.iter().map(|e| (tree.nodes[e.node].mcc, e.mcc)))
+      .unzip();
+    assert_eq!(expected, actual);
+    let (expected, actual): (Vec<_>, Vec<_>) = trees
+      .iter()
+      .flat_map(|(tree, shapes)| {
+        shapes.marks.iter().map(|m| {
+          let mcc = tree.nodes[m.node].mcc;
+          ((mcc, mcc.map(|x| v.mccs[x].slot)), (m.mcc, m.slot))
+        })
+      })
+      .unzip();
+    assert_eq!(expected, actual);
     assert!(!v.shapes.left.marks.is_empty() || !v.shapes.right.marks.is_empty());
   }
 
@@ -702,6 +724,7 @@ mod tests {
   fn pair_view_node_names_are_unique_and_non_empty_in_every_version() {
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(11);
     let mut checked = 0;
+    let mut repeated_or_empty = Vec::new();
     for _ in 0..150 {
       let k = rng.gen_range(2..4);
       let texts: Vec<String> = std::iter::repeat_with(|| random_tree(&mut rng)).take(k).collect();
@@ -715,16 +738,18 @@ mod tests {
       for pair in 0..r.pairs.len() {
         for version in [TreeVersion::Input, TreeVersion::Resolved, TreeVersion::Imputed] {
           let v = view(&r, pair, version);
-          for tree in [&v.left, &v.right] {
+          let unique_and_named = [&v.left, &v.right].iter().all(|tree| {
             let names: BTreeSet<&str> = tree.nodes.iter().map(|n| n.name.as_str()).collect();
-            assert_eq!(tree.nodes.len(), names.len(), "{texts:?}");
-            assert!(!names.contains(""), "{texts:?}");
+            tree.nodes.len() == names.len() && !names.contains("")
+          });
+          if !unique_and_named {
+            repeated_or_empty.push((texts.clone(), pair, version));
           }
           checked += 1;
         }
       }
     }
-    assert!(checked > 100);
+    assert_eq!((Vec::new(), true), (repeated_or_empty, checked > 100));
   }
 
   /// A random tree on a random subset of the leaves `A` to `H`, with unnamed internal nodes of
@@ -754,13 +779,17 @@ mod tests {
     let child_mccs: BTreeSet<Option<usize>> = root.children.iter().map(|&c| v.left.nodes[c].mcc).collect();
     assert_eq!(2, child_mccs.len());
     assert!(root.children.iter().all(|&c| v.left.nodes[c].mcc_break));
-    for tree in [&v.left, &v.right] {
-      for node in &tree.nodes {
-        let parent_mcc = node.parent.and_then(|p| tree.nodes[p].mcc);
-        let expected = node.parent.is_some() && node.mcc.is_some() && parent_mcc != node.mcc;
-        assert_eq!(expected, node.mcc_break, "node {}", node.name);
-      }
-    }
+    let (expected, actual): (Vec<_>, Vec<_>) = [&v.left, &v.right]
+      .iter()
+      .flat_map(|tree| {
+        tree.nodes.iter().map(|node| {
+          let parent_mcc = node.parent.and_then(|p| tree.nodes[p].mcc);
+          let breaks = node.parent.is_some() && node.mcc.is_some() && parent_mcc != node.mcc;
+          ((node.name.as_str(), breaks), (node.name.as_str(), node.mcc_break))
+        })
+      })
+      .unzip();
+    assert_eq!(expected, actual);
   }
 
   /// Every coordinate of `v`.

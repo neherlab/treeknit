@@ -102,11 +102,10 @@ mod tests {
 
   /// Assert that `f` exited with 1, printed exactly `message` as the error, and created no output
   /// directory.
-  fn assert_failed(f: &Failure, message: &str, case: &str) {
+  fn assert_failed(f: &Failure, message: &str) {
     assert_eq!(
       (Some(1), format!("Error: {message}\n").as_str(), false),
-      (f.code, f.stderr.as_str(), f.created),
-      "{case}"
+      (f.code, f.stderr.as_str(), f.created)
     );
   }
 
@@ -114,20 +113,18 @@ mod tests {
   const NA: &str = "((A:1,(B:1,X:1):1):1,(C:1,D:1):1);";
 
   #[rustfmt::skip]
-  #[test]
-  fn invalid_settings_exit_with_their_message() {
-    for (name, args, message) in [
-      ("gamma-negative", &["--gamma=-1"][..],            "gamma must be a non-negative number, got -1"),
-      ("gamma-nan",      &["--gamma=nan"],               "gamma must be a non-negative number, got NaN"),
-      ("lengths-zero",   &["--seq-lengths", "0 0"],      "sequence length 1 must be a positive number, got 0\nsequence length 2 must be a positive number, got 0"),
-      ("lengths-former", &["--better-MCCs", "--seq-lengths", "0 0"], "sequence length 1 must be a positive number, got 0\nsequence length 2 must be a positive number, got 0"),
-      ("seed-large",     &["--seed", "9007199254740992"], "seed must be at most 9007199254740991, got 9007199254740992"),
-      ("mcmc-zero",      &["--n-mcmc-it", "0"],          "MCMC steps per leaf must be at least 1"),
-      ("mcmc-former",    &["--better-MCCs", "--n-mcmc-it", "0"], "MCMC steps per leaf must be at least 1"),
-      ("rounds-former",  &["--better-MCCs", "--rounds", "0"],    "rounds must be at least 1"),
-    ] {
-      assert_failed(&fail(name, &[HA, NA], args), message, name);
-    }
+  #[rstest]
+  #[case::gamma_negative(&["--gamma=-1"],                            "gamma must be a non-negative number, got -1")]
+  #[case::gamma_nan(          &["--gamma=nan"],                           "gamma must be a non-negative number, got NaN")]
+  #[case::lengths_zero(    &["--seq-lengths", "0 0"],                  "sequence length 1 must be a positive number, got 0\nsequence length 2 must be a positive number, got 0")]
+  #[case::lengths_former(&["--better-MCCs", "--seq-lengths", "0 0"], "sequence length 1 must be a positive number, got 0\nsequence length 2 must be a positive number, got 0")]
+  #[case::seed_large(        &["--seed", "9007199254740992"],            "seed must be at most 9007199254740991, got 9007199254740992")]
+  #[case::mcmc_zero(          &["--n-mcmc-it", "0"],                      "MCMC steps per leaf must be at least 1")]
+  #[case::mcmc_former(      &["--better-MCCs", "--n-mcmc-it", "0"],     "MCMC steps per leaf must be at least 1")]
+  #[case::rounds_former(  &["--better-MCCs", "--rounds", "0"],        "rounds must be at least 1")]
+  #[trace]
+  fn invalid_settings_exit_with_their_message(#[case] args: &[&str], #[case] message: &str) {
+    assert_failed(&fail("settings", &[HA, NA], args), message);
   }
 
   #[test]
@@ -150,14 +147,14 @@ mod tests {
       gamma must be a non-negative number, got -1",
       f.dir.path().join("t1.nwk").display()
     );
-    assert_failed(&f, &expected, "all errors");
+    assert_failed(&f, &expected);
   }
 
   #[test]
   fn too_few_tree_files_are_reported_with_the_flag_errors() {
     let f = fail("one-file", &[HA], &["--gamma=-1"]);
     let expected = "need at least two trees\ngamma must be a non-negative number, got -1";
-    assert_failed(&f, expected, "one file");
+    assert_failed(&f, expected);
   }
 
   #[test]
@@ -174,7 +171,7 @@ mod tests {
        gamma must be a non-negative number, got -1",
       f.dir.path().join("t1.nwk").display()
     );
-    assert_failed(&f, &expected, "unreadable");
+    assert_failed(&f, &expected);
   }
 
   #[test]
@@ -295,20 +292,18 @@ mod tests {
       f.dir.path().join("t1.nwk").display(),
       f.dir.path().join("t2.nwk").display(),
     );
-    assert_failed(&f, &expected, "parse");
+    assert_failed(&f, &expected);
   }
 
   #[rustfmt::skip]
-  #[test]
-  fn pairs_sharing_fewer_than_two_leaves_exit_with_their_message() {
-    for (name, other, args) in [
-      ("disjoint-resolve",   "(P,(Q,R));", &["--resolve", "strict"][..]),
-      ("one-shared-resolve", "(A,(Q,R));", &["--resolve", "matched"]),
-      ("disjoint-former",    "(P,(Q,R));", &["--better-trees"]),
-      ("one-shared-former",  "(A,(Q,R));", &["--better-MCCs"]),
-    ] {
-      assert_failed(&fail(name, &[HA, other], args), "trees \"t0\" and \"t1\" share fewer than 2 leaves", name);
-    }
+  #[rstest]
+  #[case::disjoint_resolve(    "(P,(Q,R));", &["--resolve", "strict"])]
+  #[case::one_shared_resolve("(A,(Q,R));", &["--resolve", "matched"])]
+  #[case::disjoint_former(      "(P,(Q,R));", &["--better-trees"])]
+  #[case::one_shared_former(  "(A,(Q,R));", &["--better-MCCs"])]
+  #[trace]
+  fn pairs_sharing_fewer_than_two_leaves_exit_with_their_message(#[case] other: &str, #[case] args: &[&str]) {
+    assert_failed(&fail("pairs", &[HA, other], args), "trees \"t0\" and \"t1\" share fewer than 2 leaves");
   }
 
   #[test]
@@ -318,7 +313,6 @@ mod tests {
     assert_failed(
       &f,
       "tree pairs (\"a_b\", \"c\") and (\"a\", \"b_c\") give the same output file names (\"a_b_c\"); rename a tree",
-      "stems",
     );
   }
 
@@ -424,8 +418,9 @@ mod tests {
       .collect()
   }
 
+  #[rustfmt::skip]
   #[rstest]
-  #[case::two_trees("two", &["ha.nwk", "na.nwk"], &[])]
+  #[case::two_trees(                  "two", &["ha.nwk", "na.nwk"], &[])]
   #[case::three_trees_imputed_auspice("three", &["seg0.nwk", "seg1.nwk", "seg2.newick"], &["--impute", "--auspice-view"])]
   #[trace]
   fn output_files_keep_their_bytes(#[case] case: &str, #[case] inputs: &[&str], #[case] flags: &[&str]) {
@@ -571,13 +566,14 @@ mod tests {
       vec!["ARG/arg.svg".to_owned(), "tanglegram_ha_na.svg".to_owned()],
       figures
     );
-    for path in &figures {
-      let svg = written.remove(path).unwrap();
-      assert!(
-        svg.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\"") && svg.ends_with("</svg>\n"),
-        "{path}"
-      );
-    }
+    let not_svg: Vec<&String> = figures
+      .iter()
+      .filter(|path| {
+        let svg = written.remove(*path).unwrap();
+        !(svg.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\"") && svg.ends_with("</svg>\n"))
+      })
+      .collect();
+    assert_eq!(Vec::<&String>::new(), not_svg);
     assert_eq!(readable(files_below(&data.join("expected"))), written);
   }
 
@@ -619,7 +615,7 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::same_stem(      "stems-dirs", ("ha", "ha"), ["ha_a_resolved.nwk", "ha_b_resolved.nwk"], "ha_resolved.nwk")]
+  #[case::same_stem(          "stems-dirs", ("ha", "ha"), ["ha_a_resolved.nwk", "ha_b_resolved.nwk"], "ha_resolved.nwk")]
   #[case::stems_in_case(  "stems-case", ("HA", "ha"), ["HA_a_resolved.nwk", "ha_b_resolved.nwk"], "HA_resolved.nwk")]
   #[trace]
   fn files_with_one_stem_give_resolved_trees_named_by_label(
@@ -719,10 +715,11 @@ mod tests {
     (output.status.code(), String::from_utf8(output.stderr).unwrap())
   }
 
+  #[rustfmt::skip]
   #[rstest]
   #[case::tree_file("session-tree", &["ha.nwk"], "the argument '--session <FILE>' cannot be used with '[TREE]...'")]
-  #[case::example("session-example", &["--example", "5-leaves"], "the argument '--session <FILE>' cannot be used with '--example <ID>'")]
-  #[case::former("session-former", &["--better-MCCs"], "the argument '--session <FILE>' cannot be used with '--better-MCCs'")]
+  #[case::example(  "session-example", &["--example", "5-leaves"], "the argument '--session <FILE>' cannot be used with '--example <ID>'")]
+  #[case::former(   "session-former", &["--better-MCCs"], "the argument '--session <FILE>' cannot be used with '--better-MCCs'")]
   #[trace]
   fn session_with_tree_files_or_former_options_is_a_usage_error(
     #[case] name: &str,
@@ -868,9 +865,11 @@ mod tests {
     let m = mccs(&out);
     let d = m["MCC_dict"].as_object().unwrap();
     assert_eq!(d.len(), 3);
-    for pair in ["seg0_seg1", "seg0_seg2", "seg1_seg2"] {
-      assert!(out.join(format!("MCCs_{pair}.dat")).exists());
-    }
+    let pair_files: Vec<bool> = ["seg0_seg1", "seg0_seg2", "seg1_seg2"]
+      .iter()
+      .map(|pair| out.join(format!("MCCs_{pair}.dat")).exists())
+      .collect();
+    assert_eq!(vec![true, true, true], pair_files);
     // P is missing from seg0: pairs (0,1) and (0,2) place it.
     assert!(d["1"]["imputed"].as_array().unwrap().iter().any(|e| e["leaf"] == "P"));
     let imputed = std::fs::read_to_string(out.join("seg0_imputed.nwk")).unwrap();
@@ -913,6 +912,7 @@ mod tests {
     assert_eq!([true, true], present);
   }
 
+  #[rustfmt::skip]
   #[rstest]
   #[case::commas("lengths-commas", "1701,1410")]
   #[case::spaces("lengths-spaces", "1701 1410")]
@@ -935,14 +935,14 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::pre_resolve(    "pair-1", &["--no-pre-resolve", "--pre-resolve"],    "pre_resolve",            true)]
+  #[case::pre_resolve(       "pair-1", &["--no-pre-resolve", "--pre-resolve"],    "pre_resolve",            true)]
   #[case::no_pre_resolve( "pair-2", &["--pre-resolve", "--no-pre-resolve"],    "pre_resolve",            false)]
-  #[case::final_round(    "pair-3", &["--no-final-round", "--final-round"],    "final_unresolved_round", true)]
+  #[case::final_round(       "pair-3", &["--no-final-round", "--final-round"],    "final_unresolved_round", true)]
   #[case::no_final_round( "pair-4", &["--final-round", "--no-final-round"],    "final_unresolved_round", false)]
-  #[case::likelihood(     "pair-5", &["--no-likelihood", "--likelihood"],      "likelihood_sort",        true)]
-  #[case::no_likelihood(  "pair-6", &["--likelihood", "--no-likelihood"],      "likelihood_sort",        false)]
-  #[case::naive(          "pair-7", &["--no-naive", "--naive"],                "naive",                  true)]
-  #[case::no_naive(       "pair-8", &["--naive", "--no-naive"],                "naive",                  false)]
+  #[case::likelihood(         "pair-5", &["--no-likelihood", "--likelihood"],      "likelihood_sort",        true)]
+  #[case::no_likelihood(   "pair-6", &["--likelihood", "--no-likelihood"],      "likelihood_sort",        false)]
+  #[case::naive(                   "pair-7", &["--no-naive", "--naive"],                "naive",                  true)]
+  #[case::no_naive(             "pair-8", &["--naive", "--no-naive"],                "naive",                  false)]
   #[trace]
   fn the_last_of_a_flag_and_its_opposite_wins(#[case] name: &str, #[case] flags: &[&str], #[case] key: &str, #[case] expected: bool) {
     let dir = TempDir::new(name);

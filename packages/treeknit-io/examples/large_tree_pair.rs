@@ -293,12 +293,15 @@ mod tests {
   }
 
   /// Moves keep the node times, so tree B stays ultrametric like tree A.
-  #[test]
-  fn test_large_tree_pair_tree_b_ultrametric() {
-    for (leaves, seed, moves) in [(MIN_LEAVES, 1, 5), (10, 2, 10), (200, 3, 50)] {
-      let (_, b) = tree_pair(leaves, seed, moves);
-      assert!(is_ultrametric(&b), "{leaves} leaves, seed {seed}");
-    }
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::fewest_leaves((MIN_LEAVES, 1, 5))]
+  #[case::ten_leaves(   (10,         2, 10))]
+  #[case::many_leaves(  (200,        3, 50))]
+  #[trace]
+  fn test_large_tree_pair_tree_b_ultrametric(#[case] (leaves, seed, moves): (u32, u64, u32)) {
+    let (_, b) = tree_pair(leaves, seed, moves);
+    assert!(is_ultrametric(&b));
   }
 
   #[test]
@@ -336,16 +339,17 @@ mod tests {
     assert_eq!(newick::write(&a), newick::write(&b));
   }
 
-  #[test]
-  fn test_large_tree_pair_one_move_changes_tree() {
-    for leaves in [MIN_LEAVES, 4, 5, 10, 200] {
-      for seed in 0..20 {
+  /// For every seed, one move keeps the leaves and a binary tree B and changes its clades.
+  #[rstest]
+  #[trace]
+  fn test_large_tree_pair_one_move_changes_tree(#[values(MIN_LEAVES, 4, 5, 10, 200)] leaves: u32) {
+    let unchanged: Vec<u64> = (0..20)
+      .filter(|&seed| {
         let (a, b) = tree_pair(leaves, seed, 1);
-        assert_eq!(leaf_names(&a), leaf_names(&b), "{leaves} leaves, seed {seed}");
-        assert!(is_binary(&b), "{leaves} leaves, seed {seed}");
-        assert_ne!(clades(&a), clades(&b), "{leaves} leaves, seed {seed}");
-      }
-    }
+        leaf_names(&a) != leaf_names(&b) || !is_binary(&b) || clades(&a) == clades(&b)
+      })
+      .collect();
+    assert_eq!(Vec::<u64>::new(), unchanged);
   }
 
   #[test]

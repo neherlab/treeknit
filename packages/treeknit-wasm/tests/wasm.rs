@@ -819,27 +819,42 @@ mod tests {
         .unwrap()
         .js_value(),
     );
-    for side in ["left", "right"] {
-      let drawn: Vec<&Value> = pair[side]["nodes"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|n| n["leaf"] == json!(true))
-        .map(|n| &n["name"])
-        .collect();
-      // The leaves of the nested Auspice tree in preorder.
-      let mut leaves = Vec::new();
-      let mut stack = vec![&auspice[side]["tree"]];
-      while let Some(n) = stack.pop() {
-        match n.get("children") {
-          Some(children) => stack.extend(children.as_array().unwrap().iter().rev()),
-          None => leaves.push(&n["name"]),
-        }
+    let (expected, actual): (Vec<_>, Vec<_>) = ["left", "right"]
+      .into_iter()
+      .map(|side| {
+        let drawn: Vec<&Value> = pair[side]["nodes"]
+          .as_array()
+          .unwrap()
+          .iter()
+          .filter(|n| n["leaf"] == json!(true))
+          .map(|n| &n["name"])
+          .collect();
+        let tree = &auspice[side];
+        (
+          (side, drawn, json!("v2"), json!("mcc")),
+          (
+            side,
+            preorder_leaves(&tree["tree"]),
+            tree["version"].clone(),
+            tree["meta"]["display_defaults"]["color_by"].clone(),
+          ),
+        )
+      })
+      .unzip();
+    assert_eq!(expected, actual);
+  }
+
+  /// The leaf names of the nested Auspice tree `tree` in preorder.
+  fn preorder_leaves(tree: &Value) -> Vec<&Value> {
+    let mut leaves = Vec::new();
+    let mut stack = vec![tree];
+    while let Some(n) = stack.pop() {
+      match n.get("children") {
+        Some(children) => stack.extend(children.as_array().unwrap().iter().rev()),
+        None => leaves.push(&n["name"]),
       }
-      assert_eq!(drawn, leaves, "{side}");
-      assert_eq!(json!("v2"), auspice[side]["version"]);
-      assert_eq!(json!("mcc"), auspice[side]["meta"]["display_defaults"]["color_by"]);
     }
+    leaves
   }
 
   #[wasm_bindgen_test]
