@@ -144,7 +144,7 @@ where:
 - $\wedge$ -- the <a id="gloss-use-9"></a>meet <sup>[9](#gloss-9)</sup> of two partitions
 - $\le$ -- every block of the left side lies inside one block of the right side
 
-The annealing runs on each pair independently and is random, so the triplet condition can fail even when all trees are resolved consistently. The TreeKnit.jl documentation states that MultiTreeKnit "may still return MCCs that are inconsistent with each other, which prevents the construction of an ARG. Therefore, we do not reconstruct an ARG for more than two trees" [[doc](https://github.com/PierreBarrat/TreeKnit.jl/blob/dbbc89ac691fed0949a622eedbae103787b89320/docs/src/multitreeknit.md?plain=1#L7)].
+Each pair is inferred without the MCCs of the other pairs, so the triplet condition can fail even when all trees are resolved consistently. The TreeKnit.jl documentation attributes this to the annealing, which "removes branches at random" [[doc](https://github.com/PierreBarrat/TreeKnit.jl/blob/dbbc89ac691fed0949a622eedbae103787b89320/docs/src/multitreeknit.md?plain=1#L103)]. In this port, the failures on a fully resolved simulated case are the same for every seed and every resolution setting, so the separate inference of the pairs causes them, and the randomness does not (see [`cross-pair-mcc-consistency.md`](../proposals/cross-pair-mcc-consistency.md#measured-inconsistency)). The TreeKnit.jl documentation states that MultiTreeKnit "may still return MCCs that are inconsistent with each other, which prevents the construction of an ARG. Therefore, we do not reconstruct an ARG for more than two trees" [[doc](https://github.com/PierreBarrat/TreeKnit.jl/blob/dbbc89ac691fed0949a622eedbae103787b89320/docs/src/multitreeknit.md?plain=1#L7)].
 
 ## The MTKSimulations study
 
@@ -233,7 +233,7 @@ The study recommends 1 round with pre-resolution and a final round without resol
 
 - **Pipeline**: the port runs the multi-tree pipeline in `pub fn run_observed()` [[src](../../packages/treeknit-core/src/pipeline.rs#L189)], with independent pairs in parallel and seeded runs
 - **Default resolution**: `matched` resolves all trees so that, for every pair and every MCC, the two trees restricted to the MCC's leaves have the same topology. When splits from different trees conflict inside a shared region, the MCC is replaced by the maximal clades on which its two trees agree [[doc](../../README.md#resolving-trees)]. This satisfies the topological compatibility condition by construction. The TreeKnit.jl presets remain available as former options with their original meaning (see [README section "Deliberate differences from TreeKnit.jl"](../../README.md#deliberate-differences-from-treeknitjl))
-- **Triplet consistency**: no mode enforces it, and the port does not report violations. [`N-cross-pair-mcc-consistency-unreported.md`](../issues/N-cross-pair-mcc-consistency-unreported.md) records the open decision. The check it proposes is the partition test that MTKTools uses for its metric
+- **Triplet consistency**: no mode enforces it, and the port does not report violations. [`N-cross-pair-mcc-consistency-unreported.md`](../issues/N-cross-pair-mcc-consistency-unreported.md) records the open decision. The check it proposes is the partition test that MTKTools uses for its metric. Measured with this check, the MCCs of the port violate the condition on the simulated fixtures in every resolution mode, and on the four-segment H3N2 data in both settings measured (see [`cross-pair-mcc-consistency.md`](../proposals/cross-pair-mcc-consistency.md#measured-inconsistency))
 - **ARG**: built for two trees only, as in TreeKnit.jl
 
 ## Gaps and open questions
@@ -241,7 +241,7 @@ The study recommends 1 round with pre-resolution and a final round without resol
 - **No publication**: MultiTreeKnit and its presets rest on the TreeKnit.jl documentation and the MTKSimulations READMEs. No peer-reviewed source evaluates them
 - **Sampling of the consistency metrics**: each simulation scores one random pair and one random triplet. Each point of a curve therefore averages one pair or one triplet from each of the 100 simulations at that point
 - **Rate scale**: the simulations and the paper both use ARGTools, but this report did not verify that the reassortment rate axis of MTKSimulations equals the scaled rate $r^\star$ of the paper, for which A/H3N2 HA and NA give $r^\star \approx 0.05$ [[1](#ref-1)]
-- **ARG for more than two trees**: still open in both implementations. It needs MCCs that satisfy the triplet condition
+- **ARG for more than two trees**: still open in both implementations. It needs MCCs that satisfy the triplet condition. [`multi-segment-arg.md`](../proposals/multi-segment-arg.md) records the further conditions, the open questions, and the work items
 
 ## Glossary
 
