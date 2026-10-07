@@ -5,7 +5,7 @@ Counterpart: [`v0/resolution.md`](v0/resolution.md). `packages/treeknit-core/src
 ## Common properties
 
 - [x] **New nodes**: each added split becomes a node `RESOLVED_<i>` with branch length 0. The number continues after the largest `RESOLVED_<n>` in the tree [[src](../../packages/treeknit-core/src/tree.rs#L370-L382)]. TreeKnit.jl continues after the largest number in any label that contains `RESOLVED`
-- [/] **Branch length of new nodes**: always 0. TreeKnit.jl has the parameter `tau`
+- [/] **Branch length of new nodes**: always 0 in the output trees. TreeKnit.jl has the parameter `tau`. The drawings show such a split at the mean of its lengths in the trees of the run (see `web-app.md`, "Tree layout")
 - [x] **Placement**: the new node takes the children of the LCA that hold the leaves of the split and becomes a child of that LCA [[src](../../packages/treeknit-core/src/resolve.rs#L44-L65)]
 - [x] **Split already present**: skipped
 - [/] **Conflicts**: `insert_split` returns `Insert::Incompatible` for an incompatible split, and every caller skips the split with a warning [[src](../../packages/treeknit-core/src/resolve.rs#L279-L305)]. There is no mode that stops with an error. TreeKnit.jl stops the MCC resolution with an error ([`N-undocumented-differences-from-treeknit-jl.md`](../issues/N-undocumented-differences-from-treeknit-jl.md))
