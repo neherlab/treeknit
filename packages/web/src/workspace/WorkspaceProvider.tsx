@@ -1,7 +1,8 @@
 import { type ReactNode, Suspense, use } from "react";
-import { ErrorBoundary, type FallbackProps } from "react-error-boundary";
+import { ErrorBoundary, type FallbackProps, getErrorMessage } from "react-error-boundary";
 
 import { useDelayedIndicator } from "../indicator/useDelayedIndicator";
+import { failureNotice } from "../run/failure";
 import { SettingsFormProvider } from "../settings/SettingsFormProvider";
 import { InlineNotice } from "../ui/InlineNotice";
 import { WorkspaceContext } from "./context";
@@ -41,11 +42,14 @@ function Starting() {
 }
 
 function StartFailure({ error }: FallbackProps) {
+  const notice = failureNotice("start", getErrorMessage(error) ?? String(error));
+
   return (
     <div className="mx-auto max-w-xl p-6">
-      <InlineNotice tone="danger" title="TreeKnit could not start in this browser.">
-        <p>{error instanceof Error ? error.message : String(error)}</p>
-        <p>Use a current version of Chrome, Edge, Firefox, or Safari.</p>
+      <InlineNotice tone={notice.tone} title={notice.title}>
+        {notice.details.map((detail) => (
+          <p key={detail}>{detail}</p>
+        ))}
       </InlineNotice>
     </div>
   );

@@ -1,4 +1,5 @@
 import type { AnalysisRequest, OutputFile } from "@neherlab/treeknit-wasm";
+import { getErrorMessage } from "react-error-boundary";
 import { isDeepEqual } from "remeda";
 
 import type { TreeSource } from "../workspace/treeSource";
@@ -56,7 +57,7 @@ interface WrittenRecord {
 
 class UnavailableStorageError extends Error {
   constructor(cause: unknown) {
-    super(cause instanceof Error ? cause.message : String(cause), { cause });
+    super(getErrorMessage(cause) ?? String(cause), { cause });
   }
 }
 
@@ -367,7 +368,7 @@ export class WorkspacePersistence {
   }
 
   #report(kind: PersistenceProblemKind, cause: unknown): void {
-    this.#setProblem({ kind, message: cause instanceof Error ? cause.message : String(cause) });
+    this.#setProblem({ kind, message: getErrorMessage(cause) ?? String(cause) });
   }
 
   #setProblem(problem: PersistenceProblem | null): void {

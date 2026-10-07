@@ -1,3 +1,5 @@
+import { getErrorMessage } from "react-error-boundary";
+
 export const TREE_FILE_TYPES = [".nwk", ".newick", ".tre", ".tree", ".txt"] as const;
 
 export const SESSION_FILE_TYPES = [".json"] as const;
@@ -20,9 +22,9 @@ export function readFailures(failures: readonly ReadFailure[], added: number): s
 
   const unread =
     failures.length === 1
-      ? `${only.name} could not be read: ${causeMessage(only.cause)}. Check the file and add it again.`
+      ? `${only.name} could not be read: ${getErrorMessage(only.cause) ?? String(only.cause)}. Check the file and add it again.`
       : `${String(failures.length)} files could not be read: ${failures
-          .map(({ name, cause }) => `${name} (${causeMessage(cause)})`)
+          .map(({ name, cause }) => `${name} (${getErrorMessage(cause) ?? String(cause)})`)
           .join("; ")}. Check the files and add them again.`;
 
   return added === 0 ? unread : `${unread} ${addedTrees(added)}`;
@@ -43,7 +45,7 @@ function addedTrees(added: number): string {
 }
 
 export function sessionFailure(name: string, cause: unknown): string {
-  return `${name} is not a TreeKnit session file: ${causeMessage(cause)}. Open a treeknit_session.json file.`;
+  return `${name} is not a TreeKnit session file: ${getErrorMessage(cause) ?? String(cause)}. Open a treeknit_session.json file.`;
 }
 
 export function batchRejection(sessionNames: readonly string[], treeCount: number): string | null {
@@ -61,9 +63,5 @@ export function batchRejection(sessionNames: readonly string[], treeCount: numbe
 }
 
 export function addFailure(cause: unknown): string {
-  return `The trees could not be added: ${causeMessage(cause)}. Try again.`;
-}
-
-function causeMessage(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause);
+  return `The trees could not be added: ${getErrorMessage(cause) ?? String(cause)}. Try again.`;
 }

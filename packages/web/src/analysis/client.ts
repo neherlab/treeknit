@@ -1,5 +1,6 @@
 import type { AnalysisRequest, Progress, Summary } from "@neherlab/treeknit-wasm";
 import { type Endpoint, proxy, type Remote, wrap } from "comlink";
+import { getErrorMessage } from "react-error-boundary";
 import { doNothing } from "remeda";
 
 import type { SessionApi, StatelessApi, WorkerApi } from "./protocol";
@@ -413,7 +414,7 @@ class Connection {
 
       await Promise.race([remote.init(compiled), this.#failed]);
     } catch (error) {
-      throw error instanceof WorkerStartError ? error : new WorkerStartError(asError(error).message);
+      throw error instanceof WorkerStartError ? error : new WorkerStartError(getErrorMessage(error) ?? String(error));
     }
 
     this.#started = true;
@@ -469,7 +470,7 @@ function openWorker(start: () => AnalysisWorker): AnalysisWorker | WorkerStartEr
   try {
     return start();
   } catch (error) {
-    return new WorkerStartError(asError(error).message);
+    return new WorkerStartError(getErrorMessage(error) ?? String(error));
   }
 }
 

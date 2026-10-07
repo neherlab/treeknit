@@ -8,6 +8,7 @@ import type {
   MessageSource,
   Settings,
 } from "@neherlab/treeknit-wasm";
+import { getErrorMessage } from "react-error-boundary";
 import { match } from "ts-pattern";
 
 import type { AnalysisClient } from "../analysis/client";
@@ -63,7 +64,12 @@ export class LinkLaunch implements LaunchControl {
         this.#settled.resolve(undefined);
       }
     } catch (cause) {
-      this.#update({ status: { kind: "failed", problems: [`The link could not be read: ${messageOf(cause)}`] } });
+      this.#update({
+        status: {
+          kind: "failed",
+          problems: [`The link could not be read: ${getErrorMessage(cause) ?? String(cause)}`],
+        },
+      });
 
       return;
     }
@@ -117,7 +123,7 @@ export class LinkLaunch implements LaunchControl {
     try {
       loaded = await loadLaunch(launch, store.getState().defaults, this.#environment);
     } catch (cause) {
-      const problems = cause instanceof LaunchLoadError ? cause.problems : [messageOf(cause)];
+      const problems = cause instanceof LaunchLoadError ? cause.problems : [getErrorMessage(cause) ?? String(cause)];
 
       this.#update({ status: { kind: "failed", problems } });
 
@@ -295,7 +301,9 @@ export async function loadLaunch(
         trees.map(async ({ location }) => readLocation(location, limits, environment)),
       );
 
-      const problems = texts.flatMap((text) => (text.status === "rejected" ? [messageOf(text.reason)] : []));
+      const problems = texts.flatMap((text) =>
+        text.status === "rejected" ? [getErrorMessage(text.reason) ?? String(text.reason)] : [],
+      );
 
       if (problems.length > 0) {
         throw new LaunchLoadError(problems);
@@ -316,14 +324,14 @@ export async function loadLaunch(
       const limits = downloadLimits(await client.linkLimits());
 
       const text = await readLocation(location, limits, environment).catch((cause: unknown) => {
-        throw new LaunchLoadError([messageOf(cause)]);
+        throw new LaunchLoadError([getErrorMessage(cause) ?? String(cause)]);
       });
 
       return { ...(await openSession(text, SESSION_SOURCE, settings, defaults, client)), run: false };
     })
     .with({ kind: "message" }, async ({ source }) => {
       const received = await environment.receiveSession(source).catch((cause: unknown) => {
-        throw new LaunchLoadError([messageOf(cause)]);
+        throw new LaunchLoadError([getErrorMessage(cause) ?? String(cause)]);
       });
 
       const opened = await openSession(
@@ -379,7 +387,7 @@ async function openSession(
   try {
     request = await client.readSession(text);
   } catch (cause) {
-    throw new LaunchLoadError([`The session file could not be opened: ${messageOf(cause)}`]);
+    throw new LaunchLoadError([`The session file could not be opened: ${getErrorMessage(cause) ?? String(cause)}`]);
   }
 
   return {
@@ -398,8 +406,4 @@ function fulfilled(result: PromiseSettledResult<string> | undefined): string {
 
 function hostOf(url: string): string {
   return URL.parse(url)?.host ?? filePlace(url);
-}
-
-function messageOf(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause);
 }

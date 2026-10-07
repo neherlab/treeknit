@@ -1,6 +1,7 @@
 import type { AnalysisRequest } from "@neherlab/treeknit-wasm";
 import { getRouteApi } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
+import { getErrorMessage } from "react-error-boundary";
 import SaveIcon from "~icons/lucide/download";
 import LinkIcon from "~icons/lucide/link";
 
@@ -47,7 +48,7 @@ export function CopyLinkButton() {
 
   const start = useCallback(() => {
     copy().catch((cause: unknown) => {
-      setOutcome({ failure: cause instanceof Error ? cause.message : String(cause) });
+      setOutcome({ failure: getErrorMessage(cause) ?? String(cause) });
     });
   }, [copy]);
 

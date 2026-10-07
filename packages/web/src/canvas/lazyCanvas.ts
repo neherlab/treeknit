@@ -1,10 +1,11 @@
 import { type ComponentType, lazy, type LazyExoticComponent, useCallback, useSyncExternalStore } from "react";
+import { getErrorMessage } from "react-error-boundary";
 
 type CanvasModule<P> = Promise<{ default: ComponentType<P> }>;
 
 export class DrawingCodeError extends Error {
   constructor(cause: unknown) {
-    super(`The drawing code could not be downloaded: ${cause instanceof Error ? cause.message : String(cause)}`, {
+    super(`The drawing code could not be downloaded: ${getErrorMessage(cause) ?? String(cause)}`, {
       cause,
     });
   }

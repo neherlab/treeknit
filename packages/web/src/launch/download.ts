@@ -1,3 +1,4 @@
+import { getErrorMessage } from "react-error-boundary";
 import { match } from "ts-pattern";
 
 export type FetchFile = (url: string, init: RequestInit) => Promise<Response>;
@@ -49,7 +50,7 @@ export function downloadMessage(url: string, cause: unknown, limits: DownloadLim
   const place = filePlace(url);
 
   if (!(cause instanceof DownloadError)) {
-    return `Could not read ${place}: ${cause instanceof Error ? cause.message : String(cause)}`;
+    return `Could not read ${place}: ${getErrorMessage(cause) ?? String(cause)}`;
   }
 
   return match(cause.failure)
