@@ -674,6 +674,7 @@ mod tests {
   use rstest::rstest;
   use serde_json::json;
   use std::collections::BTreeSet;
+  use treeknit_testing::assert_err;
 
   const T: &str = "((A,B),(C,D));";
 
@@ -755,11 +756,10 @@ mod tests {
 
   #[test]
   fn settings_reject_unknown_fields() {
-    let e = serde_json::from_value::<Settings>(json!({"gama": 1.0})).unwrap_err();
-    assert_eq!(
+    assert_err!(
+      serde_json::from_value::<Settings>(json!({"gama": 1.0})),
       "unknown field `gama`, expected one of `gamma`, `seqLengths`, `nMcmcIt`, `resolve`, \
-       `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed`",
-      e.to_string()
+       `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed`"
     );
   }
 

@@ -164,23 +164,17 @@ mod tests {
   fn unreadable_tree_files_are_reported_with_the_tree_and_flag_errors() {
     // The relative path names no file in the directory of the test.
     let f = fail("unreadable", &[HA, "(A,B"], &["missing-tree-file.nwk", "--gamma=-1"]);
-    let (code, lines) = (f.code, f.stderr.lines().collect::<Vec<_>>());
-    // The text of the operating system error differs between systems; the rest is fixed.
-    let read_error = "Error: missing-tree-file.nwk: cannot read the file: ";
-    assert_eq!(
-      (Some(1), true, false),
-      (code, lines[0].starts_with(read_error), f.created),
-      "{}",
-      f.stderr
+    // The text of the operating system error differs between systems.
+    let Err(os_error) = std::fs::read("missing-tree-file.nwk") else {
+      panic!("missing-tree-file.nwk exists");
+    };
+    let expected = format!(
+      "missing-tree-file.nwk: cannot read the file: {os_error}\n\
+       {}:1:5: tree \"t1\": Newick parse error: expected ',' or ')' at byte 4\n\
+       gamma must be a non-negative number, got -1",
+      f.dir.path().join("t1.nwk").display()
     );
-    let expected = vec![
-      format!(
-        "{}:1:5: tree \"t1\": Newick parse error: expected ',' or ')' at byte 4",
-        f.dir.path().join("t1.nwk").display()
-      ),
-      "gamma must be a non-negative number, got -1".to_owned(),
-    ];
-    assert_eq!(expected, lines[1..]);
+    assert_failed(&f, &expected, "unreadable");
   }
 
   #[test]
@@ -351,21 +345,36 @@ mod tests {
   fn several_trees_warning_is_logged_for_a_tree_that_fails_to_parse() {
     let dir = TempDir::new("warnings-error");
     let paths = write_trees(dir.path(), &[("ha", HA), ("na", "((A,B;\n(C,D);")]);
+    let out = dir.path().join("out");
     let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
       .args(&paths)
       .arg("-o")
-      .arg(dir.path().join("out"))
+      .arg(&out)
+      .env("NO_COLOR", "1")
       .output()
       .unwrap();
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert_eq!(
-      (Some(1), true),
-      (
-        output.status.code(),
-        stderr.contains("na: more than one tree in file, using the first\n")
+    // The log lines on stderr without their time; the error line has none.
+    let lines: Vec<String> = String::from_utf8(output.stderr)
+      .unwrap()
+      .lines()
+      .map(|l| {
+        l.split_once(' ')
+          .filter(|_| !l.starts_with("Error: "))
+          .map_or(l, |(_, rest)| rest)
+          .to_owned()
+      })
+      .collect();
+    let expected = vec![
+      format!("[INFO] TreeKnit {}", env!("TREEKNIT_LONG_VERSION")),
+      format!("[INFO] input trees: {} {}", paths[0].display(), paths[1].display()),
+      format!("[INFO] results directory: {}", out.display()),
+      "[WARN] na: more than one tree in file, using the first".to_owned(),
+      format!(
+        "Error: {}:1:6: tree \"na\": Newick parse error: expected ',' or ')' at byte 5",
+        paths[1].display()
       ),
-      "{stderr}"
-    );
+    ];
+    assert_eq!((Some(1), expected), (output.status.code(), lines));
   }
 
   #[test]
@@ -721,7 +730,13 @@ mod tests {
     #[case] message: &str,
   ) {
     let (code, stderr) = run_session(name, &serde_json::json!({}), args);
-    assert_eq!((Some(2), true), (code, stderr.contains(message)), "{stderr}");
+    // clap shows the usage of the arguments given, `-o` and `--verbosity-level` of `run_session`.
+    let expected = format!(
+      "error: {message}\n\n\
+       Usage: treeknit --session <FILE> --outdir <OUTDIR> --verbosity-level <VERBOSITY_LEVEL> [TREE]...\n\n\
+       For more information, try '--help'.\n"
+    );
+    assert_eq!((Some(2), expected), (code, stderr));
   }
 
   #[test]
@@ -782,14 +797,12 @@ mod tests {
   #[test]
   fn session_with_a_wrong_structure_names_the_file() {
     let (code, stderr) = run_session("session-structure", &serde_json::json!({"gama": 1}), &[]);
-    assert_eq!(
-      (Some(1), true),
-      (
-        code,
-        stderr.contains("treeknit_session.json: not a TreeKnit session file: unknown field `gama`")
-      ),
-      "{stderr}"
+    let expected = format!(
+      "Error: {}: not a TreeKnit session file: unknown field `gama`, expected one of `gamma`, `seqLengths`, \
+       `nMcmcIt`, `resolve`, `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed` at line 1 column 151\n",
+      session_path("session-structure").display()
     );
+    assert_eq!((Some(1), expected), (code, stderr));
   }
 
   fn mccs(out: &Path) -> serde_json::Value {

@@ -787,6 +787,7 @@ mod tests {
   use rstest::rstest;
   use serde_json::json;
   use std::collections::BTreeSet;
+  use treeknit_testing::assert_err;
 
   /// The two-tree example: X moved between the trees.
   const HA: &str = "((A,B),(C,(D,X)));";
@@ -1497,9 +1498,7 @@ mod tests {
       OutputFile::new("MCCs.json".to_owned(), String::new()),
       OutputFile::new(second.to_owned(), String::new()),
     ];
-    let error = zip_archive(&files).unwrap_err();
-    assert!(matches!(&error, ArchiveError::Repeated { first, path } if first == "MCCs.json" && path == second));
-    assert_eq!(message, error.to_string());
+    assert_err!(zip_archive(&files), message);
   }
   #[rustfmt::skip]
   #[rstest]

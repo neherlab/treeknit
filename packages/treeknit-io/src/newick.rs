@@ -463,10 +463,25 @@ mod tests {
     assert_eq!(expected, holds_several_trees(text));
   }
 
+  /// The parse error of `text`, or its tree written back as Newick, so a result compares whole.
+  fn parsed(text: &str) -> Result<String, ParseError> {
+    parse_first(text, "t").map(|p| write(&p.tree))
+  }
+
+  /// A parse error with `message`, stopped at byte `offset`, without warnings.
+  fn parse_error(message: &str, offset: Option<usize>) -> ParseError {
+    ParseError {
+      message: message.to_owned(),
+      offset,
+      warnings: Vec::new(),
+    }
+  }
+
   #[test]
   fn parse_first_without_a_semicolon_outside_quotes_fails() {
-    let e = parse_first("('a;b',C)", "t").unwrap_err();
-    assert_eq!("Newick parse error: no ';' found", e.to_string());
+    let expected = parse_error("no ';' found", None);
+    assert_eq!(Err(expected.clone()), parsed("('a;b',C)"));
+    assert_eq!("Newick parse error: no ';' found", expected.to_string());
   }
 
   #[test]
@@ -482,23 +497,29 @@ mod tests {
   }
 
   #[test]
-  fn duplicate_leaves_rejected() {
-    parse("(A,A);", "t").unwrap_err();
-    parse("(A,B", "t").unwrap_err();
+  fn duplicate_leaves_and_unclosed_trees_are_rejected() {
+    let expected = [
+      Err(parse_error("duplicate leaf name \"A\"", None)),
+      Err(parse_error("expected ',' or ')'", Some(4))),
+    ];
+    assert_eq!(expected, [parsed("(A,A);"), parsed("(A,B")]);
   }
 
   #[test]
   fn syntax_error_has_its_byte_offset() {
-    let e = parse("((A,B)C;", "t").unwrap_err();
-    assert_eq!(Some(7), e.offset);
-    assert_eq!("Newick parse error: expected ',' or ')' at byte 7", e.to_string());
+    let expected = parse_error("expected ',' or ')'", Some(7));
+    assert_eq!(Err(expected.clone()), parsed("((A,B)C;"));
+    assert_eq!(
+      "Newick parse error: expected ',' or ')' at byte 7",
+      expected.to_string()
+    );
   }
 
   #[test]
   fn tree_error_has_no_offset() {
-    let e = parse("(A,A);", "t").unwrap_err();
-    assert_eq!(None, e.offset);
-    assert_eq!("Newick parse error: duplicate leaf name \"A\"", e.to_string());
+    let expected = parse_error("duplicate leaf name \"A\"", None);
+    assert_eq!(Err(expected.clone()), parsed("(A,A);"));
+    assert_eq!("Newick parse error: duplicate leaf name \"A\"", expected.to_string());
   }
 
   #[test]
@@ -520,7 +541,7 @@ mod tests {
   #[test]
   fn error_offset_maps_to_line_and_column() {
     let text = "(A,\n(B,C)D\n;";
-    let e = parse_first(text, "t").unwrap_err();
-    assert_eq!((3, 1), line_column(text, e.offset.unwrap()));
+    assert_eq!(Err(parse_error("expected ',' or ')'", Some(11))), parsed(text));
+    assert_eq!((3, 1), line_column(text, 11));
   }
 }

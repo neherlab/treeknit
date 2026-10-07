@@ -572,11 +572,10 @@ mod tests {
 
   #[test]
   fn tanglegram_svg_rejects_invalid_options() {
-    let errors = tanglegram_svg(
+    let svg = tanglegram_svg(
       &example_view(Scale::Div),
       &options(0.0, -1.0, Scale::Div, LabelMode::Auto),
-    )
-    .unwrap_err();
+    );
     let expected = vec![
       error(FigureOptionKey::Width, "figure width must be a positive number, got 0"),
       error(
@@ -584,16 +583,15 @@ mod tests {
         "row height must be a positive number, got -1",
       ),
     ];
-    assert_eq!(expected, errors);
+    assert_eq!(Err(expected), svg);
   }
 
   #[test]
   fn tanglegram_svg_rejects_options_above_the_bounds() {
-    let errors = tanglegram_svg(
+    let svg = tanglegram_svg(
       &example_view(Scale::Div),
       &options(1e308, 1000.5, Scale::Div, LabelMode::Auto),
-    )
-    .unwrap_err();
+    );
     let expected = vec![
       error(
         FigureOptionKey::Width,
@@ -604,7 +602,7 @@ mod tests {
         "row height must be at most 1000 px, got 1000.5",
       ),
     ];
-    assert_eq!(expected, errors);
+    assert_eq!(Err(expected), svg);
   }
 
   #[test]
@@ -759,18 +757,17 @@ mod tests {
   fn arg_svg_rejects_invalid_options() {
     let r = run_trees(&[("ha", HA), ("na", NA)]);
     let view = display::arg_view(&r, Scale::Div).unwrap();
-    let errors = arg_svg(
+    let svg = arg_svg(
       &view,
       ["ha", "na"],
       &options(f64::NAN, 12.0, Scale::Div, LabelMode::Auto),
-    )
-    .unwrap_err();
+    );
     assert_eq!(
-      vec![error(
+      Err(vec![error(
         FigureOptionKey::Width,
         "figure width must be a positive number, got NaN"
-      )],
-      errors
+      )]),
+      svg
     );
   }
 

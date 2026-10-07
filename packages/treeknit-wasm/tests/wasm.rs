@@ -19,7 +19,7 @@ mod tests {
   use treeknit_wasm::Session;
   use tsify::{Ts, Tsify};
   use wasm_bindgen::prelude::Closure;
-  use wasm_bindgen::{JsCast, JsError, JsValue};
+  use wasm_bindgen::{JsCast, JsValue};
   use wasm_bindgen_test::wasm_bindgen_test;
 
   #[wasm_bindgen_test]
@@ -96,33 +96,24 @@ mod tests {
   #[wasm_bindgen_test]
   fn session_run_throws_validation_error_for_a_malformed_request() {
     let request = json!({"trees": [{"label": "ha"}, {"label": "na", "newick": "(A,B);"}]});
-    let error = match Session::run(&ts(&request), &Function::new_no_args("")) {
-      Ok(_) => panic!("expected a ValidationError"),
-      Err(e) => Error::from(e),
-    };
     let expected = (
       "ValidationError".to_owned(),
       "invalid request: trees[0]: missing field `newick` at line 1 column 24".to_owned(),
     );
-    assert_eq!(expected, (String::from(error.name()), String::from(error.message())));
+    assert_eq!(
+      expected,
+      thrown(Session::run(&ts(&request), &Function::new_no_args("")))
+    );
   }
 
   #[wasm_bindgen_test]
   fn session_figure_throws_validation_error_for_malformed_options() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let options = ts(&json!({"width": "wide"}));
-    let errors: Vec<(String, String)> = [
-      session
-        .figure(&ts(&json!(0)), &ts(&json!("resolved")), &options)
-        .unwrap_err(),
-      session.arg_figure(&options).unwrap_err(),
-    ]
-    .into_iter()
-    .map(|e| {
-      let e = Error::from(e);
-      (String::from(e.name()), String::from(e.message()))
-    })
-    .collect();
+    let errors = vec![
+      thrown(session.figure(&ts(&json!(0)), &ts(&json!("resolved")), &options)),
+      thrown(session.arg_figure(&options)),
+    ];
     let message = "invalid options: width: invalid type: string \"wide\", expected f64 at line 1 column 15";
     let expected = vec![("ValidationError".to_owned(), message.to_owned()); 2];
     assert_eq!(expected, errors);
@@ -162,10 +153,10 @@ mod tests {
   #[wasm_bindgen_test]
   fn read_session_throws_the_structure_error() {
     let expected = "not a TreeKnit session file: missing field `trees` at line 1 column 2";
-    match treeknit_wasm::read_session("{}") {
-      Ok(_) => panic!("expected error {expected:?}"),
-      Err(e) => assert_eq!(expected, message(e)),
-    }
+    assert_eq!(
+      ("Error".to_owned(), expected.to_owned()),
+      thrown(treeknit_wasm::read_session("{}"))
+    );
   }
 
   #[wasm_bindgen_test]
@@ -217,14 +208,13 @@ mod tests {
         "trees": [{"label": "ha", "newick": "((A,B),(C,D));"}],
         "settings": {"gamma": -1},
     });
-    let error = match Session::run(&ts(&request), &Function::new_no_args("")) {
-      Ok(_) => panic!("expected a ValidationError"),
-      Err(e) => Error::from(e),
-    };
-    assert_eq!("ValidationError", String::from(error.name()));
+    let expected = (
+      "ValidationError".to_owned(),
+      "need at least two trees\ngamma must be a non-negative number, got -1".to_owned(),
+    );
     assert_eq!(
-      "need at least two trees\ngamma must be a non-negative number, got -1",
-      String::from(error.message())
+      expected,
+      thrown(Session::run(&ts(&request), &Function::new_no_args("")))
     );
   }
 
@@ -236,14 +226,11 @@ mod tests {
       counted.set(counted.get() + 1);
       Err(js_sys::RangeError::new("stop").into())
     });
-    let error = match Session::run(&ts(&two_trees()), on_progress.as_ref().unchecked_ref()) {
-      Ok(_) => panic!("expected the error of the callback"),
-      Err(e) => Error::from(e),
-    };
+    let (name, message) = thrown(Session::run(&ts(&two_trees()), on_progress.as_ref().unchecked_ref()));
     // Oracle: the doc of `Session.run`: the run completes without further progress calls.
     assert_eq!(
       ("RangeError".to_owned(), "stop".to_owned(), 1),
-      (String::from(error.name()), String::from(error.message()), calls.get())
+      (name, message, calls.get())
     );
   }
 
@@ -541,18 +528,10 @@ mod tests {
   fn session_figure_throws_validation_error_for_invalid_options() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let options = ts(&json!({"width": 0, "rowHeight": -2}));
-    let errors: Vec<(String, String)> = [
-      session
-        .figure(&ts(&json!(0)), &ts(&json!("resolved")), &options)
-        .unwrap_err(),
-      session.arg_figure(&options).unwrap_err(),
-    ]
-    .into_iter()
-    .map(|e| {
-      let e = Error::from(e);
-      (String::from(e.name()), String::from(e.message()))
-    })
-    .collect();
+    let errors = vec![
+      thrown(session.figure(&ts(&json!(0)), &ts(&json!("resolved")), &options)),
+      thrown(session.arg_figure(&options)),
+    ];
     let expected = (
       "ValidationError".to_owned(),
       "figure width must be a positive number, got 0\nrow height must be a positive number, got -2".to_owned(),
@@ -563,29 +542,24 @@ mod tests {
   #[wasm_bindgen_test]
   fn session_figure_of_an_unknown_pair_or_a_missing_arg_throws() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
-    let error = Error::from(
-      session
-        .figure(&ts(&json!(1)), &ts(&json!("resolved")), &ts(&json!({})))
-        .unwrap_err(),
+    assert_eq!(
+      ("Error".to_owned(), "no pair 1: the run has 1 pair".to_owned()),
+      thrown(session.figure(&ts(&json!(1)), &ts(&json!("resolved")), &ts(&json!({}))))
     );
-    assert_eq!("no pair 1: the run has 1 pair", String::from(error.message()));
     let t = "((A,B),(C,D));";
     let three =
       json!({"trees": [{"label": "ha", "newick": t}, {"label": "na", "newick": t}, {"label": "pb2", "newick": t}]});
     let session = Session::run(&ts(&three), &Function::new_no_args("")).unwrap();
-    let error = Error::from(
-      session
-        .figure(&ts(&json!(3)), &ts(&json!("resolved")), &ts(&json!({})))
-        .unwrap_err(),
+    assert_eq!(
+      ("Error".to_owned(), "no pair 3: the run has 3 pairs".to_owned()),
+      thrown(session.figure(&ts(&json!(3)), &ts(&json!("resolved")), &ts(&json!({}))))
     );
-    assert_eq!("no pair 3: the run has 3 pairs", String::from(error.message()));
-    let error = Error::from(session.arg_figure(&ts(&json!({}))).unwrap_err());
     assert_eq!(
       (
         "Error".to_owned(),
         "the run has no ARG: it needs two trees and a built ARG".to_owned()
       ),
-      (String::from(error.name()), String::from(error.message()))
+      thrown(session.arg_figure(&ts(&json!({}))))
     );
   }
 
@@ -613,10 +587,10 @@ mod tests {
   #[wasm_bindgen_test]
   fn session_file_text_of_an_unlisted_path_throws() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
-    match session.file_text("nope.txt") {
-      Ok(_) => panic!("expected an error"),
-      Err(e) => assert_eq!("no file nope.txt", message(e)),
-    }
+    assert_eq!(
+      ("Error".to_owned(), "no file nope.txt".to_owned()),
+      thrown(session.file_text("nope.txt"))
+    );
   }
 
   #[wasm_bindgen_test]
@@ -781,14 +755,19 @@ mod tests {
   #[wasm_bindgen_test]
   fn session_pair_view_of_an_unknown_pair_throws() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
-    match session.pair_view(&ts(&json!(1)), &ts(&json!("resolved")), &ts(&json!("div"))) {
-      Ok(_) => panic!("expected an error"),
-      Err(e) => assert_eq!("no pair 1: the run has 1 pair", message(e)),
-    }
-    match session.pair_view(&ts(&json!(0)), &ts(&json!("final")), &ts(&json!("div"))) {
-      Ok(_) => panic!("expected an error"),
-      Err(e) => assert!(message(e).starts_with("invalid version: unknown variant `final`")),
-    }
+    let errors = vec![
+      thrown(session.pair_view(&ts(&json!(1)), &ts(&json!("resolved")), &ts(&json!("div")))),
+      thrown(session.pair_view(&ts(&json!(0)), &ts(&json!("final")), &ts(&json!("div")))),
+    ];
+    let expected = vec![
+      ("Error".to_owned(), "no pair 1: the run has 1 pair".to_owned()),
+      (
+        "Error".to_owned(),
+        "invalid version: unknown variant `final`, expected one of `input`, `resolved`, `imputed` at line 1 column 7"
+          .to_owned(),
+      ),
+    ];
+    assert_eq!(expected, errors);
   }
 
   #[wasm_bindgen_test]
@@ -797,24 +776,20 @@ mod tests {
     // number above u32::MAX, and `null`, which `JSON.stringify` writes for NaN.
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let numbers = [1.5, -1.0, 4_294_967_296.0, f64::NAN];
-    let pair_errors: Vec<String> = numbers
+    let pair_errors: Vec<(String, String)> = numbers
       .iter()
       .map(|&x| {
         let pair = Ts::new_unchecked(JsValue::from_f64(x));
-        match session.pair_view(&pair, &ts(&json!("input")), &ts(&json!("div"))) {
-          Ok(_) => "accepted".to_owned(),
-          Err(e) => message(e),
-        }
+        thrown(session.pair_view(&pair, &ts(&json!("input")), &ts(&json!("div"))))
       })
       .collect();
-    let count_errors: Vec<String> = numbers
+    let count_errors: Vec<(String, String)> = numbers
       .iter()
       .map(|&x| {
-        let k = Ts::new_unchecked(JsValue::from_f64(x));
-        match treeknit_wasm::settings_schema(&k, &ts(&json!({}))) {
-          Ok(_) => "accepted".to_owned(),
-          Err(e) => message(e),
-        }
+        thrown(treeknit_wasm::settings_schema(
+          &Ts::new_unchecked(JsValue::from_f64(x)),
+          &ts(&json!({})),
+        ))
       })
       .collect();
     let rejections = [
@@ -824,8 +799,12 @@ mod tests {
       "invalid type: null, expected usize at line 1 column 4",
     ];
     let expected = (
-      rejections.map(|r| format!("invalid pair: {r}")).to_vec(),
-      rejections.map(|r| format!("invalid k: {r}")).to_vec(),
+      rejections
+        .map(|r| ("Error".to_owned(), format!("invalid pair: {r}")))
+        .to_vec(),
+      rejections
+        .map(|r| ("Error".to_owned(), format!("invalid k: {r}")))
+        .to_vec(),
     );
     assert_eq!(expected, (pair_errors, count_errors));
   }
@@ -867,10 +846,10 @@ mod tests {
   #[wasm_bindgen_test]
   fn session_auspice_view_of_an_unknown_pair_throws() {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
-    match session.auspice_view(&ts(&json!(1)), &ts(&json!("resolved")), &ts(&json!("div"))) {
-      Ok(_) => panic!("expected an error"),
-      Err(e) => assert_eq!("no pair 1: the run has 1 pair", message(e)),
-    }
+    assert_eq!(
+      ("Error".to_owned(), "no pair 1: the run has 1 pair".to_owned()),
+      thrown(session.auspice_view(&ts(&json!(1)), &ts(&json!("resolved")), &ts(&json!("div"))))
+    );
   }
 
   #[wasm_bindgen_test]
@@ -1031,10 +1010,10 @@ mod tests {
       ts(&json!({"label": 3, "newick": "(A,B);"})),
     ];
     let expected = "invalid trees[1]: label: invalid type: integer `3`, expected a string at line 1 column 10";
-    match treeknit_wasm::overlap(trees) {
-      Ok(_) => panic!("expected error {expected:?}"),
-      Err(e) => assert_eq!(expected, message(e)),
-    }
+    assert_eq!(
+      ("Error".to_owned(), expected.to_owned()),
+      thrown(treeknit_wasm::overlap(trees))
+    );
   }
 
   #[wasm_bindgen_test]
@@ -1062,11 +1041,12 @@ mod tests {
 
   #[wasm_bindgen_test]
   fn settings_schema_names_malformed_settings() {
-    let expected = "invalid settings: foo: unknown field `foo`";
-    match treeknit_wasm::settings_schema(&ts(&json!(2)), &ts(&json!({"foo": 1}))) {
-      Ok(_) => panic!("expected error {expected:?}"),
-      Err(e) => assert!(message(e).starts_with(expected)),
-    }
+    let expected = "invalid settings: foo: unknown field `foo`, expected one of `gamma`, `seqLengths`, `nMcmcIt`, \
+                    `resolve`, `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed` at line 1 column 6";
+    assert_eq!(
+      ("Error".to_owned(), expected.to_owned()),
+      thrown(treeknit_wasm::settings_schema(&ts(&json!(2)), &ts(&json!({"foo": 1}))))
+    );
   }
 
   #[wasm_bindgen_test]
@@ -1146,8 +1126,10 @@ mod tests {
 
   #[wasm_bindgen_test]
   fn decode_tree_bytes_rejects_a_web_page() {
-    let error = treeknit_wasm::decode_tree_bytes(b"<!doctype html><p>404</p>").unwrap_err();
-    assert_eq!("a web page, not a tree file", message(error));
+    assert_eq!(
+      ("Error".to_owned(), "a web page, not a tree file".to_owned()),
+      thrown(treeknit_wasm::decode_tree_bytes(b"<!doctype html><p>404</p>"))
+    );
     assert_eq!("(A,B);", treeknit_wasm::decode_tree_bytes(b"(A,B);").unwrap());
   }
 
@@ -1236,8 +1218,13 @@ mod tests {
     v.as_object().unwrap().keys().map(String::as_str).collect()
   }
 
-  fn message(e: JsError) -> String {
-    Error::from(JsValue::from(e)).message().into()
+  /// The name and the message of the JavaScript error that `result` throws.
+  fn thrown<T>(result: Result<T, impl Into<JsValue>>) -> (String, String) {
+    let Err(e) = result else {
+      panic!("expected a thrown error");
+    };
+    let error: Error = e.into().unchecked_into();
+    (String::from(error.name()), String::from(error.message()))
   }
 
   fn parsed(newicks: &[&str]) -> (Vec<Tree>, Taxa) {
