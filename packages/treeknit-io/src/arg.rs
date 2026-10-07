@@ -217,23 +217,9 @@ struct Branch {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::analysis::{self, Settings, TreeText};
-  use crate::run::{self, RunResult};
+  use crate::test_support::run_trees;
   use pretty_assertions::assert_eq;
   use util_newick::{NewickReadOptions, newick_from_str};
-
-  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
-    let texts: Vec<TreeText> = trees
-      .iter()
-      .map(|(label, newick)| TreeText {
-        label: (*label).to_owned(),
-        newick: (*newick).to_owned(),
-      })
-      .collect();
-    let s = Settings::default();
-    let opts = analysis::options(&s, texts.len(), false).unwrap();
-    run::run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {})
-  }
 
   #[test]
   fn extended_newick_writes_a_reassortment_once_per_parent() {
