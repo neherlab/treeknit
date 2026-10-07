@@ -1,6 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["packages/treeknit-core", "packages/treeknit-io", "packages/treeknit-cli", "packages/treeknit-wasm"]
+members = [
+  "packages/treeknit-core",
+  "packages/treeknit-io",
+  "packages/treeknit-cli",
+  "packages/treeknit-testing",
+  "packages/treeknit-wasm",
+]
 
 [workspace.package]
 description = "Inference of reassortment from segment trees"
@@ -93,6 +99,7 @@ zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate
 
 treeknit-core = { path = "packages/treeknit-core" }
 treeknit-io = { path = "packages/treeknit-io" }
+treeknit-testing = { path = "packages/treeknit-testing" }
 
 [workspace.lints.rust]
 # Lint groups

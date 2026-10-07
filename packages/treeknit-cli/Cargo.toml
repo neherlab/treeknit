@@ -29,6 +29,7 @@ ureq.workspace = true
 pretty_assertions.workspace = true
 rstest.workspace = true
 serde_json.workspace = true
+treeknit-testing.workspace = true
 
 [lints]
 workspace = true

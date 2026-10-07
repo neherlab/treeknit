@@ -955,6 +955,7 @@ dependencies = [
  "simplelog",
  "treeknit-core",
  "treeknit-io",
+ "treeknit-testing",
  "ureq",
 ]
 
@@ -985,9 +986,17 @@ dependencies = [
  "serde_json",
  "strum",
  "treeknit-core",
+ "treeknit-testing",
  "tsify",
  "wasm-bindgen",
  "zip",
+]
+
+[[package]]
+name = "treeknit-testing"
+version = "1.0.0"
+dependencies = [
+ "pretty_assertions",
 ]
 
 [[package]]

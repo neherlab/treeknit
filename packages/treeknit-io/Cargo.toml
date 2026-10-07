@@ -36,6 +36,7 @@ pretty_assertions.workspace = true
 rand.workspace = true
 rand_xoshiro.workspace = true
 rstest.workspace = true
+treeknit-testing.workspace = true
 
 # Cargo runs the tests of an example only with `test = true`. The tests of this example take
 # milliseconds and check the generator, so they run with the other tests; the accuracy example
