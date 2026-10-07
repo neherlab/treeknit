@@ -549,7 +549,10 @@ mod tests {
   use super::*;
   use crate::tree::test_util::trees;
   use pretty_assertions::assert_eq;
+  use rand::{Rng, SeedableRng};
+  use rand_xoshiro::Xoshiro256PlusPlus;
   use rstest::rstest;
+  use std::iter;
 
   /// The graph of the basic case of the Julia test suite (test/splitgraph/basic), whose leaves
   /// are A to E in this order.
@@ -593,7 +596,6 @@ mod tests {
   #[rstest]
   #[trace]
   fn incremental_energy_matches_full(#[values(false, true)] resolve: bool) {
-    use rand::{Rng, SeedableRng};
     let nwk = [
       "(((A,B),(C,(D,E))),((F,G),(H,(I,J))),K,L);",
       "(((A,C),(B,(D,K))),((F,(G,L)),(H,I)),J,E);",
@@ -602,55 +604,79 @@ mod tests {
     let (ts, taxa) = trees(&nwk);
     let refs: Vec<&Tree> = ts.iter().collect();
     let g = Graph::new(&refs, taxa.len());
-    let mut rng = rand_xoshiro::Xoshiro256PlusPlus::seed_from_u64(3);
+    let mut rng = Xoshiro256PlusPlus::seed_from_u64(3);
     let mut st = EnergyState::new(&g, bits::full(g.n), resolve);
     assert_eq!(st.energy(), g.energy(st.conf(), resolve));
+    // The step, the operation, and the incremental and full energies of each mismatch.
+    let mut mismatches: Vec<(usize, &str, usize, usize)> = Vec::new();
     for step in 0..3000 {
       let j = rng.gen_range(0..g.n);
       let e = st.flip(j);
-      assert_eq!(e, g.energy(st.conf(), resolve), "step {step}");
+      let full = g.energy(st.conf(), resolve);
+      if e != full {
+        mismatches.push((step, "flip", e, full));
+      }
       if rng.gen_bool(0.5) {
         st.undo();
-        assert_eq!(st.energy(), g.energy(st.conf(), resolve), "undo {step}");
-      }
-    }
-  }
-
-  /// The operations on word ranges agree with those on whole bit sets.
-  #[test]
-  fn clade_ranges_match_bit_sets() {
-    use rand::{Rng, SeedableRng};
-    let n = 300;
-    let mut rng = rand_xoshiro::Xoshiro256PlusPlus::seed_from_u64(5);
-    // Sets within random ranges of leaves, as the clades of a tree in its leaf order, including
-    // empty and dense ones.
-    let mut sets = vec![];
-    for _ in 0..60 {
-      let lo = rng.gen_range(0..n);
-      let hi = rng.gen_range(lo..=n);
-      let p = rng.gen_range(0.0..1.0);
-      sets.push(bits::from_iter(n, (lo..hi).filter(|_| rng.gen_bool(p))));
-    }
-    let clades = Clades::new(sets.clone());
-    for p in [0.02, 0.3, 0.9] {
-      let mask = bits::from_iter(n, (0..n).filter(|_| rng.gen_bool(p)));
-      let m = mask.as_slice();
-      for (a, sa) in sets.iter().enumerate() {
-        let ca = clades.get(a);
-        assert_eq!(ca.count_on(m) as usize, sa.intersection_count(&mask));
-        assert_eq!(ca.trivial_on(m), bits::trivial_on(sa, &mask));
-        for (b, sb) in sets.iter().enumerate() {
-          let cb = clades.get(b);
-          assert_eq!(ca.subset_on(cb, m), bits::subset_on(sa, sb, &mask), "subset {a} {b}");
-          assert_eq!(
-            ca.disjoint_on(cb, m),
-            bits::disjoint_on(sa, sb, &mask),
-            "disjoint {a} {b}"
-          );
-          assert_eq!(ca.eq_on(cb, m), bits::eq_on(sa, sb, &mask), "eq {a} {b}");
+        let full = g.energy(st.conf(), resolve);
+        if st.energy() != full {
+          mismatches.push((step, "undo", st.energy(), full));
         }
       }
     }
+    assert_eq!(Vec::<(usize, &str, usize, usize)>::new(), mismatches);
+  }
+
+  /// The operations on word ranges agree with those on whole bit sets, for masks of density `p`.
+  #[rstest]
+  #[trace]
+  fn clade_ranges_match_bit_sets(#[values(0.02, 0.3, 0.9)] p: f64) {
+    let n = 300;
+    let mut rng = Xoshiro256PlusPlus::seed_from_u64(5);
+    // Sets within random ranges of leaves, as the clades of a tree in its leaf order, including
+    // empty and dense ones.
+    let sets: Vec<Bits> = iter::repeat_with(|| {
+      let lo = rng.gen_range(0..n);
+      let hi = rng.gen_range(lo..=n);
+      let density = rng.gen_range(0.0..1.0);
+      bits::from_iter(n, (lo..hi).filter(|_| rng.gen_bool(density)))
+    })
+    .take(60)
+    .collect();
+    let clades = Clades::new(sets.clone());
+    let mask = bits::from_iter(n, (0..n).filter(|_| rng.gen_bool(p)));
+    let m = mask.as_slice();
+    // The operation and the set of each disagreement on one set.
+    let single: Vec<(&str, usize)> = sets
+      .iter()
+      .enumerate()
+      .flat_map(|(a, sa)| {
+        let ca = clades.get(a);
+        [
+          ("count", ca.count_on(m) as usize == sa.intersection_count(&mask)),
+          ("trivial", ca.trivial_on(m) == bits::trivial_on(sa, &mask)),
+        ]
+        .into_iter()
+        .filter(|&(_, agree)| !agree)
+        .map(move |(op, _)| (op, a))
+      })
+      .collect();
+    // The operation and the sets of each disagreement on a pair of sets.
+    let pairs: Vec<(&str, usize, usize)> = (0..sets.len())
+      .flat_map(|a| (0..sets.len()).map(move |b| (a, b)))
+      .flat_map(|(a, b)| {
+        let (ca, cb, sa, sb) = (clades.get(a), clades.get(b), &sets[a], &sets[b]);
+        [
+          ("subset", ca.subset_on(cb, m) == bits::subset_on(sa, sb, &mask)),
+          ("disjoint", ca.disjoint_on(cb, m) == bits::disjoint_on(sa, sb, &mask)),
+          ("eq", ca.eq_on(cb, m) == bits::eq_on(sa, sb, &mask)),
+        ]
+        .into_iter()
+        .filter(|&(_, agree)| !agree)
+        .map(move |(op, _)| (op, a, b))
+      })
+      .collect();
+    assert_eq!((Vec::new(), Vec::new()), (single, pairs));
   }
 
   #[test]

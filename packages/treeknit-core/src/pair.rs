@@ -243,6 +243,11 @@ mod tests {
     }
   }
 
+  /// Owned copies of the MCCs `mccs`, given by leaf names.
+  fn names(mccs: &[&[&str]]) -> Vec<Vec<String>> {
+    mccs.iter().map(|m| m.iter().map(|&x| x.to_owned()).collect()).collect()
+  }
+
   fn run(nwk: [&str; 2], o: &Options, seed: u64) -> Vec<Vec<String>> {
     let (ts, taxa) = trees(&nwk);
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(seed);
@@ -253,10 +258,13 @@ mod tests {
   #[test]
   fn single_reassorted_leaf() {
     let o = Options::default();
-    for seed in 0..5 {
-      let m = run(["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));"], &o, seed);
-      assert_eq!(m, vec![vec!["X"], vec!["A", "B", "C", "D"]]);
-    }
+    let found: Vec<(u64, Vec<Vec<String>>)> = (0..5)
+      .map(|seed| (seed, run(["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));"], &o, seed)))
+      .collect();
+    let expected: Vec<(u64, Vec<Vec<String>>)> = (0..5)
+      .map(|seed| (seed, names(&[&["X"], &["A", "B", "C", "D"]])))
+      .collect();
+    assert_eq!(expected, found);
   }
 
   #[test]
@@ -280,10 +288,11 @@ mod tests {
   #[test]
   fn likelihood_breaks_degeneracy() {
     let o = Options::default();
-    for seed in 0..10 {
-      let m = run(["((A:2,B:2):2,C:4);", "(A:2,(B:1,C:1):1);"], &o, seed);
-      assert_eq!(m, vec![vec!["C"], vec!["A", "B"]], "seed {seed}");
-    }
+    let found: Vec<(u64, Vec<Vec<String>>)> = (0..10)
+      .map(|seed| (seed, run(["((A:2,B:2):2,C:4);", "(A:2,(B:1,C:1):1);"], &o, seed)))
+      .collect();
+    let expected: Vec<(u64, Vec<Vec<String>>)> = (0..10).map(|seed| (seed, names(&[&["C"], &["A", "B"]]))).collect();
+    assert_eq!(expected, found);
     let nwk = [
       "(((A1,A2):3.,(B1,B2):3.):5.,(C1,C2):5.);",
       "((A1,A2):3.,((B1,B2):2.,(C1,C2):2.):1.);",
@@ -292,19 +301,22 @@ mod tests {
       resolution: Resolution::None,
       ..Options::default()
     };
-    for seed in 0..10 {
-      let m = run(nwk, &o, seed);
-      assert_eq!(m[0], vec!["C1", "C2"], "seed {seed}");
-    }
+    let first: Vec<(u64, Vec<String>)> = (0..10).map(|seed| (seed, run(nwk, &o, seed).swap_remove(0))).collect();
+    let expected: Vec<(u64, Vec<String>)> = (0..10)
+      .map(|seed| (seed, names(&[&["C1", "C2"]]).swap_remove(0)))
+      .collect();
+    assert_eq!(expected, first);
   }
 
   #[test]
   fn inference_completes_with_negative_branch_lengths() {
     let nwk = ["((A:-0.1,B:0.3):0.2,C:0.5);", "(A:0.2,(B:0.4,C:-0.2):0.1);"];
-    for seed in 0..20 {
-      let m = run(nwk, &Options::default(), seed);
-      assert_eq!(m.iter().map(Vec::len).sum::<usize>(), 3, "seed {seed}");
-    }
+    // Every seed puts the three leaves into MCCs.
+    let leaves: Vec<(u64, usize)> = (0..20)
+      .map(|seed| (seed, run(nwk, &Options::default(), seed).iter().map(Vec::len).sum()))
+      .collect();
+    let expected: Vec<(u64, usize)> = (0..20).map(|seed| (seed, 3)).collect();
+    assert_eq!(expected, leaves);
   }
 
   #[test]

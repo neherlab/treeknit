@@ -1247,11 +1247,9 @@ mod tests {
         let res = run(&mut ran, &taxa, &opts, 1);
         let (mut replayed, _) = trees(nwks);
         let before = replay_sorts(&mut replayed, &opts, n);
-        assert_eq!(
-          ran.iter().map(layout).collect::<Vec<_>>(),
-          replayed.iter().map(layout).collect::<Vec<_>>(),
-          "the replay ends with other trees than the run: {case}"
-        );
+        if ran.iter().map(layout).ne(replayed.iter().map(layout)) {
+          mismatches.push(format!("the replay ends with other trees than the run: {case}"));
+        }
         for (r, copies) in res.iter().zip(before) {
           let kept = keeps_run_order(&ran, &opts, n, r.i, r.j);
           let Some([mut left, mut right]) = copies else {

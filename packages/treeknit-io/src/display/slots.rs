@@ -183,6 +183,8 @@ mod tests {
   #[test]
   fn color_slots_of_random_graphs_with_few_neighbors_never_share_a_slot() {
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(7);
+    // The neighbor sets and sizes of each graph whose coloring fails.
+    let mut failures: Vec<(Vec<BTreeSet<usize>>, Vec<usize>)> = Vec::new();
     for _ in 0..200 {
       let n = rng.gen_range(1..40);
       // Each MCC gains edges only while both ends have fewer than seven neighbors.
@@ -196,13 +198,15 @@ mod tests {
       }
       let sizes: Vec<usize> = std::iter::repeat_with(|| rng.gen_range(1..20)).take(n).collect();
       let slots = color_slots(&sizes, &g);
-      assert!(slots.iter().all(|&s| s < MCC_SLOTS));
-      for (a, ns) in g.iter().enumerate() {
-        for &b in ns {
-          assert_ne!(slots[a], slots[b], "neighbors {a} and {b} share a slot");
-        }
+      let in_range = slots.iter().all(|&s| s < MCC_SLOTS);
+      let apart = g
+        .iter()
+        .enumerate()
+        .all(|(a, ns)| ns.iter().all(|&b| slots[a] != slots[b]));
+      if !in_range || !apart || slots != color_slots(&sizes, &g) {
+        failures.push((g, sizes));
       }
-      assert_eq!(slots, color_slots(&sizes, &g));
     }
+    assert_eq!(Vec::<(Vec<BTreeSet<usize>>, Vec<usize>)>::new(), failures);
   }
 }

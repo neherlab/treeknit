@@ -1973,6 +1973,8 @@ mod tests {
   fn written_links_read_back_to_the_request() {
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(20261006);
     let mut written_count = 0;
+    // The link pairs of each request that does not read back to itself.
+    let mut failures: Vec<Vec<(String, String)>> = Vec::new();
     for _ in 0..2000 {
       let (r, addresses) = random_request(&mut rng);
       let Some(pairs) = launch_pairs(&r, &addresses, &Settings::default(), false) else {
@@ -1980,17 +1982,16 @@ mod tests {
       };
       written_count += 1;
       let through_text = query_pairs(&link_query(&pairs));
-      assert_eq!(pairs, through_text);
       let (back, back_addresses) = read_back(&through_text, &r);
-      assert_eq!((&r, &addresses), (&back, &back_addresses));
-      assert_eq!(
-        Some(pairs),
-        launch_pairs(&back, &back_addresses, &Settings::default(), false)
-      );
+      let rewritten = launch_pairs(&back, &back_addresses, &Settings::default(), false);
+      if through_text != pairs || back != r || back_addresses != addresses || rewritten.as_ref() != Some(&pairs) {
+        failures.push(pairs);
+      }
     }
-    assert!(
-      written_count > 1000,
-      "only {written_count} of 2000 random requests had a link"
+    // More than half of the random requests have a link, so the round trip is tested broadly.
+    assert_eq!(
+      (Vec::<Vec<(String, String)>>::new(), true),
+      (failures, written_count > 1000)
     );
   }
 
@@ -2015,28 +2016,34 @@ mod tests {
       '"',
       '2',
     ];
-    for _ in 0..2000 {
-      let text = |rng: &mut Xoshiro256PlusPlus| -> String {
-        let len = rng.gen_range(1..8);
-        iter::repeat_with(|| chars[rng.gen_range(0..chars.len())])
-          .take(len)
-          .collect()
-      };
+    let text = |rng: &mut Xoshiro256PlusPlus| -> String {
+      let len = rng.gen_range(1..8);
+      iter::repeat_with(|| chars[rng.gen_range(0..chars.len())])
+        .take(len)
+        .collect()
+    };
+    let changed: Vec<Vec<(String, String)>> = iter::repeat_with(|| {
       let n = rng.gen_range(1..4);
-      let pairs: Vec<(String, String)> = iter::repeat_with(|| (text(&mut rng), text(&mut rng))).take(n).collect();
-      assert_eq!(pairs, query_pairs(&link_query(&pairs)));
-    }
+      iter::repeat_with(|| (text(&mut rng), text(&mut rng))).take(n).collect()
+    })
+    .take(2000)
+    .filter(|pairs: &Vec<(String, String)>| *pairs != query_pairs(&link_query(pairs)))
+    .collect();
+    assert_eq!(Vec::<Vec<(String, String)>>::new(), changed);
   }
 
   #[test]
   fn inline_sessions_of_random_requests_read_back() {
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(11);
-    for _ in 0..200 {
-      let (r, _) = random_request(&mut rng);
-      let Ok(LinkLocation::Data { text }) = parse_location(&inline_session(&r)) else {
-        panic!("the inline session is a data: location");
-      };
-      assert_eq!(Ok(r), analysis::read_session(&text));
-    }
+    let changed: Vec<AnalysisRequest> = iter::repeat_with(|| random_request(&mut rng).0)
+      .take(200)
+      .filter(|r| {
+        let Ok(LinkLocation::Data { text }) = parse_location(&inline_session(r)) else {
+          panic!("the inline session is a data: location");
+        };
+        analysis::read_session(&text).as_ref() != Ok(r)
+      })
+      .collect();
+    assert_eq!(Vec::<AnalysisRequest>::new(), changed);
   }
 }

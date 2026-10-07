@@ -281,73 +281,70 @@ mod tests {
   use rstest::rstest;
   use std::collections::BTreeSet;
 
-  /// The invariants of every ARG view: one node per ARG node (plus the synthetic root), distinct
-  /// leaf rows, every node reached once from the top root, edges consistent with the parents,
-  /// x along the chain to the top root never left of the parent, and finite coordinates.
+  /// Require the invariants of every ARG view, as [`broken_invariants`] lists them.
   fn check_invariants(r: &RunResult, v: &ArgView) {
+    assert_eq!(Vec::<&str>::new(), broken_invariants(r, v));
+  }
+
+  /// The names of the invariants of every ARG view that `v` breaks: one node per ARG node (plus
+  /// the synthetic root), distinct leaf rows, every node reached once from the top root, edges
+  /// consistent with the parents, x along the chain to the top root never left of the parent,
+  /// finite coordinates, and one shape per edge and per hybrid.
+  fn broken_invariants(r: &RunResult, v: &ArgView) -> Vec<&'static str> {
     let arg = r.built_arg().unwrap();
     let synthetic = usize::from(v.root_case == RootCase::Synthetic);
-    assert_eq!(arg.nodes.len() + synthetic, v.nodes.len());
+    let leaves = v.nodes.iter().filter(|n| n.leaf).count();
     let leaf_rows: BTreeSet<u64> = v.nodes.iter().filter(|n| n.leaf).map(|n| n.y.to_bits()).collect();
-    assert_eq!(v.nodes.iter().filter(|n| n.leaf).count(), leaf_rows.len());
     // Reached once: a walk over the edges from the top root visits each node exactly once.
     let order = topological_order(
       &v.nodes.iter().map(|n| n.parents).collect::<Vec<_>>(),
       &v.nodes.iter().map(|n| n.children.clone()).collect::<Vec<_>>(),
     );
-    assert_eq!(v.nodes.len(), order.len());
-    assert_eq!(Some(&v.root), order.first());
-    assert_eq!([None, None], v.nodes[v.root].parents);
     // Each edge is the parent link of its child in its segments and a child link of its parent.
-    let unlinked: Vec<usize> = (0..v.edges.len())
-      .filter(|&i| {
-        let e = &v.edges[i];
-        !e.segments
-          .iter()
-          .all(|&c| v.nodes[e.child].parents[c] == Some(e.parent))
-          || !v.nodes[e.parent].children.contains(&e.child)
-      })
-      .collect();
-    assert_eq!(Vec::<usize>::new(), unlinked);
+    let linked = v.edges.iter().all(|e| {
+      e.segments
+        .iter()
+        .all(|&c| v.nodes[e.child].parents[c] == Some(e.parent))
+        && v.nodes[e.parent].children.contains(&e.child)
+    });
     // Each node but the top root has one edge on its chain, to a parent left of it, and finite
     // coordinates; the top root has none.
-    let misplaced: Vec<&str> = v
-      .nodes
-      .iter()
-      .enumerate()
-      .filter(|&(i, n)| {
-        let on_chain: Vec<&ArgEdge> = v.edges.iter().filter(|e| e.child == i && !e.reticulation).collect();
-        match on_chain.as_slice() {
-          [] => i != v.root,
-          [e] => {
-            let p = &v.nodes[e.parent];
-            let finite = [n.x_div, n.x_depth, n.y].iter().all(|x| x.is_finite());
-            i == v.root || n.x_div < p.x_div || n.x_depth <= p.x_depth || !finite
-          },
-          _ => true,
-        }
-      })
-      .map(|(_, n)| n.label.as_str())
-      .collect();
-    assert_eq!(Vec::<&str>::new(), misplaced);
+    let placed = v.nodes.iter().enumerate().all(|(i, n)| {
+      let on_chain: Vec<&ArgEdge> = v.edges.iter().filter(|e| e.child == i && !e.reticulation).collect();
+      match on_chain.as_slice() {
+        [] => i == v.root,
+        [e] => {
+          let p = &v.nodes[e.parent];
+          let finite = [n.x_div, n.x_depth, n.y].iter().all(|x| x.is_finite());
+          i != v.root && n.x_div >= p.x_div && n.x_depth > p.x_depth && finite
+        },
+        _ => false,
+      }
+    });
     // Each edge has its shape, a curve for a reticulation.
-    let (expected, shapes): (Vec<_>, Vec<_>) = v
-      .edges
-      .iter()
-      .enumerate()
-      .zip(&v.shapes.edges)
-      .map(|((i, e), s)| {
+    let shaped = v.edges.len() == v.shapes.edges.len()
+      && v.edges.iter().enumerate().zip(&v.shapes.edges).all(|((i, e), s)| {
         let curve = matches!(s.path, EdgePath::Curve { .. });
-        (
-          (i, &e.segments, e.reticulation, e.reticulation),
-          (s.edge, &s.segments, s.reticulation, curve),
-        )
-      })
-      .unzip();
-    assert_eq!((v.edges.len(), expected), (v.shapes.edges.len(), shapes));
+        (i, &e.segments, e.reticulation, e.reticulation) == (s.edge, &s.segments, s.reticulation, curve)
+      });
     let hybrids = v.nodes.iter().filter(|n| n.hybrid).count();
-    assert_eq!(hybrids, v.shapes.marks.len());
-    assert_eq!(hybrids, v.edges.iter().filter(|e| e.reticulation).count());
+    let reticulations = v.edges.iter().filter(|e| e.reticulation).count();
+    [
+      ("one node per ARG node", arg.nodes.len() + synthetic == v.nodes.len()),
+      ("distinct leaf rows", leaves == leaf_rows.len()),
+      ("every node reached once", v.nodes.len() == order.len()),
+      ("walk starts at the top root", order.first() == Some(&v.root)),
+      ("top root without parents", v.nodes[v.root].parents == [None, None]),
+      ("edges linked to their nodes", linked),
+      ("chains to the top root placed", placed),
+      ("edges shaped", shaped),
+      ("one mark per hybrid", hybrids == v.shapes.marks.len()),
+      ("one reticulation per hybrid", hybrids == reticulations),
+    ]
+    .into_iter()
+    .filter(|&(_, holds)| !holds)
+    .map(|(name, _)| name)
+    .collect()
   }
 
   #[test]
@@ -430,15 +427,22 @@ mod tests {
   fn arg_view_invariants_hold_on_random_trees() {
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(3);
     let mut cases = BTreeSet::new();
+    // The trees and the broken invariants of each failing input.
+    let mut failures: Vec<(String, String, Vec<&str>)> = Vec::new();
     for _ in 0..300 {
       let n = rng.gen_range(4..9);
-      let r = run_trees(&[("ha", &random_tree(&mut rng, n)), ("na", &random_tree(&mut rng, n))]);
+      let (ha, na) = (random_tree(&mut rng, n), random_tree(&mut rng, n));
+      let r = run_trees(&[("ha", &ha), ("na", &na)]);
       if let Some(v) = arg_view(&r, Scale::Div) {
-        check_invariants(&r, &v);
+        let broken = broken_invariants(&r, &v);
+        if !broken.is_empty() {
+          failures.push((ha, na, broken));
+        }
         cases.insert(format!("{:?}", v.root_case));
       }
     }
-    assert_eq!(3, cases.len(), "every root case occurs: {cases:?}");
+    // Every root case occurs.
+    assert_eq!((Vec::new(), 3), (failures, cases.len()));
   }
 
   /// A random binary tree on `n` leaves named `A`, `B`, ...
