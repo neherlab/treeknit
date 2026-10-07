@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext } from "react";
 import { useStore } from "zustand";
 
 import type { PersistenceProblem } from "../persistence/persistence";
@@ -26,8 +26,7 @@ export function useCurrentTextIds() {
 export function usePersistenceSwitch(): PersistenceSwitch {
   const { store, persistence } = useWorkspaceRuntime();
 
-  const subscribe = useCallback((onChange: () => void) => persistence.subscribe(onChange), [persistence]);
-  const { enabled, problem } = useSyncExternalStore(subscribe, () => persistence.state);
+  const { enabled, problem } = useStore(persistence.state);
 
   const setEnabled = useCallback(
     async (next: boolean) => {

@@ -85,6 +85,8 @@ export type WorkspaceState = WorkspaceData & WorkspaceActions;
 
 export type WorkspaceStore = StoreApi<WorkspaceState>;
 
+export type ReadableStore<T> = Pick<StoreApi<T>, "getState" | "getInitialState" | "subscribe">;
+
 export interface WorkspaceServices {
   treeLabels(...args: StatelessArgs<"treeLabels">): StatelessResult<"treeLabels">;
   settingsSchema(...args: StatelessArgs<"settingsSchema">): StatelessResult<"settingsSchema">;

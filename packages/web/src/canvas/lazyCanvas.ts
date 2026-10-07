@@ -1,5 +1,9 @@
-import { type ComponentType, lazy, type LazyExoticComponent, useCallback, useSyncExternalStore } from "react";
+import { type ComponentType, lazy, type LazyExoticComponent, useCallback } from "react";
 import { getErrorMessage } from "react-error-boundary";
+import { useStore } from "zustand";
+import { createStore } from "zustand/vanilla";
+
+import type { ReadableStore } from "../workspace/store";
 
 type CanvasModule<P> = Promise<{ default: ComponentType<P> }>;
 
@@ -12,9 +16,12 @@ export class DrawingCodeError extends Error {
 }
 
 export interface LazyCanvas<P extends object> {
-  current(): LazyExoticComponent<ComponentType<P>>;
-  subscribe(listener: () => void): () => void;
+  readonly state: ReadableStore<LazyCanvasState<P>>;
   reload(): void;
+}
+
+export interface LazyCanvasState<P extends object> {
+  component: LazyExoticComponent<ComponentType<P>>;
 }
 
 export function loadDrawingCode<P>(load: () => CanvasModule<P>): () => CanvasModule<P> {
@@ -29,24 +36,12 @@ export function loadDrawingCode<P>(load: () => CanvasModule<P>): () => CanvasMod
 
 export function lazyCanvas<P extends object>(load: () => CanvasModule<P>): LazyCanvas<P> {
   const loader = loadDrawingCode(load);
-  const listeners = new Set<() => void>();
-  const component = { current: lazy(loader) };
+  const state = createStore<LazyCanvasState<P>>()(() => ({ component: lazy(loader) }));
 
   return {
-    current: () => component.current,
-    subscribe(listener) {
-      listeners.add(listener);
-
-      return () => {
-        listeners.delete(listener);
-      };
-    },
+    state,
     reload() {
-      component.current = lazy(loader);
-
-      for (const listener of listeners) {
-        listener();
-      }
+      state.setState({ component: lazy(loader) });
     },
   };
 }
@@ -54,12 +49,11 @@ export function lazyCanvas<P extends object>(load: () => CanvasModule<P>): LazyC
 export function useLazyCanvas<P extends object>(
   canvas: LazyCanvas<P>,
 ): readonly [LazyExoticComponent<ComponentType<P>>, () => void] {
-  const subscribe = useCallback((listener: () => void) => canvas.subscribe(listener), [canvas]);
-  const current = useCallback(() => canvas.current(), [canvas]);
+  const component = useStore(canvas.state, (state) => state.component);
 
   const reload = useCallback(() => {
     canvas.reload();
   }, [canvas]);
 
-  return [useSyncExternalStore(subscribe, current), reload];
+  return [component, reload];
 }

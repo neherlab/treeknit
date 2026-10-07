@@ -107,7 +107,7 @@ describe("a link launch", () => {
       request: selectRequest(store.getState()),
       sources: store.getState().trees.map(({ source }) => source),
       undo: store.getState().undo?.kind === "workspace" ? store.getState().undo : null,
-      status: linkLaunch.getSnapshot().status,
+      status: linkLaunch.state.getState().status,
       runs,
     }).toMatchObject({
       request: {
@@ -147,14 +147,14 @@ describe("a link launch", () => {
 
     await linkLaunch.start(store);
 
-    const failed = { status: linkLaunch.getSnapshot().status, trees: store.getState().trees.length };
+    const failed = { status: linkLaunch.state.getState().status, trees: store.getState().trees.length };
 
     linkLaunch.retry();
     await settled(linkLaunch);
 
     expect({
       failed,
-      retried: linkLaunch.getSnapshot().status,
+      retried: linkLaunch.state.getState().status,
       request: selectRequest(store.getState()).trees,
       sources: store.getState().trees.map(({ source }) => source),
     }).toStrictEqual({
@@ -209,7 +209,7 @@ describe("a link launch", () => {
 
     await linkLaunch.start(store);
 
-    expect(linkLaunch.getSnapshot().status).toStrictEqual({ kind: "failed", problems: [message] });
+    expect(linkLaunch.state.getState().status).toStrictEqual({ kind: "failed", problems: [message] });
   });
 
   test("applies the settings of the link to the settings of the session file", async () => {
@@ -269,7 +269,7 @@ describe("a link launch", () => {
 
     await linkLaunch.start(store);
 
-    expect(linkLaunch.getSnapshot()).toStrictEqual({
+    expect(linkLaunch.state.getState()).toStrictEqual({
       status: { kind: "none" },
       notes: [
         'gamma must be a number, got "abc"',
@@ -284,7 +284,7 @@ describe("a link launch", () => {
 
     await linkLaunch.start(store);
 
-    expect({ calls: client.parseCalls, state: linkLaunch.getSnapshot() }).toStrictEqual({
+    expect({ calls: client.parseCalls, state: linkLaunch.state.getState() }).toStrictEqual({
       calls: 0,
       state: { status: { kind: "none" }, notes: [] },
     });
@@ -385,14 +385,14 @@ function recordRuns(runs: boolean[]): (keepView: boolean) => Promise<void> {
 }
 
 async function settled(linkLaunch: LinkLaunch): Promise<void> {
-  if (linkLaunch.getSnapshot().status.kind !== "loading") {
+  if (linkLaunch.state.getState().status.kind !== "loading") {
     return;
   }
 
   const { promise, resolve } = Promise.withResolvers<undefined>();
 
-  const stop = linkLaunch.subscribe(() => {
-    if (linkLaunch.getSnapshot().status.kind !== "loading") {
+  const stop = linkLaunch.state.subscribe(() => {
+    if (linkLaunch.state.getState().status.kind !== "loading") {
       resolve(undefined);
     }
   });

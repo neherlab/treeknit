@@ -1,7 +1,9 @@
 import type { AnalysisRequest, OutputFile } from "@neherlab/treeknit-wasm";
 import { getErrorMessage } from "react-error-boundary";
 import { isDeepEqual } from "remeda";
+import { createStore } from "zustand/vanilla";
 
+import type { ReadableStore } from "../workspace/store";
 import type { TreeSource } from "../workspace/treeSource";
 import {
   nextGeneration,
@@ -63,8 +65,7 @@ class UnavailableStorageError extends Error {
 
 export class WorkspacePersistence {
   readonly #services: PersistenceServices;
-  readonly #listeners = new Set<() => void>();
-  #state: PersistenceState = { enabled: false, problem: null };
+  readonly #state = createStore<PersistenceState>()(() => ({ enabled: false, problem: null }));
   #generation: number | null = null;
   #enabling: Enabling | undefined;
   #unsaved: WorkspaceSnapshot | undefined;
@@ -79,16 +80,8 @@ export class WorkspacePersistence {
     });
   }
 
-  get state(): PersistenceState {
+  get state(): ReadableStore<PersistenceState> {
     return this.#state;
-  }
-
-  subscribe(listener: () => void): () => void {
-    this.#listeners.add(listener);
-
-    return () => {
-      this.#listeners.delete(listener);
-    };
   }
 
   async restore<T>(read: (stored: StoredWorkspace) => Promise<T>): Promise<T | null> {
@@ -121,7 +114,11 @@ export class WorkspacePersistence {
   }
 
   async disable(): Promise<void> {
-    if (this.#generation === null && this.#enabling === undefined && this.#state.problem?.kind !== "disable") {
+    if (
+      this.#generation === null &&
+      this.#enabling === undefined &&
+      this.#state.getState().problem?.kind !== "disable"
+    ) {
       return;
     }
 
@@ -276,7 +273,7 @@ export class WorkspacePersistence {
       if (epoch === this.#epoch && this.#unsaved === snapshot) {
         this.#unsaved = undefined;
 
-        if (this.#state.problem?.kind === "save") {
+        if (this.#state.getState().problem?.kind === "save") {
           this.#setProblem(null);
         }
       }
@@ -351,7 +348,7 @@ export class WorkspacePersistence {
 
   #switchOn(generation: number): void {
     this.#generation = generation;
-    this.#setState({ ...this.#state, enabled: true });
+    this.#state.setState({ enabled: true });
   }
 
   #switchOff(): void {
@@ -360,9 +357,9 @@ export class WorkspacePersistence {
 
     if (this.#generation !== null) {
       this.#generation = null;
-      this.#setState({
+      this.#state.setState({
         enabled: false,
-        problem: this.#state.problem?.kind === "save" ? null : this.#state.problem,
+        problem: this.#state.getState().problem?.kind === "save" ? null : this.#state.getState().problem,
       });
     }
   }
@@ -372,16 +369,8 @@ export class WorkspacePersistence {
   }
 
   #setProblem(problem: PersistenceProblem | null): void {
-    if (problem !== null || this.#state.problem !== null) {
-      this.#setState({ ...this.#state, problem });
-    }
-  }
-
-  #setState(state: PersistenceState): void {
-    this.#state = state;
-
-    for (const listener of this.#listeners) {
-      listener();
+    if (problem !== null || this.#state.getState().problem !== null) {
+      this.#state.setState({ problem });
     }
   }
 

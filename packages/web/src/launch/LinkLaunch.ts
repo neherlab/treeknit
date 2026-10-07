@@ -9,14 +9,16 @@ import type {
   Settings,
 } from "@neherlab/treeknit-wasm";
 import { getErrorMessage } from "react-error-boundary";
+import { doNothing } from "remeda";
 import { match } from "ts-pattern";
+import { createStore } from "zustand/vanilla";
 
 import type { AnalysisClient } from "../analysis/client";
 import type { ExampleTree } from "../analysis/example";
 import type { StatelessArgs, StatelessResult } from "../analysis/protocol";
 import { VIEW_KEYS } from "../workspace/search";
 import type { QueryEntry } from "../workspace/searchQuery";
-import type { WorkspaceStore } from "../workspace/store";
+import type { ReadableStore, WorkspaceStore } from "../workspace/store";
 import { SESSION_SOURCE, type TreeSource } from "../workspace/treeSource";
 import { download, type DownloadLimits, downloadMessage, type FetchFile, filePlace } from "./download";
 import { ignoredKeyNote, launchEntries, namesView } from "./entries";
@@ -24,19 +26,17 @@ import { ignoredKeyNote, launchEntries, namesView } from "./entries";
 const NO_LAUNCH: LaunchState = { status: { kind: "none" }, notes: [] };
 
 export const IDLE_LAUNCH: LaunchControl = {
-  getSnapshot: () => NO_LAUNCH,
-  subscribe: () => () => undefined,
-  retry: () => undefined,
-  dismissStatus: () => undefined,
-  dismissNotes: () => undefined,
+  state: createStore<LaunchState>()(() => NO_LAUNCH),
+  retry: doNothing(),
+  dismissStatus: doNothing(),
+  dismissNotes: doNothing(),
 };
 
 export class LinkLaunch implements LaunchControl {
   readonly #environment: LaunchEnvironment;
   readonly #entries: readonly QueryEntry[];
-  readonly #listeners = new Set<() => void>();
+  readonly #state = createStore<LaunchState>()(() => NO_LAUNCH);
   readonly #settled = Promise.withResolvers<undefined>();
-  #state: LaunchState = NO_LAUNCH;
   #launch: Launch | null = null;
   #store: WorkspaceStore | null = null;
 
@@ -81,16 +81,8 @@ export class LinkLaunch implements LaunchControl {
     return this.#settled.promise;
   }
 
-  getSnapshot(): LaunchState {
+  get state(): ReadableStore<LaunchState> {
     return this.#state;
-  }
-
-  subscribe(listener: () => void): () => void {
-    this.#listeners.add(listener);
-
-    return () => {
-      this.#listeners.delete(listener);
-    };
   }
 
   retry(): void {
@@ -98,7 +90,7 @@ export class LinkLaunch implements LaunchControl {
   }
 
   dismissStatus(): void {
-    if (this.#state.status.kind === "failed") {
+    if (this.#state.getState().status.kind === "failed") {
       this.#update({ status: NO_LAUNCH.status });
       this.#settled.resolve(undefined);
     }
@@ -112,7 +104,7 @@ export class LinkLaunch implements LaunchControl {
     const launch = this.#launch;
     const store = this.#store;
 
-    if (launch === null || store === null || this.#state.status.kind === "loading") {
+    if (launch === null || store === null || this.#state.getState().status.kind === "loading") {
       return;
     }
 
@@ -140,17 +132,12 @@ export class LinkLaunch implements LaunchControl {
   }
 
   #update(change: Partial<LaunchState>): void {
-    this.#state = { ...this.#state, ...change };
-
-    for (const listener of this.#listeners) {
-      listener();
-    }
+    this.#state.setState(change);
   }
 }
 
 export interface LaunchControl {
-  getSnapshot(): LaunchState;
-  subscribe(listener: () => void): () => void;
+  readonly state: ReadableStore<LaunchState>;
   retry(): void;
   dismissStatus(): void;
   dismissNotes(): void;

@@ -13,13 +13,13 @@ describe("lazyCanvas", () => {
   test("keeps one lazy component across mounts until a reload replaces it and tells the subscribers", () => {
     const canvas = lazyCanvas(loaded);
     const notified = { count: 0 };
-    const first = canvas.current();
+    const first = canvas.state.getState().component;
 
-    const unsubscribe = canvas.subscribe(() => {
+    const unsubscribe = canvas.state.subscribe(() => {
       notified.count += 1;
     });
 
-    const remounted = canvas.current();
+    const remounted = canvas.state.getState().component;
 
     canvas.reload();
     unsubscribe();
@@ -27,7 +27,7 @@ describe("lazyCanvas", () => {
 
     expect({
       same: remounted === first,
-      replaced: canvas.current() !== first,
+      replaced: canvas.state.getState().component !== first,
       notified: notified.count,
     }).toStrictEqual({ same: true, replaced: true, notified: 1 });
   });

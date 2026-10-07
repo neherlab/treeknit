@@ -104,7 +104,7 @@ describe("workspace persistence", () => {
 
     const restored = await tab.restore();
 
-    expect({ restored, switches: tab.switches, enabled: tab.persistence.state.enabled }).toStrictEqual({
+    expect({ restored, switches: tab.switches, enabled: tab.persistence.state.getState().enabled }).toStrictEqual({
       restored: { sessionFile: sessionFileText(TWO_TREES.request), sources: TWO_TREES.sources },
       switches: [true],
       enabled: true,
@@ -133,7 +133,7 @@ describe("workspace persistence", () => {
     expect({
       restored: await restored,
       switches: restoring.switches,
-      enabled: restoring.persistence.state.enabled,
+      enabled: restoring.persistence.state.getState().enabled,
       record: storage.record,
     }).toStrictEqual({
       restored: null,
@@ -179,7 +179,7 @@ describe("workspace persistence", () => {
       return Promise.resolve(stored);
     });
 
-    expect({ restored, parsed, state: tab.persistence.state }).toStrictEqual({
+    expect({ restored, parsed, state: tab.persistence.state.getState() }).toStrictEqual({
       restored: null,
       parsed: RESTORE_ATTEMPTS,
       state: { enabled: false, problem: { kind: "restore", message: RESTORE_KEPT_CHANGING } },
@@ -240,7 +240,7 @@ describe("workspace persistence", () => {
 
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
 
-    expect({ afterRelease, record: storage.record, enabled: tab.persistence.state.enabled }).toStrictEqual({
+    expect({ afterRelease, record: storage.record, enabled: tab.persistence.state.getState().enabled }).toStrictEqual({
       afterRelease: workspaceRecord(1, ONE_TREE),
       record: workspaceRecord(1, EMPTY),
       enabled: true,
@@ -255,12 +255,12 @@ describe("workspace persistence", () => {
     tab.files.failNext();
     tab.persistence.changed(TWO_TREES);
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
-    const failed = { record: storage.record, state: tab.persistence.state };
+    const failed = { record: storage.record, state: tab.persistence.state.getState() };
 
     tab.persistence.changed(EMPTY);
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
 
-    expect({ failed, record: storage.record, state: tab.persistence.state }).toStrictEqual({
+    expect({ failed, record: storage.record, state: tab.persistence.state.getState() }).toStrictEqual({
       failed: {
         record: workspaceRecord(1, ONE_TREE),
         state: { enabled: true, problem: { kind: "save", message: "internal error" } },
@@ -278,11 +278,11 @@ describe("workspace persistence", () => {
     storage.failNextUpdate(new Error("The quota has been exceeded."));
     tab.persistence.changed(TWO_TREES);
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
-    const failed = { record: storage.record, state: tab.persistence.state };
+    const failed = { record: storage.record, state: tab.persistence.state.getState() };
 
     await tab.persistence.saveNow();
 
-    expect({ failed, record: storage.record, state: tab.persistence.state }).toStrictEqual({
+    expect({ failed, record: storage.record, state: tab.persistence.state.getState() }).toStrictEqual({
       failed: {
         record: workspaceRecord(1, ONE_TREE),
         state: { enabled: true, problem: { kind: "save", message: "The quota has been exceeded." } },
@@ -399,7 +399,11 @@ describe("workspace persistence", () => {
     tab.files.release();
     await enabling;
 
-    expect({ record: storage.record, switches: tab.switches, enabled: tab.persistence.state.enabled }).toStrictEqual({
+    expect({
+      record: storage.record,
+      switches: tab.switches,
+      enabled: tab.persistence.state.getState().enabled,
+    }).toStrictEqual({
       record: { kind: "off", version: 1, generation: 4 },
       switches: [],
       enabled: false,
@@ -432,7 +436,7 @@ describe("workspace persistence", () => {
     storage.failNextUpdate(new Error("The quota has been exceeded."));
     await tab.persistence.enable(ONE_TREE);
 
-    expect({ record: storage.record, state: tab.persistence.state }).toStrictEqual({
+    expect({ record: storage.record, state: tab.persistence.state.getState() }).toStrictEqual({
       record: undefined,
       state: { enabled: false, problem: { kind: "enable", message: "The quota has been exceeded." } },
     });
@@ -445,7 +449,7 @@ describe("workspace persistence", () => {
     await tab.persistence.enable(ONE_TREE);
     storage.failNextUpdate(new Error("The database was closed."));
     await tab.persistence.disable();
-    const failed = { record: storage.record, state: tab.persistence.state };
+    const failed = { record: storage.record, state: tab.persistence.state.getState() };
 
     tab.persistence.changed(TWO_TREES);
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
@@ -457,7 +461,7 @@ describe("workspace persistence", () => {
       failed,
       afterChange,
       record: storage.record,
-      state: tab.persistence.state,
+      state: tab.persistence.state.getState(),
       switches: tab.switches,
     }).toStrictEqual({
       failed: {
@@ -480,12 +484,12 @@ describe("workspace persistence", () => {
     const disabling = tab.persistence.disable();
 
     await storage.updateStarted();
-    const during = tab.persistence.state.enabled;
+    const during = tab.persistence.state.getState().enabled;
 
     storage.releaseUpdate();
     await disabling;
 
-    expect({ during, after: tab.persistence.state.enabled }).toStrictEqual({ during: true, after: false });
+    expect({ during, after: tab.persistence.state.getState().enabled }).toStrictEqual({ during: true, after: false });
   });
 
   test("a change while the off marker is written is not saved, and is saved after the marker fails", async () => {
@@ -538,7 +542,7 @@ describe("workspace persistence", () => {
     tab.persistence.changed(ONE_TREE);
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
 
-    expect({ restored, record: storage.record, state: tab.persistence.state }).toStrictEqual({
+    expect({ restored, record: storage.record, state: tab.persistence.state.getState() }).toStrictEqual({
       restored: null,
       record: workspaceRecord(3, TWO_TREES),
       state: { enabled: false, problem: { kind: "restore", message: "not a TreeKnit session file" } },
@@ -551,7 +555,7 @@ describe("workspace persistence", () => {
 
     storage.failNextRead(new Error("The database could not be opened."));
 
-    expect({ restored: await tab.restore(), state: tab.persistence.state }).toStrictEqual({
+    expect({ restored: await tab.restore(), state: tab.persistence.state.getState() }).toStrictEqual({
       restored: null,
       state: { enabled: false, problem: { kind: "unavailable", message: "The database could not be opened." } },
     });
@@ -563,7 +567,7 @@ describe("workspace persistence", () => {
     const tab = new Tab(storage);
 
     const restored = await tab.restore();
-    const { problem } = tab.persistence.state;
+    const { problem } = tab.persistence.state.getState();
 
     expect({ restored, record: storage.record, kind: problem?.kind }).toStrictEqual({
       restored: null,
@@ -589,7 +593,7 @@ describe("workspace persistence", () => {
     expect({
       record: storage.record,
       second: second.switches,
-      enabled: second.persistence.state.enabled,
+      enabled: second.persistence.state.getState().enabled,
     }).toStrictEqual({
       record: { kind: "off", version: 1, generation: 2 },
       second: [true, false],
@@ -607,11 +611,11 @@ describe("workspace persistence", () => {
     second.files.failNext();
     second.persistence.changed(TWO_TREES);
     await vi.advanceTimersByTimeAsync(SAVE_DELAY_MS);
-    const failed = second.persistence.state;
+    const failed = second.persistence.state.getState();
 
     await first.persistence.enable(EMPTY);
 
-    expect({ failed, state: second.persistence.state }).toStrictEqual({
+    expect({ failed, state: second.persistence.state.getState() }).toStrictEqual({
       failed: { enabled: true, problem: { kind: "save", message: "internal error" } },
       state: { enabled: false, problem: null },
     });
@@ -632,7 +636,7 @@ describe("workspace persistence", () => {
     second.files.release();
     await vi.advanceTimersByTimeAsync(0);
 
-    expect({ record: storage.record, enabled: second.persistence.state.enabled }).toStrictEqual({
+    expect({ record: storage.record, enabled: second.persistence.state.getState().enabled }).toStrictEqual({
       record: workspaceRecord(3, EMPTY),
       enabled: false,
     });
@@ -673,7 +677,7 @@ describe("workspace persistence", () => {
     expect({
       afterFirst,
       afterSecond: storage.record,
-      enabled: [first.persistence.state.enabled, second.persistence.state.enabled],
+      enabled: [first.persistence.state.getState().enabled, second.persistence.state.getState().enabled],
     }).toStrictEqual({
       afterFirst: workspaceRecord(1, ONE_TREE),
       afterSecond: workspaceRecord(1, TWO_TREES),
@@ -718,9 +722,7 @@ class Tab {
       channel,
       sessionFile: async (request) => this.files.sessionFile(request),
     });
-    this.persistence.subscribe(() => {
-      const { enabled } = this.persistence.state;
-
+    this.persistence.state.subscribe(({ enabled }) => {
       if (this.switches.at(-1) !== enabled && (this.switches.length > 0 || enabled)) {
         this.switches.push(enabled);
       }
