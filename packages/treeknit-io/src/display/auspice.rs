@@ -262,24 +262,12 @@ fn auspice_tree(tree: &DrawTree, context: &TreeContext) -> AuspiceNode {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::analysis::{self, Settings, TreeText};
+  use crate::test_support::run_trees;
+
   use crate::display::{DrawNode, pair_view};
-  use crate::run;
+
   use pretty_assertions::assert_eq;
   use serde_json::json;
-
-  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
-    let texts: Vec<TreeText> = trees
-      .iter()
-      .map(|(label, newick)| TreeText {
-        label: (*label).to_owned(),
-        newick: (*newick).to_owned(),
-      })
-      .collect();
-    let settings = Settings::default();
-    let opts = analysis::options(&settings, texts.len(), false).unwrap();
-    run::run(analysis::parse_trees(&texts).unwrap(), &opts, settings.seed, &|_| {})
-  }
 
   fn value(text: &str) -> Option<AuspiceValue> {
     Some(AuspiceValue { value: text.to_owned() })

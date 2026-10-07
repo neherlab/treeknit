@@ -128,28 +128,11 @@ impl From<log::Level> for Level {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::analysis::{self, Settings, TreeText};
-  use crate::run;
+  use crate::test_support::{names, run_trees};
+
   use pretty_assertions::assert_eq;
   use rstest::rstest;
   use serde_json::json;
-
-  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
-    let texts: Vec<TreeText> = trees
-      .iter()
-      .map(|(label, newick)| TreeText {
-        label: (*label).to_owned(),
-        newick: (*newick).to_owned(),
-      })
-      .collect();
-    let s = Settings::default();
-    let opts = analysis::options(&s, texts.len(), false).unwrap();
-    run::run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {})
-  }
-
-  fn names(v: &[&str]) -> Vec<String> {
-    v.iter().map(|&x| x.to_owned()).collect()
-  }
 
   fn warning() -> Diagnostic {
     Diagnostic {

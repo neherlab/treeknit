@@ -147,10 +147,9 @@ pub enum LabelMode {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::analysis::{self, Settings, TreeText};
   use crate::display::{self, TreeVersion};
   use crate::palette;
-  use crate::run::{self, RunResult};
+  use crate::test_support::run_trees;
   use crate::wire::wire_name;
   use pretty_assertions::assert_eq;
   use quick_xml::events::BytesStart;
@@ -163,19 +162,6 @@ mod tests {
   /// (TreeKnit.jl fixture `fixtures/doc_mccs_1.json`).
   const HA: &str = "((A,B),(C,(D,X)));";
   const NA: &str = "((A,(B,X)),(C,D));";
-
-  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
-    let texts: Vec<TreeText> = trees
-      .iter()
-      .map(|(label, newick)| TreeText {
-        label: (*label).to_owned(),
-        newick: (*newick).to_owned(),
-      })
-      .collect();
-    let s = Settings::default();
-    let opts = analysis::options(&s, texts.len(), false).unwrap();
-    run::run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {})
-  }
 
   /// The resolved pair view of the two-tree example, laid out with `scale`.
   fn example_view(scale: Scale) -> PairView {
@@ -795,12 +781,7 @@ mod tests {
 
   /// The error of the option `key` with `message`.
   fn error(key: FigureOptionKey, message: &str) -> ValidationError {
-    ValidationError {
-      field: Some(Field::FigureOption { key }),
-      message: message.to_owned(),
-      line: None,
-      column: None,
-    }
+    ValidationError::at(Field::FigureOption { key }, message)
   }
 
   #[test]

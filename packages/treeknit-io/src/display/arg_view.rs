@@ -271,26 +271,14 @@ fn edges(g: &Graph<'_>, chain: &[Option<(usize, usize)>], nodes: &[ArgNodeView])
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::analysis::{self, Settings, TreeText};
+  use crate::test_support::run_trees;
+
   use crate::display::EdgePath;
-  use crate::run;
+
   use pretty_assertions::assert_eq;
   use rand::{Rng, SeedableRng};
   use rand_xoshiro::Xoshiro256PlusPlus;
   use std::collections::BTreeSet;
-
-  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
-    let texts: Vec<TreeText> = trees
-      .iter()
-      .map(|(label, newick)| TreeText {
-        label: (*label).to_owned(),
-        newick: (*newick).to_owned(),
-      })
-      .collect();
-    let s = Settings::default();
-    let opts = analysis::options(&s, texts.len(), false).unwrap();
-    run::run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {})
-  }
 
   /// The invariants of every ARG view: one node per ARG node (plus the synthetic root), distinct
   /// leaf rows, every node reached once from the top root, edges consistent with the parents,

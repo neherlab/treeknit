@@ -239,10 +239,11 @@ pub(super) fn mcc_infos(run: &RunResult, p: &PairResult, slots: &[usize]) -> Vec
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::analysis::{self, ResolveMode, Settings, TreeText};
+  use crate::analysis::{ResolveMode, Settings};
   use crate::newick;
   use crate::output::{self, OutputOptions};
-  use crate::run;
+  use crate::test_support::{run_trees, run_with, try_run};
+
   use pretty_assertions::assert_eq;
   use rand::{Rng, SeedableRng};
   use rand_xoshiro::Xoshiro256PlusPlus;
@@ -251,22 +252,6 @@ mod tests {
   /// The two-tree example: X moved between the trees.
   const HA: &str = "((A,B),(C,(D,X)));";
   const NA: &str = "((A,(B,X)),(C,D));";
-
-  fn run_with(trees: &[(&str, &str)], settings: &Settings) -> RunResult {
-    let texts: Vec<TreeText> = trees
-      .iter()
-      .map(|(label, newick)| TreeText {
-        label: (*label).to_owned(),
-        newick: (*newick).to_owned(),
-      })
-      .collect();
-    let opts = analysis::options(settings, texts.len(), false).unwrap();
-    run::run(analysis::parse_trees(&texts).unwrap(), &opts, settings.seed, &|_| {})
-  }
-
-  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
-    run_with(trees, &Settings::default())
-  }
 
   fn leaf_names(t: &DrawTree) -> Vec<&str> {
     t.nodes.iter().filter(|n| n.leaf).map(|n| n.name.as_str()).collect()
@@ -757,21 +742,6 @@ mod tests {
       parts.push(format!("({})", group.join(",")));
     }
     format!("{};", parts.first().cloned().unwrap_or_default())
-  }
-
-  /// The run of `trees`, or `None` when the trees do not validate.
-  fn try_run(trees: &[(&str, &str)]) -> Option<RunResult> {
-    let texts: Vec<TreeText> = trees
-      .iter()
-      .map(|(label, newick)| TreeText {
-        label: (*label).to_owned(),
-        newick: (*newick).to_owned(),
-      })
-      .collect();
-    let settings = Settings::default();
-    let parsed = analysis::parse_trees(&texts).ok()?;
-    let opts = analysis::options(&settings, texts.len(), false).ok()?;
-    Some(run::run(parsed, &opts, settings.seed, &|_| {}))
   }
 
   #[test]

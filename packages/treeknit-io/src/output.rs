@@ -781,13 +781,13 @@ mod tests {
   use super::*;
   use crate::analysis::{self, Settings, TreeText};
   use crate::figure::LabelMode;
-  use crate::run;
+  use crate::test_support::{clades, run_trees};
+  use treeknit_testing::assert_err;
+
   use crate::summary::Level;
   use pretty_assertions::assert_eq;
   use rstest::rstest;
   use serde_json::json;
-  use std::collections::BTreeSet;
-  use treeknit_testing::assert_err;
 
   /// The two-tree example: X moved between the trees.
   const HA: &str = "((A,B),(C,(D,X)));";
@@ -795,19 +795,6 @@ mod tests {
   /// The two-tree example with branch lengths, so that the scale `div` is shown.
   const HA_LENGTHS: &str = "((A:1,B:1):1,(C:1,(D:1,X:1):1):1);";
   const NA_LENGTHS: &str = "((A:1,(B:1,X:1):1):1,(C:1,D:1):1);";
-
-  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
-    let texts: Vec<TreeText> = trees
-      .iter()
-      .map(|(label, newick)| TreeText {
-        label: (*label).to_owned(),
-        newick: (*newick).to_owned(),
-      })
-      .collect();
-    let s = Settings::default();
-    let opts = analysis::options(&s, texts.len(), false).unwrap();
-    run::run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {})
-  }
 
   /// The output files of the trees `trees` with `options`.
   fn files_of(trees: &[(&str, &str)], options: &OutputOptions) -> Vec<OutputFile> {
@@ -829,15 +816,6 @@ mod tests {
 
   fn text<'a>(files: &'a [OutputFile], path: &str) -> &'a str {
     &files.iter().find(|f| f.path == path).unwrap().text
-  }
-
-  fn clades(newick: &str) -> BTreeSet<BTreeSet<String>> {
-    let t = newick::parse(newick, "t").unwrap();
-    t.internals()
-      .into_iter()
-      .filter(|&n| n != t.root)
-      .map(|n| t.leaves_below(n).into_iter().map(|l| t.name(l).to_owned()).collect())
-      .collect()
   }
 
   #[test]
@@ -1037,10 +1015,7 @@ mod tests {
     let request = AnalysisRequest {
       trees: trees
         .iter()
-        .map(|(label, newick)| TreeText {
-          label: (*label).to_owned(),
-          newick: (*newick).to_owned(),
-        })
+        .map(|(label, newick)| TreeText::new(*label, *newick))
         .collect(),
       settings: Settings::default(),
     };
@@ -1334,16 +1309,7 @@ mod tests {
   #[test]
   fn session_file_round_trips_through_read_session() {
     let request = AnalysisRequest {
-      trees: vec![
-        TreeText {
-          label: "ha".to_owned(),
-          newick: HA.to_owned(),
-        },
-        TreeText {
-          label: "na".to_owned(),
-          newick: NA.to_owned(),
-        },
-      ],
+      trees: vec![TreeText::new("ha", HA), TreeText::new("na", NA)],
       settings: Settings {
         seq_lengths: Some(vec![1700.0, 1400.0]),
         seed: analysis::MAX_SEED,

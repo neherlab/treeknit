@@ -141,7 +141,8 @@ fn build_arg(trees: &[Tree], pair: &PairResult, taxa: &Taxa) -> Result<Arg, ArgE
 mod tests {
   use super::*;
   use crate::analysis::{self, Settings, TreeText};
-  use crate::newick;
+  use crate::test_support::{clades, clades_of, names, run_trees};
+
   use pretty_assertions::assert_eq;
   use std::cell::RefCell;
   use std::collections::BTreeSet;
@@ -150,19 +151,6 @@ mod tests {
   const HA: &str = "((A,B),(C,(D,X)));";
   const NA: &str = "((A,(B,X)),(C,D));";
 
-  fn run_trees(trees: &[(&str, &str)]) -> RunResult {
-    let texts: Vec<TreeText> = trees
-      .iter()
-      .map(|(label, newick)| TreeText {
-        label: (*label).to_owned(),
-        newick: (*newick).to_owned(),
-      })
-      .collect();
-    let s = Settings::default();
-    let opts = analysis::options(&s, texts.len(), false).unwrap();
-    run(analysis::parse_trees(&texts).unwrap(), &opts, s.seed, &|_| {})
-  }
-
   fn mccs(r: &RunResult) -> Vec<Vec<Vec<String>>> {
     r.pairs
       .iter()
@@ -170,22 +158,10 @@ mod tests {
       .collect()
   }
 
-  fn clades(t: &Tree) -> BTreeSet<BTreeSet<String>> {
-    t.internals()
-      .into_iter()
-      .filter(|&n| n != t.root)
-      .map(|n| t.leaves_below(n).into_iter().map(|l| t.name(l).to_owned()).collect())
-      .collect()
-  }
-
-  fn names(v: &[&[&str]]) -> Vec<Vec<String>> {
-    v.iter().map(|m| m.iter().map(|&x| x.to_owned()).collect()).collect()
-  }
-
   #[test]
   fn run_identical_trees_form_one_mcc_without_reassortment() {
     let r = run_trees(&[("ha", "((A,B),(C,D));"), ("na", "((A,B),(C,D));")]);
-    assert_eq!(vec![names(&[&["A", "B", "C", "D"]])], mccs(&r));
+    assert_eq!(vec![vec![names(&["A", "B", "C", "D"])]], mccs(&r));
     assert_eq!(Some(ArgOutcome::Built { reassortments: 0 }), r.arg_outcome());
   }
 
@@ -193,7 +169,7 @@ mod tests {
   fn run_moved_leaf_matches_reference() {
     let r = run_trees(&[("ha", HA), ("na", NA)]);
     // Oracle: fixtures/doc_mccs_1.json (TreeKnit.jl): MCCs [X] and [A,B,C,D], one reassortment.
-    assert_eq!(vec![names(&[&["X"], &["A", "B", "C", "D"]])], mccs(&r));
+    assert_eq!(vec![vec![names(&["X"]), names(&["A", "B", "C", "D"])]], mccs(&r));
     assert_eq!(Some(ArgOutcome::Built { reassortments: 1 }), r.arg_outcome());
     assert_eq!(1, r.built_arg().unwrap().n_hybrids());
   }
@@ -202,7 +178,7 @@ mod tests {
   fn run_three_trees_give_every_pair_and_no_arg() {
     let t = "((A,B),(C,D));";
     let r = run_trees(&[("ha", t), ("na", t), ("pb2", t)]);
-    let all = names(&[&["A", "B", "C", "D"]]);
+    let all = vec![names(&["A", "B", "C", "D"])];
     assert_eq!(vec![all.clone(), all.clone(), all], mccs(&r));
     let order: Vec<(usize, usize)> = r.pairs.iter().map(|p| (p.i, p.j)).collect();
     assert_eq!(vec![(0, 1), (0, 2), (1, 2)], order);
@@ -214,40 +190,22 @@ mod tests {
   fn run_keeps_the_input_trees_unresolved() {
     // Matched resolution copies na's splits into ha's polytomy; the input tree keeps it.
     let r = run_trees(&[("ha", "(A,B,C,D);"), ("na", "((A,B),(C,D));")]);
-    assert_eq!(BTreeSet::new(), clades(&r.input_trees[0]));
-    assert_eq!(
-      clades(&newick::parse("((A,B),(C,D));", "t").unwrap()),
-      clades(&r.trees[0])
-    );
+    assert_eq!(BTreeSet::new(), clades_of(&r.input_trees[0]));
+    assert_eq!(clades("((A,B),(C,D));"), clades_of(&r.trees[0]));
   }
 
   #[test]
   fn run_imputes_a_leaf_missing_from_one_tree() {
     let r = run_trees(&[("ha", "((A,B),(C,(D,P)));"), ("na", "((A,B),(C,D));")]);
     // Oracle: P is the sister of D in ha, the only tree that has it.
-    assert_eq!(
-      clades(&newick::parse("((A,B),(C,(D,P)));", "t").unwrap()),
-      clades(&r.imputed[1])
-    );
-    assert_eq!(
-      clades(&newick::parse("((A,B),(C,D));", "t").unwrap()),
-      clades(&r.trees[1])
-    );
+    assert_eq!(clades("((A,B),(C,(D,P)));"), clades_of(&r.imputed[1]));
+    assert_eq!(clades("((A,B),(C,D));"), clades_of(&r.trees[1]));
   }
 
   #[test]
   fn run_reports_progress_to_the_end() {
     let fractions = RefCell::new(Vec::new());
-    let texts = vec![
-      TreeText {
-        label: "ha".to_owned(),
-        newick: HA.to_owned(),
-      },
-      TreeText {
-        label: "na".to_owned(),
-        newick: NA.to_owned(),
-      },
-    ];
+    let texts = vec![TreeText::new("ha", HA), TreeText::new("na", NA)];
     let opts = analysis::options(&Settings::default(), 2, false).unwrap();
     run(analysis::parse_trees(&texts).unwrap(), &opts, 1, &|p| {
       fractions.borrow_mut().push(p.fraction);

@@ -203,13 +203,6 @@ mod tests {
   use rstest::rstest;
   use serde_json::json;
 
-  fn text(label: &str, newick: &str) -> TreeText {
-    TreeText {
-      label: label.into(),
-      newick: newick.into(),
-    }
-  }
-
   #[test]
   fn inspect_tree_counts_leaves_internal_nodes_and_polytomies() {
     // Five leaves under three internal nodes; the root has three children.
@@ -296,9 +289,9 @@ mod tests {
   fn overlap_counts_missing_and_shared_leaves_and_blocks_a_pair() {
     // a and b share A, B, C; c shares only A with each of them.
     let trees = [
-      text("a", "((A,B),(C,D));"),
-      text("b", "((A,B),C);"),
-      text("c", "(A,(E,F));"),
+      TreeText::new("a", "((A,B),(C,D));"),
+      TreeText::new("b", "((A,B),C);"),
+      TreeText::new("c", "(A,(E,F));"),
     ];
     let expected = Overlap {
       total_leaves: 6,
@@ -350,9 +343,9 @@ mod tests {
   #[test]
   fn overlap_leaves_out_trees_that_do_not_parse() {
     let trees = [
-      text("a", "((A,B),C);"),
-      text("broken", "((A,B),C"),
-      text("c", "((A,C),(B,D));"),
+      TreeText::new("a", "((A,B),C);"),
+      TreeText::new("broken", "((A,B),C"),
+      TreeText::new("c", "((A,C),(B,D));"),
     ];
     let expected = Overlap {
       total_leaves: 4,

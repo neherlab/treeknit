@@ -53,6 +53,16 @@ pub struct TreeText {
   pub newick: String,
 }
 
+impl TreeText {
+  /// The tree `newick` labeled `label`.
+  pub fn new(label: impl Into<String>, newick: impl Into<String>) -> Self {
+    TreeText {
+      label: label.into(),
+      newick: newick.into(),
+    }
+  }
+}
+
 /// Settings of the command line; a missing field takes the command-line default.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
@@ -670,6 +680,7 @@ fn parse_error(i: usize, t: &TreeText, e: &newick::ParseError) -> ValidationErro
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::test_support::{clades, texts};
   use pretty_assertions::assert_eq;
   use rstest::rstest;
   use serde_json::json;
@@ -678,22 +689,8 @@ mod tests {
 
   const T: &str = "((A,B),(C,D));";
 
-  fn trees(trees: &[(&str, &str)]) -> Vec<TreeText> {
-    trees
-      .iter()
-      .map(|(label, newick)| TreeText {
-        label: (*label).to_owned(),
-        newick: (*newick).to_owned(),
-      })
-      .collect()
-  }
-
   fn labeled(labels: &[&str]) -> Vec<TreeText> {
-    trees(&labels.iter().map(|&l| (l, T)).collect::<Vec<_>>())
-  }
-
-  fn error(field: Field, message: &str) -> ValidationError {
-    ValidationError::at(field, message)
+    texts(&labels.iter().map(|&l| (l, T)).collect::<Vec<_>>())
   }
 
   fn label(index: usize) -> Field {
@@ -702,15 +699,6 @@ mod tests {
 
   fn setting(key: SettingKey) -> Field {
     Field::Setting { key }
-  }
-
-  fn clades(newick: &str) -> BTreeSet<BTreeSet<String>> {
-    let t = newick::parse(newick, "t").unwrap();
-    t.internals()
-      .into_iter()
-      .filter(|&n| n != t.root)
-      .map(|n| t.leaves_below(n).into_iter().map(|l| t.name(l).to_owned()).collect())
-      .collect()
   }
 
   #[test]
@@ -904,7 +892,7 @@ mod tests {
       resolve,
       ..Settings::default()
     };
-    let ParsedTrees { mut trees, taxa } = parse_trees(&trees(&[("ha", "(A,B,C,D);"), ("na", T)])).unwrap();
+    let ParsedTrees { mut trees, taxa } = parse_trees(&texts(&[("ha", "(A,B,C,D);"), ("na", T)])).unwrap();
     treeknit_core::run(&mut trees, &taxa, &options(&s, 2, false).unwrap(), s.seed);
     assert_eq!(expected, clades(&newick::write(&trees[0])));
   }
@@ -912,7 +900,7 @@ mod tests {
   #[test]
   fn valid_request_has_no_errors() {
     let r = AnalysisRequest {
-      trees: trees(&[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")]),
+      trees: texts(&[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")]),
       settings: Settings::default(),
     };
     assert_eq!(Vec::<ValidationError>::new(), validate(&r));
@@ -928,8 +916,8 @@ mod tests {
       },
     };
     let expected = vec![
-      error(Field::Trees, "need at least two trees"),
-      error(setting(SettingKey::Rounds), "rounds must be at least 1"),
+      ValidationError::at(Field::Trees, "need at least two trees"),
+      ValidationError::at(setting(SettingKey::Rounds), "rounds must be at least 1"),
     ];
     assert_eq!(expected, validate(&r));
   }
@@ -960,7 +948,7 @@ mod tests {
   #[case::star(           &["ha", "a*b"],              label(1),          "tree label \"a*b\" must not contain any of <>:\"|?*")]
   #[trace]
   fn invalid_labels_are_rejected(#[case] labels: &[&str], #[case] field: Field, #[case] message: &str) {
-    assert_eq!(vec![error(field, message)], check_trees(&labeled(labels)));
+    assert_eq!(vec![ValidationError::at(field, message)], check_trees(&labeled(labels)));
   }
 
   #[rustfmt::skip]
@@ -977,8 +965,8 @@ mod tests {
   #[test]
   fn invalid_label_does_not_hide_pair_name_collisions() {
     let expected = vec![
-      error(label(4), "tree label \"bad/label\" must not contain / or \\"),
-      error(
+      ValidationError::at(label(4), "tree label \"bad/label\" must not contain / or \\"),
+      ValidationError::at(
         Field::Trees,
         "tree pairs (\"a_b\", \"c\") and (\"a\", \"b_c\") give the same output file names (\"a_b_c\"); rename a tree",
       ),
@@ -989,14 +977,14 @@ mod tests {
   #[test]
   fn repeated_label_gives_no_pair_name_error() {
     assert_eq!(
-      vec![error(label(2), "tree label \"ha\" is used twice")],
+      vec![ValidationError::at(label(2), "tree label \"ha\" is used twice")],
       check_trees(&labeled(&["ha", "na", "ha"]))
     );
   }
 
   #[test]
   fn parse_error_has_field_line_and_column() {
-    let errors = check_trees(&trees(&[("ha", T), ("na", "((A,B),\n(C,D)x y);")]));
+    let errors = check_trees(&texts(&[("ha", T), ("na", "((A,B),\n(C,D)x y);")]));
     let expected = vec![ValidationError {
       field: Some(Field::TreeNewick { index: 1 }),
       message: "tree \"na\": Newick parse error: expected ',' or ')' at byte 15".to_owned(),
@@ -1008,7 +996,7 @@ mod tests {
 
   #[test]
   fn parse_error_column_counts_characters() {
-    let errors = check_trees(&trees(&[("ha", T), ("na", "((Ä,B),(C,D)x y);")]));
+    let errors = check_trees(&texts(&[("ha", T), ("na", "((Ä,B),(C,D)x y);")]));
     assert_eq!((Some(1), Some(15)), (errors[0].line, errors[0].column));
   }
 
@@ -1018,7 +1006,7 @@ mod tests {
   #[case::duplicate_leaf( "((A,A),(C,D));", "tree \"na\": Newick parse error: duplicate leaf name \"A\"")]
   #[trace]
   fn parse_error_without_position(#[case] newick: &str, #[case] message: &str) {
-    let errors = check_trees(&trees(&[("ha", T), ("na", newick)]));
+    let errors = check_trees(&texts(&[("ha", T), ("na", newick)]));
     let expected = vec![ValidationError { field: Some(Field::TreeNewick { index: 1 }), message: message.to_owned(), line: None, column: None }];
     assert_eq!(expected, errors);
   }
@@ -1027,7 +1015,7 @@ mod tests {
   fn empty_newick_text_is_a_parse_error_of_its_field() {
     // The command line gives a file that it cannot read an empty text and reports the read error
     // instead of the error of this field.
-    let errors = check_trees(&trees(&[("ha", T), ("na", "")]));
+    let errors = check_trees(&texts(&[("ha", T), ("na", "")]));
     let fields: Vec<Option<Field>> = errors.iter().map(|e| e.field.clone()).collect();
     assert_eq!(vec![Some(Field::TreeNewick { index: 1 })], fields);
   }
@@ -1038,10 +1026,10 @@ mod tests {
   #[case::one_shared("((A,Q),R);")]
   #[trace]
   fn pairs_sharing_fewer_than_two_leaves_are_rejected(#[case] newick: &str) {
-    let errors = check_trees(&trees(&[("ha", T), ("na", T), ("pb2", newick)]));
+    let errors = check_trees(&texts(&[("ha", T), ("na", T), ("pb2", newick)]));
     let expected = vec![
-      error(Field::Trees, "trees \"ha\" and \"pb2\" share fewer than 2 leaves"),
-      error(Field::Trees, "trees \"na\" and \"pb2\" share fewer than 2 leaves"),
+      ValidationError::at(Field::Trees, "trees \"ha\" and \"pb2\" share fewer than 2 leaves"),
+      ValidationError::at(Field::Trees, "trees \"na\" and \"pb2\" share fewer than 2 leaves"),
     ];
     assert_eq!(expected, errors);
   }
@@ -1050,13 +1038,13 @@ mod tests {
   fn pairs_sharing_two_leaves_are_accepted() {
     assert_eq!(
       Vec::<ValidationError>::new(),
-      check_trees(&trees(&[("ha", T), ("na", "((A,B),(P,Q));")]))
+      check_trees(&texts(&[("ha", T), ("na", "((A,B),(P,Q));")]))
     );
   }
 
   #[test]
   fn all_errors_are_reported_together() {
-    let errors = check_trees(&trees(&[("a/b", T), ("na", "(A,B"), ("", T)]));
+    let errors = check_trees(&texts(&[("a/b", T), ("na", "(A,B"), ("", T)]));
     let fields: Vec<Option<Field>> = errors.iter().map(|e| e.field.clone()).collect();
     assert_eq!(
       vec![Some(label(0)), Some(label(2)), Some(Field::TreeNewick { index: 1 })],
@@ -1066,7 +1054,7 @@ mod tests {
 
   #[test]
   fn parse_trees_numbers_leaves_with_one_taxon_table() {
-    let p = parse_trees(&trees(&[("ha", "((A,B),(C,D));"), ("na", "((A,B),(C,P));")])).unwrap();
+    let p = parse_trees(&texts(&[("ha", "((A,B),(C,D));"), ("na", "((A,B),(C,P));")])).unwrap();
     assert_eq!(5, p.taxa.len());
     assert_eq!(
       vec!["ha", "na"],
@@ -1087,7 +1075,7 @@ mod tests {
   #[case::large_seed(     Settings { seed: 1 << 53, ..Settings::default() },                     setting(SettingKey::Seed),       "seed must be at most 9007199254740991, got 9007199254740992")]
   #[trace]
   fn invalid_settings_are_rejected(#[case] s: Settings, #[case] field: Field, #[case] message: &str) {
-    assert_eq!(vec![error(field, message)], check_settings(&s, 2));
+    assert_eq!(vec![ValidationError::at(field, message)], check_settings(&s, 2));
   }
 
   #[rustfmt::skip]
@@ -1118,11 +1106,11 @@ mod tests {
     let text = r#"{"trees": [], "settings": {"nMcmcIt": 4294967296, "rounds": 4294967296}}"#;
     let request = read_session(text).unwrap();
     let expected = vec![
-      error(
+      ValidationError::at(
         setting(SettingKey::Rounds),
         "rounds must be at most 4294967294, got 4294967296",
       ),
-      error(
+      ValidationError::at(
         Field::Setting {
           key: SettingKey::NMcmcIt,
         },
@@ -1135,9 +1123,9 @@ mod tests {
   #[rustfmt::skip]
   #[rstest]
   #[case::largest_rounds(  Settings { rounds: 0xFFFF_FFFE, ..Settings::default() },    vec![])]
-  #[case::too_many_rounds( Settings { rounds: 0xFFFF_FFFF, ..Settings::default() },    vec![error(setting(SettingKey::Rounds), "rounds must be at most 4294967294, got 4294967295")])]
+  #[case::too_many_rounds( Settings { rounds: 0xFFFF_FFFF, ..Settings::default() },    vec![ValidationError::at(setting(SettingKey::Rounds), "rounds must be at most 4294967294, got 4294967295")])]
   #[case::largest_mcmc(    Settings { n_mcmc_it: 0xFFFF_FFFF, ..Settings::default() }, vec![])]
-  #[case::too_many_mcmc(   Settings { n_mcmc_it: 0x1_0000_0000, ..Settings::default() }, vec![error(setting(SettingKey::NMcmcIt), "MCMC steps per leaf must be at most 4294967295, got 4294967296")])]
+  #[case::too_many_mcmc(   Settings { n_mcmc_it: 0x1_0000_0000, ..Settings::default() }, vec![ValidationError::at(setting(SettingKey::NMcmcIt), "MCMC steps per leaf must be at most 4294967295, got 4294967296")])]
   #[trace]
   fn counts_are_checked_at_their_maximum(#[case] s: Settings, #[case] expected: Vec<ValidationError>) {
     let s = Settings { resolve: ResolveMode::Strict, ..s };
@@ -1151,12 +1139,12 @@ mod tests {
       ..Settings::default()
     };
     let expected = vec![
-      error(setting(SettingKey::SeqLengths), "got 3 sequence lengths for 2 trees"),
-      error(
+      ValidationError::at(setting(SettingKey::SeqLengths), "got 3 sequence lengths for 2 trees"),
+      ValidationError::at(
         Field::SeqLength { index: 0 },
         "sequence length 1 must be a positive number, got 0",
       ),
-      error(
+      ValidationError::at(
         Field::SeqLength { index: 1 },
         "sequence length 2 must be a positive number, got -1",
       ),
@@ -1166,7 +1154,7 @@ mod tests {
 
   #[test]
   fn shared_leaf_counts_follow_the_pipeline_pair_order() {
-    let p = parse_trees(&trees(&[
+    let p = parse_trees(&texts(&[
       ("a", "((A,B),(C,D));"),
       ("b", "((A,B),C);"),
       ("c", "((A,D),(C,P));"),
@@ -1185,7 +1173,7 @@ mod tests {
     // Structure only: the broken tree and the negative gamma stay for the user to fix.
     let text = r#"{"trees": [{"label": "ha", "newick": "((A,B"}], "settings": {"gamma": -1}}"#;
     let expected = AnalysisRequest {
-      trees: trees(&[("ha", "((A,B")]),
+      trees: texts(&[("ha", "((A,B")]),
       settings: Settings {
         gamma: -1.0,
         ..Settings::default()
@@ -1209,7 +1197,7 @@ mod tests {
   #[test]
   fn read_session_rejects_a_seed_above_the_javascript_limit() {
     let text = r#"{"trees": [], "settings": {"seed": 9007199254740992}}"#;
-    let expected = vec![error(
+    let expected = vec![ValidationError::at(
       Field::Setting { key: SettingKey::Seed },
       "the seed 9007199254740992 of the session file is above 9007199254740991, the largest integer a JavaScript number holds exactly",
     )];

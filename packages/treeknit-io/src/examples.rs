@@ -174,10 +174,7 @@ impl Example {
       .trees
       .iter()
       .zip(self.labels())
-      .map(|(t, label)| analysis::TreeText {
-        label,
-        newick: t.text.newick().to_owned(),
-      })
+      .map(|(t, label)| analysis::TreeText::new(label, t.text.newick()))
       .collect()
   }
 }

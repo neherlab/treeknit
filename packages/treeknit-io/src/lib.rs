@@ -16,5 +16,7 @@ pub mod progress;
 pub mod run;
 pub mod schema;
 pub mod summary;
+#[cfg(test)]
+mod test_support;
 pub mod version;
 pub mod wire;

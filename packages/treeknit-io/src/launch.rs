@@ -1691,13 +1691,7 @@ mod tests {
 
   fn request(labels: &[&str], settings: Settings) -> AnalysisRequest {
     AnalysisRequest {
-      trees: labels
-        .iter()
-        .map(|l| TreeText {
-          label: (*l).to_owned(),
-          newick: "((A,B),C);".to_owned(),
-        })
-        .collect(),
+      trees: labels.iter().map(|l| TreeText::new(*l, "((A,B),C);")).collect(),
       settings,
     }
   }
@@ -1842,10 +1836,7 @@ mod tests {
     let r = AnalysisRequest {
       trees: ["ha", "na"]
         .iter()
-        .map(|l| TreeText {
-          label: (*l).to_owned(),
-          newick: newick.repeat(20),
-        })
+        .map(|l| TreeText::new(*l, newick.repeat(20)))
         .collect(),
       settings: Settings::default(),
     };
@@ -1940,10 +1931,7 @@ mod tests {
     let r = AnalysisRequest {
       trees: labels
         .into_iter()
-        .map(|label| TreeText {
-          label,
-          newick: "((A %,B),(C,D));".to_owned(),
-        })
+        .map(|label| TreeText::new(label, "((A %,B),(C,D));"))
         .collect(),
       settings: random_settings(rng, k),
     };
@@ -1964,10 +1952,7 @@ mod tests {
           .labels()
           .into_iter()
           .zip(&original.trees)
-          .map(|(label, t)| TreeText {
-            label,
-            newick: t.newick.clone(),
-          })
+          .map(|(label, t)| TreeText::new(label, t.newick.clone()))
           .collect();
         (trees, example_addresses(&id))
       },
@@ -1975,20 +1960,8 @@ mod tests {
         .into_iter()
         .zip(&original.trees)
         .map(|(t, o)| match t.location {
-          LinkLocation::Url { url, .. } => (
-            TreeText {
-              label: t.label,
-              newick: o.newick.clone(),
-            },
-            Some(TreeAddress::Url { url }),
-          ),
-          LinkLocation::Data { text } => (
-            TreeText {
-              label: t.label,
-              newick: text,
-            },
-            Some(TreeAddress::Data),
-          ),
+          LinkLocation::Url { url, .. } => (TreeText::new(t.label, o.newick.clone()), Some(TreeAddress::Url { url })),
+          LinkLocation::Data { text } => (TreeText::new(t.label, text), Some(TreeAddress::Data)),
         })
         .unzip(),
       other => panic!("a written link names an example or trees, got {other:?}"),

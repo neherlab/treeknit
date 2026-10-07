@@ -593,7 +593,7 @@ fn tree_input(args: &[PathBuf], fetch: Fetch<'_>) -> Input {
         read_errors.push((i, e));
         String::new()
       });
-      TreeText { label, newick }
+      TreeText::new(label, newick)
     })
     .collect();
   Input {
@@ -835,10 +835,7 @@ fn link_input(url: &str, fetch: Fetch<'_>) -> Result<Input> {
             read_errors.push((i, read_error(i, e)));
             String::new()
           });
-          TreeText {
-            label: t.label.clone(),
-            newick,
-          }
+          TreeText::new(t.label.clone(), newick)
         })
         .collect();
       let addresses = trees
@@ -1347,10 +1344,7 @@ mod tests {
   fn trees(trees: &[(&str, &str)]) -> Vec<TreeText> {
     trees
       .iter()
-      .map(|(label, newick)| TreeText {
-        label: (*label).to_owned(),
-        newick: (*newick).to_owned(),
-      })
+      .map(|(label, newick)| TreeText::new(*label, *newick))
       .collect()
   }
 
