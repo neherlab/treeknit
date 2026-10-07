@@ -29,8 +29,8 @@ The theory of two trees does not carry over to more trees. For two trees, the mi
 
 [`cross-pair-mcc-consistency.md`](cross-pair-mcc-consistency.md#measured-inconsistency) gives the counts. In summary:
 
-- **Present in simulated and real data**: with the default settings, the triplet condition fails on 3 of the 4 simulated three-tree fixtures. On the four segments of `data/h3n2-2k-4-segments`, it fails in all four triplets with both settings measured
-- **Caused by separate pairs**: the failures are the same for every seed, and on fully resolved trees they are the same for every resolution setting. Each pair is optimized without the MCCs of the other pairs, and that causes them. The randomness of the annealing and the resolution settings do not
+- **Present in simulated and real data**: with the default settings, the triplet condition fails on 3 of the 4 simulated three-tree fixtures for at least one of five seeds. On the four segments of `data/h3n2-2k-4-segments`, it fails in all four triplets with both settings measured
+- **Caused by separate pairs**: on the fully resolved fixture `sim_k3_n50_r0.05`, the failures are the same for every seed and every resolution setting, and most other counts are the same for every seed. Each pair is optimized without the MCCs of the other pairs, and that causes them. The randomness of the annealing and the resolution settings do not
 - **A signal of errors**: on the fully resolved fixture `sim_k3_n50_r0.05`, the pair (tree1, tree2) has one MCC fewer than the true MCCs, and the pair (tree1, tree3) has as many MCCs as the truth but a different partition. The pair (tree2, tree3) equals the truth. Each pair alone is plausible, and the conflict between them marks an error in some pair, which a joint method could use
 
 ## Open questions
