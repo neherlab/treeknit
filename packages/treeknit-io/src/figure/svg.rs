@@ -2,8 +2,10 @@
 //! pixel frame, path data, text width estimate, and legend shared by the figures.
 
 use crate::display::{
-  Bezier, DRAWING_RULES, Leader, Point, coordinate, grapheme_count, label_max_chars, s_curve, shorten,
+  Bezier, ColorRole, DRAWING_RULES, Leader, LegendItem, LegendMark, Point, Stroke, coordinate, grapheme_count,
+  label_max_chars, s_curve, shorten,
 };
+use crate::palette::ThemeColors;
 use quick_xml::Writer;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::borrow::Cow;
@@ -23,7 +25,7 @@ const LEGEND_GAP: f64 = 16.0;
 /// Height of a legend line, in px.
 const LEGEND_LINE: f64 = 20.0;
 /// Width of a legend symbol, in px.
-const SYMBOL_WIDTH: f64 = 24.0;
+const SYMBOL_WIDTH: f64 = DRAWING_RULES.legend_symbol_px;
 /// Space between a legend symbol and its text, in px.
 const SYMBOL_GAP: f64 = 6.0;
 /// Space between two legend entries on a line, in px.
@@ -118,14 +120,6 @@ pub(super) const RIBBON_OPACITY: f64 = DRAWING_RULES.ribbon_opacity;
 /// Dash patterns: dashed branches and reticulations, dotted leaders.
 pub(super) const DASH: [f64; 2] = DRAWING_RULES.dash_px;
 const DOT: [f64; 2] = DRAWING_RULES.dot_px;
-
-/// The position of the ring in a legend symbol, as a fraction of the symbol width: a
-/// reassortment ring at the middle of its branch, an imputed ring at the tip of a leaf branch with
-/// the label gap after it, and a hybrid ring at the end of its reticulation curve. The legend of
-/// the interactive views places the first two alike.
-pub(super) const RING_AT_BRANCH_MIDDLE: f64 = 0.5;
-pub(super) const RING_AT_LEAF_TIP: f64 = 0.75;
-pub(super) const RING_AT_CURVE_END: f64 = 1.0;
 /// Vertical travel of the S-curve of the link symbol across a legend symbol, in px.
 const SYMBOL_CURVE_RISE: f64 = 8.0;
 /// Height of the ribbon symbol, and its vertical travel across a legend symbol, in px. The curve
@@ -657,6 +651,47 @@ impl Rows {
 pub(super) struct LegendEntry {
   pub(super) symbol: Vec<Symbol>,
   pub(super) label: String,
+}
+
+/// The legend `items` of the display data in `colors`: an MCC in the first color slot, and the
+/// links of a tanglegram as ribbons when `ribbons`, else as S-curves.
+pub(super) fn legend_entries(items: &[LegendItem], colors: &ThemeColors<String>, ribbons: bool) -> Vec<LegendEntry> {
+  let color = |role: ColorRole| colors.role(role, Some(0)).clone();
+  let symbol = |mark: &LegendMark| match *mark {
+    LegendMark::Branch {
+      color: role,
+      stroke,
+      dashed,
+    } => Some(Symbol::Line {
+      color: color(role),
+      width: match stroke {
+        Stroke::Branch => BRANCH_WIDTH,
+        Stroke::Reassortment => REASSORTMENT_WIDTH,
+      },
+      dash: dashed.then_some(DASH),
+    }),
+    LegendMark::LinkRibbon { color: role } => ribbons.then(|| Symbol::Ribbon { color: color(role) }),
+    LegendMark::LinkCurve { color: role } => (!ribbons).then(|| Symbol::Curve {
+      color: color(role),
+      dash: None,
+    }),
+    LegendMark::Reticulation { color: role } => Some(Symbol::Curve {
+      color: color(role),
+      dash: Some(DASH),
+    }),
+    LegendMark::Ring { color: role, at } => Some(Symbol::Ring {
+      stroke: color(role),
+      ground: colors.ground.clone(),
+      at,
+    }),
+  };
+  items
+    .iter()
+    .map(|item| LegendEntry {
+      symbol: item.marks.iter().filter_map(symbol).collect(),
+      label: item.label.clone(),
+    })
+    .collect()
 }
 
 /// A part of a legend symbol.

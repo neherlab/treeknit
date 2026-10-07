@@ -1,7 +1,7 @@
 import type { Rgba } from "@neherlab/treeknit-wasm";
 
 import { cssColor } from "../canvas/color";
-import { SYMBOL_HEIGHT_PX, SYMBOL_WIDTH_PX } from "./legendSymbols";
+import { SYMBOL_HEIGHT_PX } from "./legendSymbols";
 
 export type SymbolMark =
   | { kind: "line"; path: string; color: Rgba; widthPx: number; dashPx?: readonly [number, number] }
@@ -13,7 +13,7 @@ export interface LegendEntry {
   marks: readonly SymbolMark[];
 }
 
-export function Legend({ entries }: LegendProps) {
+export function Legend({ entries, symbolWidthPx }: LegendProps) {
   return (
     <section aria-label="Legend" className="border-rule shrink-0 border-b px-3 py-1 text-xs">
       <ul className="flex flex-wrap items-center gap-x-5 gap-y-1">
@@ -21,9 +21,9 @@ export function Legend({ entries }: LegendProps) {
           <li key={label} className="text-ink-muted flex items-center gap-1.5">
             <svg
               aria-hidden
-              width={SYMBOL_WIDTH_PX}
+              width={symbolWidthPx}
               height={SYMBOL_HEIGHT_PX}
-              viewBox={`0 0 ${String(SYMBOL_WIDTH_PX)} ${String(SYMBOL_HEIGHT_PX)}`}
+              viewBox={`0 0 ${String(symbolWidthPx)} ${String(SYMBOL_HEIGHT_PX)}`}
               className="shrink-0 overflow-visible"
             >
               {marks.map((mark, index) => (
@@ -41,6 +41,7 @@ export function Legend({ entries }: LegendProps) {
 
 export interface LegendProps {
   entries: readonly LegendEntry[];
+  symbolWidthPx: number;
 }
 
 function Mark({ mark }: { mark: SymbolMark }) {

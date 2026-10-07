@@ -20,7 +20,7 @@
 //! theme; slots 0 and 5 were changed in the dark theme. Without simulation the smallest
 //! difference is 14.9 (light) and 7.6 (dark).
 
-use crate::display::MCC_SLOTS;
+use crate::display::{ColorRole, MCC_SLOTS};
 use serde::Serialize;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
@@ -67,6 +67,21 @@ pub struct ThemeColors<C> {
 }
 
 impl<C> ThemeColors<C> {
+  /// The color of `role`; for `ColorRole::Mcc`, the color of `slot`, or "no MCC" without one.
+  /// A slot is below `MCC_SLOTS`, so a slot out of range is a broken invariant and panics instead
+  /// of taking the "no MCC" color.
+  pub fn role(&self, role: ColorRole, slot: Option<usize>) -> &C {
+    match role {
+      ColorRole::Mcc => slot.map_or(&self.no_mcc, |s| &self.mcc[s]),
+      ColorRole::NoMcc => &self.no_mcc,
+      ColorRole::Ink => &self.ink,
+      ColorRole::InkMuted => &self.ink_muted,
+      ColorRole::Signal => &self.signal,
+      ColorRole::SegmentA => &self.segment_a,
+      ColorRole::SegmentB => &self.segment_b,
+    }
+  }
+
   /// The colors with `f` applied to each.
   fn map<D>(&self, f: impl Fn(&C) -> D) -> ThemeColors<D> {
     ThemeColors {

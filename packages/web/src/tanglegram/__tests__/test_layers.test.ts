@@ -10,7 +10,7 @@ import { pairEmphasis, UNSELECTED_OPACITY } from "../../drawing/selection";
 import { tanglegramColumns } from "../columns";
 import { PAIR_LAYER } from "../geometry";
 import {
-  branchColor,
+  treeColor,
   labelColor,
   leaderColor,
   linkColor,
@@ -65,19 +65,24 @@ const SLOT_3 = COLORS.mcc[3] ?? COLORS.noMcc;
 
 describe("branch colors", () => {
   test.each([
-    ["a plain branch takes its MCC slot", { mcc: 0, slot: 0 }, "plain", STYLE, SLOT_0],
-    ["a branch without an MCC takes the no-MCC color", { mcc: null, slot: null }, "plain", STYLE, COLORS.noMcc],
+    ["a branch of an MCC takes its slot", { mcc: 0, slot: 0, color: "mcc" }, STYLE, SLOT_0],
+    ["a branch without an MCC takes the no-MCC color", { mcc: null, slot: null, color: "noMcc" }, STYLE, COLORS.noMcc],
     [
-      "a branch with coloring off is ink-muted",
-      { mcc: 0, slot: 0 },
-      "plain",
+      "a branch of an MCC with coloring off is ink-muted",
+      { mcc: 0, slot: 0, color: "mcc" },
       { ...STYLE, colorByMcc: false },
       COLORS.inkMuted,
     ],
-    ["an added branch is ink-muted", { mcc: 0, slot: 0 }, "added", STYLE, COLORS.inkMuted],
-    ["a reassortment branch is signal", { mcc: 1, slot: 3 }, "reassortment", STYLE, COLORS.signal],
-  ] as const)("%s", (_, item, kind, style, color) => {
-    expect(branchColor(item, kind, style)).toStrictEqual(color);
+    [
+      "a branch without an MCC with coloring off is ink-muted",
+      { mcc: null, slot: null, color: "noMcc" },
+      { ...STYLE, colorByMcc: false },
+      COLORS.inkMuted,
+    ],
+    ["an added branch is ink-muted", { mcc: 0, slot: 0, color: "inkMuted" }, STYLE, COLORS.inkMuted],
+    ["a reassortment branch is signal", { mcc: 1, slot: 3, color: "signal" }, STYLE, COLORS.signal],
+  ] as const)("%s", (_, item, style, color) => {
+    expect(treeColor(item, style)).toStrictEqual(color);
   });
 });
 
@@ -88,7 +93,7 @@ describe("selection opacity", () => {
     expect({
       selectedLink: linkColor({ mcc: 1, slot: 3 }, selected),
       otherLink: linkColor({ mcc: 0, slot: 0 }, selected),
-      otherBranch: branchColor({ mcc: 0, slot: 0 }, "plain", selected),
+      otherBranch: treeColor({ mcc: 0, slot: 0, color: "mcc" }, selected),
       otherLabel: labelColor(0, selected),
       unassignedLabel: labelColor(null, selected),
     }).toStrictEqual({

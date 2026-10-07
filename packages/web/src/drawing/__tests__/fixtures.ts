@@ -2,12 +2,15 @@ import type {
   ArgView,
   Bezier,
   Block,
+  ColorRole,
   ConstellationTable,
   DrawingRules,
   DrawNode,
   DrawTree,
   Elbow,
   Leader,
+  LegendItem,
+  LegendMark,
   Mark,
   PairView,
   Point,
@@ -105,6 +108,7 @@ export function examplePairView(): PairView {
       },
     ],
     scale: "div",
+    legend: examplePairLegend(),
     // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated PairView type
     shapes: {
       left: treeDrawing(left, slotOf),
@@ -131,6 +135,7 @@ export function exampleDrawingRules(): DrawingRules {
     linkMinRowPx: 6,
     labelMaxChars: 40,
     labelFontPx: 12,
+    legendSymbolPx: 24,
     marginPx: 16,
     labelGapPx: 6,
     linkZoneShare: 0.2,
@@ -191,16 +196,66 @@ export function exampleArgView(): ArgView {
         edge,
         segments,
         reticulation,
+        color: segmentRole(segments),
         path: reticulation
           ? { kind: "curve", curve: sCurve(point(parent), point(child)) }
           : { kind: "elbow", points: [point(parent), [point(parent)[0], point(child)[1]], point(child)] },
       })),
-      marks: [{ kind: "hybrid", node: 4, mcc: null, slot: null, at: point(4) }],
+      marks: [{ kind: "hybrid", node: 4, mcc: null, slot: null, at: point(4), color: "signal" }],
       leaders: nodes.flatMap((node, index): Leader[] =>
         node.leaf ? [{ node: index, from: point(index), to: [1, node.y] }] : [],
       ),
     },
+    legend: [
+      { kind: "segmentA", label: "Segment ha", marks: [branchMark("segmentA")] },
+      { kind: "segmentB", label: "Segment na", marks: [branchMark("segmentB")] },
+      { kind: "bothSegments", label: "Both segments", marks: [branchMark("ink")] },
+      {
+        kind: "reassortment",
+        label: "Reassortment",
+        marks: [
+          { kind: "reticulation", color: "segmentB" },
+          { kind: "ring", color: "signal", at: 1 },
+        ],
+      },
+    ],
   };
+}
+
+export function examplePairLegend(): LegendItem[] {
+  return [
+    {
+      kind: "reassortmentBranch",
+      label: "Reassortment branch",
+      marks: [
+        { kind: "branch", color: "signal", stroke: "reassortment", dashed: false },
+        { kind: "ring", color: "signal", at: 0.5 },
+      ],
+    },
+    {
+      kind: "addedNode",
+      label: "Node added by resolution or imputation",
+      marks: [{ kind: "branch", color: "inkMuted", stroke: "branch", dashed: false }],
+    },
+    {
+      kind: "imputedLeaf",
+      label: "Imputed leaf",
+      marks: [branchMark("mcc"), { kind: "ring", color: "mcc", at: 0.75 }],
+    },
+    {
+      kind: "links",
+      label: "Leaves of one MCC",
+      marks: [
+        { kind: "linkRibbon", color: "mcc" },
+        { kind: "linkCurve", color: "mcc" },
+      ],
+    },
+    { kind: "noMcc", label: "No MCC", marks: [branchMark("noMcc")] },
+  ];
+}
+
+function branchMark(color: ColorRole): LegendMark {
+  return { kind: "branch", color, stroke: "branch", dashed: false };
 }
 
 export function exampleConstellation(): ConstellationTable {
@@ -267,20 +322,31 @@ function treeDrawing(tree: DrawTree, slotOf: (mcc: number) => number) {
             slot: node.mcc === null ? null : slotOf(node.mcc),
             mccBreak: node.mccBreak,
             added: node.added,
+            color: node.mccBreak ? "signal" : slotRole(node.mcc),
           },
         ];
   });
 
   const marks = tree.nodes.flatMap((node, index): Mark[] => {
     const parent = node.parent === null ? undefined : tree.nodes[node.parent];
-    const color = { mcc: node.mcc, slot: node.mcc === null ? null : slotOf(node.mcc) };
+    const slotted = { mcc: node.mcc, slot: node.mcc === null ? null : slotOf(node.mcc) };
 
     const reassortment: Mark[] =
       node.mccBreak && parent !== undefined
-        ? [{ kind: "reassortment", node: index, ...color, at: [(parent.xDiv + node.xDiv) / 2, node.y] }]
+        ? [
+            {
+              kind: "reassortment",
+              node: index,
+              ...slotted,
+              at: [(parent.xDiv + node.xDiv) / 2, node.y],
+              color: "signal",
+            },
+          ]
         : [];
 
-    const imputed: Mark[] = node.imputed ? [{ kind: "imputed", node: index, ...color, at: [node.xDiv, node.y] }] : [];
+    const imputed: Mark[] = node.imputed
+      ? [{ kind: "imputed", node: index, ...slotted, at: [node.xDiv, node.y], color: slotRole(node.mcc) }]
+      : [];
 
     return [...reassortment, ...imputed];
   });
@@ -290,6 +356,18 @@ function treeDrawing(tree: DrawTree, slotOf: (mcc: number) => number) {
   );
 
   return { elbows, marks, leaders };
+}
+
+function slotRole(mcc: number | null): ColorRole {
+  return mcc === null ? "noMcc" : "mcc";
+}
+
+function segmentRole(segments: readonly number[]): ColorRole {
+  if (segments.length === 1 && segments[0] === 0) {
+    return "segmentA";
+  }
+
+  return segments.length === 1 && segments[0] === 1 ? "segmentB" : "ink";
 }
 
 function ribbonOutline([leftFirst, leftLast]: [number, number], [rightFirst, rightLast]: [number, number]): Bezier[] {

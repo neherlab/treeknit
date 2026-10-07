@@ -1,13 +1,18 @@
+import type { LegendItem } from "@neherlab/treeknit-wasm";
 import { useMemo } from "react";
 
 import { Legend } from "../drawing/Legend";
-import { type LegendStyle, tanglegramLegend } from "./legend";
+import { legendEntries, type LegendStyle } from "../drawing/legendMarks";
 
-export function TanglegramLegend({ colors, rules, colorByMcc, ribbons }: LegendStyle) {
+export function TanglegramLegend({ items, colors, rules, colorByMcc, ribbons }: TanglegramLegendProps) {
   const entries = useMemo(
-    () => tanglegramLegend({ colors, rules, colorByMcc, ribbons }),
-    [colors, rules, colorByMcc, ribbons],
+    () => legendEntries(items, { colors, rules, colorByMcc, ribbons }),
+    [items, colors, rules, colorByMcc, ribbons],
   );
 
-  return <Legend entries={entries} />;
+  return <Legend entries={entries} symbolWidthPx={rules.legendSymbolPx} />;
+}
+
+export interface TanglegramLegendProps extends LegendStyle {
+  items: readonly LegendItem[];
 }

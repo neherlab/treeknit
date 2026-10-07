@@ -2,7 +2,7 @@ import type { LayersList } from "@deck.gl/core";
 import type { DrawingRules, Rgba } from "@neherlab/treeknit-wasm";
 
 import { withOpacity } from "../canvas/color";
-import { type DrawingColors, mccColor } from "../canvas/drawingColors";
+import { type DrawingColors, mccColor, roleColorByMcc } from "../canvas/drawingColors";
 import { fillLayer } from "../canvas/layers/fillLayer";
 import { labelLayer } from "../canvas/layers/labelLayer";
 import { leaderLayer } from "../canvas/layers/leaderLayer";
@@ -11,10 +11,6 @@ import { emphasisOpacity, type PairEmphasis } from "../drawing/selection";
 import { type BranchItem, type LinkItem, type MarkItem, PAIR_LAYER, type TanglegramGeometry } from "./geometry";
 
 const SELECTED_LINK_WIDTH_PX = 2.5;
-
-export type BranchKind = "plain" | "added" | "reassortment";
-
-export type MarkKind = "imputed" | "reassortment";
 
 export interface PairStyle {
   colors: DrawingColors;
@@ -33,10 +29,11 @@ export function ribbonsShown(rowPx: number, rules: DrawingRules): boolean {
   return rowPx < rules.linkMinRowPx;
 }
 
-export function branchColor(item: Pick<BranchItem, "mcc" | "slot">, kind: BranchKind, style: ColorStyle): Rgba {
-  const base = baseBranchColor(item.slot, kind, style);
-
-  return withOpacity(base, emphasisOpacity(item.mcc, style.emphasis.mcc));
+export function treeColor(item: Pick<BranchItem | MarkItem, "mcc" | "slot" | "color">, style: ColorStyle): Rgba {
+  return withOpacity(
+    roleColorByMcc(style.colors, item.color, item.slot, style.colorByMcc),
+    emphasisOpacity(item.mcc, style.emphasis.mcc),
+  );
 }
 
 export function linkColor(item: Pick<LinkItem, "mcc" | "slot">, style: ColorStyle): Rgba {
@@ -48,12 +45,6 @@ export function ribbonColor(item: Pick<LinkItem, "mcc" | "slot">, style: ColorSt
     mccColor(style.colors, item.slot),
     style.rules.ribbonOpacity * emphasisOpacity(item.mcc, style.emphasis.mcc),
   );
-}
-
-export function markColor(item: Pick<MarkItem, "mcc" | "slot">, kind: MarkKind, style: ColorStyle): Rgba {
-  const base = kind === "reassortment" ? style.colors.signal : baseBranchColor(item.slot, "plain", style);
-
-  return withOpacity(base, emphasisOpacity(item.mcc, style.emphasis.mcc));
 }
 
 export function labelColor(mcc: number | null, style: ColorStyle): Rgba {
@@ -78,7 +69,7 @@ export function selectionPositions(geometry: TanglegramGeometry, emphasis: PairE
 export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle): LayersList {
   const { colors, rules, emphasis } = style;
   const triggers = [colors, style.colorByMcc, emphasis.mcc];
-  const branch = (kind: BranchKind) => (item: BranchItem) => branchColor(item, kind, style);
+  const branch = (item: BranchItem) => treeColor(item, style);
   const selectedLink = geometry.links.find((item) => item.link === emphasis.leaf.link);
 
   return [
@@ -107,7 +98,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       id: PAIR_LAYER.plainBranches,
       data: geometry.branches.plain,
       getPath: (item) => item.path,
-      getColor: branch("plain"),
+      getColor: branch,
       colors,
       widthPx: rules.branchWidthPx,
       colorTriggers: triggers,
@@ -116,7 +107,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       id: PAIR_LAYER.addedBranches,
       data: geometry.branches.added,
       getPath: (item) => item.path,
-      getColor: branch("added"),
+      getColor: branch,
       colors,
       widthPx: rules.branchWidthPx,
       colorTriggers: triggers,
@@ -125,7 +116,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       id: PAIR_LAYER.reassortmentBranches,
       data: geometry.branches.reassortment,
       getPath: (item) => item.path,
-      getColor: branch("reassortment"),
+      getColor: branch,
       colors,
       widthPx: rules.reassortmentWidthPx,
       colorTriggers: triggers,
@@ -143,7 +134,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       id: PAIR_LAYER.imputedMarks,
       data: geometry.marks.imputed,
       getPosition: (item) => item.position,
-      getLineColor: (item) => markColor(item, "imputed", style),
+      getLineColor: (item) => treeColor(item, style),
       colors,
       rules,
       colorTriggers: triggers,
@@ -152,7 +143,7 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
       id: PAIR_LAYER.reassortmentMarks,
       data: geometry.marks.reassortment,
       getPosition: (item) => item.position,
-      getLineColor: (item) => markColor(item, "reassortment", style),
+      getLineColor: (item) => treeColor(item, style),
       colors,
       rules,
       colorTriggers: triggers,
@@ -195,12 +186,4 @@ export function tanglegramLayers(geometry: TanglegramGeometry, style: PairStyle)
     }),
     selectionLayer("selection", selectionPositions(geometry, emphasis), colors),
   ];
-}
-
-function baseBranchColor(slot: number | null, kind: BranchKind, style: ColorStyle): Rgba {
-  if (kind === "reassortment") {
-    return style.colors.signal;
-  }
-
-  return kind === "plain" && style.colorByMcc ? mccColor(style.colors, slot) : style.colors.inkMuted;
 }

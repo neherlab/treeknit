@@ -704,7 +704,7 @@ mod tests {
     assert_eq!(4, view["shapes"]["ribbons"][0]["outline"].as_array().unwrap().len());
     let elbow = &view["shapes"]["left"]["elbows"][0];
     assert_eq!(
-      json!(["node", "points", "mcc", "slot", "mccBreak", "added"]),
+      json!(["node", "points", "mcc", "slot", "mccBreak", "added", "color"]),
       json!(keys(elbow))
     );
     assert_eq!(json!("reassortment"), view["shapes"]["left"]["marks"][0]["kind"]);
@@ -971,7 +971,7 @@ mod tests {
   #[wasm_bindgen_test]
   fn drawing_rules_are_plain() {
     let expected = json!({
-      "labelAutoMinRowPx": 10, "linkMinRowPx": 6, "labelMaxChars": 40, "labelFontPx": 12, "marginPx": 16, "labelGapPx": 6,
+      "labelAutoMinRowPx": 10, "linkMinRowPx": 6, "labelMaxChars": 40, "labelFontPx": 12, "legendSymbolPx": 24, "marginPx": 16, "labelGapPx": 6,
       "linkZoneShare": 0.2, "linkZoneMinShare": 0.15, "tanglegramLabelColumnMaxShare": 0.25,
       "argLabelColumnMaxShare": 0.25, "branchWidthPx": 1.5, "reassortmentWidthPx": 2, "linkWidthPx": 1,
       "leaderWidthPx": 1, "leaderOpacity": 0.5, "markRadiusPx": 3.5, "markLinePx": 1.5, "ribbonOpacity": 0.55,

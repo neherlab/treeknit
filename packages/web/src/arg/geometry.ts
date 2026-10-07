@@ -1,4 +1,4 @@
-import type { ArgView, DrawingRules, EdgePath } from "@neherlab/treeknit-wasm";
+import type { ArgView, ColorRole, DrawingRules, EdgePath } from "@neherlab/treeknit-wasm";
 
 import {
   type Column,
@@ -16,7 +16,7 @@ import { argNodePoints } from "../drawing/trees";
 
 export interface EdgeItem {
   edge: number;
-  segments: readonly number[];
+  color: ColorRole;
   path: WorldPosition[];
 }
 
@@ -88,9 +88,9 @@ export function argFrame(view: ArgView, column: Column, leafAxis: LeafAxis): Omi
 }
 
 export function argCurves(view: ArgView, column: Column, leafAxis: LeafAxis, curveRowPx: number): ArgCurves {
-  const item = ({ edge, segments, path }: DrawnEdge): EdgeItem => ({
+  const item = ({ edge, color, path }: DrawnEdge): EdgeItem => ({
     edge,
-    segments,
+    color,
     path: projectPath(edgePoints(path, column, curveRowPx), column, leafAxis),
   });
 

@@ -1,11 +1,10 @@
 //! The SVG tanglegram of a pair: the columns of the drawing rules, then the shapes of the pair
 //! view mapped to px.
 
-use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes};
+use crate::display::{ColorRole, DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes};
 use crate::figure::svg::{
-  BRANCH_WIDTH, Column, LABEL_GAP, LINK_WIDTH, LabelColumn, LegendEntry, Path, REASSORTMENT_WIDTH, RIBBON_OPACITY,
-  RING_AT_BRANCH_MIDDLE, RING_AT_LEAF_TIP, Rows, Svg, Symbol, drawing_top, figure,
-  label_column, num,
+  BRANCH_WIDTH, Column, LABEL_GAP, LINK_WIDTH, LabelColumn, Path, REASSORTMENT_WIDTH, RIBBON_OPACITY, Rows, Svg,
+  drawing_top, figure, label_column, legend_entries, num,
 };
 use crate::figure::{FigureOptions, labels_shown};
 use crate::palette::{ThemeColors, palette};
@@ -15,7 +14,7 @@ pub(super) fn draw(view: &PairView, options: &FigureOptions) -> String {
   let colors = palette().light;
   let layout = Layout::new(view, options);
   let title = format!("{} and {}", view.left.label, view.right.label);
-  let legend = legend(view, &layout, &colors);
+  let legend = legend_entries(&view.legend, &colors, layout.ribbons);
   let mut svg = figure(
     &title,
     layout.rows_count,
@@ -118,7 +117,7 @@ fn ribbons(svg: &mut Svg, view: &PairView, layout: &Layout, colors: &ThemeColors
         if i == 0 { d.curve(&c) } else { d.curve_to(&c) }
       })
       .close();
-    svg.path(&d, &[("fill", slot_color(colors, Some(ribbon.slot)))]);
+    svg.path(&d, &[("fill", colors.role(ColorRole::Mcc, Some(ribbon.slot)).clone())]);
   }
   svg.close("g");
 }
@@ -127,7 +126,7 @@ fn links(svg: &mut Svg, view: &PairView, layout: &Layout, colors: &ThemeColors<S
   svg.open("g", &[("fill", "none".to_owned()), ("stroke-width", num(LINK_WIDTH))]);
   for link in &view.shapes.links {
     let d = Path::new().curve(&layout.rows.bezier(layout.links, &link.curve));
-    svg.path(&d, &[("stroke", slot_color(colors, Some(link.slot)))]);
+    svg.path(&d, &[("stroke", colors.role(ColorRole::Mcc, Some(link.slot)).clone())]);
   }
   svg.close("g");
 }
@@ -149,10 +148,12 @@ struct TreeDrawing<'a> {
 }
 
 impl TreeDrawing<'_> {
-  /// The elbows: in the color of their MCC, the part across of an added node in ink-muted,
-  /// and signal and wider for reassortment branches, drawn last so they stay on top.
+  /// The elbows in their colors: plain ones, then the part across of added nodes in ink-muted
+  /// (their part along the parent's x is drawn like a plain branch), then the wider reassortment
+  /// branches, drawn last so they stay on top.
   fn branches(&self, svg: &mut Svg) {
     svg.open("g", &[("fill", "none".to_owned()), ("stroke-width", num(BRANCH_WIDTH))]);
+    let stroke = |e: &Elbow| ("stroke", self.colors.role(e.color, e.slot).clone());
     let added = |e: &&Elbow| !e.mcc_break && e.added;
     for elbow in self.shapes.elbows.iter().filter(|e| !e.mcc_break) {
       let path = if elbow.added {
@@ -160,21 +161,18 @@ impl TreeDrawing<'_> {
       } else {
         self.rows.elbow(self.column, &elbow.points)
       };
-      svg.path(&path, &[("stroke", slot_color(self.colors, elbow.slot))]);
+      svg.path(&path, &[stroke(elbow)]);
     }
     for elbow in self.shapes.elbows.iter().filter(added) {
       svg.path(
         &self.rows.elbow_across(self.column, &elbow.points),
-        &[("stroke", self.colors.ink_muted.clone())],
+        &[("stroke", self.colors.role(ColorRole::InkMuted, elbow.slot).clone())],
       );
     }
     for elbow in self.shapes.elbows.iter().filter(|e| e.mcc_break) {
       svg.path(
         &self.rows.elbow(self.column, &elbow.points),
-        &[
-          ("stroke", self.colors.signal.clone()),
-          ("stroke-width", num(REASSORTMENT_WIDTH)),
-        ],
+        &[stroke(elbow), ("stroke-width", num(REASSORTMENT_WIDTH))],
       );
     }
     svg.close("g");
@@ -185,12 +183,8 @@ impl TreeDrawing<'_> {
   fn marks(&self, svg: &mut Svg) {
     for kind in [MarkKind::Imputed, MarkKind::Reassortment] {
       for mark in self.shapes.marks.iter().filter(|m| m.kind == kind) {
-        let stroke = if kind == MarkKind::Reassortment {
-          self.colors.signal.clone()
-        } else {
-          slot_color(self.colors, mark.slot)
-        };
-        svg.ring(self.rows.point(self.column, mark.at), &stroke, &self.colors.ground);
+        let stroke = self.colors.role(mark.color, mark.slot);
+        svg.ring(self.rows.point(self.column, mark.at), stroke, &self.colors.ground);
       }
     }
   }
@@ -205,70 +199,4 @@ impl TreeDrawing<'_> {
     let labels = self.tree.leaves().map(|n| (n.name.as_str(), n.y));
     svg.labels(labels, self.rows, column, x, Some(anchor), &self.colors.ink);
   }
-}
-
-/// The legend: the symbols that the drawing contains.
-fn legend(view: &PairView, layout: &Layout, colors: &ThemeColors<String>) -> Vec<LegendEntry> {
-  let elbows = || view.shapes.left.elbows.iter().chain(&view.shapes.right.elbows);
-  let marks = || view.shapes.left.marks.iter().chain(&view.shapes.right.marks);
-  let ring = |stroke: &str, at: f64| Symbol::Ring {
-    stroke: stroke.to_owned(),
-    ground: colors.ground.clone(),
-    at,
-  };
-  let line = |color: &str, width: f64, dash: Option<[f64; 2]>| Symbol::Line {
-    color: color.to_owned(),
-    width,
-    dash,
-  };
-  let mcc_color = slot_color(colors, Some(0));
-  let mut entries = Vec::new();
-  if elbows().any(|e| e.mcc_break) {
-    entries.push(LegendEntry {
-      symbol: vec![
-        line(&colors.signal, REASSORTMENT_WIDTH, None),
-        ring(&colors.signal, RING_AT_BRANCH_MIDDLE),
-      ],
-      label: "Reassortment branch".to_owned(),
-    });
-  }
-  if elbows().any(|e| e.added && !e.mcc_break) {
-    entries.push(LegendEntry {
-      symbol: vec![line(&colors.ink_muted, BRANCH_WIDTH, None)],
-      label: "Node added by resolution or imputation".to_owned(),
-    });
-  }
-  if marks().any(|m| m.kind == MarkKind::Imputed) {
-    entries.push(LegendEntry {
-      symbol: vec![line(&mcc_color, BRANCH_WIDTH, None), ring(&mcc_color, RING_AT_LEAF_TIP)],
-      label: "Imputed leaf".to_owned(),
-    });
-  }
-  if !view.links.is_empty() {
-    let symbol = if layout.ribbons {
-      Symbol::Ribbon { color: mcc_color }
-    } else {
-      Symbol::Curve {
-        color: mcc_color,
-        dash: None,
-      }
-    };
-    entries.push(LegendEntry {
-      symbol: vec![symbol],
-      label: "Leaves of one MCC".to_owned(),
-    });
-  }
-  if elbows().any(|e| e.slot.is_none() && !e.mcc_break) {
-    entries.push(LegendEntry {
-      symbol: vec![line(&colors.no_mcc, BRANCH_WIDTH, None)],
-      label: "No MCC".to_owned(),
-    });
-  }
-  entries
-}
-
-/// The color of MCC slot `slot`, or the "no MCC" color for `None`. A slot is below `MCC_SLOTS`,
-/// so a slot out of range is a broken invariant and panics instead of taking the "no MCC" color.
-fn slot_color(colors: &ThemeColors<String>, slot: Option<usize>) -> String {
-  slot.map_or(&colors.no_mcc, |s| &colors.mcc[s]).clone()
 }

@@ -1,7 +1,5 @@
-import type { Rgba } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
-import type { DrawingColors } from "../../canvas/drawingColors";
 import { columnPixel } from "../../canvas/projection";
 import {
   exampleArgView,
@@ -11,8 +9,7 @@ import {
 } from "../../drawing/__tests__/fixtures";
 import { argEmphasis } from "../../drawing/selection";
 import { ARG_LAYER, argColumn, argTargetAt } from "../geometry";
-import { argEdgeColor, argSelectionPositions } from "../layers";
-import { argLegend } from "../legend";
+import { argSelectionPositions } from "../layers";
 import { ARG_MISSING, argFailure } from "../outcome";
 import { argTargetRows } from "../picking";
 import { argGeometry } from "./geometry";
@@ -24,22 +21,6 @@ const RULES = exampleDrawingRules();
 const COLUMN = argColumn(1000, 100, RULES);
 
 const GEOMETRY = argGeometry(VIEW, COLUMN, "y", 64);
-
-const SEGMENT_COLORS: Pick<DrawingColors, "segmentA" | "segmentB" | "ink"> = {
-  segmentA: [62, 106, 138, 255],
-  segmentB: [138, 106, 62, 255],
-  ink: [31, 43, 48, 255],
-};
-
-describe("argEdgeColor", () => {
-  test.each([
-    ["segment A only", [0], SEGMENT_COLORS.segmentA],
-    ["segment B only", [1], SEGMENT_COLORS.segmentB],
-    ["both segments", [0, 1], SEGMENT_COLORS.ink],
-  ] as const)("an edge of %s takes its color", (_, segments, color) => {
-    expect(argEdgeColor(segments, SEGMENT_COLORS)).toStrictEqual(color);
-  });
-});
 
 describe("argGeometry", () => {
   test("separates the dashed reticulation edges from the elbows", () => {
@@ -93,34 +74,6 @@ describe("argGeometry labels", () => {
       LONG_LEAF_SHORT_NAME,
       "C",
     ]);
-  });
-});
-
-describe("argLegend", () => {
-  test("draws reassortment as dashed edges in their segment colors into a signal ring", () => {
-    const signal: Rgba = [176, 38, 94, 255];
-    const { ink } = SEGMENT_COLORS;
-
-    const colors: DrawingColors = {
-      ...SEGMENT_COLORS,
-      signal,
-      ground: SEGMENT_COLORS.ink,
-      inkMuted: SEGMENT_COLORS.ink,
-      focus: SEGMENT_COLORS.ink,
-      mcc: [ink, ink, ink, ink, ink, ink, ink, ink],
-      noMcc: ink,
-    };
-
-    const legend = argLegend(colors, RULES, ["ha", "na"]);
-
-    expect({ labels: legend.map(({ label }) => label), reassortment: legend.at(-1)?.marks }).toMatchObject({
-      labels: ["Segment ha", "Segment na", "Both segments", "Reassortment"],
-      reassortment: [
-        { kind: "line", color: SEGMENT_COLORS.segmentA, dashPx: [4, 3] },
-        { kind: "line", color: SEGMENT_COLORS.segmentB, dashPx: [4, 3] },
-        { kind: "ring", color: signal },
-      ],
-    });
   });
 });
 

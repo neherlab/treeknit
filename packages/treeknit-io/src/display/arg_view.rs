@@ -2,10 +2,12 @@
 
 use crate::display::coordinate;
 use crate::display::label_max_chars;
+use crate::display::legend::arg_legend;
 use crate::display::names::{shorten, unique_labels};
 use crate::display::shapes::arg_shapes;
 use crate::display::tree::add_length;
 use crate::display::{ArgEdge, ArgNodeView, ArgView, RootCase, Scale};
+use crate::output::segment_labels;
 use crate::run::RunResult;
 use std::collections::{BTreeMap, VecDeque};
 use treeknit_core::arg::{Anc, Arg};
@@ -17,10 +19,12 @@ const GLOBAL_ROOT: &str = "GlobalRoot";
 /// the ARG has no branch lengths (`ArgView.scale`); `None` when the run built no ARG (more
 /// than two trees, or a failed construction).
 pub fn arg_view(run: &RunResult, scale: Scale) -> Option<ArgView> {
-  run.built_arg().map(|arg| layout(arg, scale))
+  let segments = segment_labels(run)?;
+  run.built_arg().map(|arg| layout(arg, scale, segments))
 }
 
-fn layout(arg: &Arg, scale: Scale) -> ArgView {
+/// The view of `arg` for `scale`, whose segments are the trees labeled `segments`.
+fn layout(arg: &Arg, scale: Scale, segments: [&str; 2]) -> ArgView {
   let (root_case, root) = top_root(arg);
   let g = Graph::new(arg, root_case);
   let order = topological_order(&g.parents, &g.children);
@@ -75,6 +79,7 @@ fn layout(arg: &Arg, scale: Scale) -> ArgView {
     root,
     root_case,
     scale,
+    legend: arg_legend(&shapes, segments),
     shapes,
   }
 }

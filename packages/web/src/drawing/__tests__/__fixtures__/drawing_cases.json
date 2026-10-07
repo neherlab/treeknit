@@ -4,6 +4,7 @@
     "linkMinRowPx": 6,
     "labelMaxChars": 40,
     "labelFontPx": 12.0,
+    "legendSymbolPx": 24.0,
     "marginPx": 16.0,
     "labelGapPx": 6.0,
     "linkZoneShare": 0.2,

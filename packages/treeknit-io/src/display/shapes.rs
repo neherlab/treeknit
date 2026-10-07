@@ -2,8 +2,8 @@
 //! shape, y in leaf rows. The SVG figures and the interactive views draw only these shapes.
 
 use crate::display::{
-  ArgEdge, ArgEdgeShape, ArgNodeView, ArgShapes, Bezier, Block, DrawTree, EdgePath, Elbow, Leader, Link, LinkCurve,
-  Mark, MarkKind, PairShapes, Point, Ribbon, Scale, TreeShapes,
+  ArgEdge, ArgEdgeShape, ArgNodeView, ArgShapes, Bezier, Block, ColorRole, DrawTree, EdgePath, Elbow, Leader, Link,
+  LinkCurve, Mark, MarkKind, PairShapes, Point, Ribbon, Scale, TreeShapes,
 };
 
 /// Half a leaf row: a ribbon extends each y range of its block by this much.
@@ -58,6 +58,11 @@ fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
   for (i, node) in tree.nodes.iter().enumerate() {
     let at = [x[i], node.y];
     let slot = node.mcc.map(|m| slots[m]);
+    let slot_color = if slot.is_some() {
+      ColorRole::Mcc
+    } else {
+      ColorRole::NoMcc
+    };
     if node.leaf {
       leaders.push(leader(i, at));
     }
@@ -70,6 +75,7 @@ fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
         slot,
         mcc_break: node.mcc_break,
         added: node.added,
+        color: if node.mcc_break { ColorRole::Signal } else { slot_color },
       });
       if node.mcc_break {
         marks.push(Mark {
@@ -78,6 +84,7 @@ fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
           mcc: node.mcc,
           slot,
           at: [f64::midpoint(from[0], at[0]), at[1]],
+          color: ColorRole::Signal,
         });
       }
     }
@@ -88,6 +95,7 @@ fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
         mcc: node.mcc,
         slot,
         at,
+        color: slot_color,
       });
     }
   }
@@ -107,6 +115,11 @@ pub(super) fn arg_shapes(nodes: &[ArgNodeView], edges: &[ArgEdge], scale: Scale)
         edge: i,
         segments: e.segments.clone(),
         reticulation: e.reticulation,
+        color: match e.segments.as_slice() {
+          [0] => ColorRole::SegmentA,
+          [1] => ColorRole::SegmentB,
+          _ => ColorRole::Ink,
+        },
         path: if e.reticulation {
           EdgePath::Curve {
             curve: s_curve(point(e.parent), point(e.child)),
@@ -128,6 +141,7 @@ pub(super) fn arg_shapes(nodes: &[ArgNodeView], edges: &[ArgEdge], scale: Scale)
         mcc: None,
         slot: None,
         at: point(i),
+        color: ColorRole::Signal,
       })
       .collect(),
     leaders: nodes
@@ -307,6 +321,7 @@ mod tests {
         mcc: Some(0),
         slot: Some(0),
         at: [0.5, 1.0],
+        color: ColorRole::Signal,
       },
       Mark {
         kind: MarkKind::Imputed,
@@ -314,10 +329,15 @@ mod tests {
         mcc: Some(0),
         slot: Some(0),
         at: [1.0, 1.0],
+        color: ColorRole::Mcc,
       },
     ];
     assert_eq!(expected, shapes.marks);
-    assert!(shapes.elbows[1].mcc_break && shapes.elbows[1].added);
+    let elbow = &shapes.elbows[1];
+    assert_eq!(
+      (true, true, ColorRole::Signal),
+      (elbow.mcc_break, elbow.added, elbow.color)
+    );
   }
 
   /// A tree of `(parent, x_div, added)` per node in preorder, at y 0, 1, 2, ...; a node

@@ -1,6 +1,7 @@
 //! The tanglegram of a pair: both trees sorted for the pair, links, blocks, and MCCs.
 
 use crate::display::lengths::mean_lengths;
+use crate::display::legend::pair_legend;
 use crate::display::shapes::pair_shapes;
 use crate::display::slots::{block_neighbors, color_slots};
 use crate::display::tree::draw_tree;
@@ -40,6 +41,7 @@ pub fn pair_view(run: &RunResult, pair: usize, version: TreeVersion, scale: Scal
     blocks: layout.blocks,
     mccs,
     scale,
+    legend: pair_legend(&shapes),
     shapes,
   })
 }

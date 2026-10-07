@@ -1,7 +1,7 @@
 import type { LayersList } from "@deck.gl/core";
-import type { DrawingRules, Rgba } from "@neherlab/treeknit-wasm";
+import type { DrawingRules } from "@neherlab/treeknit-wasm";
 
-import type { DrawingColors } from "../canvas/drawingColors";
+import { type DrawingColors, roleColor } from "../canvas/drawingColors";
 import { labelLayer } from "../canvas/layers/labelLayer";
 import { leaderLayer } from "../canvas/layers/leaderLayer";
 import { branchLayer, ringLayer, selectionLayer } from "../canvas/layers/treeLayers";
@@ -14,17 +14,6 @@ export interface ArgStyle {
   emphasis: ArgEmphasis;
   labels: boolean;
   fontReady: boolean;
-}
-
-export function argEdgeColor(
-  segments: readonly number[],
-  colors: Pick<DrawingColors, "segmentA" | "segmentB" | "ink">,
-): Rgba {
-  if (segments.length === 1 && segments[0] === 0) {
-    return colors.segmentA;
-  }
-
-  return segments.length === 1 && segments[0] === 1 ? colors.segmentB : colors.ink;
 }
 
 export function argSelectionPositions(geometry: ArgGeometry, emphasis: ArgEmphasis) {
@@ -44,7 +33,7 @@ export function argLayers(geometry: ArgGeometry, style: ArgStyle): LayersList {
       id: ARG_LAYER.edges,
       data: geometry.edges,
       getPath: (item) => item.path,
-      getColor: (item) => argEdgeColor(item.segments, colors),
+      getColor: (item) => roleColor(colors, item.color, null),
       colors,
       widthPx: rules.branchWidthPx,
       colorTriggers: triggers,
@@ -53,7 +42,7 @@ export function argLayers(geometry: ArgGeometry, style: ArgStyle): LayersList {
       id: ARG_LAYER.reticulations,
       data: geometry.reticulations,
       getPath: (item) => item.path,
-      getColor: (item) => argEdgeColor(item.segments, colors),
+      getColor: (item) => roleColor(colors, item.color, null),
       colors,
       widthPx: rules.branchWidthPx,
       dashPx: rules.dashPx,

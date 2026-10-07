@@ -14,6 +14,7 @@ mod arg_view;
 mod auspice;
 mod constellation;
 mod lengths;
+mod legend;
 mod names;
 mod pair;
 mod rules;
@@ -24,6 +25,7 @@ mod tree;
 pub use arg_view::arg_view;
 pub use auspice::auspice_view;
 pub use constellation::constellation;
+pub use legend::{LegendItem, LegendKind, LegendMark, Stroke};
 pub(crate) use names::grapheme_count;
 pub use names::shorten;
 pub use pair::pair_view;
@@ -45,6 +47,7 @@ pub const DRAWING_RULES: DrawingRules = DrawingRules {
   link_min_row_px: 6,
   label_max_chars: 40,
   label_font_px: 12.0,
+  legend_symbol_px: 24.0,
   margin_px: 16.0,
   label_gap_px: 6.0,
   link_zone_share: 0.2,
@@ -99,6 +102,8 @@ pub struct DrawingRules {
   pub label_max_chars: u32,
   /// Font size of the leaf labels, in px.
   pub label_font_px: f64,
+  /// Width of a legend symbol, in px; a legend ring sits at a fraction of it (`LegendMark::Ring`).
+  pub legend_symbol_px: f64,
   /// Space around a drawing, in px.
   pub margin_px: f64,
   /// Space on each side of a label column, between it and the tree and the link zone, in px.
@@ -131,6 +136,27 @@ pub struct DrawingRules {
   pub dash_px: [f64; 2],
   /// Dash and gap of a dotted line (leaders), in px.
   pub dot_px: [f64; 2],
+}
+
+/// The palette color of a drawn shape by its role; `ThemeColors::role` gives the color.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub enum ColorRole {
+  /// The color slot of the shape's MCC; in a legend, the first slot.
+  Mcc,
+  /// A node without an MCC.
+  NoMcc,
+  /// An ARG edge of both segments.
+  Ink,
+  /// An added node.
+  InkMuted,
+  /// Reassortment.
+  Signal,
+  /// An ARG edge of segment A only.
+  SegmentA,
+  /// An ARG edge of segment B only.
+  SegmentB,
 }
 
 /// A point `[x, y]` in normalized units.
@@ -272,6 +298,8 @@ pub struct PairView {
   pub scale: Scale,
   /// The shapes of the drawing for `scale`.
   pub shapes: PairShapes,
+  /// The legend: an entry for each kind of shape that the drawing contains.
+  pub legend: Vec<LegendItem>,
 }
 
 /// The two copies of one leaf.
@@ -381,6 +409,9 @@ pub struct Elbow {
   /// and is drawn in ink-muted; the part along the parent's x joins it to its parent like a plain
   /// branch.
   pub added: bool,
+  /// The color of the branch: signal for a reassortment branch, else the color of `slot`, or "no
+  /// MCC". The part across of an added node is ink-muted instead.
+  pub color: ColorRole,
 }
 
 /// A point mark on a drawing.
@@ -397,6 +428,9 @@ pub struct Mark {
   /// Color slot of `mcc`.
   pub slot: Option<usize>,
   pub at: Point,
+  /// The color of the ring: signal for reassortment and hybrid nodes, else the color of `slot`,
+  /// or "no MCC".
+  pub color: ColorRole,
 }
 
 /// Meaning of a mark.
@@ -474,6 +508,8 @@ pub struct ArgView {
   pub scale: Scale,
   /// The shapes of the drawing for `scale`.
   pub shapes: ArgShapes,
+  /// The legend: the two segments, both, and reassortment when the ARG has a hybrid node.
+  pub legend: Vec<LegendItem>,
 }
 
 /// A node of an `ArgView`.
@@ -559,6 +595,8 @@ pub struct ArgEdgeShape {
   /// The edge is a reticulation edge, its `ArgEdge.reticulation`; its path is a curve.
   pub reticulation: bool,
   pub path: EdgePath,
+  /// The color of the edge: its segment, or ink for an edge of both segments.
+  pub color: ColorRole,
 }
 
 /// Path of an ARG edge: an elbow, or a dashed S-curve for a reticulation edge.
@@ -865,7 +903,7 @@ mod tests {
   #[test]
   fn drawing_rules_serialize_camel_case() {
     let expected = json!({
-      "labelAutoMinRowPx": 10, "linkMinRowPx": 6, "labelMaxChars": 40, "labelFontPx": 12.0, "marginPx": 16.0, "labelGapPx": 6.0,
+      "labelAutoMinRowPx": 10, "linkMinRowPx": 6, "labelMaxChars": 40, "labelFontPx": 12.0, "legendSymbolPx": 24.0, "marginPx": 16.0, "labelGapPx": 6.0,
       "linkZoneShare": 0.2, "linkZoneMinShare": 0.15, "tanglegramLabelColumnMaxShare": 0.25,
       "argLabelColumnMaxShare": 0.25, "branchWidthPx": 1.5, "reassortmentWidthPx": 2.0, "linkWidthPx": 1.0,
       "leaderWidthPx": 1.0, "leaderOpacity": 0.5, "markRadiusPx": 3.5, "markLinePx": 1.5, "ribbonOpacity": 0.55,

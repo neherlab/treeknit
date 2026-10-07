@@ -277,6 +277,12 @@ export interface NumberSetting {
 export type AuspicePanel = "tree";
 
 /**
+ * A part of a legend symbol, `DrawingRules.legend_symbol_px` wide; each consumer draws it with
+ * the widths of the drawing rules.
+ */
+export type LegendMark = { kind: "branch"; color: ColorRole; stroke: Stroke; dashed: boolean } | { kind: "linkCurve"; color: ColorRole } | { kind: "linkRibbon"; color: ColorRole } | { kind: "reticulation"; color: ColorRole } | { kind: "ring"; color: ColorRole; at: number };
+
+/**
  * A point `[x, y]` in normalized units.
  */
 export type Point = [number, number];
@@ -300,6 +306,11 @@ export interface Mark {
      */
     slot: number | null;
     at: Point;
+    /**
+     * The color of the ring: signal for reassortment and hybrid nodes, else the color of `slot`,
+     * or "no MCC".
+     */
+    color: ColorRole;
 }
 
 /**
@@ -534,6 +545,21 @@ export interface FileEntry {
      * The figure the file holds; `null` in TypeScript (`None`) for the other files.
      */
     figure: Figure | null;
+}
+
+/**
+ * An entry of the legend of a drawing: its symbol and its label.
+ */
+export interface LegendItem {
+    kind: LegendKind;
+    /**
+     * `kind.label()`, and for a segment the label of its tree after it.
+     */
+    label: string;
+    /**
+     * The parts of the symbol, drawn in order.
+     */
+    marks: LegendMark[];
 }
 
 /**
@@ -984,6 +1010,10 @@ export interface ArgView {
      * The shapes of the drawing for `scale`.
      */
     shapes: ArgShapes;
+    /**
+     * The legend: the two segments, both, and reassortment when the ARG has a hybrid node.
+     */
+    legend: LegendItem[];
 }
 
 /**
@@ -1214,6 +1244,10 @@ export interface DrawingRules {
      */
     labelFontPx: number;
     /**
+     * Width of a legend symbol, in px; a legend ring sits at a fraction of it (`LegendMark::Ring`).
+     */
+    legendSymbolPx: number;
+    /**
      * Space around a drawing, in px.
      */
     marginPx: number;
@@ -1348,6 +1382,11 @@ export interface AuspiceMccRoot {
 export type TreeCount = number;
 
 /**
+ * The palette color of a drawn shape by its role; `ThemeColors::role` gives the color.
+ */
+export type ColorRole = "mcc" | "noMcc" | "ink" | "inkMuted" | "signal" | "segmentA" | "segmentB";
+
+/**
  * The rectangular branch above a node: from (parent x, parent y) to (parent x, node y) to
  * (node x, node y).
  */
@@ -1375,6 +1414,11 @@ export interface Elbow {
      * branch.
      */
     added: boolean;
+    /**
+     * The color of the branch: signal for a reassortment branch, else the color of `slot`, or "no
+     * MCC". The part across of an added node is ink-muted instead.
+     */
+    color: ColorRole;
 }
 
 /**
@@ -1451,6 +1495,10 @@ export interface ArgEdgeShape {
      */
     reticulation: boolean;
     path: EdgePath;
+    /**
+     * The color of the edge: its segment, or ink for an edge of both segments.
+     */
+    color: ColorRole;
 }
 
 /**
@@ -1494,6 +1542,12 @@ export interface ArgShapes {
 }
 
 /**
+ * The stroke width of a legend branch: `DrawingRules.branch_width_px` or
+ * `reassortment_width_px`.
+ */
+export type Stroke = "branch" | "reassortment";
+
+/**
  * The tanglegram of one pair of trees in one version.
  */
 export interface PairView {
@@ -1521,6 +1575,10 @@ export interface PairView {
      * The shapes of the drawing for `scale`.
      */
     shapes: PairShapes;
+    /**
+     * The legend: an entry for each kind of shape that the drawing contains.
+     */
+    legend: LegendItem[];
 }
 
 /**
@@ -1633,6 +1691,11 @@ export interface LaunchParse {
      */
     ignored: IgnoredKey[];
 }
+
+/**
+ * What a legend entry stands for.
+ */
+export type LegendKind = "reassortmentBranch" | "addedNode" | "imputedLeaf" | "links" | "noMcc" | "segmentA" | "segmentB" | "bothSegments" | "reassortment";
 
 /**
  * What the download panel of Auspice offers besides the trees.
