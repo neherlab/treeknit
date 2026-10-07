@@ -105,6 +105,27 @@ TypeScript is linted by oxlint with type information (`oxlint.config.ts`): the c
 
 `just review-suppressions` prints every `#[allow]`, allowed lint, ignored test, and test tolerance, for review apart from ordinary code changes.
 
+### Shared lint setup
+
+The lint, format, and check setup is shared with TreeTime (https://github.com/neherlab/treetime). The shared files are identical in both repositories: a change to one of them is copied by hand, without edits, to the other repository. Shared files name no project; the custom dylint library and the oxlint plugin of `dev/lints/oxlint/` are both named `custom`, so a suppression reads `#[cfg_attr(dylint_lib = "custom", expect(no_comments, reason = ".."))]` or `// oxlint-disable-next-line custom/no-vague-identifiers -- reason`.
+
+Shared files:
+
+- `dev/lints/`: the dylint libraries (`dylint-custom`, `dylint-mordant`, `dylint-trailofbits`), the oxlint plugin and the oxlint base configuration (`dev/lints/oxlint/config.ts`), and the vendored anti-slop plugin
+- `dev/run-checks`, `dev/review-suppressions`, `dev/shell-files`, `dev/toml-files`, `dev/crate-age`
+- `rustfmt.toml`, `.editorconfig`, `.config/nextest.toml`, `.config/hadolint.yaml`
+- the `[workspace.lints]` table of `Cargo.toml`, apart from an allowed lint whose reason belongs to one project
+- the lint, format, and check recipes of the `justfile`, which have the same name, parameters, and body in both justfiles
+
+Each project keeps its settings in its own files:
+
+- `justfile` variables: `dylint_rustflags` (the lint levels of the custom library), the check groups `checks_*` with `check_fast` and `check_full`, `lint_fast`, `lint_full`, `public_api_crates`, `dockerfiles`, and `react_pin_reason`
+- `dylint.toml`: the settings of the dylint libraries, such as the render sources of `no_comments`, the entry points of `forbidden-reach`, the error style of `proper_error_type`, and the helper macros of `prefer_error_macros`
+- `oxlint.config.ts`: a call of `projectConfig` from `dev/lints/oxlint/config.ts` with the package layout, the web scopes, the import and property restrictions, and the contracts package
+- `clippy.toml` (the reasons of the random generator bans), `oxfmt.config.ts`, `taplo.toml`, `.config/knip.json`, `.config/deny.toml`, `.config/hawk.toml`, `.config/jscpd.json`, and `.config/mordant-baseline.toml`
+
+Rust comments are allowed in TreeKnit: `dylint_rustflags` turns off `no_comments` and `doc_comment_limit`, and also the builder and error-macro lints, because the project uses neither bon nor error helper macros. TypeScript comments are banned in both projects by the oxlint base configuration, apart from tool directives.
+
 ## Build modes
 
 The build and run recipes take the mode as their first argument: `just build <mode>`, `just run <mode> [CLI args]`, `just build-wasm <mode>`, `just build-web <dev|prod>`, `just run-web <dev|prod>`, `just build-cross <dev|release|prod>`, `just run-cross <dev|release|prod> <target> [CLI args]`, `just test-distros <dev|release|prod> <target>`. The commands are the same in the main checkout and in a worktree. Each mode is a cargo profile:
