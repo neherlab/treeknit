@@ -4,7 +4,8 @@ use crate::display::pair::{mcc_infos, pair_layout};
 use crate::display::{
   AuspiceBranchAttrs, AuspiceBranchLabels, AuspiceColoring, AuspiceColoringKind, AuspiceDataset,
   AuspiceDisplayDefaults, AuspiceMccRoot, AuspiceMeta, AuspiceNode, AuspiceNodeAttrs, AuspiceNumber, AuspicePair,
-  AuspicePanel, AuspiceSchema, AuspiceSharing, AuspiceValue, DrawTree, MCC_SLOTS, MccInfo, Scale, TreeVersion,
+  AuspicePanel, AuspiceSchema, AuspiceSharing, AuspiceShown, AuspiceShownTree, AuspiceTrees, AuspiceValue, DrawTree,
+  MCC_SLOTS, MccInfo, Scale, TreeVersion,
 };
 use crate::palette::palette;
 use crate::run::RunResult;
@@ -99,9 +100,32 @@ pub fn auspice_view(run: &RunResult, pair: usize, version: TreeVersion, scale: S
         right: mcc_root(&layout.right, mcc),
       })
       .collect(),
+    mcc_key: MCC_KEY.to_owned(),
+    mcc_values: mccs.iter().map(|m| m.name.clone()).collect(),
+    shown: shown(run, pair),
     left: dataset(&layout.left, 1),
     right: dataset(&layout.right, 0),
   })
+}
+
+/// The trees of pair `pair` that each choice of `AuspiceTrees` shows.
+fn shown(run: &RunResult, pair: usize) -> AuspiceShown {
+  let p = &run.pairs[pair];
+  let trees = |choice: AuspiceTrees| {
+    [(true, p.i), (false, p.j)]
+      .into_iter()
+      .filter(|&(left, _)| choice.shows(left))
+      .map(|(_, tree)| AuspiceShownTree {
+        tree,
+        label: run.trees[tree].label.clone(),
+      })
+      .collect()
+  };
+  AuspiceShown {
+    both: trees(AuspiceTrees::Both),
+    left: trees(AuspiceTrees::Left),
+    right: trees(AuspiceTrees::Right),
+  }
 }
 
 /// The number of MCC `mcc` as its branch label shows it.
@@ -533,6 +557,14 @@ mod tests {
           right: Some("cd".to_owned()),
         },
       ],
+      mcc_key: "mcc".to_owned(),
+      mcc_values: vec!["MCC 1".to_owned(), "MCC 2".to_owned()],
+      // Oracle: ha is the first tree of the run and na the second; one tree alone is the main tree.
+      shown: AuspiceShown {
+        both: vec![shown_tree(0, "ha"), shown_tree(1, "na")],
+        left: vec![shown_tree(0, "ha")],
+        right: vec![shown_tree(1, "na")],
+      },
       left: dataset(&meta(), left),
       right: dataset(&meta(), right),
     };
@@ -550,6 +582,13 @@ mod tests {
       (dataset(&meta(), right), "Depth"),
       (view.right, view.axis_title.as_str())
     );
+  }
+
+  fn shown_tree(tree: usize, label: &str) -> AuspiceShownTree {
+    AuspiceShownTree {
+      tree,
+      label: label.to_owned(),
+    }
   }
 
   /// A star of `n` cherries: cherry `i` holds the leaves `a{i}` and `b{i}` in one tree and is

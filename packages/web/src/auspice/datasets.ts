@@ -6,20 +6,6 @@ const SHOWN_ROOTS: Record<AuspiceTrees, (datasets: AuspicePair) => AuspiceNode[]
   right: ({ right }) => [right.tree],
 };
 
-export function shownTreeLabels(labels: readonly [string, string] | undefined, trees: AuspiceTrees): string[] {
-  if (labels === undefined) {
-    return [];
-  }
-
-  const [left, right] = labels;
-
-  if (trees === "left") {
-    return [left];
-  }
-
-  return trees === "right" ? [right] : [left, right];
-}
-
 export function leafNames(datasets: AuspicePair, trees: AuspiceTrees): string[] {
   const names = new Set<string>();
 

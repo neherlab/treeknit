@@ -14,6 +14,16 @@ export const AUSPICE_PAIR: AuspicePair = {
     { left: "X", right: "X" },
     { left: "NODE_1", right: "NODE_1" },
   ],
+  mcc_key: "mcc",
+  mcc_values: ["MCC 1", "MCC 2"],
+  shown: {
+    both: [
+      { tree: 0, label: "a" },
+      { tree: 1, label: "b" },
+    ],
+    left: [{ tree: 0, label: "a" }],
+    right: [{ tree: 1, label: "b" }],
+  },
   left: dataset({
     name: "NODE_1",
     node_attrs: { div: 0, mcc: { value: "MCC 2" } },

@@ -456,6 +456,14 @@ export interface ExampleTreeInfo {
 }
 
 /**
+ * A tree that the Auspice view shows: its index among the trees of the run, and its label.
+ */
+export interface AuspiceShownTree {
+    tree: number;
+    label: string;
+}
+
+/**
  * An Auspice v2 dataset of one tree, with the field names of Auspice's schema.
  */
 export interface AuspiceDataset {
@@ -1628,6 +1636,16 @@ export interface PairView {
 export type RootCase = "shared" | "synthetic" | "oneShared";
 
 /**
+ * The trees of a pair that each choice of `AuspiceTrees` shows, main tree first; each field is
+ * named after its choice.
+ */
+export interface AuspiceShown {
+    both: AuspiceShownTree[];
+    left: AuspiceShownTree[];
+    right: AuspiceShownTree[];
+}
+
+/**
  * The trees of a pair that the Auspice view shows: both as a tanglegram, or one alone.
  */
 export type AuspiceTrees = "both" | "left" | "right";
@@ -1669,6 +1687,19 @@ export interface AuspicePair {
      * For each MCC, in the order of `MCCs.json`, the node where it starts in each tree.
      */
     mcc_roots: AuspiceMccRoot[];
+    /**
+     * The key of the coloring and the filter by MCC in the datasets.
+     */
+    mcc_key: string;
+    /**
+     * For each MCC, in the order of `MCCs.json`, its value in the coloring and the filter of
+     * `mcc_key`: `MccInfo.name`.
+     */
+    mcc_values: string[];
+    /**
+     * The trees that each choice of `AuspiceTrees` shows.
+     */
+    shown: AuspiceShown;
     left: AuspiceDataset;
     right: AuspiceDataset;
 }

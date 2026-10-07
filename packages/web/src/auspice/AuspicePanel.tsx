@@ -14,7 +14,7 @@ import { useWorkspace } from "../workspace/context";
 import { selectPair } from "../workspace/search";
 import type { RunResult } from "../workspace/store";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
-import { leafNames, shownTreeLabels } from "./datasets";
+import { leafNames } from "./datasets";
 import { parseAuspiceQuery, withAuspiceQuery } from "./query";
 import type { StripChoice } from "./strip";
 import { TreeStrip } from "./TreeStrip";
@@ -40,7 +40,9 @@ function Auspice({ result }: { result: RunResult }) {
   const labels = pairs[pair]?.labels;
   const treeLabels = useMemo(() => result.request.trees.map(({ label }) => label), [result.request.trees]);
   const shown = useMemo(() => ({ pair, trees }), [pair, trees]);
-  const shownLabels = useMemo(() => shownTreeLabels(labels, trees), [labels, trees]);
+  const shownTrees = query.data?.shown[trees];
+  const shownLabels = useMemo(() => shownTrees?.map(({ label }) => label) ?? [], [shownTrees]);
+  const shownIndices = useMemo(() => shownTrees?.map(({ tree }) => tree) ?? [], [shownTrees]);
   const urlQuery = useMemo(() => parseAuspiceQuery(search.auspice), [search.auspice]);
   const names = useMemo(() => (query.data === undefined ? [] : leafNames(query.data, trees)), [query.data, trees]);
 
@@ -72,7 +74,7 @@ function Auspice({ result }: { result: RunResult }) {
 
   const toolbar = (
     <>
-      <TreeStrip labels={treeLabels} pairs={pairs} shown={shown} onChange={chooseShown} />
+      <TreeStrip labels={treeLabels} pairs={pairs} shown={shown} selected={shownIndices} onChange={chooseShown} />
       <VersionToggle value={version} onChange={chooseVersion} />
       <ScaleToggle value={scale} onChange={chooseScale} />
       <LeafSearch names={names} onSelect={findLeaf} />

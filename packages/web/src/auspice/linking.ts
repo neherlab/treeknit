@@ -1,4 +1,4 @@
-import type { AuspiceDataset, AuspiceMccRoot, AuspiceTrees } from "@neherlab/treeknit-wasm";
+import type { AuspiceMccRoot, AuspicePair, AuspiceTrees } from "@neherlab/treeknit-wasm";
 import { applyFilter, updateVisibleTipsAndBranchThicknesses } from "auspice/src/actions/tree";
 import { DESELECT_NODE, SELECT_NODE } from "auspice/src/actions/types";
 import { strainSymbol } from "auspice/src/util/globals";
@@ -20,19 +20,16 @@ export interface MarkedLeaf {
 
 export const NO_MARKS: AppliedMarks = { leaf: null, mcc: null };
 
-export function mccFilterValue(dataset: AuspiceDataset, mcc: number): string | undefined {
-  return dataset.meta.colorings.find(({ key }) => key === "mcc")?.scale?.[mcc]?.[0];
-}
-
 export function syncSelection(
   store: AuspiceStore,
   applied: AppliedMarks,
   selection: Selection,
-  mccValue: (mcc: number) => string | undefined,
+  mccFilter: MccFilter,
 ): AppliedMarks {
   const wantedLeaf = selection.leaf ?? null;
 
-  const wantedMcc = markedMccValue(selection, mccValue);
+  const wantedMcc = markedMccValue(selection, mccFilter);
+  const key = mccFilter.mcc_key;
 
   let { leaf, mcc } = applied;
 
@@ -45,12 +42,12 @@ export function syncSelection(
   }
 
   if (wantedMcc !== mcc) {
-    if (mcc !== null && hasFilterValue(store.getState(), "mcc", mcc)) {
-      store.dispatch(applyFilter("remove", "mcc", [mcc]));
+    if (mcc !== null && hasFilterValue(store.getState(), key, mcc)) {
+      store.dispatch(applyFilter("remove", key, [mcc]));
     }
 
     if (wantedMcc !== null) {
-      store.dispatch(applyFilter("set", "mcc", [wantedMcc]));
+      store.dispatch(applyFilter("set", key, [wantedMcc]));
     }
 
     mcc = wantedMcc;
@@ -59,9 +56,11 @@ export function syncSelection(
   return { leaf, mcc };
 }
 
-export function markedMccValue(selection: Selection, mccValue: (mcc: number) => string | undefined): string | null {
-  return selection.leaf === undefined && selection.mcc !== undefined ? (mccValue(selection.mcc) ?? null) : null;
+export function markedMccValue(selection: Selection, { mcc_values }: MccFilter): string | null {
+  return selection.leaf === undefined && selection.mcc !== undefined ? (mcc_values[selection.mcc] ?? null) : null;
 }
+
+export type MccFilter = Pick<AuspicePair, "mcc_key" | "mcc_values">;
 
 export function zoomToMcc(store: AuspiceStore, root: AuspiceMccRoot, trees: AuspiceTrees): void {
   const { tree, treeToo } = store.getState();

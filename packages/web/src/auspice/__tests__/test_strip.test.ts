@@ -1,7 +1,7 @@
 import type { PairSummary } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
-import { shownFromStrip, shownTreeIndices } from "../strip";
+import { shownFromStrip } from "../strip";
 
 const PAIRS: PairSummary[] = [
   pairOf(0, [0, 1]),
@@ -11,16 +11,6 @@ const PAIRS: PairSummary[] = [
   pairOf(4, [1, 3]),
   pairOf(5, [2, 3]),
 ];
-
-describe("shownTreeIndices", () => {
-  test.each([
-    ["both", [1, 3]],
-    ["left", [1]],
-    ["right", [3]],
-  ] as const)("the strip of pair (1, 3) with %s shown turns on trees %j", (trees, indices) => {
-    expect(shownTreeIndices(pairOf(4, [1, 3]), trees)).toStrictEqual(indices);
-  });
-});
 
 describe("shownFromStrip", () => {
   test.each([
@@ -40,10 +30,10 @@ describe("shownFromStrip", () => {
     expect(shownFromStrip(selected, PAIRS, { pair: 4, trees: "both" })).toBeNull();
   });
 
-  test("maps the strip of the shown trees back to the same choice", () => {
+  test("maps the strip of the second tree of a pair shown alone back to the same choice", () => {
     const current = { pair: 3, trees: "right" } as const;
 
-    expect(shownFromStrip(shownTreeIndices(pairOf(3, [1, 2]), "right"), PAIRS, current)).toStrictEqual({
+    expect(shownFromStrip([2], PAIRS, current)).toStrictEqual({
       pair: 3,
       show: "t2",
     });

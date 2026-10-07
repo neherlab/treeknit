@@ -27,7 +27,7 @@ import { useFocusRequest, useFocusStore } from "../workspace/context";
 import { AuspiceHeader } from "./AuspiceHeader";
 import { AUSPICE_I18N } from "./i18n";
 import { SIDEBAR_WIDTH_PX, sidebarOverlays, treeSize } from "./layout";
-import { type AppliedMarks, markedMccValue, mccFilterValue, NO_MARKS, syncSelection, zoomToMcc } from "./linking";
+import { type AppliedMarks, markedMccValue, NO_MARKS, syncSelection, zoomToMcc } from "./linking";
 import { withoutFilterValue } from "./query";
 import type { AuspiceStore } from "./store";
 import { type AuspiceInput, useAuspiceStore } from "./useAuspiceStore";
@@ -47,18 +47,19 @@ const SIDEBAR_THEME = {
 export default function AuspiceView({ files, treeLabels, axisTitle, selection, pair, ...input }: AuspiceViewProps) {
   const markedMcc = useRef<string | null>(null);
   const { onQuery } = input;
+  const mccQueryKey = `f_${input.datasets.mcc_key}`;
 
   const writeQuery = useCallback(
     (text: string) => {
-      onQuery(withoutFilterValue(text, "f_mcc", markedMcc.current));
+      onQuery(withoutFilterValue(text, mccQueryKey, markedMcc.current));
     },
-    [onQuery],
+    [onQuery, mccQueryKey],
   );
 
   const store = useAuspiceStore({ ...input, onQuery: writeQuery });
 
   useEffect(() => {
-    markedMcc.current = markedMccValue(selection, (mcc) => mccFilterValue(input.datasets.left, mcc));
+    markedMcc.current = markedMccValue(selection, input.datasets);
   }, [selection, input.datasets]);
 
   useSelectionMarks(store, selection, input.datasets);
@@ -87,7 +88,7 @@ function useSelectionMarks(store: AuspiceStore, selection: Selection, datasets: 
   const applied = useRef<AppliedMarks>(NO_MARKS);
 
   useEffect(() => {
-    applied.current = syncSelection(store, applied.current, selection, (mcc) => mccFilterValue(datasets.left, mcc));
+    applied.current = syncSelection(store, applied.current, selection, datasets);
   }, [store, selection, datasets]);
 }
 

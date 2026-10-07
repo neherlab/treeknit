@@ -5,16 +5,6 @@ export interface ShownTrees {
   trees: AuspiceTrees;
 }
 
-export function shownTreeIndices(pair: PairSummary, trees: AuspiceTrees): number[] {
-  const [left, right] = pair.trees;
-
-  if (trees === "left") {
-    return [left];
-  }
-
-  return trees === "right" ? [right] : [left, right];
-}
-
 export function shownFromStrip(
   selected: readonly number[],
   pairs: readonly PairSummary[],

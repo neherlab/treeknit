@@ -673,8 +673,33 @@ pub struct AuspicePair {
   pub axis_title: String,
   /// For each MCC, in the order of `MCCs.json`, the node where it starts in each tree.
   pub mcc_roots: Vec<AuspiceMccRoot>,
+  /// The key of the coloring and the filter by MCC in the datasets.
+  pub mcc_key: String,
+  /// For each MCC, in the order of `MCCs.json`, its value in the coloring and the filter of
+  /// `mcc_key`: `MccInfo.name`.
+  pub mcc_values: Vec<String>,
+  /// The trees that each choice of `AuspiceTrees` shows.
+  pub shown: AuspiceShown,
   pub left: AuspiceDataset,
   pub right: AuspiceDataset,
+}
+
+/// The trees of a pair that each choice of `AuspiceTrees` shows, main tree first; each field is
+/// named after its choice.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceShown {
+  pub both: Vec<AuspiceShownTree>,
+  pub left: Vec<AuspiceShownTree>,
+  pub right: Vec<AuspiceShownTree>,
+}
+
+/// A tree that the Auspice view shows: its index among the trees of the run, and its label.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct AuspiceShownTree {
+  pub tree: usize,
+  pub label: String,
 }
 
 /// The node where an MCC starts in each tree of a pair: the node whose branch above is the

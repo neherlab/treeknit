@@ -6,7 +6,7 @@ import type { AnyAction } from "redux";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { Selection } from "../../drawing/selection";
-import { mccFilterValue, NO_MARKS, syncSelection, zoomToMcc } from "../linking";
+import { markedMccValue, NO_MARKS, syncSelection, zoomToMcc } from "../linking";
 import { auspiceQuery, parseAuspiceQuery } from "../query";
 import { createAuspiceStore } from "../store";
 import { loadAuspiceStore } from "../useAuspiceStore";
@@ -214,11 +214,11 @@ describe("auspice links with the workspace", () => {
 
   test("marks a leaf of the workspace selection as auspice marks a clicked tip, and removes the marks with the selection", () => {
     const { store, selections } = loadedPair();
-    const marks = syncSelection(store, NO_MARKS, { leaf: "C" }, (mcc) => mccFilterValue(AUSPICE_PAIR.left, mcc));
+    const marks = syncSelection(store, NO_MARKS, { leaf: "C" }, AUSPICE_PAIR);
     const marked = store.getState().controls;
     const markedState = { selected: marked.selectedNode?.name, strain: marked.filters[strainSymbol] };
 
-    syncSelection(store, marks, {}, (mcc) => mccFilterValue(AUSPICE_PAIR.left, mcc));
+    syncSelection(store, marks, {}, AUSPICE_PAIR);
     const cleared = store.getState().controls;
 
     expect({
@@ -234,11 +234,10 @@ describe("auspice links with the workspace", () => {
 
   test("filters to a selected MCC and removes only that filter value afterwards", () => {
     const { store } = loadedPair();
-    const value = (mcc: number) => mccFilterValue(AUSPICE_PAIR.left, mcc);
-    const marks = syncSelection(store, NO_MARKS, { mcc: 1 }, value);
+    const marks = syncSelection(store, NO_MARKS, { mcc: 1 }, AUSPICE_PAIR);
     const filtered = store.getState().controls.filters["mcc"];
 
-    syncSelection(store, marks, {}, value);
+    syncSelection(store, marks, {}, AUSPICE_PAIR);
 
     expect({ filtered, cleared: store.getState().controls.filters["mcc"] }).toStrictEqual({
       filtered: [{ value: "MCC 2", active: true }],
@@ -253,7 +252,7 @@ describe("auspice links with the workspace", () => {
     store.dispatch({ type: SELECT_NODE, name: "A", idx, isBranch: false, treeId: "LEFT" });
     store.dispatch(applyFilter("add", strainSymbol, ["A"]));
 
-    const marks = syncSelection(store, NO_MARKS, { leaf: "A" }, () => undefined);
+    const marks = syncSelection(store, NO_MARKS, { leaf: "A" }, AUSPICE_PAIR);
 
     expect({ marks, strain: store.getState().controls.filters[strainSymbol] }).toStrictEqual({
       marks: { leaf: { name: "A", existingFilter: null }, mcc: null },
@@ -279,13 +278,13 @@ describe("auspice links with the workspace", () => {
   });
 });
 
-describe("mccFilterValue", () => {
-  test("takes the value of an MCC from the coloring of the dataset", () => {
+describe("markedMccValue", () => {
+  test("marks the filter value of a selected MCC, and nothing for a leaf or an unknown MCC", () => {
     expect([
-      mccFilterValue(AUSPICE_PAIR.left, 0),
-      mccFilterValue(AUSPICE_PAIR.left, 1),
-      mccFilterValue(AUSPICE_PAIR.left, 2),
-    ]).toStrictEqual(["MCC 1", "MCC 2", undefined]);
+      markedMccValue({ mcc: 1 }, AUSPICE_PAIR),
+      markedMccValue({ mcc: 1, leaf: "A" }, AUSPICE_PAIR),
+      markedMccValue({ mcc: 2 }, AUSPICE_PAIR),
+    ]).toStrictEqual(["MCC 2", null, null]);
   });
 });
 
