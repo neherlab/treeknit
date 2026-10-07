@@ -4,7 +4,6 @@ import { useCallback, useMemo, useRef } from "react";
 import { Button } from "react-aria-components";
 
 import { useConstellation } from "../analysis/queries";
-import { requestFocus } from "../drawing/focus";
 import { itemAt } from "../drawing/lookup";
 import { leafInPair } from "../drawing/navigation";
 import { counted, formatCount } from "../format/count";
@@ -15,7 +14,7 @@ import { inlineButtonStyle } from "../ui/styles";
 import { cellStyle, columnStyle, nativeRowStyle, tableHeaderStyle, tableStyle } from "../ui/Table";
 import { useVirtualRows } from "../ui/useVirtualRows";
 import { VirtualGap } from "../ui/VirtualGap";
-import { useWorkspace } from "../workspace/context";
+import { useFocusStore, useWorkspace } from "../workspace/context";
 import type { RunResult } from "../workspace/store";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 import {
@@ -49,6 +48,7 @@ function ConstellationQuery({ result }: { result: RunResult }) {
 
 function Constellation({ data }: { data: ConstellationTable }) {
   const { update, pairLabels } = useWorkspaceSearch();
+  const focusStore = useFocusStore();
   const rows = useMemo(() => constellationRows(data), [data]);
   const columns = useMemo(() => pairColumns(data), [data]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -57,9 +57,9 @@ function Constellation({ data }: { data: ConstellationTable }) {
   const open = useCallback(
     (pair: number, leaf: string) => {
       update((written) => leafInPair(written, pairLabels, pair, leaf));
-      requestFocus({ kind: "leaf", name: leaf }, pair);
+      focusStore.getState().focus({ kind: "leaf", name: leaf }, pair);
     },
-    [update, pairLabels],
+    [update, pairLabels, focusStore],
   );
 
   return (

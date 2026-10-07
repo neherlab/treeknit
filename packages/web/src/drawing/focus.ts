@@ -1,6 +1,5 @@
 import type { PairView } from "@neherlab/treeknit-wasm";
-import { useStore } from "zustand";
-import { createStore } from "zustand/vanilla";
+import { createStore, type StoreApi } from "zustand/vanilla";
 
 import type { TreeViewActions } from "../canvas/useTreeView";
 import type { RowRange } from "../canvas/viewState";
@@ -14,38 +13,30 @@ export interface FocusRequest {
   pair: number | null;
 }
 
-interface FocusState {
+export interface FocusState {
   request: FocusRequest | null;
-  focus(target: FocusTarget, pair: number | null): void;
+  focus(target: FocusTarget, pair?: number | null): void;
   done(id: number): void;
 }
 
-const focusStore = createStore<FocusState>()((set, get) => ({
-  request: null,
-  focus(target, pair) {
-    set({ request: { id: (get().request?.id ?? 0) + 1, target, pair } });
-  },
-  done(id) {
-    if (get().request?.id === id) {
-      set({ request: null });
-    }
-  },
-}));
+export type FocusStore = StoreApi<FocusState>;
 
-export function useFocusRequest(): FocusRequest | null {
-  return useStore(focusStore, (state) => state.request);
-}
-
-export function requestFocus(target: FocusTarget, pair: number | null = null): void {
-  focusStore.getState().focus(target, pair);
+export function createFocusStore(): FocusStore {
+  return createStore<FocusState>()((set, get) => ({
+    request: null,
+    focus(target, pair = null) {
+      set({ request: { id: (get().request?.id ?? 0) + 1, target, pair } });
+    },
+    done(id) {
+      if (get().request?.id === id) {
+        set({ request: null });
+      }
+    },
+  }));
 }
 
 export function focusApplies(request: Pick<FocusRequest, "pair">, shownPair: number): boolean {
   return request.pair === null || request.pair === shownPair;
-}
-
-export function focusDone(id: number): void {
-  focusStore.getState().done(id);
 }
 
 export function focusRows(view: PairView, target: FocusTarget): RowRange | null {

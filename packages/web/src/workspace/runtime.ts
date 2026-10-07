@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import type { AnalysisClient } from "../analysis/client";
 import { analysisKeys } from "../analysis/queries";
+import { createFocusStore, type FocusStore } from "../drawing/focus";
 import { broadcastChannel, indexedDbStorage } from "../persistence/browserStorage";
 import { WorkspacePersistence, type WorkspaceSnapshot } from "../persistence/persistence";
 import type { RecordStorage } from "../persistence/record";
@@ -17,6 +18,7 @@ import {
 export interface WorkspaceRuntime {
   store: WorkspaceStore;
   persistence: WorkspacePersistence;
+  focus: FocusStore;
 }
 
 export async function startWorkspace(client: AnalysisClient, queryClient: QueryClient): Promise<WorkspaceRuntime> {
@@ -59,7 +61,7 @@ export async function startWorkspace(client: AnalysisClient, queryClient: QueryC
     }
   });
 
-  return { store, persistence };
+  return { store, persistence, focus: createFocusStore() };
 }
 
 export function workspaceSnapshot(state: WorkspaceData): WorkspaceSnapshot {

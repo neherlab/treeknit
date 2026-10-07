@@ -6,7 +6,6 @@ import { Button, useFilter } from "react-aria-components";
 import ShowIcon from "~icons/lucide/git-compare-arrows";
 
 import { usePairView } from "../analysis/queries";
-import { requestFocus } from "../drawing/focus";
 import { leafCount, mccTitle } from "../drawing/format";
 import { mccInTanglegram } from "../drawing/navigation";
 import { useDrawingSearch } from "../drawing/useDrawingSearch";
@@ -30,7 +29,7 @@ import { TextField } from "../ui/TextField";
 import { useEscapeKey } from "../ui/useEscapeKey";
 import { useVirtualRows } from "../ui/useVirtualRows";
 import { VirtualGap } from "../ui/VirtualGap";
-import { useWorkspace } from "../workspace/context";
+import { useFocusStore, useWorkspace } from "../workspace/context";
 import type { RunResult } from "../workspace/store";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 import {
@@ -98,12 +97,14 @@ function MccTable({ data, title }: { data: PairView; title: string }) {
     [selectSubject],
   );
 
+  const focusStore = useFocusStore();
+
   const show = useCallback(
     (mcc: number) => {
       update((written) => mccInTanglegram(written, mcc));
-      requestFocus({ kind: "mcc", mcc });
+      focusStore.getState().focus({ kind: "mcc", mcc });
     },
-    [update],
+    [update, focusStore],
   );
 
   return (

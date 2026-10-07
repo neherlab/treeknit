@@ -10,14 +10,7 @@ import { ZoomControls } from "../canvas/ZoomControls";
 import { FigureButton, LabelModeSelect, PairSelect, ScaleToggle, VersionToggle } from "../drawing/DrawingControls";
 import { DrawingPanel } from "../drawing/DrawingPanel";
 import { figureOptions } from "../drawing/figure";
-import {
-  focusApplies,
-  focusDone,
-  type FocusTarget,
-  focusRows,
-  revealLeafRows,
-  useFocusRequest,
-} from "../drawing/focus";
+import { focusApplies, type FocusTarget, focusRows, revealLeafRows } from "../drawing/focus";
 import { LeafSearch } from "../drawing/LeafSearch";
 import { shownScaleNotice } from "../drawing/scale";
 import { pairLeafNames, pairLeafRows, rowCount } from "../drawing/trees";
@@ -26,7 +19,7 @@ import { useDrawingView } from "../drawing/useDrawingView";
 import { useFigureDownload } from "../drawing/useFigureDownload";
 import { counted } from "../format/count";
 import { Switch } from "../ui/Switch";
-import { useWorkspace } from "../workspace/context";
+import { useFocusRequest, useFocusStore, useWorkspace } from "../workspace/context";
 import type { RunResult } from "../workspace/store";
 
 const TANGLEGRAM_CANVAS = lazyCanvas(async () => import("./TanglegramCanvas"));
@@ -108,6 +101,7 @@ function leafRowsOf(data: PairView, name: string): RowRange | null {
 
 function useFocusedRows(data: PairView | undefined, pair: number, view: TreeViewHandle) {
   const request = useFocusRequest();
+  const focusStore = useFocusStore();
   const ready = useTreeViewReady(view);
   const { actions } = view;
 
@@ -118,8 +112,8 @@ function useFocusedRows(data: PairView | undefined, pair: number, view: TreeView
     }
 
     applyFocus(actions, request.target, focusRows(data, request.target));
-    focusDone(request.id);
-  }, [request, data, pair, ready, actions]);
+    focusStore.getState().done(request.id);
+  }, [request, data, pair, ready, actions, focusStore]);
 }
 
 function applyFocus(actions: TreeViewActions, target: FocusTarget, range: RowRange | null) {

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext } from "react";
 import { useStore } from "zustand";
 
+import type { FocusRequest, FocusStore } from "../drawing/focus";
 import type { PersistenceProblem } from "../persistence/persistence";
 import { type WorkspaceRuntime, workspaceSnapshot } from "./runtime";
 import { selectRequest, selectTextIds, type WorkspaceState, type WorkspaceStore } from "./store";
@@ -13,6 +14,14 @@ export function useWorkspace<T>(selector: (state: WorkspaceState) => T): T {
 
 export function useWorkspaceStore(): WorkspaceStore {
   return useWorkspaceRuntime().store;
+}
+
+export function useFocusRequest(): FocusRequest | null {
+  return useStore(useWorkspaceRuntime().focus, (state) => state.request);
+}
+
+export function useFocusStore(): FocusStore {
+  return useWorkspaceRuntime().focus;
 }
 
 export function useCurrentRequest() {

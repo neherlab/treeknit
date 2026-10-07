@@ -19,10 +19,11 @@ import { ThemeProvider } from "styled-components";
 
 import { useMeasuredSize } from "../canvas/useMeasuredSize";
 import type { MeasuredSize } from "../canvas/viewState";
-import { focusApplies, focusDone, useFocusRequest } from "../drawing/focus";
+import { focusApplies } from "../drawing/focus";
 import type { Selection } from "../drawing/selection";
 import { usePaneOpen } from "../shell/paneStore";
 import { CollapsiblePane } from "../ui/CollapsiblePane";
+import { useFocusRequest, useFocusStore } from "../workspace/context";
 import { AuspiceHeader } from "./AuspiceHeader";
 import { AUSPICE_I18N } from "./i18n";
 import { SIDEBAR_WIDTH_PX, sidebarOverlays, treeSize } from "./layout";
@@ -92,6 +93,7 @@ function useSelectionMarks(store: AuspiceStore, selection: Selection, datasets: 
 
 function useMccFocus(store: AuspiceStore, pair: number, datasets: AuspicePair, trees: AuspiceTrees): void {
   const request = useFocusRequest();
+  const focusStore = useFocusStore();
 
   useEffect(() => {
     if (request?.target.kind !== "mcc" || !focusApplies(request, pair)) {
@@ -105,8 +107,8 @@ function useMccFocus(store: AuspiceStore, pair: number, datasets: AuspicePair, t
       zoomToMcc(store, root, trees);
     }
 
-    focusDone(request.id);
-  }, [store, request, pair, datasets, trees]);
+    focusStore.getState().done(request.id);
+  }, [store, request, pair, datasets, trees, focusStore]);
 }
 
 type LayoutProps = Pick<AuspiceViewProps, "files" | "treeLabels" | "axisTitle">;

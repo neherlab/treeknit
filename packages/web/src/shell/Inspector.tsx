@@ -7,7 +7,6 @@ import ZoomIcon from "~icons/lucide/scan-search";
 import ClearIcon from "~icons/lucide/x";
 
 import { currentData, useArgView, useConstellation, usePairView } from "../analysis/queries";
-import { requestFocus } from "../drawing/focus";
 import { formatBranchLength, leafCount, mccSummary, mccTitle } from "../drawing/format";
 import { leafInPair, mccInTanglegram } from "../drawing/navigation";
 import { selectionOf, type Selection } from "../drawing/selection";
@@ -24,7 +23,7 @@ import { Link } from "../ui/Link";
 import { MccSwatch } from "../ui/MccSwatch";
 import { useEscapeKey } from "../ui/useEscapeKey";
 import { VirtualList } from "../ui/VirtualList";
-import { useWorkspace } from "../workspace/context";
+import { useFocusStore, useWorkspace } from "../workspace/context";
 import type { WrittenSearch } from "../workspace/search";
 import type { RunResult } from "../workspace/store";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
@@ -134,6 +133,7 @@ function NothingSelected({ mccs, onSelect }: { mccs: readonly MccInfo[]; onSelec
 
 function MccDetails({ mcc, onSelect }: { mcc: MccInfo; onSelect: (selection: Selection) => void }) {
   const { search, update } = useWorkspaceSearch();
+  const focusStore = useFocusStore();
   const inAuspice = search.view === "auspice";
   const leaves = useMemo(() => mcc.leaves.map((name) => ({ id: name, text: name })), [mcc]);
 
@@ -142,8 +142,8 @@ function MccDetails({ mcc, onSelect }: { mcc: MccInfo; onSelect: (selection: Sel
       update((written) => mccInTanglegram(written, mcc.index));
     }
 
-    requestFocus({ kind: "mcc", mcc: mcc.index });
-  }, [inAuspice, mcc.index, update]);
+    focusStore.getState().focus({ kind: "mcc", mcc: mcc.index });
+  }, [inAuspice, mcc.index, update, focusStore]);
 
   const chooseLeaf = useCallback(
     (key: Key) => {
@@ -228,6 +228,7 @@ function LeafPairs({ name, pairs }: { name: string; pairs: readonly LeafPair[] }
 
 function LeafPairLink({ name, pair, label }: { name: string; pair: number; label: string }) {
   const { pairLabels } = useWorkspaceSearch();
+  const focusStore = useFocusStore();
 
   const target = useCallback(
     (search: WrittenSearch): WrittenSearch => leafInPair(search, pairLabels, pair, name),
@@ -237,10 +238,10 @@ function LeafPairLink({ name, pair, label }: { name: string; pair: number; label
   const focusLeaf = useCallback(
     ({ ctrlKey, metaKey, shiftKey }: PressEvent) => {
       if (!ctrlKey && !metaKey && !shiftKey) {
-        requestFocus({ kind: "leaf", name }, pair);
+        focusStore.getState().focus({ kind: "leaf", name }, pair);
       }
     },
-    [name, pair],
+    [name, pair, focusStore],
   );
 
   return (
