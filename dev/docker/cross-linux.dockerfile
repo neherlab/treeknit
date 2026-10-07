@@ -36,6 +36,7 @@ RUN set -euxo pipefail >/dev/null \
   gcc \
   git \
   libc6-dev \
+  make \
   pixz \
   xz-utils \
 >/dev/null \

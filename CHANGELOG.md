@@ -21,5 +21,5 @@ First release of the Rust port of [TreeKnit.jl](https://github.com/PierreBarrat/
 - **Error output**: mistakes in the input are listed one per line; any other failure, such as a results directory that cannot be created, prints its chain of causes, numbered, and a crash prints where to report it
 - **Figures**: `--plot` writes an SVG tanglegram of each pair and, for two trees with a built ARG, an SVG figure of the ARG
 - **Every option takes effect**: in TreeKnit.jl 0.5.8, `--gamma`, `--n-mcmc-it`, `--no-likelihood`, `--seq-lengths` and `--parallel` are silently ignored
-- **Prebuilt binaries**: the CLI for Linux (glibc and static musl), macOS, and Windows
+- **Prebuilt binaries**: the CLI for Linux (glibc and static musl), macOS, and Windows; the Linux binaries allocate memory with jemalloc
 - **Web app**: the same analyses in the browser, on the WebAssembly build of the core

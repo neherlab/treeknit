@@ -24,6 +24,10 @@ use treeknit_io::schema::{KeyValue, SETTING_KEYS};
 use treeknit_io::wire::wire_name;
 use treeknit_io::{run, schema};
 
+#[cfg(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64")))]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 const FORMER_OPTIONS_HELP: &str = "\
 Former options are still accepted with their TreeKnit.jl meaning, and reproduce its
 results: the method preset depends on the number of trees (--better-MCCs for two,
