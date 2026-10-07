@@ -28,13 +28,12 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 
 - [x] **Structure**: `{"MCC_dict": {"1": {"trees": [a, b], "mccs": [[...]]}, ...}}`, keys in pair order. `serde_json` keeps the insertion order, so the keys appear as `"1"`, `"2"`, and so on
 - [x] **`imputed` (new)**: for a pair with leaves that only one tree has, a list of `{leaf, tree, mcc, ambiguous}`, with `mcc` 0-based. Omitted when empty (see [`partial-overlap.md`](partial-overlap.md))
-- [/] **Reading back (new)**: `fn from_json` reads the format [[src](../../packages/treeknit-io/src/mccs.rs#L42-L55)]. No code calls it and no test covers it. TreeKnit.jl has no reader
 
 ## MCC list as text
 
-- [x] **Writer and reader**: `to_lines` and `from_lines`, one MCC per line, labels joined by `,`, no newline after the last line [[src](../../packages/treeknit-io/src/mccs.rs#L57-L67)]
+- [x] **Writer**: `to_lines`, one MCC per line, labels joined by `,`, no newline after the last line [[src](../../packages/treeknit-io/src/mccs.rs#L39-L42)]
 - [x] **`MCCs.dat` (new as output)**: the command line writes this format again, as TreeKnit.jl 0.4 did. Downstream tools such as TreeTime `arg` read it. With more than two trees: `MCCs_<a>_<b>.dat` per pair
-- [/] **Labels with `,`**: cannot be stored, as in TreeKnit.jl. `from_lines` also trims whitespace around each label
+- [/] **Labels with `,`**: cannot be stored, as in TreeKnit.jl
 
 ## Resolved trees
 

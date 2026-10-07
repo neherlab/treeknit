@@ -9,14 +9,12 @@
 - **Strict polytomy sort**: the fixture field `sorted_leaf_order` covers the non-strict sort only. The strict sort in `fn sort_pair` ([pipeline.rs#L509-L559](../../packages/treeknit-core/src/pipeline.rs#L518-L568)) runs in the unit tests of `pipeline.rs`, which compare it with the order of the port's own run, but no test compares its leaf order with TreeKnit.jl
 - **Cooling schedules**: a unit test checks the geometric schedule. The linear and acos schedules ([anneal.rs#L30-L48](../../packages/treeknit-core/src/anneal.rs#L30-L48)) have no test
 - **Auspice JSON**: no test checks the content of `auspice_<label>.json`; the command-line test checks only that the file exists, and that test runs only where the TreeKnit.jl examples exist ([`N-cli-test-skips-without-julia-examples.md`](N-cli-test-skips-without-julia-examples.md))
-- **MCC readers**: `mccs::from_json` and `mccs::from_lines` have no caller and no test ([mccs.rs#L42-L67](../../packages/treeknit-io/src/mccs.rs#L42-L67))
 
 ## Fix direction
 
 - Compare the `multi_runs` field with Rust runs of the TreeKnit.jl presets (`Options::treeknit_jl`), as distributions, like `annealing_distribution_vs_julia`
 - Add the ARG branch lengths and the strict sort order to the fixtures in `ref/fixture_lib.jl`, regenerate the fixtures, and compare them. The `eps()` offset of TreeKnit.jl needs a tolerance or a decision first ([`N-undocumented-differences-from-treeknit-jl.md`](N-undocumented-differences-from-treeknit-jl.md))
 - Add unit tests for the linear and acos schedules with values from TreeKnit.jl `get_cooling_schedule`
-- Add a round-trip test for `to_json`/`from_json` and `to_lines`/`from_lines`, or remove the readers
 
 ## Validation
 

@@ -37,29 +37,9 @@ pub struct RunResult {
 }
 
 impl RunResult {
-  /// The parsed trees, before resolution.
-  pub fn input_trees(&self) -> &[Tree] {
-    &self.input_trees
-  }
-
-  /// The final trees of the run: resolved and sorted.
-  pub fn trees(&self) -> &[Tree] {
-    &self.trees
-  }
-
-  /// The leaves of all trees.
-  pub fn taxa(&self) -> &Taxa {
-    &self.taxa
-  }
-
   /// The MCCs of every pair, in pipeline order.
   pub fn pairs(&self) -> &[PairResult] {
     &self.pairs
-  }
-
-  /// The final trees with the leaves that only other trees have, placed by imputation.
-  pub fn imputed(&self) -> &[Tree] {
-    &self.imputed
   }
 
   /// The options of the run.

@@ -25,7 +25,7 @@ treeknit ha.nwk na.nwk -o out
 
 ## Fix direction
 
-- Choose internal ARG labels and the synthetic root label that no leaf has, for example by skipping taken indices as `Tree::fresh_label` does. Then the display can use the labels of the ARG as they are
+- Choose internal ARG labels and the synthetic root label that no leaf has, for example by numbering them above every index that a node of the tree already has, as `Tree::fresh_index` does for the nodes that resolution and imputation add. Then the display can use the labels of the ARG as they are
 - TreeKnit.jl names internal ARG nodes `ARGNode_<random string>` (`make_random_label` in `src/SimpleReassortmentGraph/misc.jl`), so a collision there needs a leaf with the same random name; it writes the same fixed `GlobalRoot` label (`src/SimpleReassortmentGraph/IO.jl`) and shares that collision
 
 ## Validation

@@ -8,7 +8,7 @@ Counterpart: [`v0/arg.md`](v0/arg.md). `treeknit_core::arg` builds the ARG of tw
 
 - [x] **`ArgNode`**: one parent per segment, as `Absent`, `Root`, or `Node(index)`, the branch length per segment, the children, the label, and the hybrid flag [[src](../../packages/treeknit-core/src/arg.rs#L20-L40)]. A leaf flag is new. The segments of a node follow from its parents, so there is no color field
 - [x] **`Arg`**: a vector of nodes, the root of each segment, the tree node labels of each ARG node, and the two trees the ARG was built from [[src](../../packages/treeknit-core/src/arg.rs#L42-L51)]. TreeKnit.jl keeps dictionaries keyed by label
-- [/] **Node queries**: `has`, `is_shared`, `is_root`, `is_partial_root`, `Arg::parents`, `Arg::edge_segments` [[src](../../packages/treeknit-core/src/arg.rs#L53-L92)]. There is no counterpart of `is_global_root`, `degree`, or `share_color`
+- [/] **Node queries**: `has`, `is_shared`, `is_root`, `Arg::parents`, `Arg::edge_segments` [[src](../../packages/treeknit-core/src/arg.rs#L53-L88)]. There is no counterpart of `is_global_root`, `is_partial_root`, `degree`, or `share_color`
 - [ ] **`check(n)` and `show`**: no node check and no display beyond the derived `Debug`
 
 ## Construction

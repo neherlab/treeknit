@@ -156,15 +156,6 @@ impl Tree {
   pub fn internals(&self) -> Vec<NodeId> {
     self.postorder().into_iter().filter(|&n| !self.is_leaf(n)).collect()
   }
-  /// Map from node name to id for reachable nodes.
-  pub fn name_map(&self) -> HashMap<String, NodeId> {
-    self
-      .postorder()
-      .into_iter()
-      .map(|n| (self.nodes[n].name.clone(), n))
-      .collect()
-  }
-
   /// Set `taxon` on all leaves; fails on unknown leaf names.
   pub fn assign_taxa(&mut self, taxa: &Taxa) -> Result<(), UnknownLeaf> {
     for n in self.leaves() {
@@ -250,18 +241,6 @@ impl Tree {
 
   pub fn lca_of(&self, nodes: impl IntoIterator<Item = NodeId>) -> Option<NodeId> {
     nodes.into_iter().reduce(|a, b| self.lca(a, b))
-  }
-
-  pub fn is_ancestor(&self, a: NodeId, mut n: NodeId) -> bool {
-    loop {
-      if n == a {
-        return true;
-      }
-      match self.parent(n) {
-        Some(p) => n = p,
-        None => return false,
-      }
-    }
   }
 
   /// Sum of branch lengths from `n` up to its ancestor `a`; `None` if any is missing.
@@ -365,10 +344,7 @@ impl Tree {
     s
   }
 
-  /// First label `prefix_i` (i ≥ 1) such that no `prefix_j` with j ≥ i exists.
-  pub fn fresh_label(&self, prefix: &str) -> String {
-    format!("{prefix}_{}", self.fresh_index(prefix))
-  }
+  /// First index i ≥ 1 of the label `prefix_i` such that no `prefix_j` with j ≥ i exists.
   pub fn fresh_index(&self, prefix: &str) -> usize {
     let pre = format!("{prefix}_");
     self

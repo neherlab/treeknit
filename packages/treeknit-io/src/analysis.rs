@@ -305,14 +305,9 @@ pub fn labels(trees: &[TreeText]) -> Vec<String> {
   trees.iter().map(|t| t.label.clone()).collect()
 }
 
-/// Check the trees of a request: their number, their labels, their Newick text, the output file
-/// names of their pairs, and the leaves each pair shares.
-pub fn check_trees(trees: &[TreeText]) -> Vec<ValidationError> {
-  parse_trees(trees).err().unwrap_or_default()
-}
-
-/// Parse the trees of a request after the checks of `check_trees`, or return every error those
-/// checks find.
+/// Parse the trees of a request after checking their number, their labels, their Newick text,
+/// the output file names of their pairs, and the leaves each pair shares, or return every error
+/// those checks find.
 pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationError>> {
   let mut errors = Vec::new();
   if trees.len() < 2 {
@@ -689,6 +684,14 @@ mod tests {
 
   const T: &str = "((A,B),(C,D));";
 
+  /// The validation errors of `trees`, none when they parse.
+  fn tree_errors(trees: &[TreeText]) -> Vec<ValidationError> {
+    match parse_trees(trees) {
+      Ok(_) => Vec::new(),
+      Err(errors) => errors,
+    }
+  }
+
   fn labeled(labels: &[&str]) -> Vec<TreeText> {
     texts(&labels.iter().map(|&l| (l, T)).collect::<Vec<_>>())
   }
@@ -950,7 +953,7 @@ mod tests {
   #[case::star(           &["ha", "a*b"],              label(1),          "tree label \"a*b\" must not contain any of <>:\"|?*")]
   #[trace]
   fn invalid_labels_are_rejected(#[case] labels: &[&str], #[case] field: Field, #[case] message: &str) {
-    assert_eq!(vec![ValidationError::at(field, message)], check_trees(&labeled(labels)));
+    assert_eq!(vec![ValidationError::at(field, message)], tree_errors(&labeled(labels)));
   }
 
   #[rustfmt::skip]
@@ -961,7 +964,7 @@ mod tests {
   #[case::case_distinct(&["HA", "ha2"])]
   #[trace]
   fn usable_labels_are_accepted(#[case] labels: &[&str]) {
-    assert_eq!(Vec::<ValidationError>::new(), check_trees(&labeled(labels)));
+    assert_eq!(Vec::<ValidationError>::new(), tree_errors(&labeled(labels)));
   }
 
   #[test]
@@ -973,20 +976,20 @@ mod tests {
         "tree pairs (\"a_b\", \"c\") and (\"a\", \"b_c\") give the same output file names (\"a_b_c\"); rename a tree",
       ),
     ];
-    assert_eq!(expected, check_trees(&labeled(&["a_b", "c", "a", "b_c", "bad/label"])));
+    assert_eq!(expected, tree_errors(&labeled(&["a_b", "c", "a", "b_c", "bad/label"])));
   }
 
   #[test]
   fn repeated_label_gives_no_pair_name_error() {
     assert_eq!(
       vec![ValidationError::at(label(2), "tree label \"ha\" is used twice")],
-      check_trees(&labeled(&["ha", "na", "ha"]))
+      tree_errors(&labeled(&["ha", "na", "ha"]))
     );
   }
 
   #[test]
   fn parse_error_has_field_line_and_column() {
-    let errors = check_trees(&texts(&[("ha", T), ("na", "((A,B),\n(C,D)x y);")]));
+    let errors = tree_errors(&texts(&[("ha", T), ("na", "((A,B),\n(C,D)x y);")]));
     let expected = vec![ValidationError {
       field: Some(Field::TreeNewick { index: 1 }),
       message: "tree \"na\": Newick parse error: expected ',' or ')' at byte 15".to_owned(),
@@ -998,7 +1001,7 @@ mod tests {
 
   #[test]
   fn parse_error_column_counts_characters() {
-    let errors = check_trees(&texts(&[("ha", T), ("na", "((Ä,B),(C,D)x y);")]));
+    let errors = tree_errors(&texts(&[("ha", T), ("na", "((Ä,B),(C,D)x y);")]));
     assert_eq!((Some(1), Some(15)), (errors[0].line, errors[0].column));
   }
 
@@ -1008,7 +1011,7 @@ mod tests {
   #[case::duplicate_leaf("((A,A),(C,D));", "tree \"na\": Newick parse error: duplicate leaf name \"A\"")]
   #[trace]
   fn parse_error_without_position(#[case] newick: &str, #[case] message: &str) {
-    let errors = check_trees(&texts(&[("ha", T), ("na", newick)]));
+    let errors = tree_errors(&texts(&[("ha", T), ("na", newick)]));
     let expected = vec![ValidationError { field: Some(Field::TreeNewick { index: 1 }), message: message.to_owned(), line: None, column: None }];
     assert_eq!(expected, errors);
   }
@@ -1017,7 +1020,7 @@ mod tests {
   fn empty_newick_text_is_a_parse_error_of_its_field() {
     // The command line gives a file that it cannot read an empty text and reports the read error
     // instead of the error of this field.
-    let errors = check_trees(&texts(&[("ha", T), ("na", "")]));
+    let errors = tree_errors(&texts(&[("ha", T), ("na", "")]));
     let fields: Vec<Option<Field>> = errors.iter().map(|e| e.field.clone()).collect();
     assert_eq!(vec![Some(Field::TreeNewick { index: 1 })], fields);
   }
@@ -1028,7 +1031,7 @@ mod tests {
   #[case::one_shared("((A,Q),R);")]
   #[trace]
   fn pairs_sharing_fewer_than_two_leaves_are_rejected(#[case] newick: &str) {
-    let errors = check_trees(&texts(&[("ha", T), ("na", T), ("pb2", newick)]));
+    let errors = tree_errors(&texts(&[("ha", T), ("na", T), ("pb2", newick)]));
     let expected = vec![
       ValidationError::at(Field::Trees, "trees \"ha\" and \"pb2\" share fewer than 2 leaves"),
       ValidationError::at(Field::Trees, "trees \"na\" and \"pb2\" share fewer than 2 leaves"),
@@ -1040,13 +1043,13 @@ mod tests {
   fn pairs_sharing_two_leaves_are_accepted() {
     assert_eq!(
       Vec::<ValidationError>::new(),
-      check_trees(&texts(&[("ha", T), ("na", "((A,B),(P,Q));")]))
+      tree_errors(&texts(&[("ha", T), ("na", "((A,B),(P,Q));")]))
     );
   }
 
   #[test]
   fn all_errors_are_reported_together() {
-    let errors = check_trees(&texts(&[("a/b", T), ("na", "(A,B"), ("", T)]));
+    let errors = tree_errors(&texts(&[("a/b", T), ("na", "(A,B"), ("", T)]));
     let fields: Vec<Option<Field>> = errors.iter().map(|e| e.field.clone()).collect();
     assert_eq!(
       vec![Some(label(0)), Some(label(2)), Some(Field::TreeNewick { index: 1 })],
@@ -1241,14 +1244,14 @@ mod tests {
 
   #[test]
   fn tree_labels_pass_the_label_check() {
-    // Repeated file names and existing labels give labels that check_trees accepts.
+    // Repeated file names and existing labels give labels that parse_trees accepts.
     let existing = strings(&["HA", "na"]);
     let files = [
       "ha.nwk", "ha.nwk", "NA.nwk", "ha:1.nwk", " .nwk", "..nwk", "a\tb", "...nwk",
     ];
     let new = tree_labels(&strings(&files), &existing);
     let all: Vec<&str> = existing.iter().chain(&new).map(String::as_str).collect();
-    assert_eq!(Vec::<ValidationError>::new(), check_trees(&labeled(&all)));
+    assert_eq!(Vec::<ValidationError>::new(), tree_errors(&labeled(&all)));
   }
 
   #[test]

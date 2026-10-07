@@ -12,7 +12,7 @@ Counterpart: [`v0/julia-api.md`](v0/julia-api.md). The Rust crates `treeknit-cor
 - [/] **`resolve!`**: `resolve_trees` (topology only), `resolve_with_mccs` (strict or liberal), and `insert_split` for one split and `insert_all_on` for a list of splits. No `tau` parameter, no conflict mode, no dictionary form (see [`resolution.md`](resolution.md))
 - [x] **`map_mccs`**: `mcc_map::map_mccs(tree, &leaf_mcc_map(mccs, n))` gives the MCC of every node [[src](../../packages/treeknit-core/src/mcc_map.rs#L14-L65)]
 - [ ] **`map_mccs!`**: nodes have no data field to store the result in
-- [x] **`write_mccs`, `read_mccs`**: `mccs::to_lines` and `mccs::from_lines`. New: `mccs::to_json` and `mccs::from_json` for `MCCs.json`
+- [/] **`write_mccs`, `read_mccs`**: `mccs::to_lines` writes the format; `read_mccs` has no port. New: `mccs::to_json` for `MCCs.json`
 - [x] **`SRG`**: `treeknit_core::arg` and `treeknit_io::arg` (see [`arg.md`](arg.md))
 - [/] **`inferARG`**: no single function. `run`, then `arg_inputs` and `arg::arg_from_trees`, build the ARG of two trees [[src](../../packages/treeknit-core/src/pipeline.rs#L639-L655)]. The TreeKnit.jl function fails on every call
 - [x] **`parse_newick_string`**: `treeknit_io::newick::parse`

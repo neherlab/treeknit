@@ -60,9 +60,6 @@ impl ArgNode {
   pub fn is_root(&self, c: usize) -> bool {
     self.anc[c] == Anc::Root
   }
-  pub fn is_partial_root(&self) -> bool {
-    (self.is_root(0) || self.is_root(1)) && !(self.is_root(0) && self.is_root(1))
-  }
 }
 
 impl Arg {

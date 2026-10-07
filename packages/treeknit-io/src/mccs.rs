@@ -36,32 +36,7 @@ pub fn to_json(pairs: &[PairResult], trees: &[Tree], taxa: &Taxa) -> Value {
   json!({ "MCC_dict": dict })
 }
 
-/// MCCs of one tree pair as leaf names, with the two tree labels.
-pub type NamedPair = ([String; 2], Vec<Vec<String>>);
-
-/// Read MCCs of all pairs from the JSON format.
-pub fn from_json(v: &Value) -> Result<Vec<NamedPair>, String> {
-  let dict = v.get("MCC_dict").and_then(Value::as_object).ok_or("missing MCC_dict")?;
-  let mut out = Vec::new();
-  for e in dict.values() {
-    let trees: Vec<String> = serde_json::from_value(e["trees"].clone()).map_err(|e| e.to_string())?;
-    let mccs: Vec<Vec<String>> = serde_json::from_value(e["mccs"].clone()).map_err(|e| e.to_string())?;
-    let [a, b]: [String; 2] = trees
-      .try_into()
-      .map_err(|labels: Vec<String>| format!("expected two tree labels, found {}", labels.len()))?;
-    out.push(([a, b], mccs));
-  }
-  Ok(out)
-}
-
 /// Legacy format: one MCC per line, leaves separated by commas.
 pub fn to_lines(mccs: &[Vec<String>]) -> String {
   mccs.iter().map(|m| m.join(",")).collect::<Vec<_>>().join("\n")
-}
-
-pub fn from_lines(s: &str) -> Vec<Vec<String>> {
-  s.lines()
-    .filter(|l| !l.trim().is_empty())
-    .map(|l| l.split(',').map(|x| x.trim().to_owned()).collect())
-    .collect()
 }

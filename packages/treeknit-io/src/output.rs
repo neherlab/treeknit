@@ -108,7 +108,8 @@ pub struct OutputOptions {
   pub imputed: bool,
   /// Write an Auspice JSON file per tree (`auspice_<label>.json`, `--auspice-view`).
   pub auspice: bool,
-  /// Write the SVG figures of `figure_files` (`--plot`).
+  /// Write the SVG figures (`--plot`): the tanglegram of each pair, `tanglegram_<a>_<b>.svg`, then
+  /// for two trees with a built ARG `ARG/arg.svg`.
   pub figures: bool,
 }
 
@@ -325,23 +326,6 @@ pub fn output_files(run: &RunResult, options: &OutputOptions) -> Result<Vec<Outp
     .map(|(kind, path)| match kind.text(run) {
       Some(text) => Ok(OutputFile::new(path, text)),
       None => Err(MissingFile { path }),
-    })
-    .collect()
-}
-
-/// The figures of `run`: the tanglegram of each pair, `tanglegram_<a>_<b>.svg`, then for two
-/// trees with a built ARG `ARG/arg.svg`.
-pub fn figure_files(run: &RunResult) -> Vec<FigureFile> {
-  let options = OutputOptions {
-    imputed: false,
-    auspice: false,
-    ..OutputOptions::web(run.trees.len())
-  };
-  run_files(run, &options)
-    .into_iter()
-    .filter_map(|(kind, path)| match kind {
-      FileKind::Figure { figure, .. } => Some(FigureFile { path, figure }),
-      _ => None,
     })
     .collect()
 }
@@ -636,10 +620,6 @@ pub struct Archive {
 }
 
 impl Archive {
-  pub fn new() -> Archive {
-    Archive::with_capacity(0)
-  }
-
   /// An archive whose buffer holds `bytes` before it grows: the sum of the text lengths of the
   /// files bounds the archive of texts that deflate compresses, apart from the headers.
   pub fn with_capacity(bytes: usize) -> Archive {
@@ -677,12 +657,6 @@ impl Archive {
   /// The bytes of the archive.
   pub fn finish(self) -> Result<Vec<u8>, ArchiveError> {
     Ok(self.zip.finish()?.into_inner())
-  }
-}
-
-impl Default for Archive {
-  fn default() -> Self {
-    Archive::new()
   }
 }
 
@@ -1060,28 +1034,6 @@ mod tests {
       .collect();
     assert_eq!(&session_file(&request), texts[0]);
     assert_eq!(text(&files_of(&trees, &all_files(2)), "MCCs.json"), texts[1].text);
-  }
-
-  #[test]
-  fn figure_files_are_a_tanglegram_per_pair_and_the_arg_of_two_trees() {
-    let file = |path: &str, figure| FigureFile {
-      path: path.to_owned(),
-      figure,
-    };
-    let two = figure_files(&run_trees(&[("ha", HA), ("na", NA)]));
-    let expected = vec![
-      file("tanglegram_ha_na.svg", Figure::Pair { pair: 0 }),
-      file("ARG/arg.svg", Figure::Arg),
-    ];
-    assert_eq!(expected, two);
-    let t = "((A,B),(C,D));";
-    let three = figure_files(&run_trees(&[("ha", t), ("na", t), ("pb2", t)]));
-    let expected = vec![
-      file("tanglegram_ha_na.svg", Figure::Pair { pair: 0 }),
-      file("tanglegram_ha_pb2.svg", Figure::Pair { pair: 1 }),
-      file("tanglegram_na_pb2.svg", Figure::Pair { pair: 2 }),
-    ];
-    assert_eq!(expected, three);
   }
 
   #[test]
