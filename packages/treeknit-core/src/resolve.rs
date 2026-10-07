@@ -93,7 +93,7 @@ pub fn resolve_trees(trees: &mut [Tree], n_taxa: usize) -> Vec<Vec<Bits>> {
         let mut ok = 0;
         let mut accept: Vec<(usize, Bits, Bits)> = Vec::new();
         for i in (0..k).filter(|&i| i != src) {
-          let s = bits::and(sk, &leafsets[i]);
+          let s = sk & &leafsets[i];
           if bits::trivial_on(&s, &leafsets[i]) {
             ok += 1;
             continue;
@@ -109,12 +109,12 @@ pub fn resolve_trees(trees: &mut [Tree], n_taxa: usize) -> Vec<Vec<Bits>> {
             let mut joined = Bits::with_capacity(n_taxa);
             for &c in t.children(ri) {
               if bits::subset_on(&clades[i][c], &s, common) {
-                joined.union_with(&bits::and(&clades[i][c], common));
+                joined.union_with(&(&clades[i][c] & common));
               }
             }
-            if joined == bits::and(&s, common) {
+            if joined == (&s & common) {
               ok += 1;
-              accept.push((i, s, bits::and(common, &leafsets[i])));
+              accept.push((i, s, common & &leafsets[i]));
             } else {
               break;
             }
@@ -177,7 +177,7 @@ fn mcc_splits(tref: &Tree, t: &Tree, mccs: &[Mcc], n_taxa: usize, strict: bool) 
     let mmask = bits::from_iter(n_taxa, m.iter().copied());
     let r = t.lca_of(m.iter().map(|&x| leaf_t[x].unwrap())).unwrap();
     for v in t.postorder_from(r).into_iter().filter(|&v| !t.is_leaf(v)) {
-      let leaves = bits::and(&c_t[v], &mmask);
+      let leaves = &c_t[v] & &mmask;
       if leaves.count_ones(..) < 2 {
         continue;
       }

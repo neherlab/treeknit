@@ -344,7 +344,7 @@ fn propagate_splits(trees: &mut [Tree], src: usize, dst: usize, mccs: &[Mcc], n:
       continue;
     };
     for v in s.postorder_from(r).into_iter().filter(|&v| !s.is_leaf(v)) {
-      let split = bits::and(&clades[v], &mask);
+      let split = &clades[v] & &mask;
       if split.count_ones(..) < 2 || split == mask {
         continue;
       }
@@ -362,7 +362,7 @@ fn propagate_splits(trees: &mut [Tree], src: usize, dst: usize, mccs: &[Mcc], n:
 pub fn unmatched_mccs(trees: &[Tree], results: &[PairResult], n: usize) -> Vec<(usize, usize)> {
   let mut out = Vec::new();
   for (p, r) in results.iter().enumerate() {
-    let shared = bits::and(&trees[r.i].leaf_set(n), &trees[r.j].leaf_set(n));
+    let shared = &trees[r.i].leaf_set(n) & &trees[r.j].leaf_set(n);
     for (k, m) in r.mccs.iter().enumerate() {
       let m: Mcc = m.iter().copied().filter(|&x| shared.contains(x)).collect();
       if mismatched_restrictions(&trees[r.i], &trees[r.j], &m, n).is_some() {
@@ -402,7 +402,7 @@ pub fn internal_clades(t: &Tree, n: usize) -> std::collections::HashSet<Bits> {
 /// This is the only check of the shared-leaf count: a pair without two shared leaves has no
 /// MCCs, and resolution and sorting leave its trees unchanged.
 fn shared_leaves(a: &Tree, b: &Tree, n: usize) -> Option<Bits> {
-  let shared = bits::and(&a.leaf_set(n), &b.leaf_set(n));
+  let shared = &a.leaf_set(n) & &b.leaf_set(n);
   (shared.count_ones(..) >= 2).then_some(shared)
 }
 
@@ -560,7 +560,7 @@ fn sort_two(
 
 /// Attach leaves of either tree that the other lacks, and extend the MCCs accordingly.
 fn attach_pair(trees: &[Tree], i: usize, j: usize, mut mccs: Vec<Mcc>, n: usize) -> PairResult {
-  let shared = bits::and(&trees[i].leaf_set(n), &trees[j].leaf_set(n));
+  let shared = &trees[i].leaf_set(n) & &trees[j].leaf_set(n);
   let mut attached = Vec::new();
   if !mccs.is_empty() {
     attached.extend(attach_private(&trees[i], i, &shared, &mccs, n));
@@ -631,7 +631,7 @@ pub fn imputed_trees(trees: &[Tree], pairs: &[PairResult], n: usize) -> Vec<Tree
 /// restricted to shared leaves plus unambiguously attached ones.
 pub fn arg_inputs(trees: &[Tree], pair: &PairResult, n: usize) -> (Tree, Tree, Vec<Mcc>) {
   let imputed = imputed_trees(trees, std::slice::from_ref(pair), n);
-  let mut keep = bits::and(&trees[pair.i].leaf_set(n), &trees[pair.j].leaf_set(n));
+  let mut keep = &trees[pair.i].leaf_set(n) & &trees[pair.j].leaf_set(n);
   for a in pair.attached.iter().filter(|a| !a.ambiguous) {
     keep.extend(a.leaves.iter().copied());
   }

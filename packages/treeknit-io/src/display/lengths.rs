@@ -100,11 +100,11 @@ impl Other {
     {
       return None;
     }
-    let shared = bits::and(leaves, &input.leaf_set(n_taxa));
+    let shared = leaves & &input.leaf_set(n_taxa);
     let masks: Vec<Bits> = pair
       .mccs
       .iter()
-      .map(|m| bits::and(&bits::from_iter(n_taxa, m.iter().copied()), &shared))
+      .map(|m| &bits::from_iter(n_taxa, m.iter().copied()) & &shared)
       .collect();
     let clades = input.clades(n_taxa);
     let splits = masks
@@ -112,7 +112,7 @@ impl Other {
       .map(|mask| {
         let mut splits: BTreeMap<Bits, Option<f64>> = BTreeMap::new();
         for &n in &branches {
-          let split = bits::and(&clades[n], mask);
+          let split = &clades[n] & mask;
           if informative(&split, mask) {
             let length = input
               .node(n)
@@ -141,7 +141,7 @@ impl Other {
     else {
       return Split::Uninformative;
     };
-    let split = bits::and(clade, mask);
+    let split = clade & mask;
     if !informative(&split, mask) {
       return Split::Uninformative;
     }
@@ -263,7 +263,7 @@ mod tests {
     let cases = [vec![0], vec![0, 1], vec![0, 1, 2], vec![0, 3]];
     let informative: Vec<bool> = cases
       .iter()
-      .map(|c| informative(&bits::and(&bits::from_iter(4, c.iter().copied()), &mask), &mask))
+      .map(|c| informative(&(&bits::from_iter(4, c.iter().copied()) & &mask), &mask))
       .collect();
     assert_eq!(vec![false, true, false, false], informative);
   }

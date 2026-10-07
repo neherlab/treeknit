@@ -29,7 +29,8 @@ pub fn subset_on(a: &Bits, b: &Bits, m: &Bits) -> bool {
   blocks(a, b, m).all(|(x, y, z)| x & !y & z == 0)
 }
 
-/// `a ∩ b ∩ m == ∅`
+/// `a ∩ b ∩ m == ∅`; the oracle of the clade range methods of the split graph.
+#[cfg(test)]
 #[inline]
 pub fn disjoint_on(a: &Bits, b: &Bits, m: &Bits) -> bool {
   blocks(a, b, m).all(|(x, y, z)| x & y & z == 0)
@@ -46,12 +47,6 @@ pub fn trivial_on(a: &Bits, m: &Bits) -> bool {
     }
   }
   true
-}
-
-pub fn and(a: &Bits, b: &Bits) -> Bits {
-  let mut c = a.clone();
-  c.intersect_with(b);
-  c
 }
 
 pub fn from_iter(n: usize, it: impl IntoIterator<Item = usize>) -> Bits {

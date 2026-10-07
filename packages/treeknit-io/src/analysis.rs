@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 use strum::VariantArray;
-use treeknit_core::{Options, Resolution, Taxa, Tree, bits};
+use treeknit_core::{Options, Resolution, Taxa, Tree};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
@@ -533,7 +533,7 @@ pub fn shared_leaf_counts(trees: &[Tree], n_taxa: usize) -> Vec<PairShared> {
       counts.push(PairShared {
         i,
         j,
-        shared: bits::and(&sets[i], &sets[j]).count_ones(..),
+        shared: sets[i].intersection_count(&sets[j]),
       });
     }
   }
