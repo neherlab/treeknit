@@ -774,40 +774,38 @@ mod tests {
 
   #[test]
   fn two_trees_with_arg() {
-    let ex = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../legacy_julia_version/examples");
-    if !Path::new(ex).exists() {
-      return;
-    }
+    // The H3N2 trees of the TreeKnit.jl examples.
+    let data = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/h3n2-2017");
     let dir = tempdir().unwrap();
     let out = dir.path().join("out");
     run(
-      &[
-        &format!("{ex}/tree_h3n2_ha.nwk"),
-        &format!("{ex}/tree_h3n2_na.nwk"),
-        "--auspice-view",
-      ],
+      &[&format!("{data}/ha.nwk"), &format!("{data}/na.nwk"), "--auspice-view"],
       &out,
     );
-    for f in [
+    let missing: Vec<&str> = [
       "MCCs.json",
       "parameters.json",
       "log.txt",
-      "tree_h3n2_ha_resolved.nwk",
-      "auspice_tree_h3n2_na.json",
+      "ha_resolved.nwk",
+      "auspice_na.json",
       "ARG/arg.nwk",
       "ARG/nodes.dat",
-      "ARG/tree_h3n2_na_liberal_resolved.nwk",
-    ] {
-      assert!(out.join(f).exists(), "missing {f}");
-    }
+      "ARG/na_liberal_resolved.nwk",
+    ]
+    .into_iter()
+    .filter(|f| !out.join(f).exists())
+    .collect();
+    assert_eq!(Vec::<&str>::new(), missing);
     let json = mccs(&out)["MCC_dict"]["1"]["mccs"].clone();
     let n = json.as_array().unwrap().len();
     // Legacy text output holds the same MCCs, one per line.
     let dat = std::fs::read_to_string(out.join("MCCs.dat")).unwrap();
     let from_dat: Vec<Vec<String>> = dat.lines().map(|l| l.split(',').map(String::from).collect()).collect();
-    assert_eq!(serde_json::to_value(from_dat).unwrap(), json);
+    assert_eq!(json, serde_json::to_value(from_dat).unwrap());
+    // Each reassortment of the ARG has two `#H` nodes, one per segment, and there is one per MCC
+    // beyond the first.
     let arg = std::fs::read_to_string(out.join("ARG/arg.nwk")).unwrap();
-    assert_eq!(arg.matches("#H").count(), 2 * (n - 1));
+    assert_eq!(2 * (n - 1), arg.matches("#H").count());
   }
 
   #[test]

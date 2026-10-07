@@ -8,7 +8,7 @@
 - **ARG branch lengths and text**: the ARG check compares the hybrid count and the splits of the segment trees. The branch lengths of `set_branch_lengths`, the extended Newick text, and `nodes.dat` have no comparison
 - **Strict polytomy sort**: the fixture field `sorted_leaf_order` covers the non-strict sort only. The strict sort in `fn sort_pair` ([pipeline.rs#L509-L559](../../packages/treeknit-core/src/pipeline.rs#L518-L568)) runs in the unit tests of `pipeline.rs`, which compare it with the order of the port's own run, but no test compares its leaf order with TreeKnit.jl
 - **Cooling schedules**: a unit test checks the geometric schedule. The linear and acos schedules ([anneal.rs#L30-L48](../../packages/treeknit-core/src/anneal.rs#L30-L48)) have no test
-- **Auspice JSON**: no test checks the content of `auspice_<label>.json`; the command-line test checks only that the file exists, and that test runs only where the TreeKnit.jl examples exist ([`N-cli-test-skips-without-julia-examples.md`](N-cli-test-skips-without-julia-examples.md))
+- **Auspice JSON**: no test checks the content of `auspice_<label>.json`; the command-line test checks only that the file exists
 
 ## Fix direction
 
