@@ -8,12 +8,13 @@ use crate::figure::svg::{
 };
 use crate::figure::{FigureOptions, labels_shown};
 use crate::palette::{ThemeColors, palette};
+use crate::summary::pair_title;
 
 /// The SVG text of the tanglegram of `view` with valid `options`.
 pub(super) fn draw(view: &PairView, options: &FigureOptions) -> String {
   let colors = palette().light;
   let layout = Layout::new(view, options);
-  let title = format!("{} and {}", view.left.label, view.right.label);
+  let title = pair_title(&view.left.label, &view.right.label);
   let legend = legend_entries(&view.legend, &colors, layout.ribbons);
   let mut svg = figure(
     &title,

@@ -36,6 +36,7 @@ function Arg({ result }: { result: RunResult }) {
   const rows = useMemo(() => (data === undefined ? 1 : rowCount(data)), [data]);
   const view = useDrawingView(rows);
   const failure = argFailure(result.summary.arg, query.data);
+  const argTitle = result.summary.pairs[0]?.title;
   const names = useMemo(() => (data === undefined ? [] : argLeafNames(data)), [data]);
   const findLeaf = useFindLeaf(data, argLeafRows, select, view.actions);
 
@@ -85,7 +86,9 @@ function Arg({ result }: { result: RunResult }) {
               labels={labels}
               selection={selection}
               onSelect={select}
-              label={`Ancestral reassortment graph of ${shown.segments[0]} and ${shown.segments[1]}`}
+              label={
+                argTitle === undefined ? "Ancestral reassortment graph" : `Ancestral reassortment graph of ${argTitle}`
+              }
             />
           </CanvasBoundary>
         )

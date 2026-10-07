@@ -264,7 +264,7 @@ mod tests {
     // Oracle: fixtures/doc_mccs_1.json (TreeKnit.jl): MCCs [X] and [A,B,C,D], one reassortment.
     let expected = json!({
         "pairs": [{
-            "index": 0, "trees": [0, 1], "labels": ["ha", "na"], "mccCount": 2,
+            "index": 0, "trees": [0, 1], "labels": ["ha", "na"], "title": "ha and na", "mccCount": 2,
             "mccs": [["X"], ["A", "B", "C", "D"]], "imputedCount": 0, "ambiguousCount": 0,
         }],
         "arg": {"status": "built", "reassortments": 1},
@@ -477,7 +477,7 @@ mod tests {
     let arg = display::arg_view(&r, Scale::Depth).unwrap();
     let expected = json!({
       "fileName": "arg_depth_w640_row20_labels-off.svg",
-      "text": figure::arg_svg(&arg, ["ha", "na"], &custom).unwrap(),
+      "text": figure::arg_svg(&arg, &custom).unwrap(),
     });
     assert_eq!(
       expected,
@@ -967,7 +967,8 @@ mod tests {
     let session = Session::run(&ts(&two_trees()), &Function::new_no_args("")).unwrap();
     let table = plain(&session.constellation().unwrap().js_value());
     assert_eq!(json!(["A", "B", "C", "D", "X"]), table["leaves"]);
-    assert_eq!(json!([["ha", "na"]]), table["pairs"]);
+    assert_eq!(json!(["ha and na"]), table["pairTitles"]);
+    assert_eq!(json!(["MCC 1", "MCC 2"]), table["mccNames"]);
     assert_eq!(json!([{"mcc": 0, "size": 1, "slot": 1}]), table["cells"][4]);
     assert_eq!(json!([{"mcc": 1, "size": 4, "slot": 0}]), table["cells"][0]);
   }

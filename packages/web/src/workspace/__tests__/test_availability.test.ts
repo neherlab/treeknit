@@ -12,6 +12,7 @@ const SUMMARY: Summary = {
       index: 0,
       trees: [0, 1],
       labels: ["ha", "na"],
+      title: "ha and na",
       mccCount: 2,
       mccs: [["X"], ["A", "B", "C", "D"]],
       imputedCount: 0,

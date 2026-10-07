@@ -59,13 +59,11 @@ export function MccTablePanel() {
 function MccTableQuery({ result }: { result: RunResult }) {
   const { search } = useWorkspaceSearch();
   const query = usePairView(result.sessionId, search.pair, search.version, search.scale);
-  const labels = result.summary.pairs[search.pair]?.labels;
+  const title = result.summary.pairs[search.pair]?.title;
 
   return (
     <QueryState query={query} loading="Loading the MCCs" errorTitle="The MCCs could not be loaded">
-      {(data) => (
-        <MccTable data={data} title={labels === undefined ? "MCCs" : `MCCs of ${labels[0]} and ${labels[1]}`} />
-      )}
+      {(data) => <MccTable data={data} title={title === undefined ? "MCCs" : `MCCs of ${title}`} />}
     </QueryState>
   );
 }

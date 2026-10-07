@@ -269,11 +269,7 @@ function branchMark(color: ColorRole): LegendMark {
 export function exampleConstellation(): ConstellationTable {
   return {
     leaves: ["A", "B", "C", "Z"],
-    pairs: [
-      ["ha", "na"],
-      ["ha", "mp"],
-      ["na", "mp"],
-    ],
+    pairTitles: ["ha and na", "ha and mp", "na and mp"],
     cells: [
       [{ mcc: 0, size: 3, slot: 0 }, { mcc: 1, size: 2, slot: 2 }, null],
       [{ mcc: 0, size: 3, slot: 0 }, { mcc: 1, size: 2, slot: 2 }, null],

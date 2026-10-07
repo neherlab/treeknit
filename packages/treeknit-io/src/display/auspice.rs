@@ -9,6 +9,7 @@ use crate::display::{
 };
 use crate::palette::palette;
 use crate::run::RunResult;
+use crate::summary::pair_title;
 use std::collections::BTreeSet;
 
 /// Key of the MCC coloring and node attribute.
@@ -54,7 +55,7 @@ pub fn auspice_view(run: &RunResult, pair: usize, version: TreeVersion, scale: S
   let scale = layout.shown_scale(scale);
   let largest = largest_mccs(&mccs);
   let meta = AuspiceMeta {
-    title: format!("TreeKnit: {} and {}", layout.left.label, layout.right.label),
+    title: format!("TreeKnit: {}", pair_title(&layout.left.label, &layout.right.label)),
     panels: vec![AuspicePanel::Tree],
     colorings: colorings(&mccs, &largest, &layout.left.label, &layout.right.label),
     filters: [
@@ -173,7 +174,7 @@ fn colorings(mccs: &[MccInfo], largest: &[usize], left: &str, right: &str) -> Ve
   vec![
     categorical(
       MCC_KEY,
-      &format!("MCC ({left} and {right})"),
+      &format!("MCC ({})", pair_title(left, right)),
       mccs
         .iter()
         .map(|m| (m.name.clone(), colors.mcc[m.slot].clone()))

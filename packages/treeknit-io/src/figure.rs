@@ -22,13 +22,13 @@ pub fn tanglegram_svg(view: &PairView, options: &FigureOptions) -> Result<String
   Ok(tanglegram::draw(view, options))
 }
 
-/// The SVG figure of the ARG `view` of the trees labeled `segments` (segment A, then B), titled
-/// with them, with a legend under the drawing; the errors of `check_figure_options` when
+/// The SVG figure of the ARG `view`, titled with the labels of its segments, with a legend under
+/// the drawing; the errors of `check_figure_options` when
 /// `options` are invalid. The view is laid out with `options.scale` by `display::arg_view`; the
 /// shapes have the scale `view.scale`.
-pub fn arg_svg(view: &ArgView, segments: [&str; 2], options: &FigureOptions) -> Result<String, Vec<ValidationError>> {
+pub fn arg_svg(view: &ArgView, options: &FigureOptions) -> Result<String, Vec<ValidationError>> {
   checked(options)?;
-  Ok(arg::draw(view, segments, options))
+  Ok(arg::draw(view, options))
 }
 
 /// Size and content of a figure; a missing field takes its default.
@@ -636,7 +636,7 @@ mod tests {
     );
     let r = run_trees(&[("ha", ha), ("na", na)]);
     let view = display::arg_view(&r, Scale::Div).unwrap();
-    let svg = arg_svg(&view, ["ha", "na"], &options(132.0, 12.0, Scale::Div, LabelMode::On)).unwrap();
+    let svg = arg_svg(&view, &options(132.0, 12.0, Scale::Div, LabelMode::On)).unwrap();
     let away = |l: &&display::Leader| l.from[0] < l.to[0];
     let long = view.nodes.iter().position(|n| n.label == "Long").unwrap();
     assert!(view.shapes.leaders.iter().filter(away).any(|l| l.node == long));
@@ -668,7 +668,7 @@ mod tests {
   fn arg_svg_without_reassortment_has_no_rings_or_reassortment_entry() {
     let r = run_trees(&[("ha", HA), ("na", HA)]);
     let view = display::arg_view(&r, Scale::Depth).unwrap();
-    let svg = arg_svg(&view, ["ha", "na"], &options(800.0, 12.0, Scale::Depth, LabelMode::Off)).unwrap();
+    let svg = arg_svg(&view, &options(800.0, 12.0, Scale::Depth, LabelMode::Off)).unwrap();
     let parsed = elements(&svg);
     let texts: Vec<&str> = parsed
       .iter()
@@ -686,7 +686,7 @@ mod tests {
   fn arg_svg_of_the_two_tree_example() {
     let r = run_trees(&[("ha", HA), ("na", NA)]);
     let view = display::arg_view(&r, Scale::Depth).unwrap();
-    let svg = arg_svg(&view, ["ha", "na"], &options(800.0, 12.0, Scale::Depth, LabelMode::On)).unwrap();
+    let svg = arg_svg(&view, &options(800.0, 12.0, Scale::Depth, LabelMode::On)).unwrap();
     let colors = palette::palette().light;
     let parsed = elements(&svg);
     assert_eq!(
@@ -738,11 +738,7 @@ mod tests {
   fn arg_svg_rejects_invalid_options() {
     let r = run_trees(&[("ha", HA), ("na", NA)]);
     let view = display::arg_view(&r, Scale::Div).unwrap();
-    let svg = arg_svg(
-      &view,
-      ["ha", "na"],
-      &options(f64::NAN, 12.0, Scale::Div, LabelMode::Auto),
-    );
+    let svg = arg_svg(&view, &options(f64::NAN, 12.0, Scale::Div, LabelMode::Auto));
     assert_eq!(
       Err(vec![error(
         FigureOptionKey::Width,

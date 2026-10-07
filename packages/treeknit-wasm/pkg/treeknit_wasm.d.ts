@@ -773,6 +773,10 @@ export interface PairSummary {
      */
     labels: [string, string];
     /**
+     * The title of the pair, `pair_title` of the labels: "ha and na".
+     */
+    title: string;
+    /**
      * Number of MCCs.
      */
     mccCount: number;
@@ -1064,9 +1068,9 @@ export interface ConstellationTable {
      */
     leaves: string[];
     /**
-     * Labels of the two trees of each pair, in pipeline order.
+     * The title of each pair, in pipeline order, as `PairSummary.title`.
      */
-    pairs: [string, string][];
+    pairTitles: string[];
     /**
      * `cells[leaf][pair]`; `None` when the leaf is in neither tree of the pair, or the pair has no
      * MCCs (its trees share fewer than two leaves).

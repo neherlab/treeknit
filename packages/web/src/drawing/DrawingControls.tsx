@@ -57,7 +57,7 @@ export function LabelModeSelect({ value, onChange }: ChoiceProps<LabelMode>) {
 
 export function PairSelect({ pairs, value, onChange }: PairSelectProps) {
   const options = useMemo<SelectOption<string>[]>(
-    () => pairs.map(({ index, labels: [a, b] }) => ({ id: String(index), label: `${a} and ${b}` })),
+    () => pairs.map(({ index, title }) => ({ id: String(index), label: title })),
     [pairs],
   );
 

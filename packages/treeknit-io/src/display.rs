@@ -638,8 +638,8 @@ pub struct ConstellationTable {
   /// tree that has them. The pair views can order the first tree differently, because they sort
   /// both trees of a pair for that pair.
   pub leaves: Vec<String>,
-  /// Labels of the two trees of each pair, in pipeline order.
-  pub pairs: Vec<[String; 2]>,
+  /// The title of each pair, in pipeline order, as `PairSummary.title`.
+  pub pair_titles: Vec<String>,
   /// `cells[leaf][pair]`; `None` when the leaf is in neither tree of the pair, or the pair has no
   /// MCCs (its trees share fewer than two leaves).
   pub cells: Vec<Vec<Option<ConstellationCell>>>,

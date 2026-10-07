@@ -26,15 +26,11 @@ export function constellationRows(table: ConstellationTable): ConstellationRow[]
 }
 
 export function pairColumns(table: ConstellationTable): PairColumn[] {
-  return table.pairs.map(([a, b], pair) => ({ id: pairColumnId(pair), title: pairTitle(a, b), pair }));
+  return table.pairTitles.map((title, pair) => ({ id: pairColumnId(pair), title, pair }));
 }
 
 function pairColumnId(pair: number): string {
   return `pair-${String(pair)}`;
-}
-
-function pairTitle(a: string, b: string): string {
-  return `${a} and ${b}`;
 }
 
 export function cellLabel(cell: ConstellationCell, mccNames: readonly string[], leaf: string, pair: string): string {

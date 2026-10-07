@@ -26,7 +26,7 @@ export interface LeafCopy {
 
 export interface LeafPair {
   pair: number;
-  labels: readonly [string, string];
+  title: string;
   cell: NamedCell | null;
 }
 
@@ -84,12 +84,12 @@ export function leafPairs(constellation: ConstellationTable | undefined, name: s
   const row = constellation?.leaves.indexOf(name) ?? -1;
   const cells = row === -1 ? undefined : constellation?.cells[row];
 
-  return (constellation?.pairs ?? []).map((labels, pair) => {
+  return (constellation?.pairTitles ?? []).map((title, pair) => {
     const cell = cells?.[pair] ?? null;
 
     return {
       pair,
-      labels,
+      title,
       cell: cell === null ? null : { ...cell, name: itemAt(constellation?.mccNames ?? [], cell.mcc, "MCC name") },
     };
   });

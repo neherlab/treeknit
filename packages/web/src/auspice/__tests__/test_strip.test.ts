@@ -45,6 +45,7 @@ function pairOf(index: number, trees: [number, number]): PairSummary {
     index,
     trees,
     labels: [`t${String(trees[0])}`, `t${String(trees[1])}`],
+    title: `t${String(trees[0])} and t${String(trees[1])}`,
     mccCount: 0,
     mccs: [],
     imputedCount: 0,

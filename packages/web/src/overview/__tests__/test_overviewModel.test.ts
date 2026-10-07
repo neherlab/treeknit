@@ -104,6 +104,7 @@ function pair(
     index,
     trees,
     labels,
+    title: `${labels[0]} and ${labels[1]}`,
     mccCount,
     mccs: Array.from({ length: mccCount }, (_, mcc) => [`L${String(mcc)}`]),
     imputedCount,

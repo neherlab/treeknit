@@ -38,6 +38,7 @@ impl Summary {
         index,
         trees: [p.i, p.j],
         labels: [trees[p.i].label.clone(), trees[p.j].label.clone()],
+        title: pair_title(&trees[p.i].label, &trees[p.j].label),
         mcc_count: p.mccs.len(),
         mccs: p.mccs.iter().map(|m| taxa.names_of(m)).collect(),
         // Counted per leaf, as the `imputed` entries of `MCCs.json`.
@@ -65,6 +66,8 @@ pub struct PairSummary {
   pub trees: [usize; 2],
   /// Labels of the two trees.
   pub labels: [String; 2],
+  /// The title of the pair, `pair_title` of the labels: "ha and na".
+  pub title: String,
   /// Number of MCCs.
   pub mcc_count: usize,
   /// The MCCs as leaf-name lists, as in `MCCs.json`.
@@ -73,6 +76,12 @@ pub struct PairSummary {
   pub imputed_count: usize,
   /// Number of these attached leaves whose attachment is ambiguous.
   pub ambiguous_count: usize,
+}
+
+/// The title of the pair of the trees labeled `a` and `b`, as the views and the figures name it:
+/// "ha and na".
+pub(crate) fn pair_title(a: &str, b: &str) -> String {
+  format!("{a} and {b}")
 }
 
 /// Outcome of building the ARG of two trees.
@@ -151,6 +160,7 @@ mod tests {
         index: 0,
         trees: [0, 1],
         labels: ["ha".into(), "na".into()],
+        title: "ha and na".into(),
         mcc_count: 2,
         mccs: vec![names(&["X"]), names(&["A", "B", "C", "D"])],
         imputed_count: 0,
@@ -250,6 +260,7 @@ mod tests {
         index: 0,
         trees: [0, 1],
         labels: ["ha".into(), "na".into()],
+        title: "ha and na".into(),
         mcc_count: 2,
         mccs: vec![vec!["X".into()], vec!["A".into(), "B".into(), "C".into(), "D".into()]],
         imputed_count: 0,
@@ -265,8 +276,8 @@ mod tests {
     };
     let expected = json!({
       "pairs": [{
-        "index": 0, "trees": [0, 1], "labels": ["ha", "na"], "mccCount": 2, "mccs": [["X"], ["A", "B", "C", "D"]],
-        "imputedCount": 0, "ambiguousCount": 0,
+        "index": 0, "trees": [0, 1], "labels": ["ha", "na"], "title": "ha and na", "mccCount": 2,
+        "mccs": [["X"], ["A", "B", "C", "D"]], "imputedCount": 0, "ambiguousCount": 0,
       }],
       "arg": {"status": "built", "reassortments": 1},
       "noReassortment": false,

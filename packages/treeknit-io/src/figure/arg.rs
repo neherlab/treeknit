@@ -6,10 +6,10 @@ use crate::figure::svg::{
 };
 use crate::figure::{FigureOptions, labels_shown};
 use crate::palette::palette;
+use crate::summary::pair_title;
 
-/// The SVG text of the ARG `view` of the trees labeled `segments` (A, then B) with valid
-/// `options`.
-pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions) -> String {
+/// The SVG text of the ARG `view` with valid `options`.
+pub(super) fn draw(view: &ArgView, options: &FigureOptions) -> String {
   let colors = palette().light;
   let leaves = || view.nodes.iter().filter(|n| n.leaf);
   let rows_count = leaves().count().max(1);
@@ -27,8 +27,8 @@ pub(super) fn draw(view: &ArgView, segments: [&str; 2], options: &FigureOptions)
     top: drawing_top(),
     row_height: options.row_height,
   };
-  let [a, b] = segments;
-  let title = format!("ARG of {a} and {b}");
+  let [a, b] = &view.segments;
+  let title = format!("ARG of {}", pair_title(a, b));
   let legend = legend_entries(&view.legend, &colors, false);
   let mut svg = figure(
     &title,

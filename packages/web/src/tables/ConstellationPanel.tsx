@@ -71,7 +71,7 @@ function Constellation({ data }: { data: ConstellationTable }) {
             <p>{CONSTELLATION_INFO}</p>
           </InfoButton>
         </h2>
-        <span className="text-ink-muted text-sm">{`${counted(rows.length, "leaf", "leaves")}, ${counted(data.pairs.length, "pair", "pairs")}`}</span>
+        <span className="text-ink-muted text-sm">{`${counted(rows.length, "leaf", "leaves")}, ${counted(data.pairTitles.length, "pair", "pairs")}`}</span>
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
         <table aria-label="Constellation" aria-rowcount={rows.length + 1} className={cn(tableStyle, "w-auto")}>

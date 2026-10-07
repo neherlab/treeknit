@@ -31,9 +31,9 @@ describe("inspectorSubject", () => {
       mcc: PAIR.mccs[1],
       ambiguous: true,
       pairs: [
-        { pair: 0, labels: ["ha", "na"], cell: null },
-        { pair: 1, labels: ["ha", "mp"], cell: null },
-        { pair: 2, labels: ["na", "mp"], cell: null },
+        { pair: 0, title: "ha and na", cell: null },
+        { pair: 1, title: "ha and mp", cell: null },
+        { pair: 2, title: "na and mp", cell: null },
       ],
     });
   });
@@ -80,9 +80,9 @@ describe("inspectorSubject", () => {
 describe("leafPairs", () => {
   test("gives the MCC of a leaf in every pair and none where the pair lacks it", () => {
     expect(leafPairs(exampleConstellation(), "C")).toStrictEqual([
-      { pair: 0, labels: ["ha", "na"], cell: { mcc: 0, size: 3, slot: 0, name: "MCC 1" } },
-      { pair: 1, labels: ["ha", "mp"], cell: null },
-      { pair: 2, labels: ["na", "mp"], cell: null },
+      { pair: 0, title: "ha and na", cell: { mcc: 0, size: 3, slot: 0, name: "MCC 1" } },
+      { pair: 1, title: "ha and mp", cell: null },
+      { pair: 2, title: "na and mp", cell: null },
     ]);
   });
 

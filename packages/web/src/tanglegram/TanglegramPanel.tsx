@@ -43,7 +43,8 @@ function Tanglegram({ result }: { result: RunResult }) {
   const view = useDrawingView(rows);
   const [colorByMcc, setColorByMcc] = useState(true);
   const pairs = result.summary.pairs;
-  const labelsOf = pairs[pair]?.labels;
+  const title = pairs[pair]?.title;
+  const drawing = title === undefined ? "Tanglegram" : `Tanglegram of ${title}`;
   const resultKey = `${String(result.sessionId)}:tanglegram`;
   const names = useMemo(() => (data === undefined ? [] : pairLeafNames(data)), [data]);
   const findLeaf = useFindLeaf(data, pairLeafRows, select, view.actions);
@@ -87,7 +88,7 @@ function Tanglegram({ result }: { result: RunResult }) {
             selection={selection}
             onSelect={select}
             resultKey={resultKey}
-            label={`Tanglegram of ${labelsOf?.[0] ?? shown.left.label} and ${labelsOf?.[1] ?? shown.right.label} with ${counted(shown.mccs.length, "MCC", "MCCs")}`}
+            label={`${drawing} with ${counted(shown.mccs.length, "MCC", "MCCs")}`}
           />
         </CanvasBoundary>
       )}

@@ -201,12 +201,12 @@ function LeafPairs({ name, pairs }: { name: string; pairs: readonly LeafPair[] }
     <section aria-label="MCC in each pair" className="flex flex-col gap-1.5">
       <h3 className="text-ink text-sm font-semibold">MCC in each pair</h3>
       <ul className="flex flex-col gap-1 text-sm">
-        {pairs.map(({ pair, labels: [a, b], cell }) => (
+        {pairs.map(({ pair, title, cell }) => (
           <li key={pair} className="flex items-center justify-between gap-2">
             {cell === null ? (
-              <span className="text-ink-muted">{`${a} and ${b}`}</span>
+              <span className="text-ink-muted">{title}</span>
             ) : (
-              <LeafPairLink name={name} pair={pair} label={`${a} and ${b}`} />
+              <LeafPairLink name={name} pair={pair} label={title} />
             )}
             {cell === null ? (
               <span className="text-ink-muted">Not in this pair</span>

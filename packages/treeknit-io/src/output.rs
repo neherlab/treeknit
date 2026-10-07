@@ -476,12 +476,12 @@ pub fn pair_figure(
 /// scale is that of the ARG view (`ArgView.scale`).
 pub fn arg_figure(run: &RunResult, options: &FigureOptions) -> Result<Option<FigureDownload>, Vec<ValidationError>> {
   figure::checked(options)?;
-  let (Some(segments), Some(view)) = (segment_labels(run), display::arg_view(run, options.scale)) else {
+  let Some(view) = display::arg_view(run, options.scale) else {
     return Ok(None);
   };
   Ok(Some(FigureDownload {
     file_name: download_name(ARG_FIGURE, None, options, view.scale),
-    text: figure::arg_svg(&view, segments, options)?,
+    text: figure::arg_svg(&view, options)?,
   }))
 }
 
@@ -1071,7 +1071,7 @@ mod tests {
     let options = FigureOptions::default();
     let expected = (
       figure::tanglegram_svg(&view, &options).unwrap(),
-      figure::arg_svg(&arg, ["ha", "na"], &options).unwrap(),
+      figure::arg_svg(&arg, &options).unwrap(),
     );
     assert_eq!(
       (Some(expected.0), Some(expected.1)),

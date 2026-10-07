@@ -3,6 +3,7 @@
 use crate::display::pair::pair_slots;
 use crate::display::{ConstellationCell, ConstellationTable, mcc_name};
 use crate::run::RunResult;
+use crate::summary::pair_title;
 use treeknit_core::mcc_map::leaf_mcc_map;
 
 /// The MCC of every taxon of `run` in every pair, with the color slots of the pair views.
@@ -45,10 +46,10 @@ pub fn constellation(run: &RunResult) -> ConstellationTable {
     .collect();
   ConstellationTable {
     leaves: rows.iter().map(|&x| run.taxa.names[x].clone()).collect(),
-    pairs: run
+    pair_titles: run
       .pairs
       .iter()
-      .map(|p| [run.trees[p.i].label.clone(), run.trees[p.j].label.clone()])
+      .map(|p| pair_title(&run.trees[p.i].label, &run.trees[p.j].label))
       .collect(),
     cells,
     mcc_names: (0..run.pairs.iter().map(|p| p.mccs.len()).max().unwrap_or(0))
@@ -71,7 +72,7 @@ mod tests {
     let r = run_trees(&[("ha", "((A,B),(C,(D,X)));"), ("na", "((A,(B,X)),(C,D));")]);
     let table = constellation(&r);
     assert_eq!(r.trees[0].leaf_names(), table.leaves);
-    assert_eq!(vec![["ha".to_owned(), "na".to_owned()]], table.pairs);
+    assert_eq!(vec!["ha and na".to_owned()], table.pair_titles);
     let row = |name: &str| &table.cells[table.leaves.iter().position(|l| l == name).unwrap()];
     // Slots as in the pair view: the larger MCC [A,B,C,D] slot 0, X slot 1.
     let cell = |mcc, size, slot| Some(ConstellationCell { mcc, size, slot });
@@ -96,7 +97,7 @@ mod tests {
     let seg0: Vec<String> = r.trees[0].leaf_names();
     assert_eq!(seg0[..], t.leaves[..seg0.len()]);
     assert_eq!(vec!["R".to_owned(), "Q".to_owned()], t.leaves[seg0.len()..].to_vec());
-    assert_eq!(3, t.pairs.len());
+    assert_eq!(3, t.pair_titles.len());
     assert!(t.cells.iter().all(|row| row.len() == 3));
     // Every pair holds R, attached in the pairs with seg0. Q is in neither tree of pair (0,1).
     let (row_r, row_q) = (&t.cells[seg0.len()], &t.cells[seg0.len() + 1]);
