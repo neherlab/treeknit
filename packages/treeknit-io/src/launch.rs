@@ -25,6 +25,7 @@ use base64::engine::{DecodePaddingMode, general_purpose};
 use flate2::Compression;
 use flate2::read::MultiGzDecoder;
 use flate2::write::GzEncoder;
+use percent_encoding::{AsciiSet, CONTROLS, percent_decode_str, utf8_percent_encode};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::io::{Read, Write};
@@ -71,8 +72,33 @@ const SUGGESTION_MIN_CHARS: usize = 4;
 /// Largest edit distance between an unknown key and the key it suggests.
 const SUGGESTION_MAX_DISTANCE: usize = 2;
 
-/// Digits of a percent-encoded byte.
-const HEX_DIGITS: &[u8; 16] = b"0123456789ABCDEF";
+/// The characters of a value of [`link_query`] that a reader of form data would misread.
+const VALUE_SET: &AsciiSet = &CONTROLS
+  .add(b'%')
+  .add(b'&')
+  .add(b'#')
+  .add(b'+')
+  .add(b' ')
+  .add(b'"')
+  .add(b'<')
+  .add(b'>');
+
+/// The characters of a key of [`link_query`] that a reader would misread: those of values and `=`.
+const KEY_SET: &AsciiSet = &VALUE_SET.add(b'=');
+
+/// The characters that a URI cannot hold (RFC 3986): every ASCII character outside its
+/// unreserved and reserved sets and `%`.
+const URI_SET: &AsciiSet = &CONTROLS
+  .add(b' ')
+  .add(b'"')
+  .add(b'<')
+  .add(b'>')
+  .add(b'\\')
+  .add(b'^')
+  .add(b'`')
+  .add(b'{')
+  .add(b'|')
+  .add(b'}');
 
 /// Read the launch of the key-value pairs of a link, in the order of the link. `view_keys` are
 /// the keys that the web app reads itself, which are neither errors nor ignored. Every problem is
@@ -170,7 +196,7 @@ pub fn fetch_url(url: &str) -> String {
 pub fn url_file_name(url: &str) -> String {
   UrlParts::of(url)
     .and_then(|p| p.path.rsplit('/').find(|s| !s.is_empty()))
-    .map(|segment| String::from_utf8_lossy(&percent_decode(segment)).into_owned())
+    .map(|segment| percent_decode_str(segment).decode_utf8_lossy().into_owned())
     .unwrap_or_default()
 }
 
@@ -274,10 +300,11 @@ pub fn link_query(pairs: &[(String, String)]) -> String {
   pairs
     .iter()
     .map(|(key, value)| {
+      let key = utf8_percent_encode(key, KEY_SET);
       if value.is_empty() {
-        encode_component(key, true)
+        key.to_string()
       } else {
-        format!("{}={}", encode_component(key, true), encode_component(value, false))
+        format!("{key}={}", utf8_percent_encode(value, VALUE_SET))
       }
     })
     .collect::<Vec<_>>()
@@ -288,14 +315,7 @@ pub fn link_query(pairs: &[(String, String)]) -> String {
 /// (`URLSearchParams`): pairs split at `&`, a key without `=` has an empty value, `+` is a space,
 /// and percent-encoded bytes are decoded as UTF-8.
 pub fn query_pairs(query: &str) -> Vec<(String, String)> {
-  query
-    .split('&')
-    .filter(|part| !part.is_empty())
-    .map(|part| {
-      let (key, value) = part.split_once('=').unwrap_or((part, ""));
-      (decode_form_component(key), decode_form_component(value))
-    })
-    .collect()
+  form_urlencoded::parse(query.as_bytes()).into_owned().collect()
 }
 
 /// The key-value pairs of a link `url`: those of its query, then those of its fragment when the
@@ -352,15 +372,7 @@ pub fn link_limits() -> LinkLimits {
 /// characters, `"`, `<`, `>`, ...), as browsers send it: links keep such characters readable,
 /// and an HTTP client needs them encoded.
 pub fn request_url(url: &str) -> String {
-  let mut out = String::with_capacity(url.len());
-  for c in url.chars() {
-    if c.is_ascii_alphanumeric() || "-._~:/?#[]@!$&'()*+,;=%".contains(c) {
-      out.push(c);
-    } else {
-      push_percent_encoded(&mut out, c);
-    }
-  }
-  out
+  utf8_percent_encode(url, URI_SET).to_string()
 }
 
 /// Every key of links that is not a key of the display, with its value and a one-line
@@ -939,27 +951,10 @@ fn suggestion(key: &str, view_keys: &[String]) -> Option<String> {
 /// first one on a tie.
 fn closest<'a>(word: &str, candidates: impl Iterator<Item = &'a str>) -> Option<&'a str> {
   candidates
-    .map(|c| (edit_distance(word, c), c))
+    .map(|c| (strsim::levenshtein(word, c), c))
     .filter(|(d, _)| *d <= SUGGESTION_MAX_DISTANCE)
     .min_by_key(|(d, _)| *d)
     .map(|(_, c)| c)
-}
-
-/// Levenshtein distance between `a` and `b` in characters: the fewest insertions, deletions, and
-/// substitutions that turn one into the other.
-fn edit_distance(a: &str, b: &str) -> usize {
-  let b: Vec<char> = b.chars().collect();
-  let mut row: Vec<usize> = (0..=b.len()).collect();
-  for (i, ca) in a.chars().enumerate() {
-    let mut diagonal = row[0];
-    row[0] = i + 1;
-    for (j, cb) in b.iter().enumerate() {
-      let substitution = diagonal + usize::from(ca != *cb);
-      diagonal = row[j + 1];
-      row[j + 1] = substitution.min(row[j] + 1).min(diagonal + 1);
-    }
-  }
-  row[b.len()]
 }
 
 /// Check an `https:` URL: it has a host and no user name or password.
@@ -1010,7 +1005,7 @@ fn decode_data_url(value: &str) -> Result<String, String> {
   let bytes = if meta.trim_end().to_ascii_lowercase().ends_with(";base64") {
     decode_base64(data)?
   } else {
-    percent_decode(data)
+    percent_decode_str(data).collect()
   };
   decode_tree_bytes(&bytes)
 }
@@ -1025,64 +1020,6 @@ fn decode_base64(text: &str) -> Result<Vec<u8>, String> {
     .decode(text)
     .or_else(|_standard_error| GeneralPurpose::new(&alphabet::URL_SAFE, config).decode(text))
     .map_err(|e| format!("the base64 data is invalid: {e}"))
-}
-
-/// Bytes of a percent-encoded text: each `%XX` with two hexadecimal digits is the byte `XX`;
-/// every other character, a `%` without two digits included, stays as it is, as browsers decode.
-fn percent_decode(text: &str) -> Vec<u8> {
-  let bytes = text.as_bytes();
-  let mut out = Vec::with_capacity(bytes.len());
-  let mut i = 0;
-  while i < bytes.len() {
-    let hex = bytes
-      .get(i + 1..i + 3)
-      .and_then(|h| std::str::from_utf8(h).ok())
-      .and_then(|h| u8::from_str_radix(h, 16).ok());
-    match (bytes[i], hex) {
-      (b'%', Some(byte)) => {
-        out.push(byte);
-        i += 3;
-      },
-      (byte, _) => {
-        out.push(byte);
-        i += 1;
-      },
-    }
-  }
-  out
-}
-
-/// A key or value of form data: `+` is a space, then percent-decoding as UTF-8, with invalid
-/// sequences replaced by U+FFFD.
-fn decode_form_component(text: &str) -> String {
-  String::from_utf8_lossy(&percent_decode(&text.replace('+', " "))).into_owned()
-}
-
-/// A key (`key`) or value of [`link_query`], percent-encoded.
-fn encode_component(text: &str, key: bool) -> String {
-  let mut out = String::with_capacity(text.len());
-  for c in text.chars() {
-    let encode = matches!(c, '%' | '&' | '#' | '+' | ' ' | '"' | '<' | '>')
-      || (key && c == '=')
-      || c.is_control()
-      || !c.is_ascii();
-    if encode {
-      push_percent_encoded(&mut out, c);
-    } else {
-      out.push(c);
-    }
-  }
-  out
-}
-
-/// Append the UTF-8 bytes of `c` to `out`, percent-encoded.
-fn push_percent_encoded(out: &mut String, c: char) {
-  let mut buf = [0; 4];
-  for byte in c.encode_utf8(&mut buf).bytes() {
-    out.push('%');
-    out.push(char::from(HEX_DIGITS[usize::from(byte >> 4)]));
-    out.push(char::from(HEX_DIGITS[usize::from(byte & 0x0f)]));
-  }
 }
 
 /// The id of the example whose trees `request` has in its order with its labels.
@@ -1599,6 +1536,7 @@ mod tests {
   #[case::plain(          "data:,((A,B),C);",                     "((A,B),C);")]
   #[case::percent(        "data:,((A%20x,B),C)%3B",               "((A x,B),C);")]
   #[case::invalid_percent("data:,(A%zz,B);",                      "(A%zz,B);")]
+  #[case::signed_percent( "data:,(A%+5,B);",                      "(A%+5,B);")]
   #[case::base64(         "data:text/plain;base64,KChBLEIpLEMpOw==", "((A,B),C);")]
   #[case::base64_unpadded("data:;base64,KChBLEIpLEMpOw",          "((A,B),C);")]
   #[case::base64_url(     "data:;base64,KChBLEIpLEMpOz8-",        "((A,B),C);?>")]
@@ -1730,21 +1668,6 @@ mod tests {
       "v",
     ];
     assert_eq!(expected.to_vec(), keys);
-  }
-
-  #[test]
-  fn edit_distance_counts_insertions_deletions_and_substitutions() {
-    assert_eq!(
-      [0, 1, 1, 1, 2, 3],
-      [
-        edit_distance("gamma", "gamma"),
-        edit_distance("gama", "gamma"),
-        edit_distance("gammma", "gamma"),
-        edit_distance("gamna", "gamma"),
-        edit_distance("aupsice", "auspice"),
-        edit_distance("", "abc"),
-      ]
-    );
   }
 
   fn request(labels: &[&str], settings: Settings) -> AnalysisRequest {

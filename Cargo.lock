@@ -260,6 +260,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "form_urlencoded"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
+dependencies = [
+ "percent-encoding",
+]
+
+[[package]]
 name = "futures-core"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -976,7 +985,9 @@ version = "1.0.0"
 dependencies = [
  "base64",
  "flate2",
+ "form_urlencoded",
  "log",
+ "percent-encoding",
  "pretty_assertions",
  "quick-xml",
  "rand",
@@ -984,6 +995,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
+ "strsim",
  "strum",
  "treeknit-core",
  "treeknit-testing",
