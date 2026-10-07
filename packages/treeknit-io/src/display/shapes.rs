@@ -249,6 +249,7 @@ mod tests {
       parent,
       children: vec![],
       branch_length: None,
+      mean_length: None,
       x_div,
       x_depth: x_div,
       y,

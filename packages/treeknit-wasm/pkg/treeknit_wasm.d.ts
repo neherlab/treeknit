@@ -116,7 +116,15 @@ export interface DrawNode {
      */
     branchLength: number | null;
     /**
-     * Divergence from the root; a missing or negative length counts as 0.
+     * The mean length of the branch over the trees of the run, weighted by their sequence
+     * lengths, at which the drawing shows a split that some trees lack (see
+     * `lengths::mean_lengths`); `None` for a branch drawn at `branch_length`.
+     */
+    meanLength: number | null;
+    /**
+     * Divergence from the root; a missing or negative length counts as 0. A node with a
+     * `mean_length` lies that far right of its parent, at most as far as the nearest node below it
+     * without one, so the leaves keep their divergence.
      */
     xDiv: number;
     /**

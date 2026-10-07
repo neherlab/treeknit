@@ -1,5 +1,6 @@
 //! The tanglegram of a pair: both trees sorted for the pair, links, blocks, and MCCs.
 
+use super::lengths::mean_lengths;
 use super::shapes::pair_shapes;
 use super::slots::{block_neighbors, color_slots};
 use super::tree::draw_tree;
@@ -77,8 +78,12 @@ impl Layout {
   fn new(run: &RunResult, p: &PairResult, version: TreeVersion) -> Layout {
     let (left, right) = sorted_pair(run, p, version);
     let leaf_mcc = leaf_mcc_map(&p.mccs, run.taxa.len());
-    let left = draw_tree(&left, &run.input_trees[p.i], &leaf_mcc);
-    let right = draw_tree(&right, &run.input_trees[p.j], &leaf_mcc);
+    let means = |tree: &Tree, i: usize| match version {
+      TreeVersion::Input => vec![None; tree.nodes.len()],
+      TreeVersion::Resolved | TreeVersion::Imputed => mean_lengths(run, i, tree),
+    };
+    let left = draw_tree(&left, &run.input_trees[p.i], &leaf_mcc, &means(&left, p.i));
+    let right = draw_tree(&right, &run.input_trees[p.j], &leaf_mcc, &means(&right, p.j));
     let links = links(&left, &right);
     let blocks = blocks(&left, &right, &links);
     Layout {
@@ -299,6 +304,7 @@ mod tests {
       parent,
       children: if leaf { vec![] } else { (1..=leaves.len()).collect() },
       branch_length: None,
+      mean_length: None,
       x_div: 0.0,
       x_depth: 0.0,
       y,
@@ -570,6 +576,45 @@ mod tests {
     let input = view(&r, 0, TreeVersion::Input);
     assert!(names_where(&input.left, |n| n.added).is_empty());
     assert!(input.left.nodes.iter().all(|n| !n.imputed));
+  }
+
+  #[test]
+  fn pair_view_draws_a_resolved_split_at_the_mean_length_of_both_trees() {
+    let r = run_trees(&[
+      ("ha", "((A:1,B:1,C:1):1,(D:1,E:1):1);"),
+      ("na", "((A:1,(B:1,C:1):0.5):1,(D:1,E:1):1);"),
+    ]);
+    let resolved = view(&r, 0, TreeVersion::Resolved);
+    let input = view(&r, 0, TreeVersion::Input);
+    let bc = |t: &DrawTree| {
+      let below = |n: &super::super::DrawNode| -> BTreeSet<&str> {
+        n.children.iter().map(|&c| t.nodes[c].name.as_str()).collect()
+      };
+      let n = t.nodes.iter().find(|n| below(n) == BTreeSet::from(["B", "C"])).unwrap();
+      (n.mean_length, n.x_div)
+    };
+    // Oracle: (0 + 0.5) / 2 = 0.25 right of the node (A,B,C) at 1, in both trees.
+    assert_eq!((Some(0.25), 1.25), bc(&resolved.left));
+    assert_eq!((Some(0.25), 1.25), bc(&resolved.right));
+    let leaves = |t: &DrawTree| -> BTreeMap<String, f64> {
+      t.nodes
+        .iter()
+        .filter(|n| n.leaf)
+        .map(|n| (n.name.clone(), n.x_div))
+        .collect()
+    };
+    assert_eq!(
+      (leaves(&input.left), leaves(&input.right)),
+      (leaves(&resolved.left), leaves(&resolved.right))
+    );
+    assert!(
+      input
+        .left
+        .nodes
+        .iter()
+        .chain(&input.right.nodes)
+        .all(|n| n.mean_length.is_none())
+    );
   }
 
   #[test]

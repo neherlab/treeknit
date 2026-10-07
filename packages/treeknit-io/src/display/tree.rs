@@ -6,11 +6,17 @@ use std::collections::BTreeSet;
 use treeknit_core::Tree;
 use treeknit_core::mcc_map::map_mccs;
 
-/// `tree` laid out for drawing, with `leaf_mcc[taxon]` the MCC of each leaf of the pair.
-/// `input` is the parsed tree of the same index: an internal node whose name it lacks is
-/// `added`, and a leaf it lacks is `imputed`. Node names are unique (see `unique_labels`):
-/// imputation can graft a leaf next to an internal node of the same name.
-pub(super) fn draw_tree(tree: &Tree, input: &Tree, leaf_mcc: &[Option<usize>]) -> DrawTree {
+/// `tree` laid out for drawing, with `leaf_mcc[taxon]` the MCC of each leaf of the pair and
+/// `mean_lengths[node]` the mean length of its branch (see `lengths::mean_lengths`). `input` is
+/// the parsed tree of the same index: an internal node whose name it lacks is `added`, and a leaf
+/// it lacks is `imputed`. Node names are unique (see `unique_labels`): imputation can graft a leaf
+/// next to an internal node of the same name.
+pub(super) fn draw_tree(
+  tree: &Tree,
+  input: &Tree,
+  leaf_mcc: &[Option<usize>],
+  mean_lengths: &[Option<f64>],
+) -> DrawTree {
   let order = tree.preorder();
   let mut index = vec![0; tree.nodes.len()];
   for (i, &n) in order.iter().enumerate() {
@@ -35,6 +41,7 @@ pub(super) fn draw_tree(tree: &Tree, input: &Tree, leaf_mcc: &[Option<usize>]) -
         parent: node.parent.map(|p| index[p]),
         children: node.children.iter().map(|&c| index[c]).collect(),
         branch_length: node.branch_length.filter(|b| b.is_finite()),
+        mean_length: mean_lengths[n],
         x_div: 0.0,
         x_depth: 0.0,
         y: 0.0,
@@ -67,6 +74,7 @@ fn place(nodes: &mut [DrawNode]) {
       nodes[i].mcc_break = nodes[i].mcc.is_some() && nodes[p].mcc != nodes[i].mcc;
     }
   }
+  place_mean_lengths(nodes);
   // Height: the largest number of branches down to a leaf.
   let mut height = vec![0_usize; nodes.len()];
   for i in (0..nodes.len()).rev() {
@@ -84,6 +92,33 @@ fn place(nodes: &mut [DrawNode]) {
     #[expect(clippy::expect_used, reason = "every node is below the root")]
     let below = top.checked_sub(h).expect("no node is higher than the root");
     node.x_depth = row(below);
+  }
+}
+
+/// Move each node with a `mean_length` to the `x_div` of its parent plus that length, at least to
+/// its parent and at most to the nearest node below it without one, so that every other node keeps
+/// its divergence. The nodes are in preorder.
+fn place_mean_lengths(nodes: &mut [DrawNode]) {
+  // The largest x_div of each node: the smallest x_div of the nodes below it without a mean length.
+  let mut bound = vec![f64::INFINITY; nodes.len()];
+  for i in (0..nodes.len()).rev() {
+    bound[i] = nodes[i]
+      .children
+      .iter()
+      .map(|&c| {
+        if nodes[c].mean_length.is_some() {
+          bound[c]
+        } else {
+          nodes[c].x_div
+        }
+      })
+      .fold(f64::INFINITY, f64::min);
+  }
+  for i in 0..nodes.len() {
+    if let (Some(length), Some(p)) = (nodes[i].mean_length, nodes[i].parent) {
+      let from = nodes[p].x_div;
+      nodes[i].x_div = add_length(from, Some(length)).min(bound[i]).max(from);
+    }
   }
 }
 
@@ -108,6 +143,7 @@ mod tests {
   use super::*;
   use crate::newick;
   use pretty_assertions::assert_eq;
+  use rstest::rstest;
   use treeknit_core::Taxa;
   use treeknit_core::mcc_map::leaf_mcc_map;
 
@@ -126,7 +162,7 @@ mod tests {
   #[test]
   fn draw_tree_places_nodes_in_preorder() {
     let (t, taxa) = tree("((A:1,B:2)ab:0.5,C:3)r;");
-    let d = draw_tree(&t, &t, &vec![None; taxa.len()]);
+    let d = draw_tree(&t, &t, &vec![None; taxa.len()], &vec![None; t.nodes.len()]);
     assert_eq!(vec!["r", "ab", "A", "B", "C"], column(&d, |n| n.name.as_str()));
     assert_eq!(vec![None, Some(0), Some(1), Some(1), Some(0)], column(&d, |n| n.parent));
     assert_eq!(
@@ -142,11 +178,31 @@ mod tests {
     assert_eq!(vec![3, 2, 1, 1, 1], column(&d, |n| n.clade_size));
   }
 
+  #[rustfmt::skip]
+  #[rstest]
+  #[case::room_for_the_mean(       0.25, 1.25)]
+  #[case::limited_by_nearest_child(1.5,  1.5 )]
+  #[case::shorter_than_own_length( 0.0,  1.0 )]
+  #[trace]
+  fn draw_tree_places_a_node_at_its_mean_length_and_keeps_the_leaves(#[case] mean: f64, #[case] expected: f64) {
+    // ((A:1,(B:1,C:0.5)s:0)x:1,D:1)r: s lies at 1 and C at 1.5.
+    let (t, taxa) = tree("((A:1,(B:1,C:0.5)s:0)x:1,D:1)r;");
+    let s = t.preorder().into_iter().find(|&n| t.name(n) == "s").unwrap();
+    let mut means = vec![None; t.nodes.len()];
+    means[s] = Some(mean);
+    let d = draw_tree(&t, &t, &vec![None; taxa.len()], &means);
+    let x = |name: &str| d.nodes.iter().find(|n| n.name == name).unwrap().x_div;
+    assert_eq!(
+      (expected, [2.0, 2.0, 1.5, 1.0]),
+      (x("s"), [x("A"), x("B"), x("C"), x("D")])
+    );
+  }
+
   #[test]
   fn draw_tree_shortens_long_names_to_the_label_length_of_the_drawing_rules() {
     let long = "A/New York/392/2004/H3N2/segment-4/hemagglutinin";
     let (t, taxa) = tree(&format!("('{long}',B)r;"));
-    let d = draw_tree(&t, &t, &vec![None; taxa.len()]);
+    let d = draw_tree(&t, &t, &vec![None; taxa.len()], &vec![None; t.nodes.len()]);
     // Oracle: 40 characters: the first 20, the ellipsis, the last 19.
     let expected = "A/New York/392/2004/\u{2026}ent-4/hemagglutinin";
     assert_eq!(
@@ -160,7 +216,7 @@ mod tests {
   #[test]
   fn draw_tree_counts_missing_negative_and_non_finite_lengths_as_zero() {
     let (t, taxa) = tree("((A:-1,B:inf)ab,C:NaN)r;");
-    let d = draw_tree(&t, &t, &vec![None; taxa.len()]);
+    let d = draw_tree(&t, &t, &vec![None; taxa.len()], &vec![None; t.nodes.len()]);
     assert_eq!(vec![0.0; 5], column(&d, |n| n.x_div));
     assert_eq!(
       vec![None, None, Some(-1.0), None, None],
@@ -171,7 +227,7 @@ mod tests {
   #[test]
   fn draw_tree_keeps_a_huge_divergence_finite() {
     let (t, taxa) = tree("((A:1e308)a:1e308,B:1)r;");
-    let d = draw_tree(&t, &t, &vec![None; taxa.len()]);
+    let d = draw_tree(&t, &t, &vec![None; taxa.len()], &vec![None; t.nodes.len()]);
     assert!(d.nodes.iter().all(|n| n.x_div.is_finite()));
   }
 
@@ -180,7 +236,7 @@ mod tests {
     let (t, taxa) = tree("((A,B)ab,(C,(D,X)dx)cdx)r;");
     let ids = |v: &[&str]| v.iter().map(|s| taxa.index[*s]).collect::<Vec<_>>();
     let mccs = vec![ids(&["X"]), ids(&["A", "B", "C", "D"])];
-    let d = draw_tree(&t, &t, &leaf_mcc_map(&mccs, taxa.len()));
+    let d = draw_tree(&t, &t, &leaf_mcc_map(&mccs, taxa.len()), &vec![None; t.nodes.len()]);
     let breaks: Vec<&str> = d
       .nodes
       .iter()
@@ -196,7 +252,7 @@ mod tests {
     let (t, taxa) = tree("((A,B)ab,(C,D)cd)r;");
     let ids = |v: &[&str]| v.iter().map(|s| taxa.index[*s]).collect::<Vec<_>>();
     let mccs = vec![ids(&["A", "B"]), ids(&["C", "D"])];
-    let d = draw_tree(&t, &t, &leaf_mcc_map(&mccs, taxa.len()));
+    let d = draw_tree(&t, &t, &leaf_mcc_map(&mccs, taxa.len()), &vec![None; t.nodes.len()]);
     assert_eq!(None, d.nodes[0].mcc);
     let breaks: Vec<&str> = d
       .nodes
@@ -212,7 +268,7 @@ mod tests {
     let (t, taxa) = tree("((A,B)RESOLVED_1,(C,P)x)r;");
     let mut input = newick::parse("(A,B,C)r;", "t").unwrap();
     input.assign_taxa(&taxa).unwrap();
-    let d = draw_tree(&t, &input, &vec![None; taxa.len()]);
+    let d = draw_tree(&t, &input, &vec![None; taxa.len()], &vec![None; t.nodes.len()]);
     let added: Vec<&str> = d.nodes.iter().filter(|n| n.added).map(|n| n.name.as_str()).collect();
     let imputed: Vec<&str> = d.nodes.iter().filter(|n| n.imputed).map(|n| n.name.as_str()).collect();
     assert_eq!(vec!["RESOLVED_1", "x"], added);
@@ -222,7 +278,7 @@ mod tests {
   #[test]
   fn draw_tree_compares_names_so_an_input_label_like_a_resolved_node_is_not_added() {
     let (t, taxa) = tree("((A,B)RESOLVED_3,C)r;");
-    let d = draw_tree(&t, &t, &vec![None; taxa.len()]);
+    let d = draw_tree(&t, &t, &vec![None; taxa.len()], &vec![None; t.nodes.len()]);
     assert!(d.nodes.iter().all(|n| !n.added));
   }
 }

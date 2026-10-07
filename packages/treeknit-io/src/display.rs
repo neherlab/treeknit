@@ -13,6 +13,7 @@
 mod arg_view;
 mod auspice;
 mod constellation;
+mod lengths;
 mod names;
 mod pair;
 mod shapes;
@@ -189,7 +190,13 @@ pub struct DrawNode {
   pub children: Vec<usize>,
   /// Branch length as parsed; `None` when the tree gives none or the length is not finite.
   pub branch_length: Option<f64>,
-  /// Divergence from the root; a missing or negative length counts as 0.
+  /// The mean length of the branch over the trees of the run, weighted by their sequence
+  /// lengths, at which the drawing shows a split that some trees lack (see
+  /// `lengths::mean_lengths`); `None` for a branch drawn at `branch_length`.
+  pub mean_length: Option<f64>,
+  /// Divergence from the root; a missing or negative length counts as 0. A node with a
+  /// `mean_length` lies that far right of its parent, at most as far as the nearest node below it
+  /// without one, so the leaves keep their divergence.
   pub x_div: f64,
   /// Cladogram position in branch steps: the height of the root minus the height of the node,
   /// where a height is the largest number of branches from a node down to a leaf. Every leaf is
@@ -801,6 +808,7 @@ mod tests {
       parent: Some(3),
       children: vec![],
       branch_length: None,
+      mean_length: Some(0.25),
       x_div: 0.5,
       x_depth: 1.0,
       y: 4.0,
@@ -812,7 +820,8 @@ mod tests {
       mcc_break: true,
     };
     let expected = json!({
-      "name": "X", "shortName": "X", "parent": 3, "children": [], "branchLength": null, "xDiv": 0.5,
+      "name": "X", "shortName": "X", "parent": 3, "children": [], "branchLength": null, "meanLength": 0.25,
+      "xDiv": 0.5,
       "xDepth": 1.0, "y": 4.0, "leaf": true, "cladeSize": 1, "added": false, "imputed": false, "mcc": 0,
       "mccBreak": true,
     });
