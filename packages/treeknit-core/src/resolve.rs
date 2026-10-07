@@ -59,7 +59,6 @@ pub fn insert_split(t: &mut Tree, s: &Bits, mask: &Bits, n_taxa: usize, name: &s
   if bits::subset_on(&clades[r], s, mask) {
     return Insert::Present; // `s` is the clade of `r`
   }
-  let _ = r;
   t.insert_parent(&roots, name.to_owned(), Some(0.0));
   Insert::Added
 }

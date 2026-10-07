@@ -280,7 +280,6 @@ fn shared_nodes(t1: &Tree, t2: &Tree, mccs: &[Mcc], n: usize) -> Result<(StatusM
 
 /// Make both trees contain the same shared nodes by inserting the shared singletons of
 /// one tree into the other.
-#[allow(clippy::too_many_arguments)]
 fn fix_shared_singletons(
   t1: &mut Tree,
   t2: &mut Tree,
