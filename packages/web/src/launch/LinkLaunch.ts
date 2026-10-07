@@ -282,7 +282,7 @@ export async function loadLaunch(
       };
     })
     .with({ kind: "trees" }, async ({ trees }) => {
-      const limits = downloadLimits(await client.linkLimits());
+      const limits = await client.linkLimits();
 
       const texts = await Promise.allSettled(
         trees.map(async ({ location }) => readLocation(location, limits, environment)),
@@ -308,7 +308,7 @@ export async function loadLaunch(
       };
     })
     .with({ kind: "session" }, async ({ location }) => {
-      const limits = downloadLimits(await client.linkLimits());
+      const limits = await client.linkLimits();
 
       const text = await readLocation(location, limits, environment).catch((cause: unknown) => {
         throw new LaunchLoadError([getErrorMessage(cause) ?? String(cause)]);
@@ -332,16 +332,6 @@ export async function loadLaunch(
       return { ...opened, run: received.run };
     })
     .exhaustive();
-}
-
-function downloadLimits({
-  fetchTimeoutSeconds,
-  maxDownloadBytes,
-}: {
-  fetchTimeoutSeconds: number;
-  maxDownloadBytes: number;
-}): DownloadLimits {
-  return { timeoutSeconds: fetchTimeoutSeconds, maxBytes: maxDownloadBytes };
 }
 
 async function readLocation(

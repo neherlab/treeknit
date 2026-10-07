@@ -1,12 +1,10 @@
+import type { LinkLimits } from "@neherlab/treeknit-wasm";
 import { getErrorMessage } from "react-error-boundary";
 import { match } from "ts-pattern";
 
 export type FetchFile = (url: string, init: RequestInit) => Promise<Response>;
 
-export interface DownloadLimits {
-  timeoutSeconds: number;
-  maxBytes: number;
-}
+export type DownloadLimits = Pick<LinkLimits, "fetchTimeoutSeconds" | "maxDownloadBytes">;
 
 export type DownloadFailure =
   | { kind: "network" }
@@ -25,7 +23,7 @@ export class DownloadError extends Error {
 }
 
 export async function download(url: string, limits: DownloadLimits, fetchFile: FetchFile): Promise<Uint8Array> {
-  const signal = AbortSignal.timeout(limits.timeoutSeconds * 1000);
+  const signal = AbortSignal.timeout(limits.fetchTimeoutSeconds * 1000);
   const failed = (cause: unknown) => new DownloadError({ kind: signal.aborted ? "timeout" : "network" }, { cause });
   let response: Response;
 
@@ -40,7 +38,7 @@ export async function download(url: string, limits: DownloadLimits, fetchFile: F
   }
 
   try {
-    return await readLimited(response, limits.maxBytes);
+    return await readLimited(response, limits.maxDownloadBytes);
   } catch (cause) {
     throw cause instanceof DownloadError ? cause : failed(cause);
   }
@@ -66,11 +64,11 @@ export function downloadMessage(url: string, cause: unknown, limits: DownloadLim
     )
     .with(
       { kind: "timeout" },
-      () => `Could not read ${place}: no answer within ${String(limits.timeoutSeconds)} seconds.`,
+      () => `Could not read ${place}: no answer within ${String(limits.fetchTimeoutSeconds)} seconds.`,
     )
     .with(
       { kind: "tooLarge" },
-      () => `Could not read ${place}: the file is larger than ${String(limits.maxBytes / 1024 / 1024)} MiB.`,
+      () => `Could not read ${place}: the file is larger than ${String(limits.maxDownloadBytes / 1024 / 1024)} MiB.`,
     )
     .exhaustive();
 }
