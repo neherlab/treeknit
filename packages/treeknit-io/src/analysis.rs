@@ -104,7 +104,8 @@ impl Default for Settings {
   }
 }
 
-/// How trees are resolved. clap reads `--resolve` with the serde names of the variants.
+/// How trees are resolved. The serde names of the variants are the values of `resolve` in session
+/// files and links, and of `--resolve` on the command line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, VariantArray)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum), value(rename_all = "lower"))]
