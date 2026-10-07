@@ -526,20 +526,57 @@ mod tests {
     let mut expected = vec![p_color, colors.mcc[0].clone()];
     expected.sort();
     assert_eq!(expected, rings);
-    let dashed = elements(&svg)
+    let muted = elements(&svg)
       .iter()
-      .filter(|e| {
-        e.attribute("stroke") == Some(colors.ink_muted.as_str()) && e.attribute("stroke-dasharray") == Some("4 3")
-      })
+      .filter(|e| e.name == "path" && e.attribute("stroke") == Some(colors.ink_muted.as_str()))
       .count();
-    // The legend adds one dashed line.
-    assert_eq!(added + 1, dashed);
+    // The legend adds one ink-muted line.
+    assert_eq!(added + 1, muted);
     let legend: Vec<String> = texts(&svg).into_iter().filter(|t| t.len() > 1).collect();
     assert!(
       legend.contains(&"Imputed leaf".to_owned())
         && legend.contains(&"Node added by resolution or imputation".to_owned()),
       "{legend:?}"
     );
+  }
+
+  #[test]
+  fn tanglegram_svg_draws_only_the_part_across_of_an_added_branch_in_ink_muted() {
+    // Resolution copies na's split (B,C) into the polytomy of ha with branch length 0.
+    let r = run_trees(&[
+      ("ha", "((A:1,B:1,C:1):1,(D:1,E:1):1);"),
+      ("na", "((A:1,(B:1,C:1):1):1,(D:1,E:1):1);"),
+    ]);
+    let view = display::pair_view(&r, 0, TreeVersion::Resolved, Scale::Div).unwrap();
+    let svg = tanglegram_svg(&view, &options(1200.0, 12.0, Scale::Div, LabelMode::On)).unwrap();
+    let colors = palette::palette().light;
+    let elements = elements(&svg);
+    let paths: Vec<(String, String)> = elements
+      .iter()
+      .filter(|e| e.name == "path")
+      .filter_map(|e| Some((e.attribute("stroke")?.to_owned(), e.attribute("d")?.to_owned())))
+      .collect();
+    let commands = |d: &str| -> String { d.chars().filter(char::is_ascii_alphabetic).collect() };
+    let numbers = |d: &str| -> Vec<f64> { d.split([' ', 'M', 'H', 'V']).filter_map(|v| v.parse().ok()).collect() };
+    let muted: Vec<&str> = elements
+      .iter()
+      .filter(|e| e.attribute("stroke") == Some(colors.ink_muted.as_str()))
+      .filter(|e| e.attribute("stroke-dasharray").is_none())
+      .filter_map(|e| e.attribute("d"))
+      .collect();
+    // Oracle: the one added node of the left tree, and the legend line; each runs across, from
+    // left to right, and is longer than 0.
+    let shapes: Vec<(String, bool)> = muted
+      .iter()
+      .map(|d| (commands(d), numbers(d)[0] < numbers(d)[2]))
+      .collect();
+    assert_eq!(vec![("MH".to_owned(), true); 2], shapes, "{muted:?}");
+    // The part along the parent's x stays in the color of the MCC.
+    let stems: Vec<&(String, String)> = paths
+      .iter()
+      .filter(|(stroke, d)| colors.mcc.contains(stroke) && commands(d) == "MV")
+      .collect();
+    assert_eq!(1, stems.len(), "{paths:?}");
   }
 
   #[test]

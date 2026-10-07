@@ -2,9 +2,9 @@
 //! view mapped to px.
 
 use super::svg::{
-  BRANCH_WIDTH, Column, DASH, LABEL_GAP, LINK_WIDTH, LabelColumn, LegendEntry, MARGIN, Path, REASSORTMENT_WIDTH,
-  RIBBON_OPACITY, RING_AT_BRANCH_MIDDLE, RING_AT_LEAF_TIP, Rows, Svg, Symbol, dash_array, drawing_top, figure,
-  inner_width, label_column, num,
+  BRANCH_WIDTH, Column, LABEL_GAP, LINK_WIDTH, LabelColumn, LegendEntry, MARGIN, Path, REASSORTMENT_WIDTH,
+  RIBBON_OPACITY, RING_AT_BRANCH_MIDDLE, RING_AT_LEAF_TIP, Rows, Svg, Symbol, drawing_top, figure, inner_width,
+  label_column, num,
 };
 use super::{FigureOptions, labels_shown};
 use crate::display::{DRAWING_RULES, DrawTree, Elbow, MarkKind, PairView, TreeShapes};
@@ -165,25 +165,23 @@ struct TreeDrawing<'a> {
 }
 
 impl TreeDrawing<'_> {
-  /// The elbows: in the color of their MCC, dashed ink-muted for added nodes, and signal and
-  /// wider for reassortment branches, drawn last so they stay on top.
+  /// The elbows: in the color of their MCC, the part across of an added node in ink-muted,
+  /// and signal and wider for reassortment branches, drawn last so they stay on top.
   fn branches(&self, svg: &mut Svg) {
     svg.open("g", &[("fill", "none".to_owned()), ("stroke-width", num(BRANCH_WIDTH))]);
-    let plain = |e: &&Elbow| !e.mcc_break && !e.added;
     let added = |e: &&Elbow| !e.mcc_break && e.added;
-    for elbow in self.shapes.elbows.iter().filter(plain) {
-      svg.path(
-        &self.rows.elbow(self.column, &elbow.points),
-        &[("stroke", slot_color(self.colors, elbow.slot))],
-      );
+    for elbow in self.shapes.elbows.iter().filter(|e| !e.mcc_break) {
+      let path = if elbow.added {
+        self.rows.elbow_stem(self.column, &elbow.points)
+      } else {
+        self.rows.elbow(self.column, &elbow.points)
+      };
+      svg.path(&path, &[("stroke", slot_color(self.colors, elbow.slot))]);
     }
     for elbow in self.shapes.elbows.iter().filter(added) {
       svg.path(
-        &self.rows.elbow(self.column, &elbow.points),
-        &[
-          ("stroke", self.colors.ink_muted.clone()),
-          ("stroke-dasharray", dash_array(DASH)),
-        ],
+        &self.rows.elbow_across(self.column, &elbow.points),
+        &[("stroke", self.colors.ink_muted.clone())],
       );
     }
     for elbow in self.shapes.elbows.iter().filter(|e| e.mcc_break) {
@@ -258,7 +256,7 @@ fn legend(view: &PairView, layout: &Layout, colors: &ThemeColors) -> Vec<LegendE
   }
   if elbows().any(|e| e.added && !e.mcc_break) {
     entries.push(LegendEntry {
-      symbol: vec![line(&colors.ink_muted, BRANCH_WIDTH, Some(DASH))],
+      symbol: vec![line(&colors.ink_muted, BRANCH_WIDTH, None)],
       label: "Node added by resolution or imputation".to_owned(),
     });
   }
@@ -282,7 +280,7 @@ fn legend(view: &PairView, layout: &Layout, colors: &ThemeColors) -> Vec<LegendE
       label: "Leaves of one MCC".to_owned(),
     });
   }
-  if elbows().any(|e| e.slot.is_none() && !e.added && !e.mcc_break) {
+  if elbows().any(|e| e.slot.is_none() && !e.mcc_break) {
     entries.push(LegendEntry {
       symbol: vec![line(&colors.no_mcc, BRANCH_WIDTH, None)],
       label: "No MCC".to_owned(),

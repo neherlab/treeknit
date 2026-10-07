@@ -650,6 +650,18 @@ impl Rows {
     let [from, corner, to] = points.map(|p| self.point(column, p));
     Path::new().move_to(from).v(corner[1]).h(to[0])
   }
+
+  /// The part of the elbow `points` along the parent's x, as path data.
+  pub(super) fn elbow_stem(&self, column: Column, points: &[Point; 3]) -> Path {
+    let [from, corner, _] = points.map(|p| self.point(column, p));
+    Path::new().move_to(from).v(corner[1])
+  }
+
+  /// The part of the elbow `points` across to the node, as path data.
+  pub(super) fn elbow_across(&self, column: Column, points: &[Point; 3]) -> Path {
+    let [_, corner, to] = points.map(|p| self.point(column, p));
+    Path::new().move_to(corner).h(to[0])
+  }
 }
 
 /// An entry of a legend: a symbol drawn from its parts, and a label.
