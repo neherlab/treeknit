@@ -1,6 +1,7 @@
 import type { AuspiceTrees } from "@neherlab/treeknit-wasm";
 import { DESELECT_NODE, SELECT_NODE } from "auspice/src/actions/types";
 import type { AnyAction } from "redux";
+import * as z from "zod";
 
 import { NO_SELECTION, type Selection } from "../drawing/selection";
 import type { TreeSide } from "../drawing/trees";
@@ -8,6 +9,8 @@ import type { AuspiceState, AuspiceTreeId } from "./state";
 import type { AuspiceMiddleware } from "./store";
 
 export const FROM_WORKSPACE = "fromWorkspace";
+
+const SELECT_NODE_ACTION = z.object({ name: z.string(), idx: z.number(), treeId: z.enum(["LEFT", "RIGHT"]) });
 
 export type TreeSides = Readonly<Record<AuspiceTreeId, TreeSide>>;
 
@@ -26,18 +29,21 @@ export function auspiceSelection(state: AuspiceState, action: AnyAction, sides: 
     return NO_SELECTION;
   }
 
-  if (action.type !== SELECT_NODE || !isSelectNode(action)) {
+  const selected = action.type === SELECT_NODE ? SELECT_NODE_ACTION.safeParse(action) : undefined;
+
+  if (selected?.success !== true) {
     return undefined;
   }
 
-  const nodes = action.treeId === "RIGHT" ? state.treeToo.nodes : state.tree.nodes;
-  const node = nodes?.[action.idx];
+  const { name, idx, treeId } = selected.data;
+  const nodes = treeId === "RIGHT" ? state.treeToo.nodes : state.tree.nodes;
+  const node = nodes?.[idx];
 
-  if (node?.name !== action.name) {
+  if (node?.name !== name) {
     return undefined;
   }
 
-  return node.hasChildren ? { node: { side: sides[action.treeId], name: node.name } } : { leaf: node.name };
+  return node.hasChildren ? { node: { side: sides[treeId], name: node.name } } : { leaf: node.name };
 }
 
 export function selectionMiddleware(sides: TreeSides, onSelect: (selection: Selection) => void): AuspiceMiddleware {
@@ -51,18 +57,4 @@ export function selectionMiddleware(sides: TreeSides, onSelect: (selection: Sele
 
     return result;
   };
-}
-
-interface SelectNodeAction {
-  name: string;
-  idx: number;
-  treeId: AuspiceTreeId;
-}
-
-function isSelectNode(action: AnyAction): action is AnyAction & SelectNodeAction {
-  return (
-    typeof action["name"] === "string" &&
-    typeof action["idx"] === "number" &&
-    (action["treeId"] === "LEFT" || action["treeId"] === "RIGHT")
-  );
 }
