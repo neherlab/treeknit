@@ -1,4 +1,4 @@
-import { escapeHtml, referenceHtml, TREEKNIT_PUBLICATION } from "../help/citation";
+import { escapeHtml, REFERENCE_HTML } from "../help/citation";
 import type { AuspicePublication } from "./state";
 
 export function figureCaption({ title, summary, publications }: FigureCaptionInput): string[] {
@@ -7,7 +7,7 @@ export function figureCaption({ title, summary, publications }: FigureCaptionInp
     escapeHtml(summary),
     "",
     "Relevant publications:",
-    referenceHtml(TREEKNIT_PUBLICATION),
+    REFERENCE_HTML,
     ...publications.map(publicationHtml),
   ];
 }

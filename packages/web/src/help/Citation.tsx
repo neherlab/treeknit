@@ -10,29 +10,18 @@ import { CopyPanel } from "../ui/CopyPanel";
 import { ExternalButtonLink, ExternalLink } from "../ui/ExternalLink";
 import { ToggleButton, ToggleButtonGroup } from "../ui/ToggleButtonGroup";
 import {
-  bibtexEntry,
+  BIBTEX_ENTRY,
   CITATION_FORMATS,
   type CitationFormat,
+  PAPER_LINKS,
   type PaperLinkId,
-  paperLinks,
+  REFERENCE_HTML,
+  REFERENCE_SEGMENTS,
+  REFERENCE_TEXT,
   type ReferenceSegment,
-  referenceHtml,
-  referenceSegments,
-  referenceText,
-  TREEKNIT_PUBLICATION,
 } from "./citation";
 
 export const CITE_REQUEST = "If you use TreeKnit in your work, please cite:";
-
-const REFERENCE_SEGMENTS = referenceSegments(TREEKNIT_PUBLICATION);
-
-const REFERENCE_TEXT = referenceText(TREEKNIT_PUBLICATION);
-
-const REFERENCE_HTML = referenceHtml(TREEKNIT_PUBLICATION);
-
-const BIBTEX = bibtexEntry(TREEKNIT_PUBLICATION);
-
-const PAPER_LINKS = paperLinks(TREEKNIT_PUBLICATION);
 
 const PAPER_LINK_ICONS: Record<PaperLinkId, ComponentType<SVGProps<SVGSVGElement>>> = {
   article: ArticleIcon,
@@ -105,7 +94,7 @@ function ChicagoReference({ caption, copyTooltip }: FormatViewProps) {
 }
 
 function BibtexReference({ caption, copyTooltip }: FormatViewProps) {
-  return <CodeBlock code={BIBTEX} label={caption} copyTooltip={copyTooltip} lineNumbers={false} />;
+  return <CodeBlock code={BIBTEX_ENTRY} label={caption} copyTooltip={copyTooltip} lineNumbers={false} />;
 }
 
 interface FormatViewProps {

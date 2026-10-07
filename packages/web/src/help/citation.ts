@@ -1,7 +1,3 @@
-const CHICAGO_MAX_LISTED_AUTHORS = 6;
-
-const CHICAGO_ABBREVIATED_AUTHORS = 3;
-
 const HTML_ESCAPES = new Map([
   ["&", "&amp;"],
   ["<", "&lt;"],
@@ -9,44 +5,11 @@ const HTML_ESCAPES = new Map([
   ['"', "&quot;"],
 ]);
 
-export const TREEKNIT_PUBLICATION: Publication = {
-  authors: [
-    { family: "Barrat-Charlaix", given: "Pierre" },
-    { family: "Vaughan", given: "Timothy G." },
-    { family: "Neher", given: "Richard A." },
-  ],
-  title: "TreeKnit: Inferring ancestral reassortment graphs of influenza viruses",
-  titleWord: "TreeKnit",
-  journal: "PLOS Computational Biology",
-  year: "2022",
-  volume: "18",
-  issue: "8",
-  article: "e1010394",
-  doi: "10.1371/journal.pcbi.1010394",
-  pmid: "35984845",
-  pmcid: "PMC9447925",
-  pdf: "https://journals.plos.org/ploscompbiol/article/file?id=10.1371/journal.pcbi.1010394&type=printable",
-};
+const DOI = "10.1371/journal.pcbi.1010394";
 
-export interface Publication {
-  authors: readonly [Author, ...Author[]];
-  title: string;
-  titleWord: string;
-  journal: string;
-  year: string;
-  volume: string;
-  issue: string;
-  article: string;
-  doi: string;
-  pmid: string;
-  pmcid: string;
-  pdf: string;
-}
+const DOI_URL = `https://doi.org/${DOI}`;
 
-export interface Author {
-  family: string;
-  given: string;
-}
+const JOURNAL = "PLOS Computational Biology";
 
 export type CitationFormat = "text" | "bibtex";
 
@@ -90,114 +53,64 @@ export interface PaperLink {
   href: string;
 }
 
-export function doiUrl(publication: Publication): string {
-  return `https://doi.org/${publication.doi}`;
-}
+export const REFERENCE_SEGMENTS: readonly ReferenceSegment[] = [
+  {
+    text: 'Barrat-Charlaix, Pierre, Timothy G. Vaughan, and Richard A. Neher. 2022. "TreeKnit: Inferring ancestral reassortment graphs of influenza viruses." ',
+  },
+  { text: JOURNAL, italic: true },
+  { text: " 18:e1010394. " },
+  { text: DOI_URL, href: DOI_URL },
+];
 
-export function referenceSegments(publication: Publication): ReferenceSegment[] {
-  const doi = doiUrl(publication);
+export const REFERENCE_TEXT = REFERENCE_SEGMENTS.map((segment) => segment.text).join("");
 
-  return [
-    { text: `${sentence(chicagoAuthors(publication))} ${publication.year}. "${sentence(publication.title)}" ` },
-    { text: publication.journal, italic: true },
-    { text: ` ${publication.volume}:${publication.article}. ` },
-    { text: doi, href: doi },
-  ];
-}
+export const REFERENCE_HTML = REFERENCE_SEGMENTS.map(segmentHtml).join("");
 
-export function referenceText(publication: Publication): string {
-  return referenceSegments(publication)
-    .map((segment) => segment.text)
-    .join("");
-}
+export const BIBTEX_ENTRY = `@article{barratcharlaix2022treeknit,
+  author = {Barrat-Charlaix, Pierre and Vaughan, Timothy G. and Neher, Richard A.},
+  title = {{TreeKnit}: Inferring ancestral reassortment graphs of influenza viruses},
+  journal = {${JOURNAL}},
+  year = {2022},
+  volume = {18},
+  number = {8},
+  pages = {e1010394},
+  doi = {${DOI}},
+  url = {${DOI_URL}},
+}`;
 
-export function referenceHtml(publication: Publication): string {
-  return referenceSegments(publication).map(segmentHtml).join("");
-}
-
-export function bibtexEntry(publication: Publication): string {
-  const fields: [string, string][] = [
-    ["author", publication.authors.map(({ family, given }) => `${family}, ${given}`).join(" and ")],
-    ["title", publication.title.replace(publication.titleWord, `{${publication.titleWord}}`)],
-    ["journal", publication.journal],
-    ["year", publication.year],
-    ["volume", publication.volume],
-    ["number", publication.issue],
-    ["pages", publication.article],
-    ["doi", publication.doi],
-    ["url", doiUrl(publication)],
-  ];
-
-  const body = fields.map(([name, value]) => `  ${name} = {${value}},`).join("\n");
-
-  return `@article{${bibtexKey(publication)},\n${body}\n}`;
-}
-
-export function paperLinks(publication: Publication): PaperLink[] {
-  return [
-    {
-      id: "article",
-      label: "Article",
-      description: `Read the article in ${publication.journal} (DOI ${publication.doi})`,
-      href: doiUrl(publication),
-    },
-    {
-      id: "pdf",
-      label: "PDF",
-      description: `Open the PDF of the article from ${publication.journal}`,
-      href: publication.pdf,
-    },
-    {
-      id: "pmc",
-      label: "PubMed Central",
-      description: `Read the full text in PubMed Central (${publication.pmcid})`,
-      href: `https://pmc.ncbi.nlm.nih.gov/articles/${publication.pmcid}/`,
-    },
-    {
-      id: "pubmed",
-      label: "PubMed",
-      description: `Open the PubMed record (PMID ${publication.pmid})`,
-      href: `https://pubmed.ncbi.nlm.nih.gov/${publication.pmid}/`,
-    },
-  ];
-}
+export const PAPER_LINKS: readonly PaperLink[] = [
+  {
+    id: "article",
+    label: "Article",
+    description: `Read the article in ${JOURNAL} (DOI ${DOI})`,
+    href: DOI_URL,
+  },
+  {
+    id: "pdf",
+    label: "PDF",
+    description: `Open the PDF of the article from ${JOURNAL}`,
+    href: `https://journals.plos.org/ploscompbiol/article/file?id=${DOI}&type=printable`,
+  },
+  {
+    id: "pmc",
+    label: "PubMed Central",
+    description: "Read the full text in PubMed Central (PMC9447925)",
+    href: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9447925/",
+  },
+  {
+    id: "pubmed",
+    label: "PubMed",
+    description: "Open the PubMed record (PMID 35984845)",
+    href: "https://pubmed.ncbi.nlm.nih.gov/35984845/",
+  },
+];
 
 export function escapeHtml(text: string): string {
   return text.replaceAll(/[&<>"]/gu, (character) => HTML_ESCAPES.get(character) ?? character);
-}
-
-function chicagoAuthors(publication: Publication): string {
-  const names = publication.authors.map(({ family, given }, index) =>
-    index === 0 ? `${family}, ${given}` : `${given} ${family}`,
-  );
-
-  if (names.length > CHICAGO_MAX_LISTED_AUTHORS) {
-    return `${names.slice(0, CHICAGO_ABBREVIATED_AUTHORS).join(", ")}, et al.`;
-  }
-
-  if (names.length <= 2) {
-    return names.join(" and ");
-  }
-
-  return `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
-}
-
-function sentence(text: string): string {
-  return /[.?!]$/u.test(text) ? text : `${text}.`;
 }
 
 function segmentHtml({ text, italic = false, href }: ReferenceSegment): string {
   const styled = italic ? `<i>${escapeHtml(text)}</i>` : escapeHtml(text);
 
   return href === undefined ? styled : `<a href="${escapeHtml(href)}">${styled}</a>`;
-}
-
-function bibtexKey(publication: Publication): string {
-  const family = publication.authors[0].family;
-
-  return `${keyPart(family)}${publication.year}${keyPart(publication.titleWord)}`;
-}
-
-function keyPart(text: string): string {
-  return text.toLowerCase().replaceAll(/[^a-z]/gu, "");
 }

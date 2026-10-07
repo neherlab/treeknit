@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { referenceHtml, TREEKNIT_PUBLICATION } from "../../help/citation";
+import { REFERENCE_HTML } from "../../help/citation";
 import { figureCaption } from "../figure";
 
 describe("figureCaption", () => {
@@ -24,7 +24,7 @@ describe("figureCaption", () => {
       "Showing 3 of 5 leaves.",
       "",
       "Relevant publications:",
-      referenceHtml(TREEKNIT_PUBLICATION),
+      REFERENCE_HTML,
       '<a href="https://doi.org/x?a=1&amp;b=2">Hadfield et al, Nextstrain, Bioinformatics (2018)</a>',
     ]);
   });
