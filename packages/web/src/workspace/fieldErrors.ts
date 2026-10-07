@@ -28,26 +28,12 @@ export function shownFields(treeCount: number, seqLengthsOn: boolean): readonly 
 }
 
 export function groupFieldErrors(errors: readonly ValidationError[], shown: readonly Field[]): FieldErrors {
-  const byField: { field: Field; errors: ValidationError[] }[] = [];
-  const general: ValidationError[] = [];
+  const groups = Map.groupBy(errors, (error) => shown.find((candidate) => isDeepEqual(candidate, error.field)) ?? null);
 
-  for (const error of errors) {
-    const { field } = error;
-
-    if (field !== null && shown.some((candidate) => isDeepEqual(candidate, field))) {
-      const group = byField.find((existing) => isDeepEqual(existing.field, field));
-
-      if (group === undefined) {
-        byField.push({ field, errors: [error] });
-      } else {
-        group.errors.push(error);
-      }
-    } else {
-      general.push(error);
-    }
-  }
-
-  return { byField, general };
+  return {
+    byField: [...groups].flatMap(([field, grouped]) => (field === null ? [] : [{ field, errors: grouped }])),
+    general: groups.get(null) ?? [],
+  };
 }
 
 export function fieldErrorsAt(errors: FieldErrors, field: Field): readonly ValidationError[] {
