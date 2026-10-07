@@ -982,6 +982,7 @@ name = "treeknit-core"
 version = "1.0.0"
 dependencies = [
  "fixedbitset",
+ "indexmap",
  "log",
  "rand",
  "rand_xoshiro",

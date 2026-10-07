@@ -2,7 +2,6 @@
 
 #![expect(
   clippy::as_conversions,
-  clippy::disallowed_types,
   reason = "findings from before the strict lint set; kb/issues/N-lint-baseline.md tracks their removal"
 )]
 
@@ -10,8 +9,8 @@ use crate::bits::{self, Bits};
 use crate::options::Cooling;
 use crate::progress::ratio;
 use crate::splitgraph::{EnergyState, Graph};
+use indexmap::IndexSet;
 use rand::Rng;
-use std::collections::HashSet;
 
 /// Temperatures from `t_max` down to `t_min`.
 #[expect(
@@ -49,30 +48,8 @@ pub fn schedule(cooling: Cooling, t_min: f64, t_max: f64, n_t: usize) -> Vec<f64
   }
 }
 
-/// Set of distinct configurations preserving insertion order.
-#[derive(Default)]
-struct ConfSet {
-  list: Vec<Bits>,
-  seen: HashSet<Bits>,
-}
-
-impl ConfSet {
-  fn single(c: Bits) -> Self {
-    let mut s = ConfSet::default();
-    s.push(c);
-    s
-  }
-  fn push(&mut self, c: Bits) {
-    if self.seen.insert(c.clone()) {
-      self.list.push(c);
-    }
-  }
-  fn extend(&mut self, other: ConfSet) {
-    for c in other.list {
-      self.push(c);
-    }
-  }
-}
+/// Distinct configurations in the order they were first visited.
+type ConfSet = IndexSet<Bits>;
 
 struct Chain<'a, R: Rng> {
   g: &'a Graph,
@@ -95,7 +72,7 @@ impl<R: Rng> Chain<'_, R> {
   fn mcmc(&mut self, st: &mut EnergyState, m: usize, t: f64) -> (ConfSet, f64) {
     let mut f = self.free_energy(st);
     let mut fmin = f;
-    let mut best = ConfSet::single(st.conf().clone());
+    let mut best = ConfSet::from([st.conf().clone()]);
     // The current configuration is in `best` and unchanged since; a rejected step keeps it so.
     let mut listed = true;
     for _ in 0..m {
@@ -110,10 +87,10 @@ impl<R: Rng> Chain<'_, R> {
       }
       if f < fmin {
         fmin = f;
-        best = ConfSet::single(st.conf().clone());
+        best = ConfSet::from([st.conf().clone()]);
         listed = true;
       } else if f == fmin && !listed {
-        best.push(st.conf().clone());
+        best.insert(st.conf().clone());
         listed = true;
       }
     }
@@ -128,7 +105,7 @@ impl<R: Rng> Chain<'_, R> {
   )]
   fn anneal(&mut self, trange: &[f64], m: usize, after_step: &dyn Fn(usize)) -> (ConfSet, f64) {
     let mut st = EnergyState::new(self.g, bits::full(self.g.n), self.resolve);
-    let mut best = ConfSet::single(st.conf().clone());
+    let mut best = ConfSet::from([st.conf().clone()]);
     let mut fmin = f64::INFINITY;
     for (step, &t) in trange.iter().enumerate() {
       let (b, f) = self.mcmc(&mut st, m, t);
@@ -174,7 +151,7 @@ pub fn optimize(
       best.extend(b);
     }
   }
-  best.list
+  best.into_iter().collect()
 }
 
 #[cfg(test)]

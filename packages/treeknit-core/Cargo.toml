@@ -12,6 +12,7 @@ license.workspace = true
 
 [dependencies]
 fixedbitset.workspace = true
+indexmap.workspace = true
 log.workspace = true
 rand.workspace = true
 rand_xoshiro.workspace = true

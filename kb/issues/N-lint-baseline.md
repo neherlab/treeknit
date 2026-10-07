@@ -8,7 +8,7 @@ The workspace enables the Clippy `restriction` group, plus `unwrap_used`, `expec
 
 | Module                                 | Lints in the baseline                                                 |
 | -------------------------------------- | --------------------------------------------------------------------- |
-| `packages/treeknit-core/src/anneal.rs`     | `as_conversions`, `disallowed_types`                                  |
+| `packages/treeknit-core/src/anneal.rs`     | `as_conversions`                                                      |
 | `packages/treeknit-core/src/arg.rs`        | `disallowed_types`, `iter_over_hash_type`, `unwrap_used`              |
 | `packages/treeknit-core/src/impute.rs`     | `expect_used`, `unwrap_used`                                          |
 | `packages/treeknit-core/src/mcc_map.rs`    | `as_conversions`, `disallowed_types`, `unwrap_used`                   |
