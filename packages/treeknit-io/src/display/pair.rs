@@ -579,7 +579,7 @@ mod tests {
   }
 
   #[test]
-  fn pair_view_draws_a_resolved_split_at_the_mean_length_of_both_trees() {
+  fn pair_view_draws_a_resolved_split_at_the_mean_length_and_moves_its_leaves() {
     let r = run_trees(&[
       ("ha", "((A:1,B:1,C:1):1,(D:1,E:1):1);"),
       ("na", "((A:1,(B:1,C:1):0.5):1,(D:1,E:1):1);"),
@@ -603,9 +603,14 @@ mod tests {
         .map(|n| (n.name.clone(), n.x_div))
         .collect()
     };
+    // Oracle: B and C lie 1 right of (B,C) in both trees, so both trees draw them at 2.25.
+    let expected: BTreeMap<String, f64> = [("A", 2.0), ("B", 2.25), ("C", 2.25), ("D", 2.0), ("E", 2.0)]
+      .into_iter()
+      .map(|(name, x)| (name.to_owned(), x))
+      .collect();
     assert_eq!(
-      (leaves(&input.left), leaves(&input.right)),
-      (leaves(&resolved.left), leaves(&resolved.right))
+      (&expected, &expected),
+      (&leaves(&resolved.left), &leaves(&resolved.right))
     );
     assert!(
       input

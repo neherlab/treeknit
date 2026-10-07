@@ -62,6 +62,7 @@ pub(super) fn draw_tree(
 }
 
 /// Fill `x_div`, `x_depth`, `y`, `clade_size`, and `mcc_break` of `nodes`, which are in preorder.
+/// A branch with a `mean_length` is drawn at that length, and the nodes below it move with it.
 fn place(nodes: &mut [DrawNode]) {
   let mut rank = 0;
   for i in 0..nodes.len() {
@@ -70,11 +71,11 @@ fn place(nodes: &mut [DrawNode]) {
       rank += 1;
     }
     if let Some(p) = nodes[i].parent {
-      nodes[i].x_div = add_length(nodes[p].x_div, nodes[i].branch_length);
+      let length = nodes[i].mean_length.or(nodes[i].branch_length);
+      nodes[i].x_div = add_length(nodes[p].x_div, length);
       nodes[i].mcc_break = nodes[i].mcc.is_some() && nodes[p].mcc != nodes[i].mcc;
     }
   }
-  place_mean_lengths(nodes);
   // Height: the largest number of branches down to a leaf.
   let mut height = vec![0_usize; nodes.len()];
   for i in (0..nodes.len()).rev() {
@@ -92,33 +93,6 @@ fn place(nodes: &mut [DrawNode]) {
     #[expect(clippy::expect_used, reason = "every node is below the root")]
     let below = top.checked_sub(h).expect("no node is higher than the root");
     node.x_depth = row(below);
-  }
-}
-
-/// Move each node with a `mean_length` to the `x_div` of its parent plus that length, at least to
-/// its parent and at most to the nearest node below it without one, so that every other node keeps
-/// its divergence. The nodes are in preorder.
-fn place_mean_lengths(nodes: &mut [DrawNode]) {
-  // The largest x_div of each node: the smallest x_div of the nodes below it without a mean length.
-  let mut bound = vec![f64::INFINITY; nodes.len()];
-  for i in (0..nodes.len()).rev() {
-    bound[i] = nodes[i]
-      .children
-      .iter()
-      .map(|&c| {
-        if nodes[c].mean_length.is_some() {
-          bound[c]
-        } else {
-          nodes[c].x_div
-        }
-      })
-      .fold(f64::INFINITY, f64::min);
-  }
-  for i in 0..nodes.len() {
-    if let (Some(length), Some(p)) = (nodes[i].mean_length, nodes[i].parent) {
-      let from = nodes[p].x_div;
-      nodes[i].x_div = add_length(from, Some(length)).min(bound[i]).max(from);
-    }
   }
 }
 
@@ -180,22 +154,23 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::room_for_the_mean(       0.25, 1.25)]
-  #[case::limited_by_nearest_child(1.5,  1.5 )]
-  #[case::shorter_than_own_length( 0.0,  1.0 )]
+  #[case::longer_added_branch( "s", 0.25, [2.0, 2.25, 1.75, 1.0])]
+  #[case::longer_than_children("s", 1.5,  [2.0, 3.5,  3.0,  1.0])]
+  #[case::shorter_own_branch(  "x", 0.5,  [1.5, 1.5,  1.0,  1.0])]
   #[trace]
-  fn draw_tree_places_a_node_at_its_mean_length_and_keeps_the_leaves(#[case] mean: f64, #[case] expected: f64) {
-    // ((A:1,(B:1,C:0.5)s:0)x:1,D:1)r: s lies at 1 and C at 1.5.
+  fn draw_tree_draws_a_mean_length_and_moves_the_nodes_below(
+    #[case] node: &str,
+    #[case] mean: f64,
+    #[case] expected: [f64; 4],
+  ) {
+    // ((A:1,(B:1,C:0.5)s:0)x:1,D:1)r: A at 2, B at 2, C at 1.5, D at 1.
     let (t, taxa) = tree("((A:1,(B:1,C:0.5)s:0)x:1,D:1)r;");
-    let s = t.preorder().into_iter().find(|&n| t.name(n) == "s").unwrap();
+    let n = t.preorder().into_iter().find(|&n| t.name(n) == node).unwrap();
     let mut means = vec![None; t.nodes.len()];
-    means[s] = Some(mean);
+    means[n] = Some(mean);
     let d = draw_tree(&t, &t, &vec![None; taxa.len()], &means);
     let x = |name: &str| d.nodes.iter().find(|n| n.name == name).unwrap().x_div;
-    assert_eq!(
-      (expected, [2.0, 2.0, 1.5, 1.0]),
-      (x("s"), [x("A"), x("B"), x("C"), x("D")])
-    );
+    assert_eq!(expected.to_vec(), vec![x("A"), x("B"), x("C"), x("D")]);
   }
 
   #[test]

@@ -122,9 +122,8 @@ export interface DrawNode {
      */
     meanLength: number | null;
     /**
-     * Divergence from the root; a missing or negative length counts as 0. A node with a
-     * `mean_length` lies that far right of its parent, at most as far as the nearest node below it
-     * without one, so the leaves keep their divergence.
+     * Divergence from the root; a missing or negative length counts as 0. A branch with a
+     * `mean_length` adds that length instead of its own, so the nodes below it move with it.
      */
     xDiv: number;
     /**

@@ -194,9 +194,8 @@ pub struct DrawNode {
   /// lengths, at which the drawing shows a split that some trees lack (see
   /// `lengths::mean_lengths`); `None` for a branch drawn at `branch_length`.
   pub mean_length: Option<f64>,
-  /// Divergence from the root; a missing or negative length counts as 0. A node with a
-  /// `mean_length` lies that far right of its parent, at most as far as the nearest node below it
-  /// without one, so the leaves keep their divergence.
+  /// Divergence from the root; a missing or negative length counts as 0. A branch with a
+  /// `mean_length` adds that length instead of its own, so the nodes below it move with it.
   pub x_div: f64,
   /// Cladogram position in branch steps: the height of the root minus the height of the node,
   /// where a height is the largest number of branches from a node down to a leaf. Every leaf is
