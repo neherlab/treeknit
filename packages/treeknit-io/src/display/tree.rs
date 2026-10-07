@@ -115,6 +115,7 @@ pub(super) fn row(n: usize) -> f64 {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::display::grapheme_count;
   use crate::newick;
   use pretty_assertions::assert_eq;
   use rstest::rstest;
@@ -184,7 +185,7 @@ mod tests {
       (long, expected),
       (d.nodes[1].name.as_str(), d.nodes[1].short_name.as_str())
     );
-    assert_eq!(40, d.nodes[1].short_name.chars().count());
+    assert_eq!(40, grapheme_count(&d.nodes[1].short_name));
     assert_eq!("B", d.nodes[2].short_name);
   }
 

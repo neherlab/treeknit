@@ -100,7 +100,7 @@ export interface DrawNode {
     name: string;
     /**
      * `name` as a label shows it: shortened in the middle to `DRAWING_RULES.label_max_chars`
-     * characters (Unicode scalar values) with an ellipsis.
+     * characters (grapheme clusters) with an ellipsis.
      */
     shortName: string;
     /**
@@ -628,6 +628,11 @@ export interface ThemeColors {
 }
 
 /**
+ * How trees are resolved. clap reads `--resolve` with the serde names of the variants.
+ */
+export type ResolveMode = "none" | "strict" | "liberal" | "matched";
+
+/**
  * Leaf overlap of the input trees and of each pair, before a run.
  */
 export interface Overlap {
@@ -883,7 +888,8 @@ export interface Settings {
 }
 
 /**
- * Severity of a diagnostic.
+ * Severity of a diagnostic. Its display is the upper-case name, as `log::Level` writes it in
+ * the command-line log.
  */
 export type Level = "error" | "warn" | "info" | "debug";
 
@@ -1185,8 +1191,8 @@ export interface DrawingRules {
      */
     linkMinRowPx: number;
     /**
-     * A longer leaf label is shortened in the middle to this many characters (Unicode scalar
-     * values); `DrawNode.short_name` and `ArgNodeView.short_label` hold the shortened labels.
+     * A longer leaf label is shortened in the middle to this many characters (grapheme clusters);
+     * `DrawNode.short_name` and `ArgNodeView.short_label` hold the shortened labels.
      */
     labelMaxChars: number;
     /**
@@ -1653,8 +1659,6 @@ export type TreeAddress = { kind: "example"; id: string; file: string } | { kind
  * Where the trees of a launch come from.
  */
 export type LaunchInput = { kind: "example"; id: string } | { kind: "trees"; trees: LaunchTree[] } | { kind: "session"; location: LinkLocation } | { kind: "message"; source: MessageSource };
-
-export type ResolveMode = "none" | "strict" | "liberal" | "matched";
 
 
 /**

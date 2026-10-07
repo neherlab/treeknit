@@ -23,6 +23,7 @@ mod tree;
 pub use arg_view::arg_view;
 pub use auspice::auspice_view;
 pub use constellation::constellation;
+pub(crate) use names::grapheme_count;
 pub use names::shorten;
 pub use pair::pair_view;
 pub(crate) use shapes::s_curve;
@@ -85,8 +86,8 @@ pub struct DrawingRules {
   pub label_auto_min_row_px: u32,
   /// From this many px per row, each link is an S-curve; below it, each block is a ribbon.
   pub link_min_row_px: u32,
-  /// A longer leaf label is shortened in the middle to this many characters (Unicode scalar
-  /// values); `DrawNode.short_name` and `ArgNodeView.short_label` hold the shortened labels.
+  /// A longer leaf label is shortened in the middle to this many characters (grapheme clusters);
+  /// `DrawNode.short_name` and `ArgNodeView.short_label` hold the shortened labels.
   pub label_max_chars: u32,
   /// Space around a drawing, in px.
   pub margin_px: f64,
@@ -182,7 +183,7 @@ pub struct DrawTree {
 pub struct DrawNode {
   pub name: String,
   /// `name` as a label shows it: shortened in the middle to `DRAWING_RULES.label_max_chars`
-  /// characters (Unicode scalar values) with an ellipsis.
+  /// characters (grapheme clusters) with an ellipsis.
   pub short_name: String,
   /// Index of the parent; `None` for the root.
   pub parent: Option<usize>,

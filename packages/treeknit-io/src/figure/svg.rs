@@ -1,7 +1,7 @@
 //! An SVG document writer over `quick-xml`, which escapes attribute values and text, with the
 //! pixel frame, path data, text width estimate, and legend shared by the figures.
 
-use crate::display::{Bezier, DRAWING_RULES, Leader, Point, label_max_chars, s_curve, shorten};
+use crate::display::{Bezier, DRAWING_RULES, Leader, Point, grapheme_count, label_max_chars, s_curve, shorten};
 use quick_xml::Writer;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::borrow::Cow;
@@ -467,7 +467,7 @@ impl LabelColumn {
   /// estimated width fits the column, keeping at least one character of the name besides the
   /// ellipsis; empty when that does not fit.
   pub(super) fn text(&self, name: &str) -> String {
-    let max = label_max_chars().min(name.chars().count());
+    let max = label_max_chars().min(grapheme_count(name));
     (shortest(name)..=max)
       .rev()
       .map(|k| shorten(name, k))
@@ -480,7 +480,7 @@ impl LabelColumn {
 /// ellipsis, or the whole name when it has fewer than two characters. A bare ellipsis shows
 /// nothing of the name.
 fn shortest(name: &str) -> usize {
-  name.chars().count().min(2)
+  grapheme_count(name).min(2)
 }
 
 /// The label column for leaf `names`: as wide as the longest label (shortened to the length of

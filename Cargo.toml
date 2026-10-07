@@ -96,6 +96,7 @@ strsim = "=0.11.1"
 strum = { version = "=0.28.0", features = ["derive"] }
 thiserror = "=2.0.21"
 tsify = "=0.5.8"
+unicode-segmentation = "=1.13.3"
 # HTTPS through rustls with ring and the compiled-in Mozilla root certificates of webpki-roots, so
 # the static musl and the Windows binaries need no certificate store of the system.
 ureq = { version = "=3.4.2", default-features = false, features = ["rustls"] }

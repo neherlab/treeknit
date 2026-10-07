@@ -36,6 +36,7 @@ strum.workspace = true
 thiserror.workspace = true
 treeknit-core.workspace = true
 tsify = { workspace = true, optional = true }
+unicode-segmentation.workspace = true
 wasm-bindgen = { workspace = true, optional = true }
 zip.workspace = true
 

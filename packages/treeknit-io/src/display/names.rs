@@ -2,20 +2,20 @@
 //! length of the drawing rules.
 
 use std::collections::{BTreeMap, BTreeSet};
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Replaces the middle of a shortened label (U+2026).
 const ELLIPSIS: char = '\u{2026}';
 
-/// `name` shortened in the middle to at most `max` characters (Unicode scalar values), with an
-/// ellipsis in place of the removed characters: the first half of the kept characters (rounded
-/// up), the ellipsis, then the rest from the end. Empty for `max` 0, where not even the ellipsis
-/// fits. The standard library has no grapheme clusters, so a cut can separate a combining mark
-/// from its letter or split an emoji sequence. The figures and `DrawNode.short_name` use this
-/// rule; a surface that cuts labels by another rule, such as grapheme clusters, can cut them
-/// elsewhere.
+/// `name` shortened in the middle to at most `max` characters, with an ellipsis in place of the
+/// removed characters: the first half of the kept characters (rounded up), the ellipsis, then the
+/// rest from the end. Empty for `max` 0, where not even the ellipsis fits. A character is an
+/// extended grapheme cluster of Unicode Standard Annex #29, what a reader sees as one character,
+/// so a cut keeps a combining mark with its letter and an emoji sequence whole. The figures,
+/// `DrawNode.short_name`, and `ArgNodeView.short_label` use this rule.
 pub fn shorten(name: &str, max: usize) -> String {
-  let chars: Vec<char> = name.chars().collect();
-  if chars.len() <= max {
+  let graphemes: Vec<&str> = name.graphemes(true).collect();
+  if graphemes.len() <= max {
     return name.to_owned();
   }
   if max == 0 {
@@ -24,10 +24,15 @@ pub fn shorten(name: &str, max: usize) -> String {
   let kept = max.saturating_sub(1);
   let head = kept.div_ceil(2);
   let tail = kept - head;
-  let mut text: String = chars[..head].iter().collect();
+  let mut text = graphemes[..head].concat();
   text.push(ELLIPSIS);
-  text.extend(&chars[chars.len() - tail..]);
+  text.push_str(&graphemes[graphemes.len() - tail..].concat());
   text
+}
+
+/// The number of characters of `text` as [`shorten`] counts them: extended grapheme clusters.
+pub(crate) fn grapheme_count(text: &str) -> usize {
+  text.graphemes(true).count()
 }
 
 /// `labels` made unique and non-empty, because views select nodes by label. Leaves keep their
@@ -84,20 +89,22 @@ mod tests {
   #[case::multibyte( "αβγδεζηθ",            4,  "αβ\u{2026}θ")]
   #[case::one(       "abc",                 1,  "\u{2026}")]
   #[case::none(      "abc",                 0,  "")]
-  // Oracle: the combining acute accent U+0301 is a character of its own, so the cut after two
-  // characters drops it from its letter.
-  #[case::combining( "ae\u{301}xyz",          4,  "ae\u{2026}z")]
+  // Oracle: e and the combining acute accent U+0301 form one grapheme cluster, which the cut
+  // after two characters keeps whole.
+  #[case::combining( "ae\u{301}xyz",          4,  "ae\u{301}\u{2026}z")]
+  // Oracle: the flag of the United States is the regional indicators U and S, one cluster.
+  #[case::flag(      "a\u{1F1FA}\u{1F1F8}cde", 4,  "a\u{1F1FA}\u{1F1F8}\u{2026}e")]
   #[case::empty(     "",                    0,  "")]
   #[trace]
   fn shorten_keeps_the_start_and_the_end(#[case] name: &str, #[case] max: usize, #[case] expected: &str) {
     assert_eq!(expected, shorten(name, max));
-    assert!(shorten(name, max).chars().count() <= max);
+    assert!(grapheme_count(&shorten(name, max)) <= max);
   }
 
   #[test]
   fn shorten_of_a_long_label_has_the_rule_length() {
     let name = "x".repeat(50);
-    assert_eq!(40, shorten(&name, 40).chars().count());
+    assert_eq!(40, grapheme_count(&shorten(&name, 40)));
   }
 
   #[test]
