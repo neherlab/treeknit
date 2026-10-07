@@ -4,8 +4,10 @@ import {
   argLeafNames,
   argLeafRows,
   argNodePoints,
+  internalNodeIndex,
+  leafIndex,
   leafNames,
-  leafRows,
+  nodeRows,
   pairLeafNames,
   pairLeafRows,
   rowCount,
@@ -46,44 +48,43 @@ describe("argNodePoints", () => {
   });
 });
 
-describe("leafRows", () => {
-  test.each([
-    ["the root spans every row", 0, { first: 0, last: 4 }],
-    ["a cherry spans its two leaves", 1, { first: 0, last: 1 }],
-    ["a leaf spans its own row", 8, { first: 4, last: 4 }],
-  ] as const)("%s", (_, node, expected) => {
-    expect(leafRows(VIEW.left.nodes, node)).toStrictEqual(expected);
+describe("nodeRows", () => {
+  test("covers the rows of every given node and skips missing nodes", () => {
+    expect(nodeRows({ rows: { first: 3, last: 5 } }, undefined, { rows: { first: 1, last: 1 } })).toStrictEqual({
+      first: 1,
+      last: 5,
+    });
   });
 
-  test("follows both parents of a hybrid node without visiting it twice", () => {
-    expect(leafRows(exampleArgView().nodes, 0)).toStrictEqual({ first: 0, last: 2 });
+  test("gives no range without a node", () => {
+    expect([nodeRows(), nodeRows(undefined)]).toStrictEqual([null, null]);
+  });
+});
+
+describe("node indices", () => {
+  const renamed = new Map([
+    [0, ""],
+    [1, "A"],
+    [4, ""],
+  ]);
+
+  const tree = {
+    ...VIEW.left,
+    nodes: VIEW.left.nodes.map((node, index) => ({ ...node, name: renamed.get(index) ?? node.name })),
+  };
+
+  test("finds a leaf and an internal node of the same name separately", () => {
+    expect({ leaf: leafIndex(tree, "A"), internal: internalNodeIndex(tree, "A") }).toStrictEqual({
+      leaf: 2,
+      internal: 1,
+    });
   });
 
-  test("spans a caterpillar tree deeper than a function call takes arguments", () => {
-    const leaves = 300_000;
-    const nodes = caterpillar(leaves);
-
-    expect(leafRows(nodes, 0)).toStrictEqual({ first: 0, last: leaves - 1 });
-  });
-
-  test("spans a polytomy with more children than a function call takes arguments", () => {
-    const leaves = 300_000;
-    const children = Array.from({ length: leaves }, (_, index) => index + 1);
-
-    const nodes = [
-      { children, leaf: false, y: 0 },
-      ...children.map((_, row) => ({ children: [], leaf: true, y: row })),
-    ];
-
-    expect(leafRows(nodes, 0)).toStrictEqual({ first: 0, last: leaves - 1 });
-  });
-
-  test("gives no range for a node outside the tree", () => {
-    expect(leafRows(VIEW.left.nodes, 99)).toBeNull();
-  });
-
-  test("rejects a child reference outside the tree instead of skipping it", () => {
-    expect(() => leafRows([{ children: [5], leaf: false, y: 0 }], 0)).toThrow(RangeError);
+  test("finds the first of two nodes of one name, and nothing for an unknown name", () => {
+    expect({ unnamed: internalNodeIndex(tree, ""), unknown: leafIndex(tree, "Z") }).toStrictEqual({
+      unnamed: 0,
+      unknown: undefined,
+    });
   });
 });
 
@@ -94,9 +95,9 @@ describe("tree lookups", () => {
 
   test("spans the rows of a leaf's copies in both trees", () => {
     expect({
-      both: pairLeafRows(VIEW.left, VIEW.right, "X"),
-      same: pairLeafRows(VIEW.left, VIEW.right, "A"),
-      none: pairLeafRows(VIEW.left, VIEW.right, "nope"),
+      both: pairLeafRows(VIEW, "X"),
+      same: pairLeafRows(VIEW, "A"),
+      none: pairLeafRows(VIEW, "nope"),
     }).toStrictEqual({ both: { first: 2, last: 4 }, same: { first: 0, last: 0 }, none: null });
   });
 
@@ -118,17 +119,3 @@ describe("tree lookups", () => {
     expect(rowCount(VIEW.left, VIEW.right)).toBe(5);
   });
 });
-
-function caterpillar(leaves: number) {
-  const nodes: { children: number[]; leaf: boolean; y: number }[] = [];
-
-  for (let row = 0; row < leaves - 1; row += 1) {
-    const inner = nodes.length;
-
-    nodes.push({ children: [inner + 1, inner + 2], leaf: false, y: row }, { children: [], leaf: true, y: row });
-  }
-
-  nodes.push({ children: [], leaf: true, y: leaves - 1 });
-
-  return nodes;
-}

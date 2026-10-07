@@ -244,7 +244,7 @@ fn ribbon(block: &Block) -> Vec<Bezier> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::display::DrawNode;
+  use crate::display::{DrawNode, RowSpan};
   use pretty_assertions::assert_eq;
 
   fn node(parent: Option<usize>, x_div: f64, y: f64) -> DrawNode {
@@ -260,6 +260,7 @@ mod tests {
       y,
       leaf: false,
       clade_size: 1,
+      rows: RowSpan::row(0),
       added: false,
       imputed: false,
       mcc: Some(0),

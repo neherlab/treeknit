@@ -5,7 +5,7 @@ use crate::display::legend::pair_legend;
 use crate::display::shapes::pair_shapes;
 use crate::display::slots::{block_neighbors, color_slots};
 use crate::display::tree::draw_tree;
-use crate::display::{Block, DrawNode, DrawTree, Link, MccInfo, PairView, Scale, TreeVersion};
+use crate::display::{Block, DrawTree, Link, MccInfo, PairView, RowSpan, Scale, TreeVersion};
 use crate::run::RunResult;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -31,7 +31,7 @@ use treeknit_core::{PairResult, Tree};
 /// leaves differently, so two MCCs that are neighbors only there can share a color.
 pub fn pair_view(run: &RunResult, pair: usize, version: TreeVersion, scale: Scale) -> Option<PairView> {
   let (layout, slots) = pair_layout(run, pair, version)?;
-  let mccs = mcc_infos(run, &run.pairs[pair], slots);
+  let mccs = mcc_infos(run, &run.pairs[pair], slots, [&layout.left, &layout.right]);
   let scale = layout.shown_scale(scale);
   let shapes = pair_shapes(&layout.left, &layout.right, &layout.links, &layout.blocks, slots, scale);
   Some(PairView {
@@ -155,7 +155,7 @@ fn links(left: &DrawTree, right: &DrawTree) -> Vec<Link> {
 /// leaf follows the previous one in the left tree, and its right row is the previous one plus
 /// or minus 1, in the same direction throughout the block.
 fn blocks(left: &DrawTree, right: &DrawTree, links: &[Link]) -> Vec<Block> {
-  let rows = |link: &Link| (leaf_row(&left.nodes[link.left]), leaf_row(&right.nodes[link.right]));
+  let rows = |link: &Link| (left.nodes[link.left].rows.first, right.nodes[link.right].rows.first);
   // Each block: its MCC, its first and last link, and its direction.
   let mut runs: Vec<(usize, usize, usize, Option<bool>)> = Vec::new();
   for (k, link) in links.iter().enumerate() {
@@ -193,22 +193,18 @@ fn blocks(left: &DrawTree, right: &DrawTree, links: &[Link]) -> Vec<Block> {
     .collect()
 }
 
-/// The row of the leaf `node`, its y, which `place` sets to the whole number of its rank.
-#[expect(
-  clippy::as_conversions,
-  clippy::cast_possible_truncation,
-  clippy::cast_sign_loss,
-  reason = "leaf rows are whole numbers from 0, far below 2^53"
-)]
-fn leaf_row(node: &DrawNode) -> usize {
-  node.y as usize
-}
-
-/// The MCCs of pair `p`, with their attached members and color slots.
-pub(super) fn mcc_infos(run: &RunResult, p: &PairResult, slots: &[usize]) -> Vec<MccInfo> {
+/// The MCCs of pair `p`, with their attached members, color slots, and the rows of their leaves
+/// in the drawn `trees`.
+pub(super) fn mcc_infos(run: &RunResult, p: &PairResult, slots: &[usize], trees: [&DrawTree; 2]) -> Vec<MccInfo> {
   let mut by_mcc: Vec<Vec<&Attachment>> = vec![Vec::new(); p.mccs.len()];
   for a in &p.attached {
     by_mcc[a.mcc].push(a);
+  }
+  let mut rows: Vec<Option<RowSpan>> = vec![None; p.mccs.len()];
+  for leaf in trees.into_iter().flat_map(DrawTree::leaves) {
+    if let Some(mcc) = leaf.mcc {
+      rows[mcc] = Some(rows[mcc].map_or(leaf.rows, |r| r.union(leaf.rows)));
+    }
   }
   p.mccs
     .iter()
@@ -227,6 +223,7 @@ pub(super) fn mcc_infos(run: &RunResult, p: &PairResult, slots: &[usize]) -> Vec
           .flat_map(|a| run.taxa.names_of(&a.leaves))
           .collect(),
         slot: slots[i],
+        rows: rows[i],
       }
     })
     .collect()
@@ -236,7 +233,7 @@ pub(super) fn mcc_infos(run: &RunResult, p: &PairResult, slots: &[usize]) -> Vec
 mod tests {
   use super::*;
   use crate::analysis::{ResolveMode, Settings};
-  use crate::display::{Bezier, MarkKind};
+  use crate::display::{Bezier, DrawNode, MarkKind, coordinate};
   use crate::newick;
   use crate::output::{self, OutputOptions};
   use crate::test_support::{run_trees, run_with, try_run};
@@ -281,7 +278,7 @@ mod tests {
 
   /// A tree of one root above `leaves`, each a name and an MCC, in display order.
   fn flat(leaves: &[(&str, Option<usize>)]) -> DrawTree {
-    let node = |name: &str, parent, y, leaf, mcc| DrawNode {
+    let node = |name: &str, parent, row: usize, leaf, mcc| DrawNode {
       name: name.to_owned(),
       short_name: name.to_owned(),
       parent,
@@ -290,20 +287,21 @@ mod tests {
       mean_length: None,
       x_div: 0.0,
       x_depth: 0.0,
-      y,
+      y: coordinate(row),
       leaf,
       clade_size: if leaf { 1 } else { leaves.len() },
+      rows: RowSpan::row(row),
       added: false,
       imputed: false,
       mcc,
       mcc_break: false,
     };
-    let mut nodes = vec![node("r", None, 0.0, false, None)];
+    let mut nodes = vec![node("r", None, 0, false, None)];
     nodes.extend(
       leaves
         .iter()
-        .zip(0_u32..)
-        .map(|(&(name, mcc), y)| node(name, Some(0), f64::from(y), true, mcc)),
+        .enumerate()
+        .map(|(row, &(name, mcc))| node(name, Some(0), row, true, mcc)),
     );
     DrawTree {
       label: "t".to_owned(),
@@ -432,6 +430,19 @@ mod tests {
     let slots: Vec<usize> = v.mccs.iter().map(|m| m.slot).collect();
     assert_eq!(vec![1, 0], slots);
     assert_eq!(5, v.links.len());
+  }
+
+  #[test]
+  fn pair_view_gives_each_mcc_the_rows_of_its_leaves_in_both_trees() {
+    let r = run_trees(&[("ha", HA), ("na", NA)]);
+    let v = view(&r, 0, TreeVersion::Resolved);
+    // Oracle: left A B C D X, right A B X C D. MCC 1 is X at left row 4 and right row 2; MCC 2
+    // is A to D, left rows 0 to 3 and right rows 0, 1, 3, 4.
+    let span = |first, last| Some(RowSpan { first, last });
+    assert_eq!(
+      vec![span(2, 4), span(0, 4)],
+      v.mccs.iter().map(|m| m.rows).collect::<Vec<_>>()
+    );
   }
 
   #[test]

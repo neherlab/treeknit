@@ -691,7 +691,10 @@ mod tests {
     assert_eq!(json!(4), x["y"]);
     assert!(x["xDiv"].is_number() && x["xDepth"].is_number());
     assert_eq!(
-      json!({"index": 0, "size": 1, "leaves": ["X"], "imputedLeaves": [], "ambiguousLeaves": [], "slot": 1}),
+      json!({
+        "index": 0, "size": 1, "leaves": ["X"], "imputedLeaves": [], "ambiguousLeaves": [], "slot": 1,
+        "rows": {"first": 2, "last": 4},
+      }),
       view["mccs"][0]
     );
     assert_eq!(json!({"mcc": 0, "left": [4, 4], "right": [2, 2]}), view["blocks"][2]);
@@ -943,7 +946,8 @@ mod tests {
         "segments",
         "xDiv",
         "xDepth",
-        "y"
+        "y",
+        "rows"
       ]),
       json!(keys(root))
     );

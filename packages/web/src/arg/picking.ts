@@ -4,7 +4,7 @@ import type { RowRange } from "../canvas/viewState";
 import type { PickRules } from "../drawing/picking";
 import { argClickSelection, argSelectionRows, type ArgTarget } from "../drawing/selection";
 import { argTooltip, type SegmentLabels } from "../drawing/tooltip";
-import { leafRows } from "../drawing/trees";
+import { nodeRows } from "../drawing/trees";
 import { type ArgGeometry, argTargetAt } from "./geometry";
 
 export function argPickRules(segments: SegmentLabels): PickRules<ArgView, ArgGeometry, ArgTarget> {
@@ -20,5 +20,5 @@ export function argPickRules(segments: SegmentLabels): PickRules<ArgView, ArgGeo
 export function argTargetRows(view: ArgView, target: ArgTarget): RowRange | null {
   const node = target.kind === "edge" ? view.edges[target.edge]?.child : target.node;
 
-  return node === undefined ? null : leafRows(view.nodes, node);
+  return node === undefined ? null : nodeRows(view.nodes[node]);
 }

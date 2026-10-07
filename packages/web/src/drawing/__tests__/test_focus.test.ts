@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { RowRange } from "../../canvas/viewState";
-import { focusApplies, focusRows, mccRows, revealLeafRows } from "../focus";
+import { focusApplies, focusRows, revealLeafRows } from "../focus";
 import { examplePairView } from "./fixtures";
 
 const VIEW = examplePairView();
@@ -12,7 +12,10 @@ describe("focusRows", () => {
   });
 
   test("fits the rows of an MCC's leaves in both trees", () => {
-    expect({ abcd: mccRows(VIEW, 0), x: mccRows(VIEW, 1) }).toStrictEqual({
+    expect({
+      abcd: focusRows(VIEW, { kind: "mcc", mcc: 0 }),
+      x: focusRows(VIEW, { kind: "mcc", mcc: 1 }),
+    }).toStrictEqual({
       abcd: { first: 0, last: 4 },
       x: { first: 2, last: 4 },
     });

@@ -46,7 +46,7 @@ function Tanglegram({ result }: { result: RunResult }) {
   const labelsOf = pairs[pair]?.labels;
   const resultKey = `${String(result.sessionId)}:tanglegram`;
   const names = useMemo(() => (data === undefined ? [] : pairLeafNames(data)), [data]);
-  const findLeaf = useFindLeaf(data, leafRowsOf, select, view.actions);
+  const findLeaf = useFindLeaf(data, pairLeafRows, select, view.actions);
 
   const figure = useFigureDownload(result.sessionId, { kind: "pair", pair }, async (client, sessionId) =>
     client.inSession(sessionId, async (session) => session.figure(pair, version, figureOptions(search))),
@@ -93,10 +93,6 @@ function Tanglegram({ result }: { result: RunResult }) {
       )}
     </DrawingPanel>
   );
-}
-
-function leafRowsOf(data: PairView, name: string): RowRange | null {
-  return pairLeafRows(data.left, data.right, name);
 }
 
 function useFocusedRows(data: PairView | undefined, pair: number, view: TreeViewHandle) {

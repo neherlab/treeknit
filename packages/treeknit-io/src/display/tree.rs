@@ -1,7 +1,7 @@
 //! Layout of one tree: node coordinates, MCCs, and the flags of resolution and imputation.
 
 use crate::display::names::{shorten, unique_labels};
-use crate::display::{DrawNode, DrawTree, coordinate, label_max_chars};
+use crate::display::{DrawNode, DrawTree, RowSpan, coordinate, label_max_chars};
 use std::collections::BTreeSet;
 use treeknit_core::Tree;
 use treeknit_core::mcc_map::map_mccs;
@@ -47,6 +47,7 @@ pub(super) fn draw_tree(
         y: 0.0,
         leaf,
         clade_size: 1,
+        rows: RowSpan::row(0),
         added: !leaf && !input_names.contains(node.name.as_str()),
         imputed: leaf && node.taxon.is_some_and(|x| !input_taxa.contains(&x)),
         mcc: mcc[n],
@@ -61,13 +62,15 @@ pub(super) fn draw_tree(
   }
 }
 
-/// Fill `x_div`, `x_depth`, `y`, `clade_size`, and `mcc_break` of `nodes`, which are in preorder.
-/// A branch with a `mean_length` is drawn at that length, and the nodes below it move with it.
+/// Fill `x_div`, `x_depth`, `y`, `clade_size`, `rows`, and `mcc_break` of `nodes`, which are in
+/// preorder. A branch with a `mean_length` is drawn at that length, and the nodes below it move
+/// with it.
 fn place(nodes: &mut [DrawNode]) {
   let mut rank = 0;
   for i in 0..nodes.len() {
     if nodes[i].leaf {
       nodes[i].y = coordinate(rank);
+      nodes[i].rows = RowSpan::row(rank);
       rank += 1;
     }
     if let Some(p) = nodes[i].parent {
@@ -84,6 +87,8 @@ fn place(nodes: &mut [DrawNode]) {
       nodes[i].y = f64::midpoint(nodes[first].y, nodes[last].y);
       height[i] = 1 + children.iter().map(|&c| height[c]).max().unwrap_or(0);
       nodes[i].clade_size = children.iter().map(|&c| nodes[c].clade_size).sum();
+      // The children are in display order, so the first holds the first row below the node.
+      nodes[i].rows = nodes[first].rows.union(nodes[last].rows);
     }
   }
   let top = height.first().copied().unwrap_or(0);
@@ -142,6 +147,12 @@ mod tests {
     assert_eq!(vec![0.0, 1.0, 2.0, 2.0, 2.0], column(&d, |n| n.x_depth));
     // Oracle: three leaves below the root, two below ab.
     assert_eq!(vec![3, 2, 1, 1, 1], column(&d, |n| n.clade_size));
+    // Oracle: the root covers rows 0 to 2, ab the rows of A and B, a leaf its own row.
+    let span = |first, last| RowSpan { first, last };
+    assert_eq!(
+      vec![span(0, 2), span(0, 1), span(0, 0), span(1, 1), span(2, 2)],
+      column(&d, |n| n.rows)
+    );
   }
 
   #[rustfmt::skip]

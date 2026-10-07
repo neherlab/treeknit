@@ -148,6 +148,10 @@ export interface DrawNode {
      */
     cladeSize: number;
     /**
+     * The rows of the leaves at or below the node: the row of a leaf, for a leaf.
+     */
+    rows: RowSpan;
+    /**
      * An internal node that the parsed input tree lacks, added by resolution or imputation.
      */
     added: boolean;
@@ -228,6 +232,11 @@ export interface ArgNodeView {
      * Leaf rank in display order; an internal node sits at the midpoint of its children.
      */
     y: number;
+    /**
+     * The rows of the leaves at or below the node, below either parent of a hybrid node: the row
+     * of a leaf, for a leaf.
+     */
+    rows: RowSpan;
 }
 
 /**
@@ -484,6 +493,11 @@ export interface MccInfo {
      * Color slot, from 0 to `MCC_SLOTS` - 1, the same in every version of the pair.
      */
     slot: number;
+    /**
+     * The rows of the leaves of the MCC in both drawn trees; `None` when neither drawn tree has a
+     * leaf of it.
+     */
+    rows: RowSpan | null;
 }
 
 /**
@@ -1311,6 +1325,15 @@ export interface DrawingRules {
      * Dash and gap of a dotted line (leaders), in px.
      */
     dotPx: [number, number];
+}
+
+/**
+ * The first and the last leaf row of a range, both included; a row is the rank of a leaf in
+ * display order, from 0.
+ */
+export interface RowSpan {
+    first: number;
+    last: number;
 }
 
 /**

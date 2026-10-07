@@ -17,6 +17,7 @@ mod lengths;
 mod legend;
 mod names;
 mod pair;
+mod rows;
 mod rules;
 mod shapes;
 mod slots;
@@ -29,6 +30,7 @@ pub use legend::{LegendItem, LegendKind, LegendMark, Stroke};
 pub(crate) use names::grapheme_count;
 pub use names::shorten;
 pub use pair::pair_view;
+pub use rows::RowSpan;
 pub use rules::{ColumnPx, TanglegramColumns};
 pub(crate) use shapes::s_curve;
 
@@ -268,6 +270,8 @@ pub struct DrawNode {
   pub leaf: bool,
   /// Number of leaves at or below the node: 1 for a leaf.
   pub clade_size: usize,
+  /// The rows of the leaves at or below the node: the row of a leaf, for a leaf.
+  pub rows: RowSpan,
   /// An internal node that the parsed input tree lacks, added by resolution or imputation.
   pub added: bool,
   /// A leaf that the input tree lacks, placed by imputation.
@@ -347,6 +351,9 @@ pub struct MccInfo {
   pub ambiguous_leaves: Vec<String>,
   /// Color slot, from 0 to `MCC_SLOTS` - 1, the same in every version of the pair.
   pub slot: usize,
+  /// The rows of the leaves of the MCC in both drawn trees; `None` when neither drawn tree has a
+  /// leaf of it.
+  pub rows: Option<RowSpan>,
 }
 
 /// The shapes of a tanglegram.
@@ -541,6 +548,9 @@ pub struct ArgNodeView {
   pub x_depth: f64,
   /// Leaf rank in display order; an internal node sits at the midpoint of its children.
   pub y: f64,
+  /// The rows of the leaves at or below the node, below either parent of a hybrid node: the row
+  /// of a leaf, for a leaf.
+  pub rows: RowSpan,
 }
 
 /// An edge of an `ArgView`, from parent to child.
@@ -886,6 +896,7 @@ mod tests {
       y: 4.0,
       leaf: true,
       clade_size: 1,
+      rows: RowSpan::row(4),
       added: false,
       imputed: false,
       mcc: Some(0),
@@ -893,9 +904,8 @@ mod tests {
     };
     let expected = json!({
       "name": "X", "shortName": "X", "parent": 3, "children": [], "branchLength": null, "meanLength": 0.25,
-      "xDiv": 0.5,
-      "xDepth": 1.0, "y": 4.0, "leaf": true, "cladeSize": 1, "added": false, "imputed": false, "mcc": 0,
-      "mccBreak": true,
+      "xDiv": 0.5, "xDepth": 1.0, "y": 4.0, "leaf": true, "cladeSize": 1, "rows": { "first": 4, "last": 4 },
+      "added": false, "imputed": false, "mcc": 0, "mccBreak": true,
     });
     assert_eq!(expected, serde_json::to_value(&node).unwrap());
   }

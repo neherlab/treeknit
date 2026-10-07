@@ -50,7 +50,7 @@ const UNAMBIGUOUS: &str = "Unambiguous";
 /// fields.
 pub fn auspice_view(run: &RunResult, pair: usize, version: TreeVersion, scale: Scale) -> Option<AuspicePair> {
   let (layout, slots) = pair_layout(run, pair, version)?;
-  let mccs = mcc_infos(run, &run.pairs[pair], slots);
+  let mccs = mcc_infos(run, &run.pairs[pair], slots, [&layout.left, &layout.right]);
   let scale = layout.shown_scale(scale);
   let largest = largest_mccs(&mccs);
   let meta = AuspiceMeta {
@@ -575,7 +575,13 @@ mod tests {
   fn auspice_view_keeps_the_eight_largest_mccs_and_groups_the_others() {
     let r = run_trees(&[("x", &cherries(12, false)), ("y", &cherries(12, true))]);
     let view = auspice_view(&r, 0, TreeVersion::Resolved, Scale::Div).unwrap();
-    let mccs = mcc_infos(&r, &r.pairs[0], &[0; 64][..r.pairs[0].mccs.len()]);
+    let (layout, _) = pair_layout(&r, 0, TreeVersion::Resolved).unwrap();
+    let mccs = mcc_infos(
+      &r,
+      &r.pairs[0],
+      &[0; 64][..r.pairs[0].mccs.len()],
+      [&layout.left, &layout.right],
+    );
     // Oracle: the 8 largest MCCs by leaf count, ties in the order of `MCCs.json`, keep their name
     // and take the 8 palette colors in rank order; the rest share "Other" in the no-MCC color.
     let mut by_size: Vec<&MccInfo> = mccs.iter().collect();

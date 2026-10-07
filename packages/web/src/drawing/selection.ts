@@ -4,8 +4,7 @@ import { match } from "ts-pattern";
 
 import type { RowRange } from "../canvas/viewState";
 import type { NodeRef, WorkspaceSearch, WrittenSearch } from "../workspace/search";
-import { mccRows } from "./focus";
-import { internalNodeIndex, leafIndex, leafRows, pairLeafRows, type TreeSide } from "./trees";
+import { internalNodeIndex, leafIndex, nodeRows, pairLeafRows, type TreeSide } from "./trees";
 
 export const UNSELECTED_OPACITY = 0.25;
 
@@ -116,23 +115,23 @@ export function pairSelectionRows(view: PairView, selection: Selection): RowRang
   const { node } = pairEmphasis(view, selection);
 
   if (node !== undefined) {
-    return leafRows(view[node.side].nodes, node.node);
+    return nodeRows(view[node.side].nodes[node.node]);
   }
 
-  const rows = selection.leaf === undefined ? null : pairLeafRows(view.left, view.right, selection.leaf);
+  const rows = selection.leaf === undefined ? null : pairLeafRows(view, selection.leaf);
 
   if (rows !== null) {
     return rows;
   }
 
-  return selection.mcc === undefined ? null : mccRows(view, selection.mcc);
+  return selection.mcc === undefined ? null : (view.mccs[selection.mcc]?.rows ?? null);
 }
 
 export function argSelectionRows(view: ArgView, selection: Selection): RowRange | null {
   const { node, leaf } = argEmphasis(view, selection);
   const selected = node ?? leaf;
 
-  return selected === undefined ? null : leafRows(view.nodes, selected);
+  return selected === undefined ? null : nodeRows(view.nodes[selected]);
 }
 
 export function emphasisOpacity(mcc: number | null, selected: number | undefined): number {

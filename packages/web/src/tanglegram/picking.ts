@@ -5,7 +5,7 @@ import type { RowRange } from "../canvas/viewState";
 import type { PickRules } from "../drawing/picking";
 import { pairClickSelection, pairSelectionRows, type PairTarget } from "../drawing/selection";
 import { pairTooltip } from "../drawing/tooltip";
-import { leafRows, pairLeafRows, rowSpan } from "../drawing/trees";
+import { nodeRows, rowSpan } from "../drawing/trees";
 import { pairTargetAt, type TanglegramGeometry } from "./geometry";
 
 export const PAIR_PICK_RULES: PickRules<PairView, TanglegramGeometry, PairTarget> = {
@@ -25,10 +25,9 @@ export function pairTargetRows(view: PairView, target: PairTarget): RowRange | n
     })
     .with({ kind: "link" }, ({ link }) => {
       const shown = view.links[link];
-      const leaf = shown === undefined ? undefined : view.left.nodes[shown.left];
 
-      return leaf === undefined ? null : pairLeafRows(view.left, view.right, leaf.name);
+      return shown === undefined ? null : nodeRows(view.left.nodes[shown.left], view.right.nodes[shown.right]);
     })
-    .with({ kind: "node" }, ({ side, node }) => leafRows(view[side].nodes, node))
+    .with({ kind: "node" }, ({ side, node }) => nodeRows(view[side].nodes[node]))
     .exhaustive();
 }

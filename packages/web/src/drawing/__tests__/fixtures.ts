@@ -14,6 +14,7 @@ import type {
   Mark,
   PairView,
   Point,
+  RowSpan,
 } from "@neherlab/treeknit-wasm";
 
 interface NodeSpec {
@@ -97,6 +98,7 @@ export function examplePairView(): PairView {
         imputedLeaves: [],
         ambiguousLeaves: [],
         slot: SLOT_ABCD,
+        rows: { first: 0, last: 4 },
       },
       {
         index: MCC_X,
@@ -105,6 +107,7 @@ export function examplePairView(): PairView {
         imputedLeaves: ["X"],
         ambiguousLeaves: ["X"],
         slot: SLOT_X,
+        rows: { first: 2, last: 4 },
       },
     ],
     scale: "div",
@@ -161,11 +164,11 @@ export function sCurve(from: Point, to: Point): Bezier {
 
 export function exampleArgView(): ArgView {
   const nodes = [
-    argNode("ROOT", [null, null], [1, 4], [0, 1], { x: 0, y: 1.5 }),
-    argNode("N1", [0, 0], [2, 3], [0, 1], { x: 0.5, y: 0.5 }),
+    argNode("ROOT", [null, null], [1, 4], [0, 1], { x: 0, y: 1.5, rows: { first: 0, last: 2 } }),
+    argNode("N1", [0, 0], [2, 3], [0, 1], { x: 0.5, y: 0.5, rows: { first: 0, last: 1 } }),
     argNode("A", [1, 1], [], [0, 1], { x: 1, y: 0, leaf: true }),
     argNode("B", [1, 1], [], [0, 1], { x: 1, y: 1, leaf: true }),
-    argNode("H", [0, 1], [5], [0, 1], { x: 0.75, y: 2.5, hybrid: true }),
+    argNode("H", [0, 1], [5], [0, 1], { x: 0.75, y: 2.5, hybrid: true, rows: { first: 2, last: 2 } }),
     argNode("C", [4, 4], [], [0, 1], { x: 1, y: 2, leaf: true }),
   ];
 
@@ -290,6 +293,7 @@ function drawTree(label: string, specs: readonly NodeSpec[]): DrawTree {
       y: spec.y,
       leaf: specs.every((child) => child.parent !== index),
       cladeSize: leavesBelow(specs, index),
+      rows: rowsBelow(specs, index),
       added: spec.added ?? false,
       imputed: spec.imputed ?? false,
       mcc: spec.mcc ?? null,
@@ -302,6 +306,16 @@ function leavesBelow(specs: readonly NodeSpec[], index: number): number {
   const children = specs.flatMap((child, childIndex) => (child.parent === index ? [childIndex] : []));
 
   return children.length === 0 ? 1 : children.reduce((sum, child) => sum + leavesBelow(specs, child), 0);
+}
+
+function rowsBelow(specs: readonly NodeSpec[], index: number): RowSpan {
+  const children = specs.flatMap((child, childIndex) => (child.parent === index ? [childIndex] : []));
+  const spans = children.map((child) => rowsBelow(specs, child));
+  const row = specs[index]?.y ?? 0;
+
+  return spans.length === 0
+    ? { first: row, last: row }
+    : { first: Math.min(...spans.map((span) => span.first)), last: Math.max(...spans.map((span) => span.last)) };
 }
 
 function treeDrawing(tree: DrawTree, slotOf: (mcc: number) => number) {
@@ -394,7 +408,13 @@ function argNode(
   parents: [number | null, number | null],
   children: number[],
   segments: number[],
-  { x, y, leaf = false, hybrid = false }: { x: number; y: number; leaf?: boolean; hybrid?: boolean },
+  {
+    x,
+    y,
+    leaf = false,
+    hybrid = false,
+    rows = { first: y, last: y },
+  }: { x: number; y: number; leaf?: boolean; hybrid?: boolean; rows?: RowSpan },
 ): ArgView["nodes"][number] {
   return {
     label,
@@ -408,5 +428,6 @@ function argNode(
     xDiv: x,
     xDepth: x,
     y,
+    rows,
   };
 }

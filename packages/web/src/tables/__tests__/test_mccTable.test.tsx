@@ -109,5 +109,6 @@ function mcc(index: number, leaves: string[], imputedLeaves: string[], ambiguous
     imputedLeaves,
     ambiguousLeaves,
     slot: index,
+    rows: null,
   };
 }

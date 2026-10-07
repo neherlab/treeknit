@@ -6,7 +6,7 @@ use crate::display::legend::arg_legend;
 use crate::display::names::{shorten, unique_labels};
 use crate::display::shapes::arg_shapes;
 use crate::display::tree::add_length;
-use crate::display::{ArgEdge, ArgNodeView, ArgView, RootCase, Scale};
+use crate::display::{ArgEdge, ArgNodeView, ArgView, RootCase, RowSpan, Scale};
 use crate::output::segment_labels;
 use crate::run::RunResult;
 use std::collections::{BTreeMap, VecDeque};
@@ -31,7 +31,9 @@ fn layout(arg: &Arg, scale: Scale, segments: [&str; 2]) -> ArgView {
   let chain = chain_parents(&g, &order, root);
   let x_div = divergence(&g, &order, &chain);
   let x_depth = depth(&g.children, &order, root);
-  let y = rows(arg, &g.children, &order);
+  let rank = leaf_ranks(arg, &g.children);
+  let y = rows(&rank, &g.children, &order);
+  let spans = row_spans(&rank, &g.children, &order);
   let mut children = g.children.clone();
   for c in &mut children {
     c.sort_by(|&a, &b| y[a].total_cmp(&y[b]));
@@ -67,6 +69,7 @@ fn layout(arg: &Arg, scale: Scale, segments: [&str; 2]) -> ArgView {
         x_div: x_div[n],
         x_depth: x_depth[n],
         y: y[n],
+        rows: spans[n],
       }
     })
     .collect();
@@ -207,9 +210,10 @@ fn depth(children: &[Vec<usize>], order: &[usize], root: usize) -> Vec<f64> {
     .collect()
 }
 
-/// Leaf rank in the leaf order of the ARG's segment 0 tree, then of its segment 1 tree for the
-/// leaves only that segment has; every other node at the midpoint of its first and last child.
-fn rows(arg: &Arg, children: &[Vec<usize>], order: &[usize]) -> Vec<f64> {
+/// The rank of each node without children: in the leaf order of the ARG's segment 0 tree, then of
+/// its segment 1 tree for the leaves only that segment has, then the rest in index order; `None`
+/// for a node with children.
+fn leaf_ranks(arg: &Arg, children: &[Vec<usize>]) -> Vec<Option<usize>> {
   let mut rank: Vec<Option<usize>> = vec![None; children.len()];
   let mut next = 0;
   for c in 0..2 {
@@ -237,6 +241,12 @@ fn rows(arg: &Arg, children: &[Vec<usize>], order: &[usize]) -> Vec<f64> {
       next += 1;
     }
   }
+  rank
+}
+
+/// The row of each node: its leaf rank (`leaf_ranks`), or for a node with children the midpoint of
+/// its first and last child.
+fn rows(rank: &[Option<usize>], children: &[Vec<usize>], order: &[usize]) -> Vec<f64> {
   let mut y: Vec<f64> = rank.iter().map(|r| r.map_or(0.0, coordinate)).collect();
   for &n in order.iter().rev() {
     let ys = children[n].iter().map(|&c| y[c]);
@@ -245,6 +255,18 @@ fn rows(arg: &Arg, children: &[Vec<usize>], order: &[usize]) -> Vec<f64> {
     }
   }
   y
+}
+
+/// The rows of the leaves at or below each node: the rank of a leaf (`leaf_ranks`), or for a node
+/// with children the range of their rows, so a hybrid node counts below both its parents.
+fn row_spans(rank: &[Option<usize>], children: &[Vec<usize>], order: &[usize]) -> Vec<RowSpan> {
+  let mut spans: Vec<RowSpan> = rank.iter().map(|r| RowSpan::row(r.unwrap_or(0))).collect();
+  for &n in order.iter().rev() {
+    if let Some(span) = children[n].iter().map(|&c| spans[c]).reduce(RowSpan::union) {
+      spans[n] = span;
+    }
+  }
+  spans
 }
 
 /// One edge per parent of each node, with the segments it carries. An edge into a hybrid node
@@ -295,7 +317,8 @@ mod tests {
   /// The names of the invariants of every ARG view that `v` breaks: one node per ARG node (plus
   /// the synthetic root), distinct leaf rows, every node reached once from the top root, edges
   /// consistent with the parents, x along the chain to the top root never left of the parent,
-  /// finite coordinates, and one shape per edge and per hybrid.
+  /// finite coordinates, one shape per edge and per hybrid, and node rows that cover the rows of
+  /// the leaves below.
   fn broken_invariants(r: &RunResult, v: &ArgView) -> Vec<&'static str> {
     let arg = r.built_arg().unwrap();
     let synthetic = usize::from(v.root_case == RootCase::Synthetic);
@@ -335,6 +358,24 @@ mod tests {
       });
     let hybrids = v.nodes.iter().filter(|n| n.hybrid).count();
     let reticulations = v.edges.iter().filter(|e| e.reticulation).count();
+    // A leaf covers the row at its y, and every node the rows of the leaves it reaches through
+    // its children, a hybrid node through both parents.
+    let leaf_rows_placed = v
+      .nodes
+      .iter()
+      .filter(|n| n.leaf)
+      .all(|n| n.rows.first == n.rows.last && coordinate(n.rows.first).to_bits() == n.y.to_bits());
+    let rows_cover_reached_leaves = (0..v.nodes.len()).all(|n| {
+      let mut stack = vec![n];
+      let mut reached: Option<RowSpan> = None;
+      while let Some(m) = stack.pop() {
+        if v.nodes[m].children.is_empty() {
+          reached = Some(reached.map_or(v.nodes[m].rows, |r| r.union(v.nodes[m].rows)));
+        }
+        stack.extend(&v.nodes[m].children);
+      }
+      reached == Some(v.nodes[n].rows)
+    });
     [
       ("one node per ARG node", arg.nodes.len() + synthetic == v.nodes.len()),
       ("distinct leaf rows", leaves == leaf_rows.len()),
@@ -346,6 +387,8 @@ mod tests {
       ("edges shaped", shaped),
       ("one mark per hybrid", hybrids == v.shapes.marks.len()),
       ("one reticulation per hybrid", hybrids == reticulations),
+      ("leaf rows at their y", leaf_rows_placed),
+      ("rows cover the reached leaves", rows_cover_reached_leaves),
     ]
     .into_iter()
     .filter(|&(_, holds)| !holds)

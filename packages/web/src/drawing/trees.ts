@@ -1,4 +1,4 @@
-import type { ArgView, DrawTree, Elbow, PairView, Point } from "@neherlab/treeknit-wasm";
+import type { ArgView, DrawTree, Elbow, PairView, Point, RowSpan } from "@neherlab/treeknit-wasm";
 
 import type { RowRange } from "../canvas/viewState";
 import { itemAt } from "./lookup";
@@ -6,6 +6,8 @@ import { itemAt } from "./lookup";
 export type TreeSide = "left" | "right";
 
 export const TREE_SIDES: readonly TreeSide[] = ["left", "right"];
+
+const NAMED_NODES = new WeakMap<DrawTree, NamedNodes>();
 
 export function treeNodePoints(tree: DrawTree, elbows: readonly Elbow[]): (Point | undefined)[] {
   const points: (Point | undefined)[] = tree.nodes.map(() => undefined);
@@ -37,11 +39,8 @@ export function argNodePoints(view: ArgView): (Point | undefined)[] {
   return points;
 }
 
-export function leafRows(
-  nodes: readonly { children: readonly number[]; leaf: boolean; y: number }[],
-  node: number,
-): RowRange | null {
-  return nodes[node] === undefined ? null : rowSpan(descendantLeaves(nodes, node).map((leaf) => leaf.y));
+export function nodeRows(...nodes: readonly ({ rows: RowSpan } | undefined)[]): RowRange | null {
+  return rowSpan(nodes.flatMap((node) => (node === undefined ? [] : [node.rows.first, node.rows.last])));
 }
 
 export function rowSpan(rows: Iterable<number>): RowRange | null {
@@ -57,21 +56,21 @@ export function rowSpan(rows: Iterable<number>): RowRange | null {
 }
 
 export function leafIndex(tree: DrawTree, name: string): number | undefined {
-  const index = tree.nodes.findIndex((node) => node.leaf && node.name === name);
-
-  return index === -1 ? undefined : index;
+  return namedNodes(tree).leaves.get(name);
 }
 
-export function pairLeafRows(left: DrawTree, right: DrawTree, name: string): RowRange | null {
-  return rowSpan(
-    [left, right].flatMap((tree) => tree.nodes.flatMap((node) => (node.leaf && node.name === name ? [node.y] : []))),
+export function pairLeafRows(view: Pick<PairView, "left" | "right">, name: string): RowRange | null {
+  return nodeRows(
+    ...TREE_SIDES.map((side) => {
+      const index = leafIndex(view[side], name);
+
+      return index === undefined ? undefined : view[side].nodes[index];
+    }),
   );
 }
 
 export function internalNodeIndex(tree: DrawTree, name: string): number | undefined {
-  const index = tree.nodes.findIndex((node) => !node.leaf && node.name === name);
-
-  return index === -1 ? undefined : index;
+  return namedNodes(tree).internal.get(name);
 }
 
 export function leafNames(tree: DrawTree): string[] {
@@ -99,38 +98,35 @@ export function argLeafLabels(view: ArgView): string[] {
 }
 
 export function argLeafRows(view: ArgView, name: string): RowRange | null {
-  return rowSpan(view.nodes.flatMap((node) => (node.leaf && node.label === name ? [node.y] : [])));
+  return nodeRows(view.nodes.find((node) => node.leaf && node.label === name));
 }
 
 export function rowCount(...trees: readonly { nodes: readonly { leaf: boolean }[] }[]): number {
   return Math.max(1, ...trees.map((tree) => tree.nodes.filter((node) => node.leaf).length));
 }
 
-function descendantLeaves<N extends { children: readonly number[]; leaf: boolean }>(
-  nodes: readonly N[],
-  root: number,
-): N[] {
-  const leaves: N[] = [];
-  const seen = new Set<number>();
-  const stack = [root];
+function namedNodes(tree: DrawTree): NamedNodes {
+  const known = NAMED_NODES.get(tree);
 
-  for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
-    if (seen.has(next)) {
-      continue;
-    }
-
-    const node = itemAt(nodes, next, "node");
-
-    seen.add(next);
-
-    if (node.leaf) {
-      leaves.push(node);
-    }
-
-    for (const child of node.children) {
-      stack.push(child);
-    }
+  if (known !== undefined) {
+    return known;
   }
 
-  return leaves;
+  const named: NamedNodes = { leaves: new Map(), internal: new Map() };
+
+  tree.nodes.forEach((node, index) => {
+    const names = node.leaf ? named.leaves : named.internal;
+
+    if (!names.has(node.name)) {
+      names.set(node.name, index);
+    }
+  });
+  NAMED_NODES.set(tree, named);
+
+  return named;
+}
+
+interface NamedNodes {
+  leaves: Map<string, number>;
+  internal: Map<string, number>;
 }
