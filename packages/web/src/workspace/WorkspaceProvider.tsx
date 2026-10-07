@@ -5,7 +5,7 @@ import { useSpinDelay } from "spin-delay";
 import { INDICATOR_SPIN_DELAY } from "../indicator/timing";
 import { failureNotice } from "../run/failure";
 import { SettingsFormProvider } from "../settings/SettingsFormProvider";
-import { InlineNotice } from "../ui/InlineNotice";
+import { ErrorNotice } from "../ui/ErrorNotice";
 import { WorkspaceContext } from "./context";
 import type { WorkspaceRuntime } from "./runtime";
 
@@ -47,11 +47,7 @@ function StartFailure({ error }: FallbackProps) {
 
   return (
     <div className="mx-auto max-w-xl p-6">
-      <InlineNotice tone={notice.tone} title={notice.title}>
-        {notice.details.map((detail) => (
-          <p key={detail}>{detail}</p>
-        ))}
-      </InlineNotice>
+      <ErrorNotice title={notice.title} details={notice.details} />
     </div>
   );
 }
