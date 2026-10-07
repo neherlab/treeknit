@@ -2,6 +2,7 @@
 
 #[cfg(test)]
 mod tests {
+  use indoc::{formatdoc, indoc};
   use pretty_assertions::assert_eq;
   use rstest::rstest;
   use std::collections::BTreeMap;
@@ -108,22 +109,22 @@ mod tests {
       "--gamma=-1",
     ];
     let f = fail(&[HA, "(A,B"], &args);
-    let expected = format!(
-      "{}:1:5: tree \"t1\": Newick parse error: expected ',' or ')' at byte 4\n\
-      --seq-lengths should look like 1500,2000, got \"x 1\": invalid float literal\n\
-      former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, \
-      --resolve-all-rounds, --match-topologies) cannot be combined with --resolve, --pre-resolve, \
-      --no-final-round or --final-round; see --help-resolve\n\
-      gamma must be a non-negative number, got -1",
+    let expected = formatdoc! {r#"
+      {}:1:5: tree "t1": Newick parse error: expected ',' or ')' at byte 4
+      --seq-lengths should look like 1500,2000, got "x 1": invalid float literal
+      former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, --resolve-all-rounds, --match-topologies) cannot be combined with --resolve, --pre-resolve, --no-final-round or --final-round; see --help-resolve
+      gamma must be a non-negative number, got -1"#,
       f.dir.path().join("t1.nwk").display()
-    );
+    };
     assert_failed(&f, &expected);
   }
 
   #[test]
   fn too_few_tree_files_are_reported_with_the_flag_errors() {
     let f = fail(&[HA], &["--gamma=-1"]);
-    let expected = "need at least two trees\ngamma must be a non-negative number, got -1";
+    let expected = indoc! {"
+      need at least two trees
+      gamma must be a non-negative number, got -1"};
     assert_failed(&f, expected);
   }
 
@@ -135,12 +136,12 @@ mod tests {
     let Err(os_error) = std::fs::read("missing-tree-file.nwk") else {
       panic!("missing-tree-file.nwk exists");
     };
-    let expected = format!(
-      "missing-tree-file.nwk: cannot read the file: {os_error}\n\
-       {}:1:5: tree \"t1\": Newick parse error: expected ',' or ')' at byte 4\n\
-       gamma must be a non-negative number, got -1",
+    let expected = formatdoc! {r#"
+      missing-tree-file.nwk: cannot read the file: {os_error}
+      {}:1:5: tree "t1": Newick parse error: expected ',' or ')' at byte 4
+      gamma must be a non-negative number, got -1"#,
       f.dir.path().join("t1.nwk").display()
-    );
+    };
     assert_failed(&f, &expected);
   }
 
@@ -243,10 +244,12 @@ mod tests {
       .args(["--verbosity-level", "-1"])
       .output()
       .unwrap();
-    let expected = format!(
-      "Error: {}: tree label \"ha_x\" is used twice\ngamma must be a non-negative number, got -1\n",
+    let expected = formatdoc! {r#"
+      Error: {}: tree label "ha_x" is used twice
+      gamma must be a non-negative number, got -1
+      "#,
       paths[1].display()
-    );
+    };
     assert_eq!(
       (Some(1), expected),
       (output.status.code(), String::from_utf8(output.stderr).unwrap())
@@ -256,12 +259,12 @@ mod tests {
   #[test]
   fn tree_errors_name_the_input_file_and_position() {
     let f = fail(&[HA, "((A,B),\n(C,D)x y);", "((A,A),(C,D));"], &[]);
-    let expected = format!(
-      "{}:2:8: tree \"t1\": Newick parse error: expected ',' or ')' at byte 15\n\
-       {}: tree \"t2\": Newick parse error: duplicate leaf name \"A\"",
+    let expected = formatdoc! {r#"
+      {}:2:8: tree "t1": Newick parse error: expected ',' or ')' at byte 15
+      {}: tree "t2": Newick parse error: duplicate leaf name "A""#,
       f.dir.path().join("t1.nwk").display(),
       f.dir.path().join("t2.nwk").display(),
-    );
+    };
     assert_failed(&f, &expected);
   }
 
@@ -691,11 +694,13 @@ mod tests {
   ) {
     let (_, code, stderr) = run_session(&serde_json::json!({}), args);
     // clap shows the usage of the arguments given, `-o` and `--verbosity-level` of `run_session`.
-    let expected = format!(
-      "error: {message}\n\n\
-       Usage: treeknit --session <FILE> --outdir <OUTDIR> --verbosity-level <VERBOSITY_LEVEL> [TREE]...\n\n\
-       For more information, try '--help'.\n"
-    );
+    let expected = formatdoc! {"
+      error: {message}
+
+      Usage: treeknit --session <FILE> --outdir <OUTDIR> --verbosity-level <VERBOSITY_LEVEL> [TREE]...
+
+      For more information, try '--help'.
+    "};
     assert_eq!((Some(2), expected), (code, stderr));
   }
 

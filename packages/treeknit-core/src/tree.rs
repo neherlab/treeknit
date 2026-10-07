@@ -474,38 +474,9 @@ pub(crate) mod test_util {
 
   /// Minimal Newick reader for tests (no quoting, no comments).
   pub(crate) fn nwk(s: &str) -> Tree {
-    fn rec(t: &mut Tree, s: &[u8], i: &mut usize, parent: Option<NodeId>) -> NodeId {
-      let n = if parent.is_none() { 0 } else { t.add_node("", None) };
-      if s[*i] == b'(' {
-        *i += 1;
-        loop {
-          let child = rec(t, s, i, Some(n));
-          t.attach(n, child);
-          let ch = s[*i];
-          *i += 1;
-          if ch == b')' {
-            break;
-          }
-        }
-      }
-      let start = *i;
-      while *i < s.len() && !b",():;".contains(&s[*i]) {
-        *i += 1;
-      }
-      t.nodes[n].name = String::from_utf8(s[start..*i].to_vec()).unwrap();
-      if *i < s.len() && s[*i] == b':' {
-        *i += 1;
-        let st = *i;
-        while !b",();".contains(&s[*i]) {
-          *i += 1;
-        }
-        t.nodes[n].branch_length = std::str::from_utf8(&s[st..*i]).unwrap().parse().ok();
-      }
-      n
-    }
     let mut t = Tree::new("t");
     let mut i = 0;
-    rec(&mut t, s.as_bytes(), &mut i, None);
+    nwk_node(&mut t, s.as_bytes(), &mut i, None);
     let mut k = 0;
     for n in t.internals() {
       if t.nodes[n].name.is_empty() {
@@ -514,6 +485,38 @@ pub(crate) mod test_util {
       }
     }
     t
+  }
+
+  /// The node of the subtree that starts at `*i` in `s`, attached below `parent`, with `*i` moved
+  /// past it.
+  fn nwk_node(t: &mut Tree, s: &[u8], i: &mut usize, parent: Option<NodeId>) -> NodeId {
+    let n = if parent.is_none() { 0 } else { t.add_node("", None) };
+    if s[*i] == b'(' {
+      *i += 1;
+      loop {
+        let child = nwk_node(t, s, i, Some(n));
+        t.attach(n, child);
+        let ch = s[*i];
+        *i += 1;
+        if ch == b')' {
+          break;
+        }
+      }
+    }
+    let start = *i;
+    while *i < s.len() && !b",():;".contains(&s[*i]) {
+      *i += 1;
+    }
+    t.nodes[n].name = String::from_utf8(s[start..*i].to_vec()).unwrap();
+    if *i < s.len() && s[*i] == b':' {
+      *i += 1;
+      let st = *i;
+      while !b",();".contains(&s[*i]) {
+        *i += 1;
+      }
+      t.nodes[n].branch_length = std::str::from_utf8(&s[st..*i]).unwrap().parse().ok();
+    }
+    n
   }
 
   /// Parse trees and assign a shared taxon table.

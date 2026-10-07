@@ -468,6 +468,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "indoc"
+version = "2.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79cf5c93f93228cf8efb3ba362535fb11199ac548a09ce117c9b1adc3030d706"
+dependencies = [
+ "rustversion",
+]
+
+[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1190,6 +1199,7 @@ dependencies = [
  "color-eyre",
  "ctor",
  "eyre",
+ "indoc",
  "log",
  "pretty_assertions",
  "rayon",
@@ -1234,6 +1244,7 @@ dependencies = [
  "ctor",
  "flate2",
  "form_urlencoded",
+ "indoc",
  "log",
  "percent-encoding",
  "pretty_assertions",

@@ -782,6 +782,7 @@ mod tests {
   use crate::analysis::{self, Settings, TreeText};
   use crate::figure::LabelMode;
   use crate::test_support::{clades, run_trees};
+  use indoc::indoc;
   use treeknit_testing::assert_err;
 
   use crate::summary::Level;
@@ -1348,7 +1349,11 @@ mod tests {
     let expected = OutputFile {
       path: "log.txt".to_owned(),
       media_type: "text/plain".to_owned(),
-      text: "2026-10-05T12:00:00.000Z [INFO] TreeKnit 1.0\n2026-10-05T12:00:00.000Z [WARN] ignoring x\n".to_owned(),
+      text: indoc! {"
+        2026-10-05T12:00:00.000Z [INFO] TreeKnit 1.0
+        2026-10-05T12:00:00.000Z [WARN] ignoring x
+      "}
+      .to_owned(),
     };
     assert_eq!(expected, file);
   }

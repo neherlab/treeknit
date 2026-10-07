@@ -297,9 +297,9 @@ mod tests {
         }
       }
     }
-    println!("{} checks, {} failures", r.checks, r.failures.len());
+    eprintln!("{} checks, {} failures", r.checks, r.failures.len());
     for x in &r.failures {
-      println!("FAIL {x}");
+      eprintln!("FAIL {x}");
     }
     assert!(
       r.failures.is_empty(),
@@ -337,7 +337,7 @@ mod tests {
           / f64::from(u32::try_from(v.len()).unwrap())
       };
       let distinct_r: BTreeSet<&Clades> = rust.iter().collect();
-      println!(
+      eprintln!(
         "{case:32} julia {:5.2} MCCs ({} distinct)  rust {:5.2} MCCs ({} distinct)  rust∈julia {shared}/{}",
         mean(&julia),
         jset.len(),

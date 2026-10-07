@@ -44,6 +44,7 @@ zip.workspace = true
 approx.workspace = true
 clap.workspace = true
 ctor.workspace = true
+indoc.workspace = true
 pretty_assertions.workspace = true
 rand.workspace = true
 rand_xoshiro.workspace = true
