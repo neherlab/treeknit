@@ -1,7 +1,9 @@
 //! An SVG document writer over `quick-xml`, which escapes attribute values and text, with the
 //! pixel frame, path data, text width estimate, and legend shared by the figures.
 
-use crate::display::{Bezier, DRAWING_RULES, Leader, Point, grapheme_count, label_max_chars, s_curve, shorten};
+use crate::display::{
+  Bezier, DRAWING_RULES, Leader, Point, coordinate, grapheme_count, label_max_chars, s_curve, shorten,
+};
 use quick_xml::Writer;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::borrow::Cow;
@@ -244,7 +246,7 @@ impl Svg {
     }
     self.open("g", &[("fill", ink.to_owned())]);
     for (entry, (line, x)) in entries.iter().zip(legend_places(entries, width)) {
-      let mid = top + (count(line) + 0.5) * LEGEND_LINE;
+      let mid = top + (coordinate(line) + 0.5) * LEGEND_LINE;
       for symbol in &entry.symbol {
         self.legend_symbol(symbol, x, mid);
       }
@@ -396,8 +398,8 @@ pub(super) fn figure(
 /// The height of a figure whose drawing is `rows` rows of `row_height` px, with the legend
 /// `entries` wrapped at `width` px.
 fn figure_height(rows: usize, row_height: f64, entries: &[LegendEntry], width: f64) -> f64 {
-  let legend = count(legend_lines(entries, width)) * LEGEND_LINE;
-  drawing_top() + count(rows) * row_height + LEGEND_GAP + legend + MARGIN
+  let legend = coordinate(legend_lines(entries, width)) * LEGEND_LINE;
+  drawing_top() + coordinate(rows) * row_height + LEGEND_GAP + legend + MARGIN
 }
 
 /// The top of the drawing, below the title band.
@@ -407,7 +409,7 @@ pub(super) fn drawing_top() -> f64 {
 
 /// The top of the legend under a drawing of `rows` rows of `row_height` px.
 fn legend_top(rows: usize, row_height: f64) -> f64 {
-  drawing_top() + count(rows) * row_height + LEGEND_GAP
+  drawing_top() + coordinate(rows) * row_height + LEGEND_GAP
 }
 
 /// The baseline of text centered on `y`.
@@ -543,15 +545,6 @@ pub(super) fn num(v: f64) -> String {
   let text = format!("{v:.2}");
   let text = text.trim_end_matches('0').trim_end_matches('.');
   if text == "-0" { "0".to_owned() } else { text.to_owned() }
-}
-
-/// A count of rows, lines, or characters as a coordinate.
-#[expect(
-  clippy::as_conversions,
-  reason = "these counts are far below 2^53, so the conversion is exact"
-)]
-pub(super) fn count(n: usize) -> f64 {
-  n as f64
 }
 
 /// SVG path data.

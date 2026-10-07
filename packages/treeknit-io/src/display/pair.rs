@@ -4,7 +4,7 @@ use super::lengths::mean_lengths;
 use super::shapes::pair_shapes;
 use super::slots::{block_neighbors, color_slots};
 use super::tree::draw_tree;
-use super::{Block, DrawTree, Link, MccInfo, PairView, Scale, TreeVersion};
+use super::{Block, DrawNode, DrawTree, Link, MccInfo, PairView, Scale, TreeVersion};
 use crate::run::RunResult;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -150,17 +150,17 @@ fn links(left: &DrawTree, right: &DrawTree) -> Vec<Link> {
 }
 
 /// Runs of links of one MCC whose leaves are consecutive in both trees, in left order: each next
-/// leaf follows the previous one in the left tree, and its right rank is the previous one plus
+/// leaf follows the previous one in the left tree, and its right row is the previous one plus
 /// or minus 1, in the same direction throughout the block.
 fn blocks(left: &DrawTree, right: &DrawTree, links: &[Link]) -> Vec<Block> {
-  let (left_rank, right_rank) = (leaf_ranks(left), leaf_ranks(right));
+  let rows = |link: &Link| (leaf_row(&left.nodes[link.left]), leaf_row(&right.nodes[link.right]));
   // Each block: its MCC, its first and last link, and its direction.
   let mut runs: Vec<(usize, usize, usize, Option<bool>)> = Vec::new();
   for (k, link) in links.iter().enumerate() {
-    let (l, r) = (left_rank[link.left], right_rank[link.right]);
+    let (l, r) = rows(link);
     if let Some((mcc, _, last, down)) = runs.last_mut() {
       let previous = &links[*last];
-      let (pl, pr) = (left_rank[previous.left], right_rank[previous.right]);
+      let (pl, pr) = rows(previous);
       let step_down = r == pr + 1;
       let step_up = r + 1 == pr;
       let extends = *mcc == link.mcc
@@ -191,21 +191,15 @@ fn blocks(left: &DrawTree, right: &DrawTree, links: &[Link]) -> Vec<Block> {
     .collect()
 }
 
-/// The rank of each leaf of `tree` in display order, by node index; 0 for an internal node. The
-/// nodes are in preorder with children in display order, so the leaves come in display order.
-fn leaf_ranks(tree: &DrawTree) -> Vec<usize> {
-  let mut next = 0;
-  tree
-    .nodes
-    .iter()
-    .map(|n| {
-      if !n.leaf {
-        return 0;
-      }
-      next += 1;
-      next - 1
-    })
-    .collect()
+/// The row of the leaf `node`, its y, which `place` sets to the whole number of its rank.
+#[expect(
+  clippy::as_conversions,
+  clippy::cast_possible_truncation,
+  clippy::cast_sign_loss,
+  reason = "leaf rows are whole numbers from 0, far below 2^53"
+)]
+fn leaf_row(node: &DrawNode) -> usize {
+  node.y as usize
 }
 
 /// The MCCs of pair `p`, with their attached members and color slots.
@@ -240,6 +234,7 @@ pub(super) fn mcc_infos(run: &RunResult, p: &PairResult, slots: &[usize]) -> Vec
 mod tests {
   use super::*;
   use crate::analysis::{ResolveMode, Settings};
+  use crate::display::{Bezier, MarkKind};
   use crate::newick;
   use crate::output::{self, OutputOptions};
   use crate::test_support::{run_trees, run_with, try_run};
@@ -258,7 +253,7 @@ mod tests {
     t.nodes.iter().filter(|n| n.leaf).map(|n| n.name.as_str()).collect()
   }
 
-  fn names_where(t: &DrawTree, f: impl Fn(&super::super::DrawNode) -> bool) -> Vec<&str> {
+  fn names_where(t: &DrawTree, f: impl Fn(&DrawNode) -> bool) -> Vec<&str> {
     t.nodes.iter().filter(|n| f(n)).map(|n| n.name.as_str()).collect()
   }
 
@@ -284,7 +279,7 @@ mod tests {
 
   /// A tree of one root above `leaves`, each a name and an MCC, in display order.
   fn flat(leaves: &[(&str, Option<usize>)]) -> DrawTree {
-    let node = |name: &str, parent, y, leaf, mcc| super::super::DrawNode {
+    let node = |name: &str, parent, y, leaf, mcc| DrawNode {
       name: name.to_owned(),
       short_name: name.to_owned(),
       parent,
@@ -350,7 +345,7 @@ mod tests {
     // The x of each named leaf and the sorted x of the internal nodes of the right tree.
     let xs = |version, scale| {
       let v = pair_view(&r, 0, version, scale).unwrap();
-      let x = |n: &super::super::DrawNode| if scale == Scale::Div { n.x_div } else { n.x_depth };
+      let x = |n: &DrawNode| scale.x(n.x_div, n.x_depth);
       let mut leaves: Vec<(String, f64)> = v
         .right
         .nodes
@@ -443,7 +438,7 @@ mod tests {
     let v = view(&r, 0, TreeVersion::Resolved);
     let x_link = &v.shapes.links[4];
     assert_eq!(1, x_link.slot);
-    let expected = super::super::Bezier {
+    let expected = Bezier {
       from: [0.0, 4.0],
       c1: [0.5, 4.0],
       c2: [0.5, 2.0],
@@ -451,7 +446,7 @@ mod tests {
     };
     assert_eq!(expected, x_link.curve);
     // The ribbon of X: left row 4 and right row 2, each extended by half a row.
-    let top = super::super::Bezier {
+    let top = Bezier {
       from: [0.0, 3.5],
       c1: [0.5, 3.5],
       c2: [0.5, 1.5],
@@ -571,7 +566,7 @@ mod tests {
     let resolved = view(&r, 0, TreeVersion::Resolved);
     let input = view(&r, 0, TreeVersion::Input);
     let bc = |t: &DrawTree| {
-      let below = |n: &super::super::DrawNode| -> BTreeSet<&str> {
+      let below = |n: &DrawNode| -> BTreeSet<&str> {
         n.children.iter().map(|&c| t.nodes[c].name.as_str()).collect()
       };
       let n = t.nodes.iter().find(|n| below(n) == BTreeSet::from(["B", "C"])).unwrap();
@@ -634,8 +629,8 @@ mod tests {
     assert_eq!(vec!["P"], names_where(&imputed.left, |n| n.imputed));
     assert!(names_where(&imputed.right, |n| n.imputed).is_empty());
     assert_eq!(7, imputed.links.len());
-    let marks: Vec<super::super::MarkKind> = imputed.shapes.left.marks.iter().map(|m| m.kind).collect();
-    assert!(marks.contains(&super::super::MarkKind::Imputed));
+    let marks: Vec<MarkKind> = imputed.shapes.left.marks.iter().map(|m| m.kind).collect();
+    assert!(marks.contains(&MarkKind::Imputed));
   }
 
   #[rstest]

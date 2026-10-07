@@ -74,7 +74,8 @@ pub fn auspice_view(run: &RunResult, pair: usize, version: TreeVersion, scale: S
     },
     sharing: AuspiceSharing { entropy: false },
   };
-  let names = [leaf_names(&layout.left), leaf_names(&layout.right)];
+  let names: [BTreeSet<&str>; 2] =
+    [&layout.left, &layout.right].map(|tree| tree.leaves().map(|n| n.name.as_str()).collect());
   let context = |other: usize| TreeContext {
     scale,
     mccs: &mccs,
@@ -182,11 +183,6 @@ fn colorings(mccs: &[MccInfo], largest: &[usize], left: &str, right: &str) -> Ve
   ]
 }
 
-/// The names of the leaves of `tree`.
-fn leaf_names(tree: &DrawTree) -> BTreeSet<&str> {
-  tree.nodes.iter().filter(|n| n.leaf).map(|n| n.name.as_str()).collect()
-}
-
 /// The name of the node of `tree` where MCC `mcc` starts: the node below its reassortment branch,
 /// or the root when the MCC holds the root; `None` when no node of `tree` has the MCC.
 fn mcc_root(tree: &DrawTree, mcc: usize) -> Option<String> {
@@ -218,10 +214,7 @@ fn auspice_tree(tree: &DrawTree, context: &TreeContext) -> AuspiceNode {
     built[i] = Some(AuspiceNode {
       name: n.name.clone(),
       node_attrs: AuspiceNodeAttrs {
-        div: match context.scale {
-          Scale::Div => n.x_div,
-          Scale::Depth => n.x_depth,
-        },
+        div: context.scale.x(n.x_div, n.x_depth),
         mcc: mcc.and_then(|m| value(&mcc_name(m.index))),
         largest_mcc: mcc.and_then(|m| {
           if context.largest.contains(&m.index) {

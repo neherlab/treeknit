@@ -164,6 +164,23 @@ impl Scale {
       scale => scale,
     }
   }
+
+  /// The x coordinate of a node on this scale: its divergence `x_div` or its depth `x_depth`.
+  pub(crate) fn x(self, x_div: f64, x_depth: f64) -> f64 {
+    match self {
+      Scale::Div => x_div,
+      Scale::Depth => x_depth,
+    }
+  }
+}
+
+/// A count of rows, steps, lines, or characters as a coordinate.
+#[expect(
+  clippy::as_conversions,
+  reason = "these counts are far below 2^53, so the conversion is exact"
+)]
+pub(crate) fn coordinate(n: usize) -> f64 {
+  n as f64
 }
 
 /// A tree laid out for drawing, with the MCCs of one pair.
@@ -174,6 +191,13 @@ pub struct DrawTree {
   pub label: String,
   /// One node per tree node, indexed from 0 in preorder; node 0 is the root.
   pub nodes: Vec<DrawNode>,
+}
+
+impl DrawTree {
+  /// The leaves, in display order.
+  pub(crate) fn leaves(&self) -> impl Iterator<Item = &DrawNode> {
+    self.nodes.iter().filter(|n| n.leaf)
+  }
 }
 
 /// A node of a `DrawTree`.

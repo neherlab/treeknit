@@ -1,7 +1,7 @@
 //! Layout of one tree: node coordinates, MCCs, and the flags of resolution and imputation.
 
 use super::names::{shorten, unique_labels};
-use super::{DrawNode, DrawTree, label_max_chars};
+use super::{DrawNode, DrawTree, coordinate, label_max_chars};
 use std::collections::BTreeSet;
 use treeknit_core::Tree;
 use treeknit_core::mcc_map::map_mccs;
@@ -67,7 +67,7 @@ fn place(nodes: &mut [DrawNode]) {
   let mut rank = 0;
   for i in 0..nodes.len() {
     if nodes[i].leaf {
-      nodes[i].y = row(rank);
+      nodes[i].y = coordinate(rank);
       rank += 1;
     }
     if let Some(p) = nodes[i].parent {
@@ -92,7 +92,7 @@ fn place(nodes: &mut [DrawNode]) {
     // for overflow.
     #[expect(clippy::expect_used, reason = "every node is below the root")]
     let below = top.checked_sub(h).expect("no node is higher than the root");
-    node.x_depth = row(below);
+    node.x_depth = coordinate(below);
   }
 }
 
@@ -101,15 +101,6 @@ fn place(nodes: &mut [DrawNode]) {
 pub(super) fn add_length(x: f64, length: Option<f64>) -> f64 {
   let length = length.filter(|l| l.is_finite() && *l > 0.0).unwrap_or(0.0);
   (x + length).min(f64::MAX)
-}
-
-/// A row or step count as a coordinate.
-#[expect(
-  clippy::as_conversions,
-  reason = "row and step counts are far below 2^53, so the conversion is exact"
-)]
-pub(super) fn row(n: usize) -> f64 {
-  n as f64
 }
 
 #[cfg(test)]

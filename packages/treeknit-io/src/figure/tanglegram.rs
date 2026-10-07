@@ -34,7 +34,6 @@ pub(super) fn draw(view: &PairView, options: &FigureOptions) -> String {
     (&view.right, &view.shapes.right, layout.right, Side::Right),
   ] {
     let draw = TreeDrawing {
-      view,
       tree,
       shapes,
       column,
@@ -79,7 +78,7 @@ impl Layout {
     let rules = DRAWING_RULES;
     let inner = inner_width(options.width);
     let labels = label_column(
-      leaf_names(&view.left).chain(leaf_names(&view.right)),
+      view.left.leaves().chain(view.right.leaves()).map(|n| n.name.as_str()),
       labels_shown(options),
       rules.tanglegram_label_column_max_share * inner / 2.0,
     );
@@ -107,18 +106,11 @@ impl Layout {
         top: drawing_top(),
         row_height: options.row_height,
       },
-      rows_count: leaf_names(&view.left)
-        .count()
-        .max(leaf_names(&view.right).count())
-        .max(1),
+      rows_count: view.left.leaves().count().max(view.right.leaves().count()).max(1),
       ribbons: options.row_height < f64::from(DRAWING_RULES.link_min_row_px),
       labels,
     }
   }
-}
-
-fn leaf_names(tree: &DrawTree) -> impl Iterator<Item = &str> {
-  tree.nodes.iter().filter(|n| n.leaf).map(|n| n.name.as_str())
 }
 
 fn ribbons(svg: &mut Svg, view: &PairView, layout: &Layout, colors: &ThemeColors) {
@@ -156,7 +148,6 @@ enum Side {
 
 /// One tree of a tanglegram, drawn into its column.
 struct TreeDrawing<'a> {
-  view: &'a PairView,
   tree: &'a DrawTree,
   shapes: &'a TreeShapes,
   column: Column,
@@ -204,8 +195,7 @@ impl TreeDrawing<'_> {
         let stroke = if kind == MarkKind::Reassortment {
           self.colors.signal.clone()
         } else {
-          let mcc = self.tree.nodes[mark.node].mcc;
-          slot_color(self.colors, mcc.map(|m| self.view.mccs[m].slot))
+          slot_color(self.colors, mark.slot)
         };
         svg.ring(self.rows.point(self.column, mark.at), &stroke, &self.colors.ground);
       }
@@ -219,12 +209,7 @@ impl TreeDrawing<'_> {
       Side::Left => (self.column.end + LABEL_GAP, "start"),
       Side::Right => (self.column.end - LABEL_GAP, "end"),
     };
-    let labels = self
-      .tree
-      .nodes
-      .iter()
-      .filter(|n| n.leaf)
-      .map(|n| (n.name.as_str(), n.y));
+    let labels = self.tree.leaves().map(|n| (n.name.as_str(), n.y));
     svg.labels(labels, self.rows, column, x, Some(anchor), &self.colors.ink);
   }
 }

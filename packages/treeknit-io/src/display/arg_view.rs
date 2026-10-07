@@ -1,9 +1,10 @@
 //! The ARG of two trees laid out in one tree column.
 
+use super::coordinate;
 use super::label_max_chars;
 use super::names::{shorten, unique_labels};
 use super::shapes::arg_shapes;
-use super::tree::{add_length, row};
+use super::tree::add_length;
 use super::{ArgEdge, ArgNodeView, ArgView, RootCase, Scale};
 use crate::run::RunResult;
 use std::collections::{BTreeMap, VecDeque};
@@ -197,7 +198,7 @@ fn depth(children: &[Vec<usize>], order: &[usize], root: usize) -> Vec<f64> {
   #[expect(clippy::expect_used, reason = "every node is below the top root")]
   height
     .into_iter()
-    .map(|h| row(top.checked_sub(h).expect("no node is higher than the top root")))
+    .map(|h| coordinate(top.checked_sub(h).expect("no node is higher than the top root")))
     .collect()
 }
 
@@ -231,7 +232,7 @@ fn rows(arg: &Arg, children: &[Vec<usize>], order: &[usize]) -> Vec<f64> {
       next += 1;
     }
   }
-  let mut y: Vec<f64> = rank.iter().map(|r| r.map_or(0.0, row)).collect();
+  let mut y: Vec<f64> = rank.iter().map(|r| r.map_or(0.0, coordinate)).collect();
   for &n in order.iter().rev() {
     let ys = children[n].iter().map(|&c| y[c]);
     if let (Some(lo), Some(hi)) = (ys.clone().reduce(f64::min), ys.reduce(f64::max)) {

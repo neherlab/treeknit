@@ -2,8 +2,8 @@
 //! shape, y in leaf rows. The SVG figures and the interactive views draw only these shapes.
 
 use super::{
-  ArgEdge, ArgEdgeShape, ArgNodeView, ArgShapes, Bezier, Block, DrawNode, DrawTree, EdgePath, Elbow, Leader, Link,
-  LinkCurve, Mark, MarkKind, PairShapes, Point, Ribbon, Scale, TreeShapes,
+  ArgEdge, ArgEdgeShape, ArgNodeView, ArgShapes, Bezier, Block, DrawTree, EdgePath, Elbow, Leader, Link, LinkCurve,
+  Mark, MarkKind, PairShapes, Point, Ribbon, Scale, TreeShapes,
 };
 
 /// Half a leaf row: a ribbon extends each y range of its block by this much.
@@ -51,7 +51,7 @@ pub(super) fn pair_shapes(
 
 /// Elbows and marks of one tree.
 fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
-  let x = drawn_x(tree, &normalized(tree.nodes.iter().map(|n| scaled(n, scale))), scale);
+  let x = drawn_x(tree, &normalized(tree.nodes.iter().map(|n| scale.x(n.x_div, n.x_depth))), scale);
   let mut elbows = Vec::new();
   let mut marks = Vec::new();
   let mut leaders = Vec::new();
@@ -97,10 +97,7 @@ fn tree_shapes(tree: &DrawTree, slots: &[usize], scale: Scale) -> TreeShapes {
 /// The edges and hybrid rings of an ARG: an elbow per edge, and an S-curve per reticulation
 /// edge.
 pub(super) fn arg_shapes(nodes: &[ArgNodeView], edges: &[ArgEdge], scale: Scale) -> ArgShapes {
-  let x = normalized(nodes.iter().map(|n| match scale {
-    Scale::Div => n.x_div,
-    Scale::Depth => n.x_depth,
-  }));
+  let x = normalized(nodes.iter().map(|n| scale.x(n.x_div, n.x_depth)));
   let point = |n: usize| [x[n], nodes[n].y];
   ArgShapes {
     edges: edges
@@ -176,13 +173,6 @@ fn drawn_x(tree: &DrawTree, x: &[f64], scale: Scale) -> Vec<f64> {
   normalized(x.iter().zip(&shift).map(|(x, s)| x + s))
 }
 
-fn scaled(node: &DrawNode, scale: Scale) -> f64 {
-  match scale {
-    Scale::Div => node.x_div,
-    Scale::Depth => node.x_depth,
-  }
-}
-
 /// `values` divided by their largest value, so they run from 0 to 1; all 0 when the largest is
 /// not positive. The values are finite and at least 0.
 fn normalized(values: impl Iterator<Item = f64>) -> Vec<f64> {
@@ -240,6 +230,7 @@ fn ribbon(block: &Block) -> Vec<Bezier> {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::display::DrawNode;
   use pretty_assertions::assert_eq;
 
   fn node(parent: Option<usize>, x_div: f64, y: f64) -> DrawNode {
