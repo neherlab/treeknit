@@ -211,6 +211,7 @@ function drawNode(
     parent,
     children,
     branchLength: null,
+    meanLength: null,
     xDiv: 0,
     xDepth: 0,
     y,

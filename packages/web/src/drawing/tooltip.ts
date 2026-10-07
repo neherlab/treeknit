@@ -36,6 +36,9 @@ export function pairTooltip(view: PairView, target: PairTarget): string[] {
     node.name === "" ? "Unnamed node" : node.name,
     node.mcc === null ? "No MCC" : mccLine(view, node.mcc),
     `Branch length: ${formatBranchLength(node.branchLength)}`,
+    ...(node.meanLength === null
+      ? []
+      : [`Drawn at the mean length of the trees: ${formatBranchLength(node.meanLength)}`]),
     ...(node.mccBreak ? ["Reassortment branch"] : []),
     ...(node.added ? ["Added by resolution or imputation"] : []),
     ...(node.imputed ? ["Imputed leaf"] : []),

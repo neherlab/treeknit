@@ -260,6 +260,9 @@ function NodeDetails({ subject }: { subject: Extract<InspectorSubject, { kind: "
         <Fact term="Clade size">{leafCount(node.cladeSize)}</Fact>
         <Fact term="Added by resolution or imputation">{yesNo(node.added)}</Fact>
         <Fact term="Branch length">{formatBranchLength(node.branchLength)}</Fact>
+        {node.meanLength === null ? null : (
+          <Fact term="Mean length of the trees">{formatBranchLength(node.meanLength)}</Fact>
+        )}
         <Fact term="MCC">
           {mcc === undefined ? NONE : <MccValue mcc={mcc.index} size={mcc.size} slot={mcc.slot} />}
         </Fact>

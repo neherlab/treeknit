@@ -23,6 +23,7 @@ interface NodeSpec {
   added?: boolean;
   imputed?: boolean;
   branchLength?: number;
+  meanLength?: number;
 }
 
 export const LONG_LEAF_NAME = "A/Hong Kong/1-0123456789/2004|EPI_ISL_000000|H3N2|2004-01-02";
@@ -53,7 +54,7 @@ export const EXAMPLE_RIGHT: NodeSpec[] = [
   { name: "NODE_1", parent: null, x: 0, y: 2 },
   { name: "NODE_2", parent: 0, x: 0.5, y: 0.75, branchLength: 1 },
   { name: "A", parent: 1, x: 1, y: 0, mcc: MCC_ABCD, mccBreak: true, branchLength: 1 },
-  { name: "RESOLVED_1", parent: 1, x: 0.75, y: 1.5, added: true, branchLength: 0 },
+  { name: "RESOLVED_1", parent: 1, x: 0.75, y: 1.5, added: true, branchLength: 0, meanLength: 0.25 },
   { name: "B", parent: 3, x: 1, y: 1, mcc: MCC_ABCD, mccBreak: true, branchLength: 1 },
   { name: "X", parent: 3, x: 1, y: 2, mcc: MCC_X, mccBreak: true, imputed: true, branchLength: 1 },
   { name: "NODE_3", parent: 0, x: 0.5, y: 3.5, mcc: MCC_ABCD, mccBreak: true, branchLength: 1 },
@@ -227,6 +228,7 @@ function drawTree(label: string, specs: readonly NodeSpec[]): DrawTree {
       parent: spec.parent,
       children: specs.flatMap((child, childIndex) => (child.parent === index ? [childIndex] : [])),
       branchLength: spec.branchLength ?? null,
+      meanLength: spec.meanLength ?? null,
       xDiv: spec.x,
       xDepth: spec.x,
       y: spec.y,

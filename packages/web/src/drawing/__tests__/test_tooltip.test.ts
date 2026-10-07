@@ -23,7 +23,13 @@ describe("pairTooltip", () => {
       added: pairTooltip(VIEW, { kind: "node", side: "right", node: 3 }),
     }).toStrictEqual({
       imputed: "Imputed leaf",
-      added: ["RESOLVED_1", "No MCC", "Branch length: 0", "Added by resolution or imputation"],
+      added: [
+        "RESOLVED_1",
+        "No MCC",
+        "Branch length: 0",
+        "Drawn at the mean length of the trees: 0.25",
+        "Added by resolution or imputation",
+      ],
     });
   });
 
