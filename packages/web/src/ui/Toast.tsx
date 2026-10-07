@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { useState } from "react";
+import { type CSSProperties, useMemo, useState } from "react";
 import { mergeProps, useFocusWithin, useHover } from "react-aria";
 import {
   Button,
@@ -45,6 +45,7 @@ function ActionToast({ toast }: { toast: QueuedToast<ActionToastContent> }) {
   const { focusWithinProps } = useFocusWithin({ onFocusWithinChange: setFocused });
   const paused = hovered || focused;
   const seconds = useCountdown(timeoutMs, paused);
+  const countdownStyle = useMemo((): CountdownStyle => ({ "--countdown-ms": `${String(timeoutMs)}ms` }), [timeoutMs]);
 
   return (
     <AriaToast
@@ -71,8 +72,10 @@ function ActionToast({ toast }: { toast: QueuedToast<ActionToastContent> }) {
                 cy={10}
                 r={RING_RADIUS}
                 strokeDasharray={RING_CIRCUMFERENCE}
+                // oxlint-disable-next-line react/forbid-dom-props -- the ring runs for the timeout of each toast, which a class cannot express; the style only sets the custom property that the animation reads
+                style={countdownStyle}
                 className={cn(
-                  "stroke-ink fill-none stroke-2 motion-safe:animate-[countdown_10s_linear_forwards] motion-reduce:hidden",
+                  "stroke-ink fill-none stroke-2 motion-safe:animate-[countdown_var(--countdown-ms)_linear_forwards] motion-reduce:hidden",
                   paused && "[animation-play-state:paused]",
                 )}
               />
@@ -86,3 +89,5 @@ function ActionToast({ toast }: { toast: QueuedToast<ActionToastContent> }) {
     </AriaToast>
   );
 }
+
+type CountdownStyle = CSSProperties & Record<"--countdown-ms", string>;
