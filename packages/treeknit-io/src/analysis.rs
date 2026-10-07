@@ -105,7 +105,7 @@ impl Default for Settings {
 }
 
 /// How trees are resolved. clap reads `--resolve` with the serde names of the variants.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize, VariantArray)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, VariantArray)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum), value(rename_all = "lower"))]
 #[serde(rename_all = "lowercase")]
@@ -113,8 +113,14 @@ pub enum ResolveMode {
   None,
   Strict,
   Liberal,
-  #[default]
   Matched,
+}
+
+impl Default for ResolveMode {
+  /// The resolution of the core's default options.
+  fn default() -> Self {
+    Options::default().resolution.into()
+  }
 }
 
 impl From<Resolution> for ResolveMode {
