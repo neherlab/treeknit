@@ -42,9 +42,11 @@ zip.workspace = true
 
 [dev-dependencies]
 clap.workspace = true
+ctor.workspace = true
 pretty_assertions.workspace = true
 rand.workspace = true
 rand_xoshiro.workspace = true
+rayon.workspace = true
 rstest.workspace = true
 treeknit-testing.workspace = true
 

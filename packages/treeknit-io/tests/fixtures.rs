@@ -5,6 +5,7 @@
 
 #[cfg(test)]
 mod tests {
+  use ctor::ctor;
   use serde_json::Value;
   use std::collections::BTreeSet;
   use std::path::PathBuf;
@@ -14,6 +15,16 @@ mod tests {
   use treeknit_io::newick;
 
   type Clades = Vec<Vec<String>>;
+
+  /// One thread in the global pool of this test binary, as in the unit tests of the crates: the
+  /// test runner runs many tests at once.
+  #[ctor(unsafe)]
+  fn init() {
+    rayon::ThreadPoolBuilder::new()
+      .num_threads(1)
+      .build_global()
+      .expect("the global thread pool of the tests is built once");
+  }
 
   fn fixtures() -> Vec<(String, Value)> {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures");

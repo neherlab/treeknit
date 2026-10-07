@@ -758,7 +758,7 @@ mod tests {
           pre_resolve: true,
           ..Options::for_trees(2)
         };
-        let res = run(&mut ts, &taxa, &o, 1);
+        let res = in_pool(parallel, || run(&mut ts, &taxa, &o, 1));
         let after: Vec<_> = ts.iter().map(|t| (t.leaf_names(), splits(t, &taxa))).collect();
         let case = format!("{resolution:?}, parallel {parallel}");
         assert_eq!(res.len(), 1, "{case}");
@@ -1358,6 +1358,20 @@ mod tests {
   }
 
   /// Progress events of a run of `nwks` with `opts` and seed 1.
+  /// Run `f` in a pool of four threads when `parallel`, so that the pairs of a parallel run run
+  /// concurrently although the global pool of the tests has one thread.
+  fn in_pool<T: Send>(parallel: bool, f: impl FnOnce() -> T + Send) -> T {
+    if parallel {
+      rayon::ThreadPoolBuilder::new()
+        .num_threads(4)
+        .build()
+        .unwrap()
+        .install(f)
+    } else {
+      f()
+    }
+  }
+
   fn observed(nwks: &[&str], opts: &Options) -> Vec<Progress> {
     let (mut ts, taxa) = trees(nwks);
     let events = std::cell::RefCell::new(Vec::new());
@@ -1479,7 +1493,8 @@ mod tests {
       parallel: true,
       ..Options::for_trees(3)
     };
-    let events = observed(&["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", "((A,X),(B,(C,D)));"], &o);
+    let nwks = ["((A,B),(C,(D,X)));", "((A,(B,X)),(C,D));", "((A,X),(B,(C,D)));"];
+    let events = in_pool(true, || observed(&nwks, &o));
     // Fractions PAIRS_SHARE * (round + (pair + within) / 3) / 2: 0, (0 + 3 / 3) / 2 = 0.5,
     // (1 + 0) / 2 = 0.5, (1 + 3 / 3) / 2 = 1 of the share, and 1 at the end.
     let expected = [
@@ -1554,7 +1569,7 @@ mod tests {
       pre_resolve,
       ..Options::for_trees(3)
     };
-    let events = observed(&POLYTOMIES, &o);
+    let events = in_pool(parallel, || observed(&POLYTOMIES, &o));
     assert!(never_decreasing(&events), "{events:?}");
     let (last, before_end) = events.split_last().unwrap();
     assert!(

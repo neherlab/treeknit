@@ -1147,6 +1147,7 @@ dependencies = [
 name = "treeknit-core"
 version = "1.0.0"
 dependencies = [
+ "ctor",
  "fixedbitset",
  "indexmap",
  "log",
@@ -1163,6 +1164,7 @@ version = "1.0.0"
 dependencies = [
  "base64",
  "clap",
+ "ctor",
  "flate2",
  "form_urlencoded",
  "log",
@@ -1171,6 +1173,7 @@ dependencies = [
  "quick-xml",
  "rand",
  "rand_xoshiro",
+ "rayon",
  "rstest",
  "serde",
  "serde_json",

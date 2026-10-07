@@ -20,3 +20,18 @@ pub mod summary;
 mod test_support;
 pub mod version;
 pub mod wire;
+
+#[cfg(test)]
+mod tests {
+  use ctor::ctor;
+
+  /// One thread in the global pool: the test runner runs many tests at once, and a test that
+  /// needs concurrency installs a local pool.
+  #[ctor(unsafe)]
+  fn init() {
+    rayon::ThreadPoolBuilder::new()
+      .num_threads(1)
+      .build_global()
+      .expect("the global thread pool of the tests is built once");
+  }
+}
