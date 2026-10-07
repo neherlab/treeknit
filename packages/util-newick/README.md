@@ -159,4 +159,6 @@ A plain comment before the first token is the comment of a root without children
 
 `src/__tests__/` tests every grammar rule, the reader and writer of each dialect, reading across buffer boundaries, NEXUS, and the conversion table. Property tests round-trip generated graphs in all 12 dialects and feed random and mutated input to the reader in every dialect on a 2 MiB stack. The fixtures modeled on BEAST, TreeAnnotator, MrBayes, IQ-TREE, FastTree, RAxML-NG, Forester, Dendroscope, SplitsTree and PhyloNet output are compared with the readings of DendroPy 5.0.8, ETE3 3.1.3 and PhyloNet 3.8.5; cases named `spec_` take their expectation from the dialect definitions, where these tools reject or lose part of the input, such as the eNewick networks with BEAST annotations of TreeKnit.
 
-`benches/read_dialects.rs` measures reading an annotated BEAST tree with `BEAST` and an annotated network with `ENEWICK_BEAST`.
+## Origin
+
+The crate is a copy of `packages/util-newick` of [TreeTime](https://github.com/neherlab/treetime) at commit `3fec387437e0649eaad997e4200ea5de03f10e38`. The copy has its own package manifest, which follows this workspace, and has no benchmark and no thread-pool initialization in its tests. A change to the reading or writing rules belongs in both copies, so that the two tools read and write the same text.

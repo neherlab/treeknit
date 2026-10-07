@@ -28,16 +28,3 @@ pub use crate::write::options::{BranchAnnotations, NewickWriteOptions, Quoting, 
 
 #[cfg(test)]
 mod __tests__;
-
-#[cfg(test)]
-mod tests {
-  use ctor::ctor;
-
-  #[ctor(unsafe)]
-  fn init() {
-    rayon::ThreadPoolBuilder::new()
-      .num_threads(1)
-      .build_global()
-      .expect("rayon global thread pool initialization failed");
-  }
-}

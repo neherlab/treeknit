@@ -381,7 +381,7 @@ The annotation conventions `Beast`, `Nhx` and `MrBayes` read a comment that star
 
 The writer takes one dialect and writes every annotation, comment and field that the dialect can hold, at its recorded position, including the comments of each hybrid copy at that copy. Data that the dialect cannot hold is dropped by one table of conversions; data that would read back as something else is an error, such as hybrid nodes with classic structure.
 
-TreeTime writes `--output-nwk-style plain` (classic Newick, the default), `beast` and `nhx`, for both `.nwk` and `.nexus` output, and reads its tree inputs in the dialect of `--tree-dialect`, by default classic structure with BEAST annotations ([kb/decisions/multi-format-tree-io.md](../decisions/multi-format-tree-io.md)). The commands read trees only and reject networks.
+TreeTime writes `--output-nwk-style plain` (classic Newick, the default), `beast` and `nhx`, for both `.nwk` and `.nexus` output, and reads its tree inputs in the dialect of `--tree-dialect`, by default classic structure with BEAST annotations. The commands read trees only and reject networks.
 
 ## Glossary
 

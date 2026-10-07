@@ -6,6 +6,7 @@ members = [
   "packages/treeknit-cli",
   "packages/treeknit-testing",
   "packages/treeknit-wasm",
+  "packages/util-newick",
 ]
 
 [workspace.package]
@@ -84,7 +85,13 @@ js-sys = "=0.3.106"
 log = "=0.4.34"
 ordered-float = "=5.5.0"
 percent-encoding = "=2.3.2"
+# The Newick and NEXUS grammars of util-newick.
+pest = "=2.9.2"
+pest_derive = "=2.9.2"
 pretty_assertions = "=1.4.1"
+# Number text of the Newick writer: shortest round-trip digits, and digit limits on request.
+pretty_dtoa = "=0.3.0"
+proptest = "=1.11.0"
 quick-xml = "=0.42.0"
 rand = { version = "=0.8.8", default-features = false }
 rand_xoshiro = "=0.6.0"
@@ -97,6 +104,7 @@ serde_json = { version = "=1.0.151", features = ["float_roundtrip", "preserve_or
 serde_path_to_error = "=0.1.20"
 serde_plain = "=1.0.2"
 simplelog = "=0.12.2"
+smart-default = "=0.7.1"
 strsim = "=0.11.1"
 strum = { version = "=0.28.0", features = ["derive"] }
 # Without the default getrandom feature, which would add a second getrandom version next to the
@@ -117,6 +125,7 @@ zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate
 treeknit-core = { path = "packages/treeknit-core" }
 treeknit-io = { path = "packages/treeknit-io" }
 treeknit-testing = { path = "packages/treeknit-testing" }
+util-newick = { path = "packages/util-newick" }
 
 [workspace.lints.rust]
 # Lint groups
