@@ -62,7 +62,7 @@ Optional settings go into the gitignored `.env` in the checkout; `.env.example` 
 | Run the web app                             | `just run-web <dev\|prod>`                                                 |
 | TypeScript types, lints, tests              | `just typecheck`, `just lint-ts`, `just test-ts`                           |
 | WebAssembly build, tests, Clippy            | `just build-wasm <dev\|release\|prod>`, `just test-wasm`, `just lint-wasm` |
-| WebAssembly type declarations, value lists  | `just gen`                                                                 |
+| Generated declarations, constants, tables   | `just gen`                                                                 |
 
 In the container, prefix each command with `./dev/docker/run`.
 
@@ -92,7 +92,13 @@ The dev mode uses the WebAssembly module of the `release` profile, which is opti
 
 The commands are the same in the main checkout and in a worktree. `run-web` serves on the port of the checkout and mode, which `dev/web-port` derives: a base port per mode (6180 for dev, 7180 for prod) plus an offset of 0-511 from the checkout path. The servers of parallel worktrees do not collide, and the dev and prod servers of one checkout run side by side. `TREEKNIT_WEB_PORT` overrides the dev port and `TREEKNIT_SERVE_PORT` the prod port; `dev/docker/run` forwards both. `dev/web-port <dev|prod>` prints the port. The recipe prints the URL; open it on `localhost`. In the build container, prefix the commands with `./dev/docker/run`; the container shares the host network, so the browser on the host reaches the server.
 
-The types that cross between Rust and TypeScript are Rust types. tsify writes their TypeScript declarations, which are committed as `packages/treeknit-wasm/pkg/treeknit_wasm.d.ts`, so the TypeScript checks need no Rust build. After a change to the interface, `just gen` rewrites them, together with `packages/treeknit-wasm/pkg/treeknit_variants.ts`, the value lists of the enums that the web app needs at runtime; `just generated-check`, part of the full gate, fails when either is stale. Two rules keep the declarations true at runtime:
+The types that cross between Rust and TypeScript are Rust types. tsify writes their TypeScript declarations, which are committed as `packages/treeknit-wasm/pkg/treeknit_wasm.d.ts`, so the TypeScript checks need no Rust build. After a change to the interface, `just gen` rewrites them, together with three other generated files; `just generated-check`, part of the full gate, fails when one of them is stale:
+
+- `packages/treeknit-wasm/pkg/treeknit_variants.ts`: the Rust values that the web app needs before a worker answers: the value list and the default of each enum that a control offers, the labels of the legend entries, and the tree counts of a run. Only values that Rust code itself uses go there; a value that only the web app uses stays in TypeScript
+- `packages/web/src/drawing/__tests__/__fixtures__/drawing_cases.json`: the column and threshold formulas of the drawing rules at their boundaries, from `examples/drawing_cases.rs` of treeknit-io. The web app applies its own copy of these formulas on every zoom frame and resize, and its tests check the copy against the table
+- `packages/web/src/workspace/__tests__/__fixtures__/link_cases.json`: the link grammar of `treeknit_io::launch` on escaped and readable characters, query texts, and links, from `examples/link_cases.rs`. The router reads and writes its query with its own copy, and its tests check the copy against the table
+
+Two rules keep the declarations true at runtime:
 
 - A field that serde skips takes `#[serde(skip_serializing_if = "Option::is_none")]` and no other predicate, because tsify marks only that exact predicate as optional
 - An integer argument of an export is a tsify newtype with `#[serde(transparent)]`, such as `PairIndex`, never a plain `usize`, because wasm-bindgen converts a JavaScript number for a `usize` with ToInt32 and no check
@@ -101,9 +107,25 @@ The types that cross between Rust and TypeScript are Rust types. tsify writes th
 
 The workspace `Cargo.toml` enables every Clippy lint group, `restriction` included, and allows the lints that do not fit the project, each under a short heading. New Clippy releases therefore bring their new lints automatically. `clippy.toml` sets the thresholds and bans types and functions that make runs non-reproducible, such as `HashMap` iteration order and unseeded random number generators.
 
-TypeScript is linted by oxlint with type information (`oxlint.config.ts`): the correctness, suspicious, and performance categories, a selection of stricter rules, the sonarjs, Tailwind CSS, and React effect plugins, the vendored anti-slop plugin (`dev/lints/oxlint-anti-slop/UPSTREAM.md`), and the project rules in `dev/lints/oxlint/`, each with its tests. Warnings fail the lint. knip reports unused files, exports, and dependencies.
+TypeScript is linted by oxlint with type information (`oxlint.config.ts`): the correctness, suspicious, and performance categories, a selection of stricter rules, the sonarjs, Tailwind CSS, and React effect plugins, the vendored anti-slop plugin (`dev/lints/oxlint-anti-slop/UPSTREAM.md`), and the project rules in `dev/lints/oxlint/`, each with its tests. Warnings fail the lint. A project rule exists only where no built-in or plugin rule reports the same finding. knip reports unused files, exports, and dependencies, and configuration hints fail it.
 
-`just review-suppressions` prints every `#[allow]`, allowed lint, ignored test, and test tolerance, for review apart from ordinary code changes.
+No recipe runs the tests of the oxlint rules. After a change to a rule, and after `just test-ts` has installed the packages, run the rule tests, the type check of the vendored plugin, and the type check of the project rules:
+
+```bash
+./dev/docker/run node --test "dev/lints/oxlint/__tests__/test_*.ts" "dev/lints/oxlint-anti-slop/**/*.test.ts"
+./dev/docker/run bun run --silent typecheck:vendor
+./dev/docker/run node_modules/.bin/tsc -p dev/lints/oxlint/tsconfig.json
+```
+
+### Dylint
+
+Three cargo-dylint lint libraries, listed in `[workspace.metadata.dylint]` of `Cargo.toml`, add lints that Clippy lacks:
+
+- `dev/lints/dylint-custom` (`treeknit_lints`): the project rules, such as callers before callees, no debug output, no hand-written `Display`, test hygiene, and the unused-public-item lint `pub_unused_in_workspace`
+- `dev/lints/dylint-mordant` (`mordant`): type invariants that live in conventions or runtime checks; its findings before adoption are in the committed baseline `.config/mordant-baseline.toml`, so only new findings fail
+- `dev/lints/dylint-trailofbits` (`trailofbits`): lints of Trail of Bits, such as the argument order of `assert_eq!` and `?` on an I/O result without context
+
+`dylint.toml` configures them. `just dylint` runs them over the workspace and then prints the public items that no other crate uses; this report leaves out the crates in `public_api_crates` of the `justfile`, whose public items are an interface by design (the WebAssembly exports and the test helpers). `just dylint-fix` applies their automatic fixes (stage your changes first), and `just dylint-baseline` rewrites the mordant baseline with the current findings. Suppress a dylint lint on the narrowest item with `#[cfg_attr(dylint_lib = "<library>", expect(<lint>, reason = ".."))]`, because the lint names exist only when dylint compiles the code. `just dylint` compiles the workspace again with each library and is slow, so it is not part of the validation suite; the full gate runs it.
 
 ### Shared lint setup
 
@@ -186,6 +208,7 @@ A run pulls every image of its list, most of them from Docker Hub, which limits 
 
 These recipes produce reports and are never a gate:
 
+- `just review-suppressions`: every `#[expect]` and `#[allow]`, allowed lint, ignored test, and test tolerance, for review apart from ordinary code changes
 - `just coverage`: line coverage of the Rust tests (cargo-llvm-cov), in `tmp/coverage/rs/html/index.html`, and of the TypeScript tests (vitest), in `tmp/coverage/ts/index.html`
 - `just mutants`: mutation testing (cargo-mutants) of the code changed since the fork point of the branch, or since `main`; settings in `.cargo/mutants.toml`
 
