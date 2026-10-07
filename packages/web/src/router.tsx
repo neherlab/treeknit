@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-router";
 
 import { HelpPage } from "./help/HelpPage";
-import { PAGES, routerBasepath } from "./pages";
+import { PAGES } from "./pages";
 import { AppShell } from "./shell/AppShell";
 import { NotFound } from "./shell/NotFound";
 import { Workspace } from "./shell/Workspace";
@@ -29,7 +29,7 @@ export function createAppRouter(base: string) {
   return createRouter({
     routeTree: rootRoute.addChildren([workspaceRoute, helpRoute]),
     history: createBrowserHistory(),
-    basepath: routerBasepath(base),
+    basepath: base,
     parseSearch,
     stringifySearch,
   });

@@ -1,7 +1,7 @@
 import { createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { describe, expect, test } from "vitest";
 
-import { basePath, hashRouteHref, PAGES, routerBasepath } from "../pages";
+import { basePath, hashRouteHref, PAGES } from "../pages";
 
 describe("basePath", () => {
   test.each([
@@ -17,14 +17,7 @@ describe("basePath", () => {
   });
 });
 
-describe("routerBasepath", () => {
-  test.each([
-    ["/treeknit-rs/", "/treeknit-rs"],
-    ["/", "/"],
-  ])("gives %s as %s", (base, expected) => {
-    expect(routerBasepath(base)).toBe(expected);
-  });
-
+describe("the router with the base path", () => {
   test.each([
     ["/treeknit-rs/", "/"],
     ["/treeknit-rs/help", "/help"],
@@ -77,6 +70,6 @@ function testRouter(base: string, url: string) {
   return createRouter({
     routeTree: rootRoute.addChildren(pages),
     history: createMemoryHistory({ initialEntries: [url] }),
-    basepath: routerBasepath(base),
+    basepath: base,
   });
 }

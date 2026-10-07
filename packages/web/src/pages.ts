@@ -6,12 +6,6 @@ export function basePath(moduleUrl: string): string {
   return new URL("../", moduleUrl).pathname;
 }
 
-export function routerBasepath(base: string): string {
-  const trimmed = base.replace(/\/+$/u, "");
-
-  return trimmed === "" ? "/" : trimmed;
-}
-
 export function hashRouteHref(location: PageLocation, base: string): string | null {
   if (!location.hash.startsWith("#/")) {
     return null;
