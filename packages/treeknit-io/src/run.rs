@@ -259,7 +259,7 @@ mod tests {
   #[test]
   fn arg_outcome_of_a_failed_arg_carries_its_message() {
     let mut r = run_trees(&[("ha", HA), ("na", NA)]);
-    r.arg = Some(Err(ArgError("trees do not match within MCC 1".to_owned())));
+    r.arg = Some(Err(ArgError::MccMismatch(1)));
     let expected = ArgOutcome::Failed {
       message: "ARG construction failed: trees do not match within MCC 1".to_owned(),
     };

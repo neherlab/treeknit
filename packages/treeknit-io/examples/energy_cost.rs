@@ -53,7 +53,7 @@ fn run(args: &[String]) -> Result<(), String> {
   let mut trees = vec![read_tree(file1)?, read_tree(file2)?];
   let taxa = Taxa::from_trees(&trees);
   for t in &mut trees {
-    t.assign_taxa(&taxa)?;
+    t.assign_taxa(&taxa).map_err(|e| e.to_string())?;
   }
   let n = taxa.len();
   if trees[0].leaf_set(n) != trees[1].leaf_set(n) {

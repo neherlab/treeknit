@@ -229,9 +229,7 @@ mod tests {
   #[test]
   fn summary_new_of_one_mcc_with_a_failed_arg_does_not_show_no_reassortment() {
     let mut r = run_trees(&[("ha", T), ("na", T)]);
-    r.arg = Some(Err(treeknit_core::arg::ArgError(
-      "trees do not match within MCC 1".to_owned(),
-    )));
+    r.arg = Some(Err(treeknit_core::arg::ArgError::MccMismatch(1)));
     assert_eq!(1, r.pairs[0].mccs.len());
     assert!(!Summary::new(&r, Vec::new()).no_reassortment);
   }

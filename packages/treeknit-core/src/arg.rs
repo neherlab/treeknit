@@ -127,9 +127,22 @@ struct Status {
 
 type StatusMap = HashMap<NodeId, Status>;
 
-#[derive(Debug, thiserror::Error)]
-#[error("ARG construction failed: {0}")]
-pub struct ArgError(pub String);
+/// Why the ARG of two trees cannot be built from their MCCs.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum ArgError {
+  #[error("ARG construction failed: trees do not match within MCC {0}")]
+  MccMismatch(usize),
+  #[error("ARG construction failed: inconsistent shared nodes")]
+  InconsistentSharedNodes,
+  #[error("ARG construction failed: shared singletons could not be matched")]
+  UnmatchedSingletons,
+  #[error("ARG construction failed: MCC root without hybrid parent")]
+  MccRootWithoutHybridParent,
+  #[error("ARG construction failed: shared node {0} has different parents")]
+  SharedNodeParents(String),
+  #[error("ARG construction failed: unresolved shared singleton")]
+  UnresolvedSingleton,
+}
 
 /// Build the ARG of `t1` and `t2` (same leaf set, taxa in `0..n_taxa`) given their MCCs.
 pub fn arg_from_trees(t1: &Tree, t2: &Tree, mccs: &[Mcc], n_taxa: usize) -> Result<Arg, ArgError> {
@@ -214,7 +227,7 @@ fn shared_nodes(t1: &Tree, t2: &Tree, mccs: &[Mcc], n: usize) -> Result<(StatusM
             continue;
           },
           (None | Some(false), None | Some(false)) => {
-            return Err(ArgError(format!("trees do not match within MCC {id}")));
+            return Err(ArgError::MccMismatch(id));
           },
           _ => {},
         }
@@ -262,7 +275,7 @@ fn shared_nodes(t1: &Tree, t2: &Tree, mccs: &[Mcc], n: usize) -> Result<(StatusM
   for s in x1.values().filter(|s| s.kind == Kind::Shared) {
     let back = x2.get(&s.partner.unwrap());
     if !back.is_some_and(|b| b.kind == Kind::Shared) {
-      return Err(ArgError("inconsistent shared nodes".into()));
+      return Err(ArgError::InconsistentSharedNodes);
     }
   }
   Ok((x1, x2))
@@ -317,7 +330,7 @@ fn fix_shared_singletons(
       n1 = t1.parent(n1).unwrap();
       n2 = t2.parent(n2).unwrap();
       if x1[&n1].partner != Some(n2) || x2[&n2].partner != Some(n1) {
-        return Err(ArgError("shared singletons could not be matched".into()));
+        return Err(ArgError::UnmatchedSingletons);
       }
     }
   }
@@ -451,10 +464,10 @@ impl Builder {
             self.graft(a, an, 1);
           } else {
             let Anc::Node(hybrid) = self.nodes[an].anc[0] else {
-              return Err(ArgError("MCC root without hybrid parent".into()));
+              return Err(ArgError::MccRootWithoutHybridParent);
             };
             if !self.nodes[hybrid].hybrid {
-              return Err(ArgError("MCC root without hybrid parent".into()));
+              return Err(ArgError::MccRootWithoutHybridParent);
             }
             self.graft(a, hybrid, 1);
             self.graft(hybrid, an, 1);
@@ -464,12 +477,12 @@ impl Builder {
         Kind::Shared => {
           let an = lmref[&status.partner.unwrap()];
           if self.nodes[an].anc[0] != Anc::Node(a) {
-            return Err(ArgError(format!("shared node {} has different parents", t.name(tn))));
+            return Err(ArgError::SharedNodeParents(t.name(tn).to_owned()));
           }
           self.graft(a, an, 1);
           an
         },
-        Kind::SharedSingleton => return Err(ArgError("unresolved shared singleton".into())),
+        Kind::SharedSingleton => return Err(ArgError::UnresolvedSingleton),
       };
       if t.is_leaf(tn) {
         self.nodes[an].is_leaf = true;

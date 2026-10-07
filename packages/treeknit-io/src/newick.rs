@@ -144,7 +144,8 @@ impl Parser<'_> {
           },
         }
       }
-      return String::from_utf8(out).map_err(|e| ParseError::new(e.to_string()));
+      // The bytes between two ASCII quotes of a UTF-8 text are UTF-8 themselves.
+      return Ok(String::from_utf8_lossy(&out).into_owned());
     }
     let start = self.i;
     while let Some(c) = self.peek() {

@@ -29,7 +29,8 @@ use flate2::write::GzEncoder;
 use percent_encoding::{AsciiSet, CONTROLS, percent_decode_str, utf8_percent_encode};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
+use std::string::FromUtf8Error;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
@@ -148,7 +149,7 @@ pub struct LabeledToken<'a> {
 
 /// The location of `value`: an `https:` URL, rewritten to the address that serves the file to
 /// other sites (see [`fetch_url`]), or a `data:` text, decoded.
-pub fn parse_location(value: &str) -> Result<LinkLocation, String> {
+pub fn parse_location(value: &str) -> Result<LinkLocation, LocationError> {
   let scheme = value.split_once(':').map(|(s, _)| s.to_ascii_lowercase());
   match scheme.as_deref() {
     Some("https") => {
@@ -161,10 +162,8 @@ pub fn parse_location(value: &str) -> Result<LinkLocation, String> {
     Some("data") => Ok(LinkLocation::Data {
       text: decode_data_url(value)?,
     }),
-    Some("http") => Err(format!(
-      "{value:?} is an http: address; use https:, because a page served over https cannot read http: addresses"
-    )),
-    _ => Err(format!("{value:?} is neither an https: address nor a data: text")),
+    Some("http") => Err(LocationError::Http(value.to_owned())),
+    _ => Err(LocationError::Unsupported(value.to_owned())),
   }
 }
 
@@ -205,22 +204,22 @@ pub fn url_file_name(url: &str) -> String {
 /// decompressed first, up to [`MAX_TEXT_BYTES`]; the text must be UTF-8, and a web page (a text
 /// that starts with `<!doctype html` or `<html`) is rejected, because a wrong address often
 /// serves one.
-pub fn decode_tree_bytes(bytes: &[u8]) -> Result<String, String> {
+pub fn decode_tree_bytes(bytes: &[u8]) -> Result<String, DecodeError> {
   let bytes = if bytes.starts_with(&[0x1f, 0x8b]) {
     let mut text = Vec::new();
     let limit = u64::try_from(MAX_TEXT_BYTES + 1).unwrap_or(u64::MAX);
     MultiGzDecoder::new(bytes)
       .take(limit)
       .read_to_end(&mut text)
-      .map_err(|e| format!("not a valid gzip file: {e}"))?;
+      .map_err(DecodeError::Gzip)?;
     if text.len() > MAX_TEXT_BYTES {
-      return Err(format!("the decompressed file is larger than {MAX_TEXT_MIB} MiB"));
+      return Err(DecodeError::TooLarge);
     }
     text
   } else {
     bytes.to_vec()
   };
-  let text = String::from_utf8(bytes).map_err(|e| format!("not a UTF-8 text file: {}", e.utf8_error()))?;
+  let text = String::from_utf8(bytes).map_err(DecodeError::NotUtf8)?;
   let start = text
     .trim_start()
     .chars()
@@ -228,9 +227,43 @@ pub fn decode_tree_bytes(bytes: &[u8]) -> Result<String, String> {
     .collect::<String>()
     .to_ascii_lowercase();
   if start.starts_with("<!doctype html") || start.starts_with("<html") {
-    return Err("a web page, not a tree file".to_owned());
+    return Err(DecodeError::WebPage);
   }
   Ok(text)
+}
+
+/// Why a value is not the location of a tree or session file, from [`parse_location`].
+#[derive(Debug, thiserror::Error)]
+pub enum LocationError {
+  #[error("{0:?} is an http: address; use https:, because a page served over https cannot read http: addresses")]
+  Http(String),
+  #[error("{0:?} is neither an https: address nor a data: text")]
+  Unsupported(String),
+  #[error("{0:?} is not an https:// address")]
+  NotHttps(String),
+  #[error("{0:?} has no host")]
+  NoHost(String),
+  #[error("{0:?} must not contain a user name or password")]
+  UserInfo(String),
+  #[error("a data: location needs a comma before its data, as in data:,((A,B),C);")]
+  DataWithoutComma,
+  #[error("the base64 data is invalid: {0}")]
+  Base64(#[source] base64::DecodeError),
+  #[error(transparent)]
+  Decode(#[from] DecodeError),
+}
+
+/// Why bytes are not the text of a tree or session file, from [`decode_tree_bytes`].
+#[derive(Debug, thiserror::Error)]
+pub enum DecodeError {
+  #[error("not a valid gzip file: {0}")]
+  Gzip(#[source] io::Error),
+  #[error("the decompressed file is larger than {} MiB", MAX_TEXT_MIB)]
+  TooLarge,
+  #[error("not a UTF-8 text file: {}", .0.utf8_error())]
+  NotUtf8(#[source] FromUtf8Error),
+  #[error("a web page, not a tree file")]
+  WebPage,
 }
 
 /// The settings of `base` with the values of `patch`: `Settings::default()` for trees and
@@ -667,7 +700,7 @@ impl LaunchReader {
       InputKind::Session => match parse_location(value) {
         Ok(location) => Some(LaunchInput::Session { location }),
         Err(e) => {
-          self.error(key, e);
+          self.error(key, e.to_string());
           None
         },
       },
@@ -799,7 +832,9 @@ impl LaunchReader {
       match parse_location(token.rest) {
         Ok(location) => parsed.push((token.label.map(str::to_owned), location)),
         Err(e) => {
-          self.errors.push(ValidationError::at(Field::LinkTree { index: i }, e));
+          self
+            .errors
+            .push(ValidationError::at(Field::LinkTree { index: i }, e.to_string()));
           valid = false;
         },
       }
@@ -941,13 +976,13 @@ fn closest<'a>(word: &str, candidates: impl Iterator<Item = &'a str>) -> Option<
 }
 
 /// Check an `https:` URL: it has a host and no user name or password.
-fn check_https(url: &str) -> Result<(), String> {
-  let parts = UrlParts::of(url).ok_or_else(|| format!("{url:?} is not an https:// address"))?;
+fn check_https(url: &str) -> Result<(), LocationError> {
+  let parts = UrlParts::of(url).ok_or_else(|| LocationError::NotHttps(url.to_owned()))?;
   if parts.host.is_empty() {
-    return Err(format!("{url:?} has no host"));
+    return Err(LocationError::NoHost(url.to_owned()));
   }
   if parts.has_user {
-    return Err(format!("{url:?} must not contain a user name or password"));
+    return Err(LocationError::UserInfo(url.to_owned()));
   }
   Ok(())
 }
@@ -980,29 +1015,29 @@ impl<'a> UrlParts<'a> {
 /// The text of a `data:` location (RFC 2397): its data after the first `,`, decoded from base64
 /// when the media type ends with `;base64`, and percent-decoded otherwise, then decoded by
 /// [`decode_tree_bytes`].
-fn decode_data_url(value: &str) -> Result<String, String> {
+fn decode_data_url(value: &str) -> Result<String, LocationError> {
   let (meta, data) = value
     .get(5..)
     .and_then(|rest| rest.split_once(','))
-    .ok_or_else(|| "a data: location needs a comma before its data, as in data:,((A,B),C);".to_owned())?;
+    .ok_or(LocationError::DataWithoutComma)?;
   let bytes = if meta.trim_end().to_ascii_lowercase().ends_with(";base64") {
     decode_base64(data)?
   } else {
     percent_decode_str(data).collect()
   };
-  decode_tree_bytes(&bytes)
+  Ok(decode_tree_bytes(&bytes)?)
 }
 
 /// Bytes of base64 text in the standard or the URL-safe alphabet, with or without padding. A
 /// space stands for `+`, which a reader of form data turns into a space.
-fn decode_base64(text: &str) -> Result<Vec<u8>, String> {
+fn decode_base64(text: &str) -> Result<Vec<u8>, LocationError> {
   let config = GeneralPurposeConfig::new().with_decode_padding_mode(DecodePaddingMode::Indifferent);
   let text = text.replace(' ', "+");
   let text = text.trim();
   GeneralPurpose::new(&alphabet::STANDARD, config)
     .decode(text)
     .or_else(|_standard_error| GeneralPurpose::new(&alphabet::URL_SAFE, config).decode(text))
-    .map_err(|e| format!("the base64 data is invalid: {e}"))
+    .map_err(LocationError::Base64)
 }
 
 /// The id of the example whose trees `request` has in its order with its labels.
@@ -1150,6 +1185,7 @@ mod tests {
   use rand_xoshiro::Xoshiro256PlusPlus;
   use rstest::rstest;
   use std::iter;
+  use treeknit_testing::assert_err;
 
   fn pairs(query: &str) -> Vec<(String, String)> {
     query_pairs(query)
@@ -1299,7 +1335,7 @@ mod tests {
   #[case::no_comma(  "data:text/plain",          "a data: location needs a comma before its data, as in data:,((A,B),C);")]
   #[trace]
   fn invalid_locations_are_errors(#[case] value: &str, #[case] message: &str) {
-    assert_eq!(Err(message.to_owned()), parse_location(value));
+    assert_err!(parse_location(value), message);
   }
 
   #[test]
@@ -1526,17 +1562,17 @@ mod tests {
   #[case::base64_spaces(  "data:;base64,KChBLEIpLEMpOz8 ",        "((A,B),C);?>")]
   #[trace]
   fn data_locations_are_decoded(#[case] value: &str, #[case] text: &str) {
-    assert_eq!(Ok(LinkLocation::Data { text: text.to_owned() }), parse_location(value));
+    assert_eq!(LinkLocation::Data { text: text.to_owned() }, parse_location(value).unwrap());
   }
 
   #[test]
   fn gzip_data_is_decompressed() {
     let encoded = general_purpose::STANDARD.encode(gzip(b"((A,B),C);"));
     assert_eq!(
-      Ok(LinkLocation::Data {
+      LinkLocation::Data {
         text: "((A,B),C);".to_owned()
-      }),
-      parse_location(&format!("data:application/gzip;base64,{encoded}"))
+      },
+      parse_location(&format!("data:application/gzip;base64,{encoded}")).unwrap()
     );
   }
 
@@ -1550,14 +1586,14 @@ mod tests {
   #[case::html_name( b"(<html>,B);".as_slice(),                   Ok("(<html>,B);".to_owned()))]
   #[trace]
   fn tree_bytes_are_checked(#[case] bytes: &[u8], #[case] expected: Result<String, String>) {
-    assert_eq!(expected, decode_tree_bytes(bytes));
+    assert_eq!(expected, decode_tree_bytes(bytes).map_err(|e| e.to_string()));
   }
 
   #[test]
   fn gzip_members_are_concatenated() {
     let mut bytes = gzip(b"((A,B),");
     bytes.extend(gzip(b"C);"));
-    assert_eq!(Ok("((A,B),C);".to_owned()), decode_tree_bytes(&bytes));
+    assert_eq!("((A,B),C);", decode_tree_bytes(&bytes).unwrap());
   }
 
   #[test]

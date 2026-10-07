@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use treeknit_core::{Options, Resolution};
 use treeknit_io::analysis::{self, AnalysisRequest, Field, SettingKey, Settings, TreeText, ValidationError};
 use treeknit_io::examples;
-use treeknit_io::launch::{self, LaunchInput, LinkLocation, SettingsPatch, TreeAddress};
+use treeknit_io::launch::{self, LaunchInput, LinkLocation, LocationError, SettingsPatch, TreeAddress};
 use treeknit_io::output::{self, OutputFile, OutputOptions};
 use treeknit_io::schema::{KeyValue, SETTING_KEYS};
 use treeknit_io::{run, schema};
@@ -550,7 +550,7 @@ struct TreeArg {
 
 enum TreeArgKind {
   File(PathBuf),
-  Location(Result<LinkLocation, String>),
+  Location(Result<LinkLocation, LocationError>),
 }
 
 impl TreeArg {
@@ -580,7 +580,7 @@ impl TreeArg {
     match &self.tree {
       TreeArgKind::File(path) => read_file(path).map_err(|e| format!("cannot read the file: {e}")),
       TreeArgKind::Location(Ok(location)) => read_location(location, fetch),
-      TreeArgKind::Location(Err(e)) => Err(e.clone()),
+      TreeArgKind::Location(Err(e)) => Err(e.to_string()),
     }
   }
 
@@ -653,7 +653,7 @@ fn is_location(text: &str) -> bool {
 /// The text of the file at `path`, decompressed when it is gzip-compressed.
 fn read_file(path: &Path) -> Result<String, String> {
   let bytes = fs::read(path).map_err(|e| e.to_string())?;
-  launch::decode_tree_bytes(&bytes)
+  launch::decode_tree_bytes(&bytes).map_err(|e| e.to_string())
 }
 
 /// The text at `location`: downloaded with `fetch` from its address, or the text of `data:`.
@@ -662,7 +662,7 @@ fn read_location(location: &LinkLocation, fetch: Fetch<'_>) -> Result<String, St
     LinkLocation::Url { url, fetch: address } => {
       log::info!("reading {url}");
       fetch(address)
-        .and_then(|bytes| launch::decode_tree_bytes(&bytes))
+        .and_then(|bytes| launch::decode_tree_bytes(&bytes).map_err(|e| e.to_string()))
         .map_err(|e| format!("cannot read {url}: {e}"))
     },
     LinkLocation::Data { text } => Ok(text.clone()),
@@ -675,7 +675,9 @@ fn session_input(path: &Path, fetch: Fetch<'_>) -> Result<Input> {
   log::info!("session file: {}", path.display());
   let name = path.display().to_string();
   let text = match path.to_str().filter(|p| is_location(p)) {
-    Some(location) => launch::parse_location(location).and_then(|l| read_location(&l, fetch)),
+    Some(location) => launch::parse_location(location)
+      .map_err(|e| e.to_string())
+      .and_then(|l| read_location(&l, fetch)),
     None => read_file(path),
   };
   let text = text.map_err(|e| anyhow::anyhow!("reading {name}: {e}"))?;

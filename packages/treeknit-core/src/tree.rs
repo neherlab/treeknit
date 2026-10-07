@@ -166,13 +166,11 @@ impl Tree {
   }
 
   /// Set `taxon` on all leaves; fails on unknown leaf names.
-  pub fn assign_taxa(&mut self, taxa: &Taxa) -> Result<(), String> {
+  pub fn assign_taxa(&mut self, taxa: &Taxa) -> Result<(), UnknownLeaf> {
     for n in self.leaves() {
-      let id = taxa.index.get(&self.nodes[n].name).ok_or_else(|| {
-        format!(
-          "leaf {} of tree {} is not in the taxon table",
-          self.nodes[n].name, self.label
-        )
+      let id = taxa.index.get(&self.nodes[n].name).ok_or_else(|| UnknownLeaf {
+        leaf: self.nodes[n].name.clone(),
+        tree: self.label.clone(),
       })?;
       self.nodes[n].taxon = Some(*id);
     }
@@ -460,6 +458,14 @@ impl Tree {
           && (!self.is_leaf(n) || self.nodes[n].taxon.is_some())
       })
   }
+}
+
+/// A leaf whose name the taxon table lacks, from [`Tree::assign_taxa`].
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("leaf {leaf} of tree {tree} is not in the taxon table")]
+pub struct UnknownLeaf {
+  pub leaf: String,
+  pub tree: String,
 }
 
 #[cfg(test)]

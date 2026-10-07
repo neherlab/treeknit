@@ -171,7 +171,7 @@ pub fn apply_settings(base: &Ts<Settings>, patch: &Ts<SettingsPatch>) -> Result<
 #[wasm_bindgen(js_name = decodeTreeBytes)]
 pub fn decode_tree_bytes(bytes: &[u8]) -> Result<String, JsError> {
   let _log = log_capture::discard();
-  launch::decode_tree_bytes(bytes).map_err(|e| JsError::new(&e))
+  Ok(launch::decode_tree_bytes(bytes)?)
 }
 
 /// The built-in examples with their trees, in the order of the Examples menu.
