@@ -14,11 +14,11 @@ license.workspace = true
 doctest = false
 
 [dependencies]
-eyre.workspace = true
 pest.workspace = true
 pest_derive.workspace = true
 pretty_dtoa.workspace = true
 smart-default.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 indoc.workspace = true
