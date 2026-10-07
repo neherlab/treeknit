@@ -359,12 +359,12 @@ mod tests {
     let (mut ts, taxa) = mk();
     let id = |s: &str| taxa.index[s];
     let mccs = vec![vec![id("D")], vec![id("A"), id("B"), id("C")]];
-    let (a, b) = ts.split_at_mut(1);
-    let ns = resolve_with_mccs(&mut a[0], &mut b[0], &mccs, taxa.len(), true);
+    let [a, b] = ts.get_disjoint_mut([0, 1]).unwrap();
+    let ns = resolve_with_mccs(a, b, &mccs, taxa.len(), true);
     assert!(ns[1].is_empty());
     let (mut ts, _) = mk();
-    let (a, b) = ts.split_at_mut(1);
-    let ns = resolve_with_mccs(&mut a[0], &mut b[0], &mccs, taxa.len(), false);
+    let [a, b] = ts.get_disjoint_mut([0, 1]).unwrap();
+    let ns = resolve_with_mccs(a, b, &mccs, taxa.len(), false);
     assert_eq!(names(&ns[1], &taxa), vec![vec!["A", "B", "C"], vec!["B", "C"]]);
   }
 
@@ -384,16 +384,16 @@ mod tests {
     let map = map_mccs(&ts[1], &leaf_mcc_map(&mccs, taxa.len()));
     let p = ts[1].parent(ts[1].leaves()[0]).unwrap();
     assert_eq!(map[p], None);
-    let (a, b) = ts.split_at_mut(1);
-    let ns = resolve_with_mccs(&mut a[0], &mut b[0], &mccs, taxa.len(), true);
+    let [a, b] = ts.get_disjoint_mut([0, 1]).unwrap();
+    let ns = resolve_with_mccs(a, b, &mccs, taxa.len(), true);
     assert!(names(&ns[1], &taxa).contains(&vec!["A".to_owned(), "B".into(), "C".into()]));
 
     // If Y's MCC lies entirely inside the polytomy, Y may be nested in {A,B,C}: ambiguous.
     let (mut ts, taxa) = trees(&["(((A,B),C),(X,Y));", "((A,B,C,Y),X);"]);
     let id = |s: &str| taxa.index[s];
     let mccs = vec![vec![id("X")], vec![id("Y")], vec![id("A"), id("B"), id("C")]];
-    let (a, b) = ts.split_at_mut(1);
-    let ns = resolve_with_mccs(&mut a[0], &mut b[0], &mccs, taxa.len(), true);
+    let [a, b] = ts.get_disjoint_mut([0, 1]).unwrap();
+    let ns = resolve_with_mccs(a, b, &mccs, taxa.len(), true);
     assert!(!names(&ns[1], &taxa).contains(&vec!["A".to_owned(), "B".into(), "C".into()]));
   }
 
@@ -402,8 +402,8 @@ mod tests {
     let (mut ts, taxa) = trees(&["((A,B),(C,(D,(E,X))));", "((A,(B,X)),(C,D,E));"]);
     let id = |s: &str| taxa.index[s];
     let mccs = vec![vec![id("X")], vec![id("A"), id("B"), id("C"), id("D"), id("E")]];
-    let (a, b) = ts.split_at_mut(1);
-    resolve_with_mccs(&mut a[0], &mut b[0], &mccs, taxa.len(), true);
+    let [a, b] = ts.get_disjoint_mut([0, 1]).unwrap();
+    resolve_with_mccs(a, b, &mccs, taxa.len(), true);
     assert!(splits(&ts[1], &taxa).contains(&vec!["D".to_owned(), "E".to_owned()]));
   }
 

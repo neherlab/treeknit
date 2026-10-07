@@ -330,13 +330,10 @@ pub fn match_topologies(
 /// leaves (where the placement of other branches is free). Splits that conflict with `dst` are
 /// skipped. Returns the number inserted.
 fn propagate_splits(trees: &mut [Tree], src: usize, dst: usize, mccs: &[Mcc], n: usize) -> usize {
-  let (s, d) = if src < dst {
-    let (a, b) = trees.split_at_mut(dst);
-    (&a[src], &mut b[0])
-  } else {
-    let (a, b) = trees.split_at_mut(src);
-    (&b[0], &mut a[dst])
-  };
+  let [s, d] = trees
+    .get_disjoint_mut([src, dst])
+    .expect("the source and destination trees differ");
+  let s = &*s;
   let clades = s.clades(n);
   let leaf_of = s.leaf_of(n);
   let mut label = d.fresh_index("RESOLVED");
@@ -420,12 +417,6 @@ fn restrict_pair<'a>(a: &'a Tree, b: &'a Tree, shared: &Bits, n: usize) -> (Cow<
     }
   };
   (r(a), r(b))
-}
-
-/// Trees `i < j` of `trees`, both mutable.
-fn pair_mut(trees: &mut [Tree], i: usize, j: usize) -> (&mut Tree, &mut Tree) {
-  let (a, b) = trees.split_at_mut(j);
-  (&mut a[i], &mut b[0])
 }
 
 /// Settings that all pairs of one round infer their MCCs with.
@@ -519,7 +510,7 @@ fn resolve_pair(trees: &mut [Tree], i: usize, j: usize, mccs: &[Mcc], n: usize, 
 /// order polytomies so that MCCs face each other, logging the splits that resolving the copies
 /// of a strict sort skips. A pair that shares fewer than two leaves is left unchanged.
 fn sort_pair(trees: &mut [Tree], i: usize, j: usize, mccs: &[Mcc], n: usize, strict: bool) {
-  let (ti, tj) = pair_mut(trees, i, j);
+  let [ti, tj] = trees.get_disjoint_mut([i, j]).expect("the trees of a pair differ");
   let skipped = sort_two(ti, tj, i == 0, mccs, n, strict);
   warn_skipped(ti, skipped[0]);
   warn_skipped(tj, skipped[1]);
@@ -865,7 +856,7 @@ mod tests {
           assert_eq!((0, &mccs), (split, &matched[0]), "{case}");
         }
         reordered |= copies.iter().zip(&ran).any(|(c, r)| c.leaf_names() != r.leaf_names());
-        let (left, right) = pair_mut(&mut copies, 0, 1);
+        let [left, right] = copies.get_disjoint_mut([0, 1]).unwrap();
         sort_for_pair(left, right, &mccs, n, sort_strictness(&o, 2));
         assert_eq!(layout(&ran[0]), layout(&copies[0]), "{case}");
         assert_eq!(layout(&ran[1]), layout(&copies[1]), "{case}");
@@ -960,7 +951,7 @@ mod tests {
       for strict in [false, true] {
         let (mut ts, taxa) = trees(&nwks);
         let before: Vec<_> = ts.iter().map(layout).collect();
-        let (left, right) = pair_mut(&mut ts, 0, 1);
+        let [left, right] = ts.get_disjoint_mut([0, 1]).unwrap();
         sort_for_pair(left, right, &[], taxa.len(), strict);
         assert_eq!(
           before,
@@ -1024,7 +1015,7 @@ mod tests {
     let warning = "WARN skipping split incompatible with tree t".to_owned();
     assert_eq!(vec![warning.clone(), warning], warned);
     let (mut copies, _) = trees(&nwks);
-    let (left, right) = pair_mut(&mut copies, 0, 1);
+    let [left, right] = copies.get_disjoint_mut([0, 1]).unwrap();
     assert!(logged(|| sort_for_pair(left, right, &mccs, n, true)).is_empty());
     assert_eq!(
       ran.iter().map(layout).collect::<Vec<_>>(),
@@ -1331,7 +1322,7 @@ mod tests {
   #[should_panic(expected = "an MCC holds a leaf that is not one of the 4 taxa")]
   fn sort_for_pair_rejects_an_mcc_leaf_out_of_range() {
     let (mut ts, taxa) = same_leaves(2);
-    let (left, right) = pair_mut(&mut ts, 0, 1);
+    let [left, right] = ts.get_disjoint_mut([0, 1]).unwrap();
     sort_for_pair(left, right, &[vec![0, 1, 2, 3, 4]], taxa.len(), false);
   }
 
@@ -1339,7 +1330,7 @@ mod tests {
   #[should_panic(expected = "a tree of the pair has a leaf that is not one of the 3 taxa")]
   fn sort_for_pair_rejects_a_tree_leaf_out_of_range() {
     let (mut ts, _) = same_leaves(2);
-    let (left, right) = pair_mut(&mut ts, 0, 1);
+    let [left, right] = ts.get_disjoint_mut([0, 1]).unwrap();
     sort_for_pair(left, right, &[], 3, false);
   }
 
@@ -1349,7 +1340,7 @@ mod tests {
     let (mut ts, taxa) = same_leaves(2);
     let leaf = ts[1].leaves()[0];
     ts[1].nodes[leaf].taxon = None;
-    let (left, right) = pair_mut(&mut ts, 0, 1);
+    let [left, right] = ts.get_disjoint_mut([0, 1]).unwrap();
     sort_for_pair(left, right, &[], taxa.len(), false);
   }
 
