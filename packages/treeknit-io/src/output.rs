@@ -381,12 +381,7 @@ pub const MAX_FILE_NAME_BYTES: usize = 255;
 /// file its own prefix, suffix, extension, or folder. `labels` must have passed the checks of
 /// `analysis::parse_trees`, which reports repeated labels and pair names.
 pub fn check_output_paths(labels: &[String], options: &OutputOptions) -> Vec<ValidationError> {
-  let error = |message: String| ValidationError {
-    field: Some(Field::Trees),
-    message,
-    line: None,
-    column: None,
-  };
+  let error = |message: String| ValidationError::at(Field::Trees, message);
   let paths = output_paths(labels, options);
   let mut errors = Vec::new();
   let too_long: Vec<&str> = paths
@@ -914,24 +909,14 @@ mod tests {
       extensions: extensions.iter().map(|&e| e.to_owned()).collect(),
       ..OutputOptions::web(names.len())
     };
-    let expected = vec![ValidationError {
-      field: Some(Field::Trees),
-      message: message.to_owned(),
-      line: None,
-      column: None,
-    }];
+    let expected = vec![ValidationError::at(Field::Trees, message)];
     assert_eq!(expected, check_output_paths(&labels(names), &options));
   }
 
   #[test]
   fn check_output_paths_reports_file_names_longer_than_a_file_system_holds() {
     let (a, b) = ("a".repeat(125), "b".repeat(125));
-    let error = |message: String| ValidationError {
-      field: Some(Field::Trees),
-      message,
-      line: None,
-      column: None,
-    };
+    let error = |message: String| ValidationError::at(Field::Trees, message);
     // Oracle: `tanglegram_` (11 bytes), 125 + 1 + 125 bytes of labels, and `.svg` (4) make 266
     // bytes; the other names of two such labels stay below 255.
     let one = format!(

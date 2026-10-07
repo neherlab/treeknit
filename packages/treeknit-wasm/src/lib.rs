@@ -99,7 +99,7 @@ pub fn validate(request: &Ts<AnalysisRequest>) -> Result<Vec<Ts<ValidationError>
   let _log = log_capture::discard();
   let errors = match parse_js("request", request) {
     Ok(request) => analysis::validate(&request),
-    Err(message) => vec![malformed(message)],
+    Err(message) => vec![ValidationError::new(message)],
   };
   errors.iter().map(to_js).collect()
 }
@@ -259,7 +259,7 @@ impl Session {
   ) -> Result<Session, JsValue> {
     let _log = log_capture::discard();
     let _run = log_capture::begin_run().ok_or_else(|| JsError::new("a run is already in progress"))?;
-    let request = parse_js("request", request).map_err(|message| validation_error(&[malformed(message)]))?;
+    let request = parse_js("request", request).map_err(|message| validation_error(&[ValidationError::new(message)]))?;
     let unavailable = log_capture::unavailable();
     log::info!("TreeKnit {}", env!("TREEKNIT_LONG_VERSION"));
     let k = request.trees.len();
@@ -449,7 +449,7 @@ impl Session {
     let _log = log_capture::discard();
     let pair = from_js("pair", pair)?.0;
     let version = from_js("version", version)?;
-    let options = parse_js("options", options).map_err(|message| validation_error(&[malformed(message)]))?;
+    let options = parse_js("options", options).map_err(|message| validation_error(&[ValidationError::new(message)]))?;
     let figure = output::pair_figure(&self.run, pair, version, &options)
       .map_err(|e| validation_error(&e))?
       .ok_or_else(|| no_pair(&self.run, pair))?;
@@ -464,7 +464,7 @@ impl Session {
   #[wasm_bindgen(js_name = argFigure)]
   pub fn arg_figure(&self, options: &Ts<FigureOptions>) -> Result<Ts<FigureDownload>, JsValue> {
     let _log = log_capture::discard();
-    let options = parse_js("options", options).map_err(|message| validation_error(&[malformed(message)]))?;
+    let options = parse_js("options", options).map_err(|message| validation_error(&[ValidationError::new(message)]))?;
     let figure = output::arg_figure(&self.run, &options)
       .map_err(|e| validation_error(&e))?
       .ok_or_else(|| JsError::new("the run has no ARG: it needs two trees and a built ARG"))?;
@@ -547,17 +547,6 @@ fn validation_error(errors: &[ValidationError]) -> JsValue {
 /// The messages of `errors`, one per line.
 fn messages(errors: &[ValidationError]) -> String {
   errors.iter().map(|e| e.message.as_str()).collect::<Vec<_>>().join("\n")
-}
-
-/// A `ValidationError` for the request as a whole, for an argument whose structure is malformed:
-/// the app reports it as invalid input, not as an internal failure.
-fn malformed(message: String) -> ValidationError {
-  ValidationError {
-    field: None,
-    message,
-    line: None,
-    column: None,
-  }
 }
 
 /// The Rust value of the argument `name`; errors start with `invalid <name>:`.

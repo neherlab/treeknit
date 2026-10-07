@@ -172,13 +172,21 @@ pub struct ValidationError {
 }
 
 impl ValidationError {
-  /// An error at the field `field`.
-  pub(crate) fn at(field: Field, message: impl Into<String>) -> Self {
+  /// An error of the request as a whole.
+  pub fn new(message: impl Into<String>) -> Self {
     ValidationError {
-      field: Some(field),
+      field: None,
       message: message.into(),
       line: None,
       column: None,
+    }
+  }
+
+  /// An error at the field `field`.
+  pub fn at(field: Field, message: impl Into<String>) -> Self {
+    ValidationError {
+      field: Some(field),
+      ..ValidationError::new(message)
     }
   }
 }
@@ -468,14 +476,8 @@ pub fn options(s: &Settings, k: usize, parallel: bool) -> Result<Options, Vec<Va
 /// JavaScript number holds exactly. The other rules of [`validate`] are not applied, so a session
 /// file with a broken tree or an out-of-range setting still loads and can be fixed.
 pub fn read_session(text: &str) -> Result<AnalysisRequest, Vec<ValidationError>> {
-  let request: AnalysisRequest = serde_json::from_str(text).map_err(|e| {
-    vec![ValidationError {
-      field: None,
-      message: format!("not a TreeKnit session file: {e}"),
-      line: None,
-      column: None,
-    }]
-  })?;
+  let request: AnalysisRequest =
+    serde_json::from_str(text).map_err(|e| vec![ValidationError::new(format!("not a TreeKnit session file: {e}"))])?;
   let seed = request.settings.seed;
   if seed > MAX_SEED {
     return Err(vec![ValidationError::at(
@@ -1012,7 +1014,7 @@ mod tests {
   #[trace]
   fn parse_error_without_position(#[case] newick: &str, #[case] message: &str) {
     let errors = tree_errors(&texts(&[("ha", T), ("na", newick)]));
-    let expected = vec![ValidationError { field: Some(Field::TreeNewick { index: 1 }), message: message.to_owned(), line: None, column: None }];
+    let expected = vec![ValidationError::at(Field::TreeNewick { index: 1 }, message)];
     assert_eq!(expected, errors);
   }
 
@@ -1195,7 +1197,7 @@ mod tests {
   #[case::wrong_type(   r#"{"trees": [{"label": 1, "newick": "(A,B);"}]}"#, "not a TreeKnit session file: invalid type: integer `1`, expected a string at line 1 column 22")]
   #[trace]
   fn read_session_rejects_a_wrong_structure(#[case] text: &str, #[case] message: &str) {
-    let expected = vec![ValidationError { field: None, message: message.to_owned(), line: None, column: None }];
+    let expected = vec![ValidationError::new(message)];
     assert_eq!(Err(expected), read_session(text));
   }
 

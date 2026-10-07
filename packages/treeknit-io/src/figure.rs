@@ -91,12 +91,7 @@ pub fn check_figure_options(options: &FigureOptions) -> Vec<ValidationError> {
     } else {
       return None;
     };
-    Some(ValidationError {
-      field: Some(Field::FigureOption { key }),
-      message,
-      line: None,
-      column: None,
-    })
+    Some(ValidationError::at(Field::FigureOption { key }, message))
   };
   [
     bounded(

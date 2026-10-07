@@ -717,12 +717,7 @@ fn is_location(text: &str) -> bool {
 
 /// The validation error of the tree `index`, which cannot be read for `reason`.
 fn read_error(index: usize, reason: impl Display) -> ValidationError {
-  ValidationError {
-    field: Some(Field::Tree { index }),
-    message: reason.to_string(),
-    line: None,
-    column: None,
-  }
+  ValidationError::at(Field::Tree { index }, reason.to_string())
 }
 
 /// The text of the file at `path`, decompressed when it is gzip-compressed.
@@ -1035,15 +1030,11 @@ fn former_options_checked(cli: &Cli, k: usize) -> Result<Options, Vec<Validation
     },
   };
   if cli.resolve.is_some() || cli.pre_resolve || cli.no_final_round || cli.final_round {
-    errors.push(ValidationError {
-      field: None,
-      message: "former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, \
-                --resolve-all-rounds, --match-topologies) cannot be combined with --resolve, --pre-resolve, \
-                --no-final-round or --final-round; see --help-resolve"
-        .to_owned(),
-      line: None,
-      column: None,
-    });
+    errors.push(ValidationError::new(
+      "former method options (--better-trees, --better-MCCs, --no-resolve, --liberal-resolve, \
+       --resolve-all-rounds, --match-topologies) cannot be combined with --resolve, --pre-resolve, \
+       --no-final-round or --final-round; see --help-resolve",
+    ));
   }
   // The former options have no settings of their own; the values they share with the
   // settings get the same checks. The other fields keep valid defaults, and the rounds of a
@@ -1080,13 +1071,13 @@ fn parse_lengths(s: &str) -> Result<Vec<f64>, ValidationError> {
     .filter(|v| !v.is_empty())
     .map(str::parse::<f64>)
     .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| ValidationError {
-      field: Some(Field::Setting {
-        key: SettingKey::SeqLengths,
-      }),
-      message: format!("--seq-lengths should look like 1500,2000, got {s:?}: {e}"),
-      line: None,
-      column: None,
+    .map_err(|e| {
+      ValidationError::at(
+        Field::Setting {
+          key: SettingKey::SeqLengths,
+        },
+        format!("--seq-lengths should look like 1500,2000, got {s:?}: {e}"),
+      )
     })
 }
 
@@ -1443,12 +1434,7 @@ mod tests {
     let input = read_input(&cli(&["https://x/ha.nwk", "https://x/na.nwk"]), &fetch).unwrap();
     let expected = vec![(
       0,
-      ValidationError {
-        field: Some(Field::Tree { index: 0 }),
-        message: "cannot read https://x/ha.nwk: 404 Not Found".to_owned(),
-        line: None,
-        column: None,
-      },
+      ValidationError::at(Field::Tree { index: 0 }, "cannot read https://x/ha.nwk: 404 Not Found"),
     )];
     assert_eq!(expected, input.read_errors);
   }
