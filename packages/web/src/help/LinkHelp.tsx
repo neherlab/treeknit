@@ -91,8 +91,8 @@ export function LinkHelp() {
       </p>
       {keys === undefined ? null : <KeyList keys={keys} />}
       <p>
-        The keys of the view: {VIEW_KEYS.map((key) => key).join(", ")}. A remote file must allow other sites to read it
-        (CORS), which GitHub, Zenodo, and Nextstrain do.
+        The keys of the view: {VIEW_KEYS.join(", ")}. A remote file must allow other sites to read it (CORS), which
+        GitHub, Zenodo, and Nextstrain do.
       </p>
     </>
   );

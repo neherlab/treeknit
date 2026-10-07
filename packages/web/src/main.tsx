@@ -50,7 +50,7 @@ if (root !== null) {
     {
       client: launchClient(client),
       fetchFile: fetch,
-      loadExample: async (example) => loadExample(example),
+      loadExample,
       receiveSession: async (source) =>
         receiveSession(
           windowPortal(source),
