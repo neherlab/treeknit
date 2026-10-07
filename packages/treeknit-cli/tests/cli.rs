@@ -7,37 +7,7 @@ mod tests {
   use std::collections::BTreeMap;
   use std::path::{Path, PathBuf};
   use std::process::Command;
-
-  /// Directory under the system temporary directory, removed when dropped.
-  struct TempDir(PathBuf);
-
-  impl TempDir {
-    fn new(name: &str) -> Self {
-      let path = Self::path_of(name);
-      if path.exists() {
-        std::fs::remove_dir_all(&path).unwrap();
-      }
-      std::fs::create_dir_all(&path).unwrap();
-      TempDir(path)
-    }
-
-    fn path(&self) -> &Path {
-      &self.0
-    }
-
-    /// The path of the directory of `new(name)`.
-    fn path_of(name: &str) -> PathBuf {
-      std::env::temp_dir().join(format!("treeknit-cli-test-{name}-{}", std::process::id()))
-    }
-  }
-
-  impl Drop for TempDir {
-    fn drop(&mut self) {
-      if let Err(e) = std::fs::remove_dir_all(&self.0) {
-        eprintln!("removing {}: {e}", self.0.display());
-      }
-    }
-  }
+  use tempfile::{TempDir, tempdir};
 
   /// Write each `(name, newick)` of `files` to `<dir>/<name>.nwk`.
   fn write_trees(dir: &Path, files: &[(&str, &str)]) -> Vec<PathBuf> {
@@ -73,15 +43,15 @@ mod tests {
 
   /// Run `treeknit` on Newick `trees` written to files `t0.nwk`, `t1.nwk`, ..., expecting a
   /// failure.
-  fn fail(name: &str, trees: &[&str], args: &[&str]) -> Failure {
+  fn fail(trees: &[&str], args: &[&str]) -> Failure {
     let names: Vec<String> = (0..trees.len()).map(|i| format!("t{i}")).collect();
     let files: Vec<(&str, &str)> = names.iter().map(String::as_str).zip(trees.iter().copied()).collect();
-    fail_named(name, &files, args)
+    fail_named(&files, args)
   }
 
   /// Run `treeknit` on the `(name, newick)` trees of `files`, expecting a failure.
-  fn fail_named(name: &str, files: &[(&str, &str)], args: &[&str]) -> Failure {
-    let dir = TempDir::new(name);
+  fn fail_named(files: &[(&str, &str)], args: &[&str]) -> Failure {
+    let dir = tempdir().unwrap();
     let paths = write_trees(dir.path(), files);
     let out = dir.path().join("out");
     let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
@@ -124,7 +94,7 @@ mod tests {
   #[case::rounds_former( &["--better-MCCs", "--rounds", "0"],        "rounds must be at least 1")]
   #[trace]
   fn invalid_settings_exit_with_their_message(#[case] args: &[&str], #[case] message: &str) {
-    assert_failed(&fail("settings", &[HA, NA], args), message);
+    assert_failed(&fail(&[HA, NA], args), message);
   }
 
   #[test]
@@ -137,7 +107,7 @@ mod tests {
       "x 1",
       "--gamma=-1",
     ];
-    let f = fail("all-errors", &[HA, "(A,B"], &args);
+    let f = fail(&[HA, "(A,B"], &args);
     let expected = format!(
       "{}:1:5: tree \"t1\": Newick parse error: expected ',' or ')' at byte 4\n\
       --seq-lengths should look like 1500,2000, got \"x 1\": invalid float literal\n\
@@ -152,7 +122,7 @@ mod tests {
 
   #[test]
   fn too_few_tree_files_are_reported_with_the_flag_errors() {
-    let f = fail("one-file", &[HA], &["--gamma=-1"]);
+    let f = fail(&[HA], &["--gamma=-1"]);
     let expected = "need at least two trees\ngamma must be a non-negative number, got -1";
     assert_failed(&f, expected);
   }
@@ -160,7 +130,7 @@ mod tests {
   #[test]
   fn unreadable_tree_files_are_reported_with_the_tree_and_flag_errors() {
     // The relative path names no file in the directory of the test.
-    let f = fail("unreadable", &[HA, "(A,B"], &["missing-tree-file.nwk", "--gamma=-1"]);
+    let f = fail(&[HA, "(A,B"], &["missing-tree-file.nwk", "--gamma=-1"]);
     // The text of the operating system error differs between systems.
     let Err(os_error) = std::fs::read("missing-tree-file.nwk") else {
       panic!("missing-tree-file.nwk exists");
@@ -177,7 +147,7 @@ mod tests {
   #[test]
   fn an_unexpected_failure_prints_its_chain_of_causes() {
     // `-o` names a regular file, so creating the results directory fails after validation.
-    let dir = TempDir::new("outdir-is-file");
+    let dir = tempdir().unwrap();
     let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
     let out = dir.path().join("out");
     std::fs::write(&out, "").unwrap();
@@ -203,7 +173,7 @@ mod tests {
 
   #[test]
   fn a_missing_session_file_is_an_input_error() {
-    let dir = TempDir::new("missing-session");
+    let dir = tempdir().unwrap();
     let path = dir.path().join("treeknit_session.json");
     let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
       .arg("--session")
@@ -227,7 +197,7 @@ mod tests {
   fn output_files_of_different_kinds_with_one_name_exit_before_writing_results() {
     // The resolved tree of `MCCs_a.dat` and the MCCs of the pair (`a`, `resolved`) are both
     // `MCCs_a_resolved.dat`.
-    let dir = TempDir::new("output-names");
+    let dir = tempdir().unwrap();
     let t = "((A,B),(C,D));";
     let mut paths = write_trees(dir.path(), &[("a", t), ("resolved", t)]);
     let dat = dir.path().join("MCCs_a.dat");
@@ -258,7 +228,7 @@ mod tests {
   #[test]
   fn labels_that_stay_equal_with_their_directory_are_reported_with_the_flag_errors() {
     // `a/x/ha.nwk` and `b/x/ha.nwk` both get the label `ha_x`.
-    let dir = TempDir::new("labels-equal");
+    let dir = tempdir().unwrap();
     let paths: Vec<PathBuf> = [("a/x", HA), ("b/x", NA)]
       .iter()
       .map(|(sub, newick)| {
@@ -285,7 +255,7 @@ mod tests {
 
   #[test]
   fn tree_errors_name_the_input_file_and_position() {
-    let f = fail("parse", &[HA, "((A,B),\n(C,D)x y);", "((A,A),(C,D));"], &[]);
+    let f = fail(&[HA, "((A,B),\n(C,D)x y);", "((A,A),(C,D));"], &[]);
     let expected = format!(
       "{}:2:8: tree \"t1\": Newick parse error: expected ',' or ')' at byte 15\n\
        {}: tree \"t2\": Newick parse error: duplicate leaf name \"A\"",
@@ -303,13 +273,13 @@ mod tests {
   #[case::one_shared_former( "(A,(Q,R));", &["--better-MCCs"])]
   #[trace]
   fn pairs_sharing_fewer_than_two_leaves_exit_with_their_message(#[case] other: &str, #[case] args: &[&str]) {
-    assert_failed(&fail("pairs", &[HA, other], args), "trees \"t0\" and \"t1\" share fewer than 2 leaves");
+    assert_failed(&fail(&[HA, other], args), "trees \"t0\" and \"t1\" share fewer than 2 leaves");
   }
 
   #[test]
   fn colliding_pair_names_exit_before_writing_results() {
     let t = "((A,B),(C,D));";
-    let f = fail_named("stems", &[("a_b", t), ("c", t), ("a", t), ("b_c", t)], &[]);
+    let f = fail_named(&[("a_b", t), ("c", t), ("a", t), ("b_c", t)], &[]);
     assert_failed(
       &f,
       "tree pairs (\"a_b\", \"c\") and (\"a\", \"b_c\") give the same output file names (\"a_b_c\"); rename a tree",
@@ -318,7 +288,7 @@ mod tests {
 
   #[test]
   fn parse_warnings_are_logged() {
-    let dir = TempDir::new("warnings");
+    let dir = tempdir().unwrap();
     let input = dir.path().join("in");
     std::fs::create_dir_all(&input).unwrap();
     let ha = input.join("ha.nwk");
@@ -337,7 +307,7 @@ mod tests {
 
   #[test]
   fn several_trees_warning_is_logged_for_a_tree_that_fails_to_parse() {
-    let dir = TempDir::new("warnings-error");
+    let dir = tempdir().unwrap();
     let paths = write_trees(dir.path(), &[("ha", HA), ("na", "((A,B;\n(C,D);")]);
     let out = dir.path().join("out");
     let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
@@ -431,7 +401,7 @@ mod tests {
     let data = Path::new(env!("CARGO_MANIFEST_DIR"))
       .join("tests/data/outputs")
       .join(case);
-    let dir = TempDir::new(&format!("bytes-{case}"));
+    let dir = tempdir().unwrap();
     let out = dir.path().join("out");
     let paths: Vec<String> = inputs
       .iter()
@@ -450,7 +420,7 @@ mod tests {
     // Oracle: the captured output directory of `output_files_keep_their_bytes`, whose trees carry
     // the labels of their file stems.
     let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/outputs/two");
-    let dir = TempDir::new("bytes-request");
+    let dir = tempdir().unwrap();
     let tree = |name: &str| serde_json::json!({"label": name, "newick": std::fs::read_to_string(data.join(format!("input/{name}.nwk"))).unwrap()});
     let request = serde_json::json!({"trees": [tree("ha"), tree("na")]});
     let path = dir.path().join("treeknit_session.json");
@@ -466,7 +436,7 @@ mod tests {
   #[test]
   fn log_of_the_two_tree_case_holds_the_steps_of_the_run_in_order() {
     let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/outputs/two");
-    let dir = TempDir::new("log-lines");
+    let dir = tempdir().unwrap();
     let out = dir.path().join("out");
     let (ha, na) = (data.join("input/ha.nwk"), data.join("input/na.nwk"));
     run(&[ha.to_str().unwrap(), na.to_str().unwrap()], &out);
@@ -508,7 +478,7 @@ mod tests {
     // The command that the web app shows, run on its session file, writes every file of the web
     // file set with the same bytes, except `log.txt`, whose lines carry times, into a directory
     // of its own, and keeps the extracted files.
-    let dir = TempDir::new("web-file-set");
+    let dir = tempdir().unwrap();
     let results = dir.path().join(treeknit_io::output::RESULTS_DIR);
     std::fs::create_dir_all(&results).unwrap();
     let request = write_session(&results, &serde_json::json!({"seed": 3}));
@@ -555,7 +525,7 @@ mod tests {
   fn plot_adds_the_figures_and_keeps_the_bytes_of_the_other_files() {
     // Oracle: the captured output directory of `output_files_keep_their_bytes`.
     let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/outputs/two");
-    let dir = TempDir::new("plot-bytes");
+    let dir = tempdir().unwrap();
     let out = dir.path().join("out");
     let ha = data.join("input/ha.nwk");
     let na = data.join("input/na.nwk");
@@ -579,7 +549,7 @@ mod tests {
 
   #[test]
   fn plot_writes_a_tanglegram_per_pair_of_three_trees_and_no_arg() {
-    let dir = TempDir::new("plot-three");
+    let dir = tempdir().unwrap();
     let t = "((A:1,B:1):1,(C:1,D:1):1);";
     let paths = write_trees(dir.path(), &[("ha", t), ("na", t), ("pb2", t)]);
     let out = dir.path().join("out");
@@ -592,7 +562,7 @@ mod tests {
 
   #[test]
   fn session_with_plot_gives_the_figures_of_the_tree_files() {
-    let dir = TempDir::new("plot-request");
+    let dir = tempdir().unwrap();
     let request = write_session(dir.path(), &serde_json::json!({}));
     let from_session = dir.path().join("from-session");
     run(&["--session", request.to_str().unwrap(), "--plot"], &from_session);
@@ -615,18 +585,17 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::same_stem(    "stems-dirs", ("ha", "ha"), ["ha_a_resolved.nwk", "ha_b_resolved.nwk"], "ha_resolved.nwk")]
-  #[case::stems_in_case("stems-case", ("HA", "ha"), ["HA_a_resolved.nwk", "ha_b_resolved.nwk"], "HA_resolved.nwk")]
+  #[case::same_stem(    ("ha", "ha"), ["ha_a_resolved.nwk", "ha_b_resolved.nwk"], "ha_resolved.nwk")]
+  #[case::stems_in_case(("HA", "ha"), ["HA_a_resolved.nwk", "ha_b_resolved.nwk"], "HA_resolved.nwk")]
   #[trace]
   fn files_with_one_stem_give_resolved_trees_named_by_label(
-    #[case] name: &str,
     #[case] (stem_a, stem_b): (&str, &str),
     #[case] written: [&str; 2],
     #[case] absent: &str,
   ) {
     // Stems that are equal, or equal ignoring case as in the label check, give each label its
     // directory: `a/HA.nwk` and `b/ha.nwk` are `HA_a` and `ha_b`.
-    let dir = TempDir::new(name);
+    let dir = tempdir().unwrap();
     for (sub, stem, newick) in [("a", stem_a, HA), ("b", stem_b, NA)] {
       std::fs::create_dir_all(dir.path().join(sub)).unwrap();
       write_trees(&dir.path().join(sub), &[(stem, newick)]);
@@ -652,7 +621,7 @@ mod tests {
 
   #[test]
   fn session_gives_the_mccs_of_the_tree_files_with_the_same_settings() {
-    let dir = TempDir::new("session-same");
+    let dir = tempdir().unwrap();
     let request = write_session(
       dir.path(),
       &serde_json::json!({"gamma": 3, "resolve": "strict", "seed": 5}),
@@ -671,7 +640,7 @@ mod tests {
 
   #[test]
   fn session_writes_the_session_file_and_trees_named_by_label() {
-    let dir = TempDir::new("session-files");
+    let dir = tempdir().unwrap();
     let request = write_session(dir.path(), &serde_json::json!({}));
     let out = dir.path().join("out");
     run(&["--session", request.to_str().unwrap(), "--impute"], &out);
@@ -692,15 +661,10 @@ mod tests {
     assert_eq!(vec![true, true, true], present);
   }
 
-  /// Path of the session file of `run_session` for the test `name`.
-  fn session_path(name: &str) -> PathBuf {
-    TempDir::path_of(name).join("treeknit_session.json")
-  }
-
-  /// Run `treeknit` with `args` in the directory of a session file, returning the exit code and
-  /// the error output.
-  fn run_session(name: &str, settings: &serde_json::Value, args: &[&str]) -> (Option<i32>, String) {
-    let dir = TempDir::new(name);
+  /// Run `treeknit` with `args` in the directory of a session file, returning the path of the
+  /// session file, the exit code, and the error output.
+  fn run_session(settings: &serde_json::Value, args: &[&str]) -> (PathBuf, Option<i32>, String) {
+    let dir = tempdir().unwrap();
     let request = write_session(dir.path(), settings);
     let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
       .arg("--session")
@@ -712,21 +676,20 @@ mod tests {
       .current_dir(dir.path())
       .output()
       .unwrap();
-    (output.status.code(), String::from_utf8(output.stderr).unwrap())
+    (request, output.status.code(), String::from_utf8(output.stderr).unwrap())
   }
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::tree_file("session-tree", &["ha.nwk"], "the argument '--session <FILE>' cannot be used with '[TREE]...'")]
-  #[case::example(  "session-example", &["--example", "5-leaves"], "the argument '--session <FILE>' cannot be used with '--example <ID>'")]
-  #[case::former(   "session-former", &["--better-MCCs"], "the argument '--session <FILE>' cannot be used with '--better-MCCs'")]
+  #[case::tree_file(&["ha.nwk"], "the argument '--session <FILE>' cannot be used with '[TREE]...'")]
+  #[case::example(  &["--example", "5-leaves"], "the argument '--session <FILE>' cannot be used with '--example <ID>'")]
+  #[case::former(   &["--better-MCCs"], "the argument '--session <FILE>' cannot be used with '--better-MCCs'")]
   #[trace]
   fn session_with_tree_files_or_former_options_is_a_usage_error(
-    #[case] name: &str,
     #[case] args: &[&str],
     #[case] message: &str,
   ) {
-    let (code, stderr) = run_session(name, &serde_json::json!({}), args);
+    let (_, code, stderr) = run_session(&serde_json::json!({}), args);
     // clap shows the usage of the arguments given, `-o` and `--verbosity-level` of `run_session`.
     let expected = format!(
       "error: {message}\n\n\
@@ -738,8 +701,7 @@ mod tests {
 
   #[test]
   fn session_with_invalid_settings_exits_with_their_message_and_field() {
-    let (code, stderr) = run_session("session-invalid", &serde_json::json!({"gamma": -1}), &[]);
-    let request = session_path("session-invalid");
+    let (request, code, stderr) = run_session(&serde_json::json!({"gamma": -1}), &[]);
     let expected = format!(
       "Error: {}: settings.gamma: gamma must be a non-negative number, got -1\n",
       request.display()
@@ -750,19 +712,18 @@ mod tests {
   #[test]
   fn session_with_a_seed_above_the_largest_exact_integer_names_the_field() {
     let seed = treeknit_io::analysis::MAX_SEED + 1;
-    let (code, stderr) = run_session("session-seed", &serde_json::json!({ "seed": seed }), &[]);
+    let (request, code, stderr) = run_session(&serde_json::json!({ "seed": seed }), &[]);
     let expected = format!(
       "Error: {}: settings.seed: the seed {seed} of the session file is above 9007199254740991, the \
        largest integer a JavaScript number holds exactly\n",
-      session_path("session-seed").display()
+      request.display()
     );
     assert_eq!((Some(1), expected), (code, stderr));
   }
 
   #[test]
   fn session_with_an_invalid_tree_names_the_file_the_field_and_the_position() {
-    let name = "session-tree-error";
-    let dir = TempDir::new(name);
+    let dir = tempdir().unwrap();
     let request = serde_json::json!({
       "trees": [{"label": "ha", "newick": HA}, {"label": "na", "newick": "((A,B),\n(C,D)x y);"}],
     });
@@ -793,11 +754,11 @@ mod tests {
 
   #[test]
   fn session_with_a_wrong_structure_names_the_file() {
-    let (code, stderr) = run_session("session-structure", &serde_json::json!({"gama": 1}), &[]);
+    let (request, code, stderr) = run_session(&serde_json::json!({"gama": 1}), &[]);
     let expected = format!(
       "Error: {}: not a TreeKnit session file: unknown field `gama`, expected one of `gamma`, `seqLengths`, \
        `nMcmcIt`, `resolve`, `preResolve`, `rounds`, `finalRound`, `likelihood`, `naive`, `seed` at line 1 column 151\n",
-      session_path("session-structure").display()
+      request.display()
     );
     assert_eq!((Some(1), expected), (code, stderr));
   }
@@ -812,7 +773,7 @@ mod tests {
     if !Path::new(ex).exists() {
       return;
     }
-    let dir = TempDir::new("two");
+    let dir = tempdir().unwrap();
     let out = dir.path().join("out");
     run(
       &[
@@ -846,7 +807,7 @@ mod tests {
 
   #[test]
   fn three_trees_partial_overlap_imputed() {
-    let dir = TempDir::new("three");
+    let dir = tempdir().unwrap();
     let paths: Vec<String> = write_trees(
       dir.path(),
       &[
@@ -900,7 +861,7 @@ mod tests {
 
   #[test]
   fn labeled_tree_arguments_name_the_output_trees() {
-    let dir = TempDir::new("labeled");
+    let dir = tempdir().unwrap();
     let paths = write_trees(dir.path(), &[("seg4", HA), ("a=b", NA)]);
     let out = dir.path().join("out");
     // The second path holds a `/` before its `=`, so it is a path without a label.
@@ -914,11 +875,11 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::commas("lengths-commas", "1701,1410")]
-  #[case::spaces("lengths-spaces", "1701 1410")]
+  #[case::commas("1701,1410")]
+  #[case::spaces("1701 1410")]
   #[trace]
-  fn sequence_lengths_take_commas_or_spaces(#[case] name: &str, #[case] lengths: &str) {
-    let dir = TempDir::new(name);
+  fn sequence_lengths_take_commas_or_spaces(#[case] lengths: &str) {
+    let dir = tempdir().unwrap();
     let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
     let out = dir.path().join("out");
     run(
@@ -935,17 +896,17 @@ mod tests {
 
   #[rustfmt::skip]
   #[rstest]
-  #[case::pre_resolve(   "pair-1", &["--no-pre-resolve", "--pre-resolve"],    "pre_resolve",            true)]
-  #[case::no_pre_resolve("pair-2", &["--pre-resolve", "--no-pre-resolve"],    "pre_resolve",            false)]
-  #[case::final_round(   "pair-3", &["--no-final-round", "--final-round"],    "final_unresolved_round", true)]
-  #[case::no_final_round("pair-4", &["--final-round", "--no-final-round"],    "final_unresolved_round", false)]
-  #[case::likelihood(    "pair-5", &["--no-likelihood", "--likelihood"],      "likelihood_sort",        true)]
-  #[case::no_likelihood( "pair-6", &["--likelihood", "--no-likelihood"],      "likelihood_sort",        false)]
-  #[case::naive(         "pair-7", &["--no-naive", "--naive"],                "naive",                  true)]
-  #[case::no_naive(      "pair-8", &["--naive", "--no-naive"],                "naive",                  false)]
+  #[case::pre_resolve(   &["--no-pre-resolve", "--pre-resolve"],    "pre_resolve",            true)]
+  #[case::no_pre_resolve(&["--pre-resolve", "--no-pre-resolve"],    "pre_resolve",            false)]
+  #[case::final_round(   &["--no-final-round", "--final-round"],    "final_unresolved_round", true)]
+  #[case::no_final_round(&["--final-round", "--no-final-round"],    "final_unresolved_round", false)]
+  #[case::likelihood(    &["--no-likelihood", "--likelihood"],      "likelihood_sort",        true)]
+  #[case::no_likelihood( &["--likelihood", "--no-likelihood"],      "likelihood_sort",        false)]
+  #[case::naive(         &["--no-naive", "--naive"],                "naive",                  true)]
+  #[case::no_naive(      &["--naive", "--no-naive"],                "naive",                  false)]
   #[trace]
-  fn the_last_of_a_flag_and_its_opposite_wins(#[case] name: &str, #[case] flags: &[&str], #[case] key: &str, #[case] expected: bool) {
-    let dir = TempDir::new(name);
+  fn the_last_of_a_flag_and_its_opposite_wins(#[case] flags: &[&str], #[case] key: &str, #[case] expected: bool) {
+    let dir = tempdir().unwrap();
     let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
     let out = dir.path().join("out");
     let mut args = vec![paths[0].to_str().unwrap(), paths[1].to_str().unwrap()];
@@ -956,7 +917,7 @@ mod tests {
 
   #[test]
   fn no_pre_resolve_is_a_current_option_without_a_warning() {
-    let dir = TempDir::new("no-pre-resolve");
+    let dir = tempdir().unwrap();
     let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
     let out = dir.path().join("out");
     run(
@@ -978,7 +939,7 @@ mod tests {
 
   #[test]
   fn example_gives_the_mccs_of_its_tree_files() {
-    let dir = TempDir::new("example");
+    let dir = tempdir().unwrap();
     let from_example = dir.path().join("example");
     run(&["--example", "h3n2-2017"], &from_example);
     let data = concat!(env!("CARGO_MANIFEST_DIR"), "/../../data/h3n2-2017");
@@ -989,7 +950,7 @@ mod tests {
 
   #[test]
   fn unknown_example_suggests_the_closest_id() {
-    let dir = TempDir::new("example-unknown");
+    let dir = tempdir().unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
       .args(["--example", "h3n2-2071", "-o"])
       .arg(dir.path().join("out"))
@@ -1023,7 +984,7 @@ mod tests {
 
   #[test]
   fn analysis_options_change_the_settings_of_a_session_file() {
-    let dir = TempDir::new("session-options");
+    let dir = tempdir().unwrap();
     let request = write_session(
       dir.path(),
       &serde_json::json!({"gamma": 3, "resolve": "strict", "seed": 5}),
@@ -1054,7 +1015,7 @@ mod tests {
 
   #[test]
   fn printed_link_of_an_example_names_it_and_runs_the_same_analysis() {
-    let dir = TempDir::new("print-example");
+    let dir = tempdir().unwrap();
     let first = dir.path().join("first");
     let link = run_stdout(&["--example", "5-leaves", "--gamma", "3", "--print-link"], &first);
     assert_eq!(
@@ -1068,7 +1029,7 @@ mod tests {
 
   #[test]
   fn printed_link_of_tree_files_holds_an_inline_session_that_runs_the_same_analysis() {
-    let dir = TempDir::new("print-files");
+    let dir = tempdir().unwrap();
     let paths = write_trees(dir.path(), &[("ha", HA), ("na", NA)]);
     let first = dir.path().join("first");
     let link = run_stdout(
@@ -1091,7 +1052,7 @@ mod tests {
 
   #[test]
   fn link_with_data_trees_runs_them_with_their_labels() {
-    let dir = TempDir::new("link-data");
+    let dir = tempdir().unwrap();
     let out = dir.path().join("out");
     let link = "https://neherlab.github.io/treeknit-rs/?tree=HA=data:,((A,B),(C,(D,X)));&tree=NA=data:,((A,(B,X)),(C,D));&run&view=mccs";
     run(&["--link", link], &out);

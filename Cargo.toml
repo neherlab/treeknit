@@ -97,6 +97,9 @@ serde_plain = "=1.0.2"
 simplelog = "=0.12.2"
 strsim = "=0.11.1"
 strum = { version = "=0.28.0", features = ["derive"] }
+# Without the default getrandom feature, which would add a second getrandom version next to the
+# one of ring; the names of temporary directories need no cryptographic randomness.
+tempfile = { version = "=3.27.0", default-features = false }
 thiserror = "=2.0.21"
 tikv-jemallocator = "=0.7.0"
 tsify = "=0.5.8"
