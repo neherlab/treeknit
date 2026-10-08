@@ -72,7 +72,7 @@ TreeKnit.jl has no browser version. `packages/treeknit-wasm` compiles the core a
 - [x] **Inspector navigation (new)**: the inspector header clears a selection, and for a leaf or a branch of an MCC shows that MCC; Escape clears the selection in the inspector and the MCC table as in the drawings; the MCC lists take the remaining height [[src](../../packages/web/src/shell/Inspector.tsx)]
 - [x] **Local data**: the trees stay in the browser; a link reads remote files only from the addresses it names, and inline data enters a URL only through Copy link, in the fragment
 - [x] **Self-hosted assets**: the fonts, styles, scripts, and the WebAssembly module are bundled. The Content Security Policy allows WebAssembly compilation with `'wasm-unsafe-eval'`, and `connect-src 'self' https:` lets links read remote files
-- [x] **Hosting**: the workflow `.github/workflows/release.yml` deploys the app to GitHub Pages every night, from relative asset paths that work under any path. `just run-web prod` builds and serves it locally
+- [x] **Hosting**: the workflow `.github/workflows/release.yml` deploys the app of `main` to GitHub Pages every night when `main` has changed since the latest deployment, from relative asset paths that work under any path. `just run-web prod` builds and serves it locally
 
 ## Tests
 
