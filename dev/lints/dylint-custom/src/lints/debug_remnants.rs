@@ -1,6 +1,7 @@
 use clippy_utils::diagnostics::span_lint_and_help;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::Expr;
+use rustc_hir::def_id::LOCAL_CRATE;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_span::{ExpnKind, Span};
 
@@ -64,6 +65,12 @@ impl<'tcx> LateLintPass<'tcx> for DebugRemnants {
             return;
         }
 
+        // The standard output of a build script is the channel of its
+        // `cargo:` instructions, never debug output.
+        if level == "info" && is_build_script_crate(cx.tcx.crate_name(LOCAL_CRATE).as_str()) {
+            return;
+        }
+
         let framework = self.framework.as_str();
 
         span_lint_and_help(
@@ -74,5 +81,29 @@ impl<'tcx> LateLintPass<'tcx> for DebugRemnants {
             None,
             format!("replace with `{framework}::{level}!(...)` for structured logging"),
         );
+    }
+}
+
+/// Returns `true` for the crate name cargo gives a build script: `build_script_`
+/// followed by the file stem of the script (`build.rs` -> `build_script_build`).
+fn is_build_script_crate(crate_name: &str) -> bool {
+    crate_name.starts_with("build_script_")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_build_script_crate;
+
+    #[test]
+    fn build_script_crate_names_match() {
+        assert!(is_build_script_crate("build_script_build"));
+        assert!(is_build_script_crate("build_script_main"));
+    }
+
+    #[test]
+    fn library_and_binary_crate_names_do_not_match() {
+        assert!(!is_build_script_crate("treeknit_cli"));
+        assert!(!is_build_script_crate("build_scripts"));
+        assert!(!is_build_script_crate("my_build_script_build"));
     }
 }
