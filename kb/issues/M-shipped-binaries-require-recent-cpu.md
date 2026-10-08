@@ -2,7 +2,7 @@
 
 ## Summary
 
-The shipped builds (`just build prod`, `just build-cross prod`, and the releases on every channel) compile for a fixed CPU baseline, set in `dev/lib/dist-flags.sh`: Haswell (x86-64-v3 with AVX2 and FMA) on x86_64, and ARMv8.2-A extensions (LSE atomics, RDM, and others) on Linux aarch64. A binary built this way stops with `SIGILL` (illegal instruction) on an older CPU. The notes of each release, the README, and the PyPI description state the requirement; the CLI help does not, and neither wheel tags nor conda platforms can express it.
+The shipped builds (`just build prod`, `just build-cross prod`, and the releases on every channel) compile for a fixed CPU baseline, set in `dev/lib/dist-flags.sh`: Haswell (x86-64-v3 with AVX2 and FMA) on x86_64, and ARMv8.2-A extensions (LSE atomics, RDM, and others) on Linux aarch64. A binary built this way stops with `SIGILL` (illegal instruction) on an older CPU. The notes of each release, the README, and the PyPI and Docker Hub descriptions (`docs/channels/summary.md`) state the requirement; the CLI help does not, and neither wheel tags nor conda platforms can express it.
 
 ## Evidence
 

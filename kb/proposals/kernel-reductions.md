@@ -18,7 +18,7 @@ The proof of the cluster reduction for the hybridization number is in <a id="cit
 
 - **Chains**: a chain that both trees share stays as many effective leaves in the annealing. Ladder-like influenza trees have long chains, so the annealing walks over leaves whose removal cannot help more than the two chain ends
 - **Clusters**: TreeKnit's score counts, for each kept effective leaf, whether its first ancestor with two kept leaves below has the same clade in both trees, plus $\gamma$ per removed leaf <a id="cite-4"></a>[Barrat-Charlaix et al. 2022](https://doi.org/10.1371/journal.pcbi.1010394) [[4](#ref-4)], where $\gamma$ is the cost of one removal. Below a common cluster both trees hold the same leaves, so the term of a leaf inside the cluster depends only on decisions inside it while at least two of its leaves are kept. Whether the score of the whole pair is the sum of the scores of the two parts, including the case where the cluster keeps fewer than two leaves, is not proven
-- **Parallel work**: independent parts could run in parallel; today the port runs pairs in parallel only in rounds without resolution (README, "Deliberate differences from TreeKnit.jl")
+- **Parallel work**: independent parts could run in parallel; today the port runs pairs in parallel only in rounds without resolution (`docs/user/treeknit-jl.md`, "Deliberate differences from TreeKnit.jl")
 
 ## Constraints
 

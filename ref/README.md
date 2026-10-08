@@ -4,7 +4,7 @@ Reference version: TreeKnit 0.5.8 from `/workspace/legacy_julia_version`, branch
 `fix/issues-from-rust-port` (commit `186bf0d`), with TreeTools 0.6.14 on Julia 1.13.1. That branch
 fixes bugs found during the port; the Rust implementation follows it, including the strict-resolution
 fix for sisters whose MCC continues above a polytomy. Output goes to `../fixtures/<case>.json`.
-Simulated trees are also written to `../fixtures/sim/<case>/tree<k>.nwk`. The web app bundles these files as the examples of its **Load example** menu.
+Simulated trees are also written to `../fixtures/sim/<case>/tree<k>.nwk`. The web app bundles these files as the examples of its **Examples** menu.
 
 ## Environment
 
@@ -36,10 +36,8 @@ julia --project=/tmp/tkref/fixedenv /workspace/treeknit-rs/ref/simulate.jl      
 
 ## Format notes
 
-These go beyond the spec in the task.
-
 - Leaf sets are sorted string arrays. MCC lists are sorted by `(length, leaves)`. Split lists are sorted lexicographically.
-- The trees in each pair are labelled `t1`, `t2`, ….
+- The trees in each pair are labelled `t1`, `t2`, and so on.
 - `mccs_source` records where `mccs` came from: `given` (MCCs taken from the legacy tests), the seeded run, or true MCCs.
 - `fitch[i].mcc` is a 0-based index into `mccs`.
 - `n_leaves` is a per-tree leaf count.
@@ -50,6 +48,18 @@ These go beyond the spec in the task.
   - `pairwise_naive_mccs` maps `"i-j"` to the naive MCCs of that pair.
   - `multi_runs` holds 5 runs of `run_treeknit!(copies, OptArgs(K))` with `Random.seed!(i)`. Each run maps `"i-j"` to its MCCs.
 - Simulated cases also have `sim_params` and `true_mccs`, which maps `"i-j"` to `ARGTools.MCCs_from_arg(arg, i+1, j+1)`.
+
+## Tests that use the fixtures
+
+- `./dev/docker/run just test-rs` runs `packages/treeknit-io/tests/fixtures.rs`
+  - It checks every deterministic function exactly against the fixtures: naive MCCs, K-tree resolution, strict and liberal resolution with MCCs, node-to-MCC maps, polytomy sorting, energies and likelihoods of given configurations, and ARGs
+  - It compares the annealing outcomes of the two-tree cases with the 20 seeded runs of TreeKnit.jl, on the cases where all runs agree
+  - It does not read the `multi_runs` of cases with more than two trees yet (`kb/issues/N-reference-comparison-gaps.md`)
+- `./dev/docker/run just example accuracy [drop]`
+  - It compares the accuracy of TreeKnit.jl and of the port against the true MCCs of the simulated cases, as scaled variation of information
+  - It drops a fraction `drop` of the leaves of each tree (default 0.2) and reports how often the dropped leaves are placed with their true MCC
+
+`kb/reports/julia-rust-equivalence.md` describes the results and the remaining differences.
 
 ## Comparison with TreeKnit.jl (`perf/`)
 

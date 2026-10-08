@@ -63,7 +63,7 @@ All analyses run through one command, `treeknit <tree> <tree> [<tree> ...]`, in 
 - **Three or more trees** (MultiTreeKnit): the MCCs of every pair, and each tree resolved with all other trees. TreeKnit builds no ARG for more than two trees
 - **Resolution settings**: how much to resolve, trading wrong splits against extra reassortments
   - TreeKnit.jl presets `--better-trees` (joint resolution before inference, then each pair without further resolution: few wrong splits, more reassortments) and `--better-MCCs` (pairs resolved one after another, then for more than two trees a final round without resolution: more accurate MCCs, more wrong splits) [[doc](https://github.com/PierreBarrat/TreeKnit.jl/blob/dbbc89ac691fed0949a622eedbae103787b89320/docs/src/overview.md?plain=1#L72-L75)]
-  - This port: `--resolve matched|strict|liberal|none` and `--pre-resolve`, with the presets kept as former options [[doc](../../README.md#resolving-trees)]
+  - This port: `--resolve matched|strict|liberal|none` and `--pre-resolve`, with the presets kept as former options [[doc](../../docs/user/usage.md#resolving-trees)]
 - **Naive mode** (`--naive`): keeps only the clades that are identical in both trees, so it overestimates reassortments
 - **Display**: `--auspice-view` writes Auspice JSON for a <a id="gloss-use-7"></a>tanglegram <sup>[7](#gloss-7)</sup> colored by MCC. This port also writes SVG figures with `--plot`
 - **Trees with different leaf sets** (this port only): inference on the shared leaves, and placement of the missing leaves with `--impute` (see [`partial-overlap.md`](../feat/partial-overlap.md))
@@ -78,7 +78,7 @@ All analyses run through one command, `treeknit <tree> <tree> [<tree> ...]`, in 
 
 ## Outputs
 
-The file names are those of TreeKnit.jl 0.5 and this port. The full list is in the [README](../../README.md#usage) and in [`formats.md`](../feat/formats.md).
+The file names are those of TreeKnit.jl 0.5 and this port. The full list is in the [command-line reference](../../docs/user/cli.md#output-files) and in [`formats.md`](../feat/formats.md).
 
 - **`MCCs.json`**: for each pair of trees, the list of MCCs, each a list of leaf names. `MCCs.dat` holds the same MCCs in the text format of TreeKnit.jl before 0.5, which `treetime arg` reads
 - **`<tree>_resolved.nwk`**: each input tree with polytomies resolved by the other trees, with polytomies sorted for tanglegrams
@@ -234,7 +234,7 @@ The study recommends 1 round with pre-resolution and a final round without resol
 ## Relation to this port
 
 - **Pipeline**: the port runs the multi-tree pipeline in `pub fn run_observed()` [[src](../../packages/treeknit-core/src/pipeline.rs#L189)], with independent pairs in parallel and seeded runs
-- **Default resolution**: `matched` resolves all trees so that, for every pair and every MCC, the two trees restricted to the MCC's leaves have the same topology. When splits from different trees conflict inside a shared region, the MCC is replaced by the maximal clades on which its two trees agree [[doc](../../README.md#resolving-trees)]. This satisfies the topological compatibility condition by construction. The TreeKnit.jl presets remain available as former options with their original meaning (see [README section "Deliberate differences from TreeKnit.jl"](../../README.md#deliberate-differences-from-treeknitjl))
+- **Default resolution**: `matched` resolves all trees so that, for every pair and every MCC, the two trees restricted to the MCC's leaves have the same topology. When splits from different trees conflict inside a shared region, the MCC is replaced by the maximal clades on which its two trees agree [[doc](../../docs/user/usage.md#resolving-trees)]. This satisfies the topological compatibility condition by construction. The TreeKnit.jl presets remain available as former options with their original meaning (see [section "Former options" of `docs/user/treeknit-jl.md`](../../docs/user/treeknit-jl.md#former-options))
 - **Triplet consistency**: no mode enforces it, and the port does not report violations. [`N-cross-pair-mcc-consistency-unreported.md`](../issues/N-cross-pair-mcc-consistency-unreported.md) records the open decision. The check it proposes is the partition test that MTKTools uses for its metric
   - **Measured violations**: the MCCs of the port violate the condition on the simulated fixtures in every resolution mode, and on the four-segment H3N2 data in both settings measured (see [`cross-pair-mcc-consistency.md`](../proposals/cross-pair-mcc-consistency.md#measured-inconsistency))
 - **ARG**: built for two trees only, as in TreeKnit.jl

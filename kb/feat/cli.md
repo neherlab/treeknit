@@ -35,6 +35,7 @@ Counterpart: [`v0/cli.md`](v0/cli.md). The port parses the command line with `cl
 - [x] **`--link <URL>` (new)**: runs a link of the web app: its input, settings, and `run`, with the keys of the display ignored (the log lists the ignored keys with their suggestions). Analysis options change its settings. `from=` needs a browser window and stops the command
 - [x] **`--print-link` (new)**: after the run, prints the link of the web app that runs the same analysis to standard output: the canonical link when every tree has an address (`--example`, or `https:` and `data:` trees), otherwise an inline session in the fragment; above 32,000 characters it prints nothing and logs that the session file, which it writes into the results directory, can be shared instead
 - [x] **`--help-resolve` (new)**: explains the resolution modes and the former options [[src](../../packages/treeknit-cli/src/main.rs#L18-L68)]
+- [x] **`--help-markdown` (new)**: hidden. Prints the command-line reference `docs/user/cli.md`: the texts of `--help` and `--help-resolve`, and the output files of `treeknit_io::output::file_reference` with their descriptions. `just gen` writes the page, and `just generated-check` fails when it is stale
 
 ## Flags
 

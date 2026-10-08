@@ -1,0 +1,36 @@
+cff-version: "1.2.0"
+message: "If you use TreeKnit, please cite the article that describes the method."
+type: "software"
+title: "TreeKnit"
+abstract: "TreeKnit infers reassortment from the trees of the segments of a virus: maximally compatible clades (MCCs) for every pair of trees, trees with polytomies resolved using the other trees, and for two trees an ancestral reassortment graph (ARG)."
+authors:
+  - family-names: "Barrat-Charlaix"
+    given-names: "Pierre"
+  - family-names: "Vaughan"
+    given-names: "Timothy G."
+  - family-names: "Neher"
+    given-names: "Richard A."
+repository-code: "https://github.com/neherlab/treeknit"
+url: "https://neherlab.github.io/treeknit/"
+license: "MIT"
+keywords:
+  - "phylogenetics"
+  - "reassortment"
+  - "ancestral reassortment graph"
+  - "influenza"
+preferred-citation:
+  type: "article"
+  title: "TreeKnit: Inferring ancestral reassortment graphs of influenza viruses"
+  authors:
+    - family-names: "Barrat-Charlaix"
+      given-names: "Pierre"
+    - family-names: "Vaughan"
+      given-names: "Timothy G."
+    - family-names: "Neher"
+      given-names: "Richard A."
+  journal: "PLOS Computational Biology"
+  year: 2022
+  volume: 18
+  issue: 8
+  start: "e1010394"
+  doi: "10.1371/journal.pcbi.1010394"

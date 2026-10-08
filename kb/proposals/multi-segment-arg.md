@@ -25,7 +25,7 @@ So the intended use of the ARG must be chosen first. It decides what counts as a
 
 An ARG of $K$ segments has one embedded tree per segment, and the regions that two segments share in it are the MCCs of their pair. Pairwise MCCs can come from one ARG only if they satisfy these conditions:
 
-- **Topological compatibility**: each MCC has the same topology in its two output trees. `Resolution::Matched` guarantees this for every pair (see [README section "Resolving trees"](../../README.md#resolving-trees))
+- **Topological compatibility**: each MCC has the same topology in its two output trees. `Resolution::Matched` guarantees this for every pair (see [section "Resolving trees" of `docs/user/usage.md`](../../docs/user/usage.md#resolving-trees))
 - **Triplet condition**: $P_{ij} \wedge P_{ik} \le P_{jk}$ for every triplet of trees and every orientation, where $P_{ij}$ is the partition of the leaves into the MCCs of trees $i$ and $j$ (see [`cross-pair-mcc-consistency.md`](cross-pair-mcc-consistency.md#the-condition))
 - **Consistent joining**: when the shared nodes of all pairs are joined transitively, no class of joined nodes contains two nodes of the same tree
 - **Acyclicity**: the joined graph has no directed cycle. The MCCs of each pair form an <a id="gloss-use-1"></a>acyclic agreement forest <sup>[1](#gloss-1)</sup> (see [`agreement-forest-validation.md`](agreement-forest-validation.md)), but no argument shows that the graph joined over all pairs stays acyclic

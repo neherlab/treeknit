@@ -35,7 +35,7 @@ Surveyed revision: `main` at `93a8e03` (2026-10-05). The survey reads the code a
 
 ## Where differences are recorded
 
-- **Approved differences**: the README section [Deliberate differences from TreeKnit.jl](../../README.md#deliberate-differences-from-treeknitjl), and [`kb/decisions/web-app.md`](../decisions/web-app.md)
+- **Approved differences**: the section [Deliberate differences from TreeKnit.jl](../../docs/user/treeknit-jl.md#deliberate-differences-from-treeknitjl) of `docs/user/treeknit-jl.md`, and [`kb/decisions/web-app.md`](../decisions/web-app.md)
 - **Differences without approval**: [`N-undocumented-differences-from-treeknit-jl.md`](../issues/N-undocumented-differences-from-treeknit-jl.md) lists the behavior that differs from TreeKnit.jl and that no document approves yet
 
 ## Comparison with TreeKnit.jl

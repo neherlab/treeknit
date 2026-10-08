@@ -13,7 +13,7 @@ Counterpart: [`v0/pipeline.md`](v0/pipeline.md). `treeknit_core::run` runs the p
 - [x] **`naive`**: a field of `Options`. In TreeKnit.jl it is a keyword of `run_treeknit!`
 - [x] **`sort_strict` (new)**: chooses the strict or non-strict polytomy sort, to reproduce the output order of the former option combinations. `sort_strictness` gives the choice of a run [[src](../../packages/treeknit-core/src/pipeline.rs#L95-L105)]
 - [x] **Temperatures**: `Options::temperatures` computes the list from the four schedule fields at each call [[src](../../packages/treeknit-core/src/options.rs#L125-L127)]. TreeKnit.jl computes `Trange` once, so a later change of a field has no effect there
-- [x] **Defaults**: `matched` resolution and no pre-resolution, for any number of trees. This differs from TreeKnit.jl on purpose ([README](../../README.md#deliberate-differences-from-treeknitjl)). All other defaults are those of `OptArgs()`
+- [x] **Defaults**: `matched` resolution and no pre-resolution, for any number of trees. This differs from TreeKnit.jl on purpose ([`docs/user/treeknit-jl.md`](../../docs/user/treeknit-jl.md#deliberate-differences-from-treeknitjl)). All other defaults are those of `OptArgs()`
 
 ### Cooling schedules
 
@@ -73,7 +73,7 @@ The output trees are sorted for the last pair that sorted them. A view of anothe
 
 ## Parallel mode
 
-- [x] **Independent pairs in parallel**: in a round without resolution, `rayon` infers all pairs in parallel [[src](../../packages/treeknit-core/src/pipeline.rs#L231-L255)]. Resolving rounds run the pairs one after another, because each pair changes the trees of later pairs. TreeKnit.jl resolves shared trees in concurrent tasks; the port avoids this on purpose ([README](../../README.md#deliberate-differences-from-treeknitjl))
+- [x] **Independent pairs in parallel**: in a round without resolution, `rayon` infers all pairs in parallel [[src](../../packages/treeknit-core/src/pipeline.rs#L231-L255)]. Resolving rounds run the pairs one after another, because each pair changes the trees of later pairs. TreeKnit.jl resolves shared trees in concurrent tasks; the port avoids this on purpose ([`docs/user/treeknit-jl.md`](../../docs/user/treeknit-jl.md#deliberate-differences-from-treeknitjl))
 - [x] **Same result for any thread count**: each pair seeds its own generator (see below), so the order of execution does not change the result
 - [x] **On by default**: `Options::default()` has `parallel = true`. The command line sets the thread count with `--threads`. The web app runs on one thread ([`kb/decisions/web-app.md`](../decisions/web-app.md))
 

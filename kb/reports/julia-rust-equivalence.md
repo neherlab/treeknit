@@ -96,7 +96,7 @@ The units of one four-tree ARG share trees, so the intervals are somewhat narrow
 
 ## Port default against the TreeKnit.jl default
 
-The port's default (`--resolve matched` without pre-resolution, also the web app setting) is a deliberate difference from TreeKnit.jl (README, "Deliberate differences from TreeKnit.jl").
+The port's default (`--resolve matched` without pre-resolution, also the web app setting) is a deliberate difference from TreeKnit.jl (`docs/user/treeknit-jl.md`, "Deliberate differences from TreeKnit.jl").
 
 - **Two trees**: the default and `--better-MCCs` gave byte-identical `MCCs.json` in all 180 runs on simulated trees with polytomies. Only the resolved trees differ. The pairwise resolution inside inference equals the pre-resolution for two trees, and the matching step changed no MCC in these runs
 - **Four trees**: on trees with polytomies the default is far more accurate than `--better-trees`, the TreeKnit.jl default for more than two trees: scaled VI 0.104 against 0.187, and MCC count error -0.5 against +31. `--better-trees` never resolves the trees with the inferred MCCs, so polytomies that the pre-resolution cannot remove remain as incompatibilities; the large excess of MCCs is consistent with this. On binary trees both give the same result
@@ -107,8 +107,8 @@ The port's default (`--resolve matched` without pre-resolution, also the web app
 The test `packages/treeknit-io/tests/fixtures.rs` compares the port with fixtures written by `ref/` from a TreeKnit.jl branch `fix/issues-from-rust-port` (commit `186bf0d`), which carries fixes made during the port. That branch is not in the TreeKnit.jl repository. Regenerating the deterministic fixture fields with the released 0.5.8 and comparing them with the committed fixtures shows that they differ only in:
 
 - **Naive MCCs of three or more trees**: 0.5.8 fails with a `MethodError` in `is_coherent_clade`; the pairwise naive MCCs agree
-- **Strict resolution with MCCs**: two simulated cases, where the port and the branch add a split that 0.5.8 rejects (README, "Deliberate differences from TreeKnit.jl")
-- **Likelihood with missing branch lengths**: one case, where 0.5.8 gives `missing` and the branch gives 0 (README, "Deliberate differences from TreeKnit.jl")
+- **Strict resolution with MCCs**: two simulated cases, where the port and the branch add a split that 0.5.8 rejects (`docs/user/treeknit-jl.md`, "Deliberate differences from TreeKnit.jl")
+- **Likelihood with missing branch lengths**: one case, where 0.5.8 gives `missing` and the branch gives 0 (`docs/user/treeknit-jl.md`, "Deliberate differences from TreeKnit.jl")
 
 The seeded runs of `run_treeknit!` for two trees, the pre-resolution, the energies, the Fitch maps, the leaf orders, and the ARGs agree with 0.5.8. The fixture test passes with 5169 checks. The annealing comparison in that test asserts only on cases where all TreeKnit.jl runs agree, and the `multi_runs` field is not read ([`N-reference-comparison-gaps.md`](../issues/N-reference-comparison-gaps.md)); the four-tree comparisons above fill that gap once, outside the test suite.
 
@@ -117,7 +117,7 @@ The seeded runs of `run_treeknit!` for two trees, the pre-resolution, the energi
 A comparison of the code of both implementations, function by function, found the inference identical except for these points:
 
 - **Unary nodes**: the port's naive MCCs overlap and inference panics ([`H-naive-mccs-overlap-with-unary-nodes.md`](../issues/H-naive-mccs-overlap-with-unary-nodes.md))
-- **Negative, infinite, or NaN branch lengths**: the port counts them as missing in the likelihood tie-break; TreeKnit.jl stops with `DomainError` (README, "Deliberate differences from TreeKnit.jl")
+- **Negative, infinite, or NaN branch lengths**: the port counts them as missing in the likelihood tie-break; TreeKnit.jl stops with `DomainError` (`docs/user/treeknit-jl.md`, "Deliberate differences from TreeKnit.jl")
 - **Command-line options that TreeKnit.jl ignores**: the port applies `--gamma`, `--n-mcmc-it`, `--no-likelihood`, `--seq-lengths`, and an explicit `--rounds 1` ([`N-undocumented-differences-from-treeknit-jl.md`](../issues/N-undocumented-differences-from-treeknit-jl.md))
 - **Order of the likelihood sum**: TreeKnit.jl sums the likelihood terms in the hash order of the graph labels, the port in MCC order. The test keeps only configurations of exactly maximal likelihood, so a rounding difference could turn an exact tie into a strict winner, or the reverse. This is not measured; the result distributions above show no effect
 - **Random-number use**: TreeKnit.jl draws one unused random number per temperature, and the port draws one when choosing among a single configuration. This changes the random streams, not the distributions

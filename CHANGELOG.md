@@ -1,30 +1,24 @@
 # Changelog
 
-Each release has a section `## <version>`, which becomes the notes of its release on the releases page. Changes that are not released yet go under `## Unreleased`; `dev/release <version>` renames that heading when it prepares the release.
-
 ## Unreleased
 
-First release of the Rust port of [TreeKnit.jl](https://github.com/PierreBarrat/TreeKnit.jl), which infers reassortment from segment trees.
+First release of TreeKnit, a Rust port of [TreeKnit.jl](https://github.com/PierreBarrat/TreeKnit.jl), which infers reassortment from segment trees.
 
-- **MCCs**: maximally compatible clades for every pair of trees, compatible with the `MCCs.json` and `MCCs.dat` output of TreeKnit.jl
+- **MCCs**: maximally compatible clades for every pair of trees, in the `MCCs.json` and `MCCs.dat` formats of TreeKnit.jl
 - **Resolution**: polytomies resolved using the other trees (`--resolve matched|strict|liberal|none`)
 - **ARG**: for two trees, an ancestral reassortment graph in extended Newick
-- **Different leaf sets**: inference uses the leaves a pair shares; leaves missing from one tree are imputed into it
-- **Input checks**: the command line and the web app check the trees and settings with the same rules and report every error before a run: a negative or non-finite γ, sequence lengths that are not positive, zero rounds or MCMC steps, more than 2^32 - 2 rounds or 2^32 - 1 MCMC steps per leaf (the counts of the 32-bit WebAssembly build of the web app, so both surfaces accept the same settings), a seed above 2^53 - 1, tree labels that cannot be file names, output file names that are longer than 255 bytes or that would be the same, and pairs that share fewer than two leaves
-- **Reproducible runs**: `--seed` fixes the result, and independent tree pairs run in parallel with identical results
-- **Seed range (breaking)**: `--seed` accepts at most 2^53 - 1 (9007199254740991). Earlier builds of the port accepted any 64-bit value, so a script that passes a larger seed, such as a nanosecond timestamp, now stops with an error. The web app keeps the seed in its session file, and JavaScript numbers hold integers exactly only up to 2^53 - 1, so a larger seed would change on its way through the app
-- **Tree label characters (breaking)**: a tree label names the output files of its tree, so on every platform it must not contain a character that Windows reserves (`<>:"|?*`), and labels that differ only in case count as one label. The command line labels a tree by its file name, so a Linux file such as `2024-01-01T10:00.nwk`, which earlier builds of the port accepted, now stops the command until it is renamed. Files whose names differ only in case, such as `a/HA.nwk` and `b/ha.nwk`, get the name of their directory in the label, as files with equal names do
-- **Output names follow tree labels**: every output file of a tree is named after its label. Earlier builds of the port named the trees of input files with the same name, such as `a/ha.nwk` and `b/ha.nwk`, by their labels `ha_a` and `ha_b` in `MCCs.json`, but wrote both resolved trees to `ha_resolved.nwk`, so the second overwrote the first; they are now `ha_a_resolved.nwk` and `ha_b_resolved.nwk`
-- **Session files**: `treeknit --session treeknit_session.json` runs the trees and settings of a session file that the web app saves; the command that the web app shows writes the output files of the web app, with the same bytes except the times in `log.txt`, into `treeknit_results_cli/` next to the extracted files
-- **Links**: a link of the web app names trees (built-in examples, https: files including GitHub and Zenodo pages, inline text), settings, a run, and a view, such as `?example=h3n2-2017&run&view=tanglegram`; the address bar then describes the shown result, and "Copy link" shares local trees in the part after `#`, which no server receives. Another page can open the web app and send it a session file (`from=opener` or `from=parent`)
-- **Command line and links**: the analysis options have the names of the keys of links, each flag has its opposite (`--no-pre-resolve`, `--final-round`, `--likelihood`, `--no-naive`), `--seq-lengths` takes commas, tree arguments take `<label>=` and https: addresses, and gzip-compressed files are read. `--example` runs a built-in example, `--link` runs a link, `--print-link` prints the link of a run, and analysis options change the settings of a session file instead of conflicting with it
-- **Error output**: mistakes in the input are listed one per line; any other failure, such as a results directory that cannot be created, prints its chain of causes, numbered, and a crash prints where to report it
-- **Deep trees**: Newick trees of any nesting depth are read and written; the reader no longer overflows the stack on ladder-like trees
-- **Invalid branch lengths (breaking)**: a branch length that is not a number, such as `:0.R`, or that is too large for a 64-bit float, is a parse error with its line and column. Earlier builds of the port read it as a missing length with a warning, as TreeKnit.jl does
-- **Quoted ARG labels**: `ARG/arg.nwk` quotes labels that Newick reads differently without quotes, such as `'B,1'`, so the file stays readable; TreeKnit.jl and earlier builds of the port wrote them as they are
-- **Figures**: `--plot` writes an SVG tanglegram of each pair and, for two trees with a built ARG, an SVG figure of the ARG
-- **Every option takes effect**: in TreeKnit.jl 0.5.8, `--gamma`, `--n-mcmc-it`, `--no-likelihood`, `--seq-lengths` and `--parallel` are silently ignored
-- **Prebuilt binaries**: the CLI for Linux (glibc and static musl), macOS, and Windows; the Linux binaries allocate memory with jemalloc
-- **Install channels**: the same binaries install with `pip install treeknit` (PyPI wheels for Linux, macOS, and Windows), `conda install -c bioconda treeknit` (Linux and macOS), and `docker run neherlab/treeknit` (images based on Debian, Alpine, or nothing but the binary, for x86_64 and ARM64)
-- **Web app**: the same analyses in the browser, on the WebAssembly build of the core
-- **New address**: the repository moved to [github.com/neherlab/treeknit](https://github.com/neherlab/treeknit) and the web app to [neherlab.github.io/treeknit](https://neherlab.github.io/treeknit/). Links to the old web address `neherlab.github.io/treeknit-rs` no longer work; replace `treeknit-rs` with `treeknit` in them
+- **Different leaf sets**: inference uses the leaves a pair shares, and leaves missing from one tree are imputed into it (`--impute`)
+- **Figures**: `--plot` writes an SVG tanglegram of each pair and, for two trees, an SVG figure of the ARG
+- **Reproducible runs**: `--seed` fixes the result, whatever the number of threads
+- **Input checks**: every error in the trees and settings is reported before a run, one per line
+- **Web app**: the same analyses in the browser at [neherlab.github.io/treeknit](https://neherlab.github.io/treeknit/). `--session`, `--example`, `--link`, and `--print-link` move an analysis between the web app and the command line
+- **Install**:
+  - prebuilt binaries for Linux, macOS, and Windows
+  - `pip install treeknit`
+  - `conda install -c bioconda treeknit`
+  - `docker pull neherlab/treeknit`
+- **For users of TreeKnit.jl**: the [page for users of TreeKnit.jl](https://github.com/neherlab/treeknit/blob/main/docs/user/treeknit-jl.md) lists every difference. The main ones:
+  - the default resolution is `matched` for any number of trees
+  - `--gamma`, `--n-mcmc-it`, `--no-likelihood`, and `--seq-lengths` take effect
+  - the former method options still work
+- **Documentation**: the [command-line reference](https://github.com/neherlab/treeknit/blob/main/docs/user/cli.md) lists every option and output file

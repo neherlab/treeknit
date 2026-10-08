@@ -8,7 +8,7 @@ Counterpart: [`v0/formats.md`](v0/formats.md). `treeknit-io` reads and writes al
 
 - [/] **Several trees in one file**: the first tree is used, with the warning "<label>: more than one tree in file, using the first". A tree ends at the first `;` outside quoted labels and `[...]` comments, and any text after it other than comments counts as more trees, so `('a;b',C);[x;y]` is one tree and `(A,B);x` gives the warning. The validation logs the warning and the tree inspection of the web app reports it, also when the first tree has an unnamed or a duplicate leaf; a first tree that does not parse gives its parse error alone. TreeKnit.jl reads a vector, which its command line does not handle
 - [x] **Terminator**: `;` is required. Whitespace, `\r`, and comments after it are accepted; TreeTools.jl rejects them. A byte order mark is a parse error
-- [/] **Branch lengths**: numbers with an optional sign, a leading point (`.5`), and an exponent, read as `f64`. A length that is not a number (`0.R`) or too large for `f64` (`1e999`) is a parse error with its line and column. TreeTools.jl reads an invalid length as missing; this differs on purpose ([README](../../README.md#deliberate-differences-from-treeknitjl))
+- [/] **Branch lengths**: numbers with an optional sign, a leading point (`.5`), and an exponent, read as `f64`. A length that is not a number (`0.R`) or too large for `f64` (`1e999`) is a parse error with its line and column. TreeTools.jl reads an invalid length as missing; this differs on purpose ([`docs/user/treeknit-jl.md`](../../docs/user/treeknit-jl.md#deliberate-differences-from-treeknitjl))
 - [x] **Root**: the root branch length is dropped. A root polytomy stays a polytomy
 - [x] **Unnamed internal nodes**: `NODE_<k>`, numbered in pre-order for each tree [[src](../../packages/treeknit-io/src/newick.rs#L187-L218)]
 - [/] **Unnamed leaves**: an error "unnamed leaf". TreeTools.jl names them `NODE_<k>`
@@ -78,7 +78,7 @@ See [`arg.md`](arg.md#extended-newick-output).
 `fn node_table` [[src](../../packages/treeknit-io/src/arg.rs#L47-L62)]:
 
 - [x] **Lines**: `<ARG label>,<label in tree 1>,<label in tree 2>`, with one space for an absent node, in ARG node order
-- [x] **Consistency**: the tree labels name nodes of the trees in `ARG/*_liberal_resolved*`, including the inserted singletons. In TreeKnit.jl, those files lack the singletons. This differs on purpose ([README](../../README.md#deliberate-differences-from-treeknitjl))
+- [x] **Consistency**: the tree labels name nodes of the trees in `ARG/*_liberal_resolved*`, including the inserted singletons. In TreeKnit.jl, those files lack the singletons. This differs on purpose ([`docs/user/treeknit-jl.md`](../../docs/user/treeknit-jl.md#deliberate-differences-from-treeknitjl))
 - [/] **Line end**: a newline after the last line; TreeKnit.jl writes none. Labels with `,` make the table ambiguous ([`M-arg-outputs-unquoted-labels.md`](../issues/M-arg-outputs-unquoted-labels.md))
 
 ## `auspice_<label>.json`

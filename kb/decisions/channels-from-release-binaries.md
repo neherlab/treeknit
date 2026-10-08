@@ -20,4 +20,4 @@ TreeKnit is published on GitHub Releases, PyPI (`pip install treeknit`), Docker 
 
 - A platform without a release target has no wheel, image, or conda package; adding a target to `dev/cross/targets` adds it to `dev/pypi-wheels`, `dev/release-notes`, and, for Linux and macOS, the Bioconda recipe
 - The glibc version of the `-gnu` builds is a promise of the wheel tags, the Bioconda recipe, and the release notes; `dev/cross/check` fails a build that needs a glibc newer than 2.17
-- Every channel inherits the CPU requirement of the shipped builds ([`M-shipped-binaries-require-recent-cpu.md`](../issues/M-shipped-binaries-require-recent-cpu.md)), which wheel tags and conda platforms cannot express; the release notes, the README, and the PyPI description state it
+- Every channel inherits the CPU requirement of the shipped builds ([`M-shipped-binaries-require-recent-cpu.md`](../issues/M-shipped-binaries-require-recent-cpu.md)), which wheel tags and conda platforms cannot express; the release notes, the README, and the PyPI and Docker Hub descriptions (`docs/channels/summary.md`) state it

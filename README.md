@@ -1,155 +1,116 @@
-# TreeKnit (Rust)
+# TreeKnit
 
-A port of [TreeKnit.jl](https://github.com/PierreBarrat/TreeKnit.jl), which infers reassortment from segment trees:
-- **maximally compatible clades** (MCCs) for every pair of trees;
-- **polytomies resolved** using the other trees;
-- for two trees, an **ancestral reassortment graph** (ARG) in extended Newick.
+<p align="center">
+  <a href="https://github.com/neherlab/treeknit/actions/workflows/ci.yml">
+    <img src="https://github.com/neherlab/treeknit/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/github/license/neherlab/treeknit" alt="License" />
+  </a>
+  <a href="https://doi.org/10.1371/journal.pcbi.1010394">
+    <img src="https://img.shields.io/badge/DOI-10.1371%2Fjournal.pcbi.1010394-blue" alt="DOI" />
+  </a>
+</p>
 
-The algorithm is described in Barrat-Charlaix, Vaughan & Neher, *PLoS Comput Biol* 18(8): e1010394 (2022).
+<p align="center">
+  <a href="https://github.com/neherlab/treeknit/releases">
+    <img src="https://img.shields.io/github/v/release/neherlab/treeknit?logo=github&label=release" alt="GitHub release" />
+  </a>
+  <a href="https://pypi.org/project/treeknit/">
+    <img src="https://img.shields.io/pypi/v/treeknit?logo=pypi&logoColor=white&label=pypi" alt="PyPI" />
+  </a>
+  <a href="https://anaconda.org/bioconda/treeknit">
+    <img src="https://img.shields.io/conda/vn/bioconda/treeknit?logo=anaconda&label=bioconda" alt="Bioconda" />
+  </a>
+  <a href="https://hub.docker.com/r/neherlab/treeknit">
+    <img src="https://img.shields.io/docker/v/neherlab/treeknit?logo=docker&label=docker&sort=semver" alt="Docker" />
+  </a>
+</p>
 
-Compared with the Julia version:
-- The trees may have different leaf sets. Inference uses the leaves a pair shares. Afterwards, leaves missing from one tree are attached to the MCC of their neighbours and imputed into that tree.
-- Runs are reproducible (`--seed`), and independent tree pairs run in parallel with identical results.
-- Every command-line option takes effect. In TreeKnit.jl 0.5.8, `--gamma`, `--n-mcmc-it`, `--no-likelihood`, `--seq-lengths` and `--parallel` are silently ignored.
+<p align="center">
+  <a href="https://github.com/neherlab/treeknit/commits">
+    <img src="https://img.shields.io/github/last-commit/neherlab/treeknit?logo=github" alt="GitHub last commit" />
+  </a>
+  <a href="https://github.com/neherlab/treeknit/commits">
+    <img src="https://img.shields.io/github/commit-activity/w/neherlab/treeknit" alt="GitHub commit activity" />
+  </a>
+  <a href="https://github.com/neherlab/treeknit/graphs/contributors">
+    <img src="https://img.shields.io/github/contributors/neherlab/treeknit?logo=github&label=developers" alt="GitHub contributors" />
+  </a>
+</p>
 
-## Usage
+<p align="center">
+  <a href="https://github.com/neherlab/treeknit/releases">
+    <img src="https://img.shields.io/github/downloads/neherlab/treeknit/total?logo=github&label=github%20downloads" alt="GitHub downloads" />
+  </a>
+  <a href="https://pypi.org/project/treeknit/">
+    <img src="https://img.shields.io/pypi/dm/treeknit?logo=pypi&logoColor=white&label=pypi%20downloads" alt="PyPI downloads" />
+  </a>
+  <a href="https://anaconda.org/bioconda/treeknit">
+    <img src="https://img.shields.io/conda/dn/bioconda/treeknit?logo=anaconda&label=bioconda%20downloads" alt="Bioconda downloads" />
+  </a>
+  <a href="https://hub.docker.com/r/neherlab/treeknit">
+    <img src="https://img.shields.io/docker/pulls/neherlab/treeknit?logo=docker&label=docker%20pulls" alt="Docker pulls" />
+  </a>
+  <a href="https://github.com/neherlab/treeknit/stargazers">
+    <img src="https://img.shields.io/github/stars/neherlab/treeknit?style=flat&logo=github" alt="GitHub stars" />
+  </a>
+</p>
 
-Each release publishes the CLI for Linux, macOS, and Windows on the [releases page](https://github.com/neherlab/treeknit/releases), with the changes of the release from `CHANGELOG.md`. The same binaries are available from these channels:
+TreeKnit infers reassortment from the trees of the segments of a virus, such as the HA and NA trees of influenza:
 
-- **pip**: `pip install treeknit`, or `pipx install treeknit`, or `uvx treeknit` to run it without installing it. Wheels exist for Linux on x86_64 and ARM64 (glibc 2.17 or newer, or musl), macOS 10.12 or newer on Intel and 11.0 or newer on Apple Silicon, and Windows on x86_64
-- **Conda**: `conda install -c bioconda treeknit`, on Linux and macOS
-- **Docker**: `docker run --rm --user="$(id -u):$(id -g)" --volume="$PWD:/data" --workdir=/data neherlab/treeknit treeknit ha.nwk na.nwk -o results`. The default image is based on Debian, `neherlab/treeknit:alpine` on Alpine, and `neherlab/treeknit:scratch` holds only the binary; tags such as `1.0.0-debian13` or `alpine3.24` select a version and a base
+- **Maximally compatible clades** (MCCs) for every pair of trees: the largest sets of leaves whose subtrees have the same topology in both trees. Leaves of one MCC share their history in both segments, and a reassortment separates two MCCs
+- **Resolved trees**: polytomies (nodes with more than two children) resolved with the splits of the other trees
+- For two trees, an **ancestral reassortment graph** (ARG) in extended Newick: one network that holds the histories of both segments, with a hybrid node for each reassortment
 
-The x86_64 builds need a Haswell (2013) or newer CPU, and the Linux ARM64 builds an ARMv8.2-A CPU.
+This is a Rust port of [TreeKnit.jl](https://github.com/PierreBarrat/TreeKnit.jl).
 
-The [web app](https://neherlab.github.io/treeknit/) runs the same analyses in the browser and follows `main`. A link to it can name trees, settings, a run, and a view, such as [`?example=h3n2-2017&run&view=tanglegram`](https://neherlab.github.io/treeknit/?example=h3n2-2017&run&view=tanglegram); its help page lists the keys, which the analysis options of the command line share. To build the CLI from source:
+## Quick start
+
+Install TreeKnit and run it on two trees:
 
 ```sh
-cargo build --release
-target/release/treeknit ha.nwk na.nwk [more.nwk ...] -o results
+pip install treeknit
+treeknit ha.nwk na.nwk -o results
 ```
 
-Main options:
+The results directory then holds:
 
-| Option | Effect |
+- `MCCs.json`: the MCCs
+- `ha_resolved.nwk`, `na_resolved.nwk`: the resolved trees
+- `ARG/arg.nwk`: the ARG
+- with `--plot`: SVG figures of the tanglegram and the ARG
+
+## Install
+
+The links download the binaries of the latest [release](https://github.com/neherlab/treeknit/releases).
+
+| Channel | Install |
 |---|---|
-| `-g/--gamma` | cost of a reassortment (default 2) |
-| `HA=seg4.nwk`, `https://...` | trees: files (gzip-compressed or not) or https: addresses, with an optional label |
-| `--seq-lengths 1700,1400` | segment lengths for the branch-length tie-break and the drawn length of a split that some trees lack |
-| `--resolve matched\|strict\|liberal\|none` | how trees are resolved (default `matched`, see below); `--help-resolve` explains the modes |
-| `--pre-resolve`, `--rounds`, `--no-final-round` | further control of tree resolution; each flag has its opposite (`--no-pre-resolve`, `--final-round`, `--likelihood`, `--no-naive`) |
-| `--naive` | naive MCCs (γ → ∞) |
-| `--impute` | also write trees with missing leaves placed |
-| `--auspice-view` | auspice JSON for tanglegrams |
-| `--plot` | SVG figures: a tanglegram per pair and, for two trees, the ARG |
-| `--seed`, `--threads` | reproducibility and parallelism |
-| `-v`, `--verbosity-level` | logging detail |
-| `--session treeknit_session.json` | run the trees and settings of a session file saved by the web app, a path or an https: address; analysis options change its settings |
-| `--example h3n2-2017`, `--list-examples` | run a built-in example of the web app, or list them |
-| `--link <url>`, `--print-link` | run a link of the web app, or print the link that runs the analysis in the browser |
+| Linux x86_64 | [glibc](https://github.com/neherlab/treeknit/releases/latest/download/treeknit-x86_64-unknown-linux-gnu), [musl](https://github.com/neherlab/treeknit/releases/latest/download/treeknit-x86_64-unknown-linux-musl)\* |
+| Linux ARM64 | [glibc](https://github.com/neherlab/treeknit/releases/latest/download/treeknit-aarch64-unknown-linux-gnu), [musl](https://github.com/neherlab/treeknit/releases/latest/download/treeknit-aarch64-unknown-linux-musl)\* |
+| macOS | [Apple Silicon](https://github.com/neherlab/treeknit/releases/latest/download/treeknit-aarch64-apple-darwin), [Intel](https://github.com/neherlab/treeknit/releases/latest/download/treeknit-x86_64-apple-darwin) |
+| Windows | [x86_64](https://github.com/neherlab/treeknit/releases/latest/download/treeknit-x86_64-pc-windows-gnu.exe) |
+| pip | `pip install treeknit` |
+| Conda | `conda install -c bioconda treeknit`\*\* |
+| Docker | `docker pull neherlab/treeknit` |
+| From source | `cargo build --profile dist -p treeknit-cli`, writes `target/dist/treeknit` |
+| Docs | [usage](docs/user/usage.md), [command-line reference](docs/user/cli.md), [for users of TreeKnit.jl](docs/user/treeknit-jl.md), [changelog](CHANGELOG.md) |
 
-Output in the results directory:
+<sub>\* glibc builds need glibc 2.17 or newer. musl builds are static and run on any Linux distribution.</sub>
 
-| File | Content |
-|---|---|
-| `MCCs.json` | MCCs per pair, in the `MCC_dict` format of TreeKnit.jl. If any leaves were missing from one tree of a pair, an `imputed` list gives each such leaf, its source tree, the index of the MCC it joined, and whether the placement was ambiguous. |
-| `MCCs.dat` | the same MCCs in the text format of TreeKnit.jl before 0.5: one MCC per line, leaves separated by commas. With more than two trees: `MCCs_<a>_<b>.dat` per pair. |
-| `<tree>_resolved.nwk` | input trees after resolution, with polytomies sorted for tanglegrams |
-| `<tree>_imputed.nwk` | with `--impute`: resolved trees with missing leaves placed |
-| `ARG/arg.nwk` | two trees only: ARG in extended Newick, `[&segments={0,1}]` annotations, hybrids `#Hi` |
-| `ARG/nodes.dat` | ARG node ↔ tree node table |
-| `ARG/<tree>_liberal_resolved.nwk` | the trees the ARG was built from |
-| `tanglegram_<a>_<b>.svg` | with `--plot`: the tanglegram of the resolved trees of each pair, with MCC colors and reassortment branches marked |
-| `ARG/arg.svg` | with `--plot`, two trees with a built ARG: the ARG, colored by segment, with reassortments as dashed curves |
-| `parameters.json`, `log.txt` | parameters and log of the run |
-| `treeknit_session.json` | with `--session`, `--example`, `--link`, or `--print-link`: the trees and settings that ran |
+<sub>\*\* Bioconda releases need manual approval and can be delayed.</sub>
 
-## Resolving trees
+## Citation
 
-`--resolve` chooses how trees are resolved. The default is the same for any number of trees.
+The method is described in:
 
-| Mode | What happens |
-|---|---|
-| `matched` (default) | Resolve during inference and with the inferred MCCs. Then resolve all trees so that, for every pair and MCC, the two trees restricted to the MCC's leaves have the same topology. |
-| `strict` | Resolve during inference and with the inferred MCCs, unambiguous splits only. |
-| `liberal` | As `strict`, also adding ambiguous splits (the placement of other MCCs is chosen arbitrarily). |
-| `none` | No resolution with MCCs; MCCs then require identical topologies. |
+> Barrat-Charlaix P, Vaughan TG, Neher RA (2022). TreeKnit: Inferring ancestral reassortment graphs of influenza viruses. _PLOS Computational Biology_ 18(8): e1010394. https://doi.org/10.1371/journal.pcbi.1010394
 
-`--pre-resolve` adds to each tree, before inference, the splits of other trees that are
-compatible with *all* trees. One tree that reassorted in a region therefore blocks resolution
-there for everyone. It is mostly useful with `--resolve none`.
+## Contributing
 
-With `strict` or `liberal` and more than two trees, the MCCs are re-inferred without resolution
-in a final extra round, since resolving later pairs can invalidate earlier pairs' MCCs
-(`--no-final-round` skips it). `matched` doesn't need that round, because matching enforces
-consistency itself.
+Report bugs and ask questions in the [issue tracker](https://github.com/neherlab/treeknit/issues). [`CONTRIBUTING.md`](CONTRIBUTING.md) explains how to build, test, and change the code.
 
-**How matching works**
-- The splits each tree has inside an MCC are inserted into the other tree of the pair.
-  Only the MCC's leaves are considered, so branches of other MCCs may attach anywhere.
-- Pairs are processed in argument order, repeatedly until nothing changes, so splits pass
-  along chains of shared regions.
-- A split is inserted only if compatible with what the tree already has, so splits of trees
-  given earlier win conflicts. No input split is ever removed.
-- Conflicting splits from different trees in the same shared region mean the pairwise MCCs are
-  not mutually consistent. Such an MCC is replaced by the maximal clades on which its two trees
-  agree, i.e. more reassortments, and this is logged.
+## License
 
-**Former options** are still accepted, with a deprecation warning and their TreeKnit.jl
-meaning, and reproduce its results. With them:
-- the method preset depends on the number of trees (`--better-MCCs` for two, `--better-trees`
-  for more);
-- `--rounds` counts all rounds; with `--better-MCCs` and more than two trees the default 2 means
-  one resolving round and a final one without;
-- `--resolve-all-rounds` makes the final round resolve too.
-
-They cannot be mixed with `--resolve`, `--pre-resolve` or `--no-final-round`. Closest current
-equivalents:
-
-| Former | Now |
-|---|---|
-| `--better-trees` | `--resolve none --pre-resolve` |
-| `--better-MCCs` | `--resolve strict --pre-resolve` |
-| `--liberal-resolve` | `--resolve liberal` (in the `--better-MCCs` preset) |
-| `--no-resolve` | `--resolve none` |
-| `--no-pre-resolve` | the default |
-| `--resolve-all-rounds` | resolve in the final round too |
-
-## Layout
-
-| Package | Content |
-|---|---|
-| `treeknit-core` | Algorithms, no IO. Arena trees and bitset clades (`tree`, `bits`), naive MCCs, split graph energy and likelihood, simulated annealing, pair inference, resolution, the K-tree pipeline, imputation of missing leaves, ARG construction. |
-| `treeknit-io` | Newick, MCC JSON, extended Newick, node table, auspice JSON. |
-| `util-newick` | Newick and NEXUS reader and writer in the common dialects, a copy of the crate of TreeTime (`packages/util-newick/README.md`). |
-| `treeknit-cli` | The `treeknit` binary. |
-| `treeknit-wasm` | WebAssembly bindings of the core, with TypeScript declarations (`packages/treeknit-wasm/README.md`). |
-| `web` | The web app: React, runs analyses in the browser (`packages/web/README.md`). |
-
-`data/` holds real segment trees, ready as TreeKnit input and offered in the **Load example** menu of the web app: influenza A/H3N2 (HA and NA pairs, and one set of four segments with 1997 strains), influenza A/H5N1 time trees of the PA, PB1, and PB2 segments, and Andes virus trees of the S, M, and L segments.
-
-## Development
-
-[`docs/dev/developer_guide.md`](docs/dev/developer_guide.md) describes the build container, the `just` recipes, the checks that must pass before merging, and the build profiles.
-
-## Testing against the Julia implementation
-
-`ref/` holds Julia scripts that write reference outputs of TreeKnit.jl 0.5.8 to `fixtures/`, using the branch `fix/issues-from-rust-port` of the Julia code, which fixes the bugs found during the port. The cases come from the docs, the test suite, real data (NY H3N2, the examples) and ARGTools simulations; `ref/README.md` has the commands.
-
-- `cargo test` checks every deterministic function exactly against these fixtures (about 5,000 checks): naive MCCs, K-tree resolution, strict and liberal resolution with MCCs, node→MCC maps, polytomy sorting, energies and likelihoods of given configurations, and ARGs. It also compares annealing outcomes with the 20 seeded Julia runs per case.
-- `cargo run --release -p treeknit-io --example accuracy [drop]` compares accuracy against the true MCCs of the simulated cases, for Julia and Rust, measured as scaled variation of information. It also drops a fraction of leaves per tree and reports how often the dropped leaves are placed with their true MCC.
-
-## Deliberate differences from TreeKnit.jl
-
-These differ from the released TreeKnit.jl 0.5.8. The first two are also fixed on the Julia branch `fix/issues-from-rust-port`, against which the fixtures are generated.
-
-- **Different defaults.** The defaults are `--resolve matched` without pre-resolution, for any number of trees. TreeKnit.jl's defaults are `--better-MCCs` (two trees) and `--better-trees` (more), which remain available.
-- **Strict resolution adds certain splits that 0.5.8 rejects.** A polytomy sister holding leaves of an MCC that also has leaves outside the polytomy must attach at the polytomy node, since MCCs are connected. 0.5.8 decides this only from the node→MCC map, which often assigns no MCC at such polytomies. Splits stay rejected when a sister consists only of MCCs inside the polytomy, which may be nested in the new clade.
-
-- **Missing branch lengths contribute 0 to the likelihood tie-break.** In Julia a single missing length makes the likelihood `missing`. Julia then prefers those configurations, because `maximum` over a vector containing `missing` is `missing`. This happens whenever resolved nodes, which get length 0, meet input trees without lengths.
-- **Negative and non-finite branch lengths count as missing in the likelihood tie-break.** The Poisson model of the tie-break has no likelihood for them. Such lengths occur in time trees and neighbor-joining trees. Julia stops with `DomainError` from `log` of a negative number.
-- **Node labels are deterministic counters** (`ARGNode_17`, `Singleton_3`) instead of random strings.
-- **The ARG is built from the resolved output trees,** not from the raw inputs. The liberally resolved trees written next to it are exactly the ones the ARG was built from, including inserted singletons. In Julia, `nodes.dat` refers to singleton nodes that are absent from those files.
-- **An invalid branch length is a parse error.** TreeKnit.jl reads a length that is not a number, such as the root length `:0.R` of its own tests, as missing. The port reports the error with its line and column, because a broken length usually means a broken file. The comparison with TreeKnit.jl reads the trees of `test_srg_2` without that root length, which both implementations ignore.
-- **ARG labels are quoted.** `ARG/arg.nwk` quotes labels that Newick reads differently without quotes, such as `'B,1'`. TreeKnit.jl writes them as they are, which makes the file unreadable for such labels.
-- **Parallelism is used only where it is race-free:** independent pairs, and rounds without resolution. TreeKnit.jl's parallel mode resolves shared trees concurrently.
+[MIT](LICENSE)

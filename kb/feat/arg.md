@@ -19,14 +19,14 @@ Counterpart: [`v0/arg.md`](v0/arg.md). `treeknit_core::arg` builds the ARG of tw
 - [x] **Copies**: the inputs do not change
 - [x] **Liberal resolution** with the MCCs
 - [x] **Node status**: MCC root, shared, shared singleton, or not shared, with the partner node in the other tree [[src](../../packages/treeknit-core/src/arg.rs#L172-L275)]
-- [x] **Shared singletons**: inserted into the other tree as `Singleton_<n>`, from the tree with the shorter branch below, or from tree 1 when a length is missing [[src](../../packages/treeknit-core/src/arg.rs#L277-L369)]. The names use a counter; TreeKnit.jl uses random characters. This differs on purpose ([README](../../README.md#deliberate-differences-from-treeknitjl))
+- [x] **Shared singletons**: inserted into the other tree as `Singleton_<n>`, from the tree with the shorter branch below, or from tree 1 when a length is missing [[src](../../packages/treeknit-core/src/arg.rs#L277-L369)]. The names use a counter; TreeKnit.jl uses random characters. This differs on purpose ([`docs/user/treeknit-jl.md`](../../docs/user/treeknit-jl.md#deliberate-differences-from-treeknitjl))
 - [x] **ARG from tree 1**: a hybrid node above each MCC root whose partner is not the root of tree 2 [[src](../../packages/treeknit-core/src/arg.rs#L403-L429)]
 - [x] **Tree 2 added**: shared nodes get a second parent, MCC roots connect through their hybrid node, other nodes are new [[src](../../packages/treeknit-core/src/arg.rs#L431-L487)]
 - [x] **Node labels**: `ARGNode_<n>` from a counter; TreeKnit.jl uses random characters. This differs on purpose
 - [/] **Label maps**: `Arg::tree_nodes` gives the labels in tree 1 and tree 2 of each ARG node, with none for hybrid nodes, like `rlm`. The tree-to-ARG maps `lm1` and `lm2` stay internal
 - [x] **Hybrid count**: `Arg::n_hybrids` is the number of reassortments. Fixture comparison: `n_hybrids` of every two-tree case
 - [x] **Errors**: the function returns `ArgError` for "inconsistent shared nodes" and for five other inconsistencies. The command line logs the error and continues without an ARG; the web app shows the message
-- [x] **Input trees**: the command line and the web app build the ARG from the resolved output trees, not from the input trees. This differs on purpose ([README](../../README.md#deliberate-differences-from-treeknitjl)). With leaves missing from one tree, the inputs are the imputed trees (see [`partial-overlap.md`](partial-overlap.md))
+- [x] **Input trees**: the command line and the web app build the ARG from the resolved output trees, not from the input trees. This differs on purpose ([`docs/user/treeknit-jl.md`](../../docs/user/treeknit-jl.md#deliberate-differences-from-treeknitjl)). With leaves missing from one tree, the inputs are the imputed trees (see [`partial-overlap.md`](partial-overlap.md))
 
 ## Branch lengths
 
