@@ -211,7 +211,9 @@ struct Cli {
   #[arg(long, overrides_with = "no_likelihood", help_heading = ANALYSIS_HEADING)]
   likelihood: bool,
 
-  /// Worker threads for independent tree pairs (0: all cores).
+  /// Worker threads for independent tree pairs (0: all cores). Pairs run in parallel only in
+  /// rounds without resolution: with `--resolve none`, and in the final round of `strict` and
+  /// `liberal` with more than two trees.
   #[arg(long, default_value_t = 0)]
   threads: usize,
 
@@ -251,7 +253,8 @@ struct Cli {
   )]
   print_link: bool,
 
-  /// Accepted for compatibility; independent pairs always run in parallel (see --threads).
+  /// Accepted for compatibility and without effect; independent pairs run in parallel where
+  /// that gives the same result (see --threads).
   #[arg(long, hide = true)]
   parallel: bool,
 
