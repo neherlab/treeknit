@@ -2,11 +2,11 @@
 #
 # Usage: $0 [options] <asset>...
 #
-# Print the notes of a release on the releases page: a warning for a nightly,
-# or the section of the version in CHANGELOG.md for a release, followed by a
-# table that links the web app, every asset with its size, the source commit,
-# and the issue tracker. .github/workflows/release.yml publishes each release
-# with these notes.
+# Print the notes of a release on the releases page: the section of the
+# version in CHANGELOG.md, followed by a table of every way to get the release:
+# the web app, every asset with its size, pip, conda, Docker, the
+# documentation, the source commit, and the issue tracker.
+# .github/workflows/release.yml publishes each release with these notes.
 #
 # Arguments:
 #   <asset>...                Files of the release, named treeknit-<target>[.exe]
@@ -14,9 +14,8 @@
 # Options:
 #   -h, --help                Show this help
 #   -r, --repo <owner/repo>   GitHub repository of the release
-#   -t, --tag <tag>           Tag of the release: v<version> for a release, the version for a nightly
+#   -t, --tag <tag>           Tag of the release: v<version>
 #   -s, --sha <sha>           Source commit of the release
-#   -n, --nightly             Write the notes of a nightly
 #
 # Examples:
 #   $0 --repo neherlab/treeknit --tag v1.0.0 --sha "$(git rev-parse HEAD)" .out/treeknit-*
@@ -28,6 +27,16 @@ THIS_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
 ROOT="$(dirname "${THIS_DIR}")"
 
 ASSET_PREFIX="treeknit-"
+
+# Names of the release on the other channels: the PyPI project, the Bioconda
+# package, and the Docker Hub repository.
+PYPI_PROJECT="treeknit"
+CONDA_PACKAGE="treeknit"
+DOCKER_IMAGE="neherlab/treeknit"
+
+# Address of the documentation. The table leaves out the Docs row while it is
+# empty.
+DOCS_URL=""
 
 # Rows of the CLI table, in display order: the platform label, then one
 # "target=text" entry per asset of the row. Trailing asterisks of the text
@@ -45,14 +54,9 @@ generate_release_notes() {
   local repo="${1}"
   local tag="${2}"
   local sha="${3}"
-  local nightly="${4}"
-  shift 4
+  shift 3
 
-  if [[ "${nightly}" == "true" ]]; then
-    printf "> [!WARNING]\n> Nightly build of \`main\` for early testing. It may contain bugs and breaking changes.\n"
-  else
-    changelog_section "${tag#v}"
-  fi
+  changelog_section "${tag#v}"
   generate_download_table "${repo}" "${tag}" "${sha}" "$@"
 }
 
@@ -72,8 +76,8 @@ changelog_section() {
 }
 
 # Emit the download table: the web app, the CLI subtable, assets of no known
-# target, the source code, the issue tracker, and the footnotes of the marked
-# entries. An asset of no known target is listed under "Other", so a new target
+# target, pip, conda, Docker, the documentation, the source code, the issue
+# tracker, and the footnotes of the marked entries. An asset of no known target is listed under "Other", so a new target
 # appears even before its entry is added to CLI_ROWS.
 generate_download_table() {
   local repo="${1}"
@@ -81,7 +85,8 @@ generate_download_table() {
   local sha="${3}"
   shift 3
 
-  local base_url="https://github.com/${repo}/releases/download/${tag//+/%2B}"
+  local version="${tag#v}"
+  local base_url="https://github.com/${repo}/releases/download/${tag}"
   local web_address="${repo%%/*}.github.io/${repo#*/}"
 
   local -A unlisted=()
@@ -103,14 +108,24 @@ generate_download_table() {
   done <<<"${names}"
   [[ -z "${other}" ]] || printf "<tr><td>📦 <b>Other</b></td><td>%s</td></tr>\n" "${other}"
 
-  # The CPU requirements follow the flags of dev/lib/dist-flags.sh.
+  printf "<tr><td>🐍 <b>Python (pip)</b></td><td><code>pip install %s==%s</code> (<a href=\"https://pypi.org/project/%s/%s/\">PyPI</a>)</td></tr>\n" \
+    "${PYPI_PROJECT}" "${version}" "${PYPI_PROJECT}" "${version}"
+  printf "<tr><td>🐍 <b>Conda</b></td><td><code>conda install -c bioconda %s=%s</code> (<a href=\"https://anaconda.org/bioconda/%s/files\">versions</a>)***</td></tr>\n" \
+    "${CONDA_PACKAGE}" "${version}" "${CONDA_PACKAGE}"
+  printf "<tr><td>🐋 <b>Docker</b></td><td><code>docker pull %s:%s</code> (<a href=\"https://hub.docker.com/r/%s/tags\">tags</a>)</td></tr>\n" \
+    "${DOCKER_IMAGE}" "${version}" "${DOCKER_IMAGE}"
+  [[ -z "${DOCS_URL}" ]] || printf "<tr><td>📚 <b>Docs</b></td><td><a href=\"%s\">%s</a></td></tr>\n" "${DOCS_URL}" "${DOCS_URL#https://}"
+
+  # The glibc version is the limit of dev/cross/check, and the CPU requirements
+  # follow the flags of dev/lib/dist-flags.sh.
   cat <<EOF
 <tr><td>📂 <b>Source code</b></td><td><a href="https://github.com/${repo}">github.com/${repo}</a> (<a href="https://github.com/${repo}/commit/${sha}">${sha:0:7}</a>)</td></tr>
 <tr><td>🚩 <b>Issues</b></td><td><a href="https://github.com/${repo}/issues">Report bugs, suggest features</a></td></tr>
 </table>
 
-<sub>* musl builds are static and run on any Linux distribution. glibc builds need glibc 2.17 or newer</sub>
+<sub>* glibc builds are recommended and need glibc 2.17 or newer. musl builds are static and run on any Linux distribution</sub>
 <sub>** macOS executables are not signed by a registered developer. If macOS refuses to run one, run <code>xattr -d com.apple.quarantine &lt;file&gt;</code></sub>
+<sub>*** Bioconda releases need manual approval and can be delayed</sub>
 <sub>On Linux and macOS, make the downloaded file executable with <code>chmod +x &lt;file&gt;</code>. The x86_64 builds need a Haswell (2013) or newer CPU, the Linux ARM64 builds an ARMv8.2-A CPU</sub>
 EOF
 }
@@ -168,7 +183,6 @@ main() {
   local repo=""
   local tag=""
   local sha=""
-  local nightly="false"
 
   # shfmt:off
   while (($# > 0)); do
@@ -191,10 +205,6 @@ main() {
       require_value "$@"
       sha="${2}"
       shift 2
-      ;;
-    -n | --nightly)
-      nightly="true"
-      shift
       ;;
     --)
       shift
@@ -230,7 +240,7 @@ main() {
     fi
   done
 
-  generate_release_notes "${repo}" "${tag}" "${sha}" "${nightly}" "$@"
+  generate_release_notes "${repo}" "${tag}" "${sha}" "$@"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
