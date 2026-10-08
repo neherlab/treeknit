@@ -3,8 +3,8 @@
 
 use base64::Engine;
 use base64::alphabet;
-use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
 use base64::engine::DecodePaddingMode;
+use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
 use flate2::read::MultiGzDecoder;
 use percent_encoding::{AsciiSet, CONTROLS, percent_decode_str, utf8_percent_encode};
 use serde::Serialize;

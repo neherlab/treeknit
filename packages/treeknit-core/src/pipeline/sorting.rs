@@ -146,7 +146,9 @@ fn sort_two(
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::pipeline::tests::{ONE_TREE_LEAVES, PAIR_INPUTS, POLYTOMY_PAIR, TWO_TREE_EXAMPLE, ids, logged, same_leaves};
+  use crate::pipeline::tests::{
+    ONE_TREE_LEAVES, PAIR_INPUTS, POLYTOMY_PAIR, TWO_TREE_EXAMPLE, ids, logged, same_leaves,
+  };
   use crate::pipeline::{Inference, infer, match_topologies, resolve_pair, run};
   use crate::tree::Taxa;
   use crate::tree::test_util::trees;

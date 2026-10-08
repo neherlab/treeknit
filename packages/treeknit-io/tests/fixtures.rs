@@ -147,12 +147,7 @@ mod tests {
       if let Some(want) = f.get("naive_mccs").filter(|_| same_leaves) {
         let refs: Vec<&Tree> = ts.iter().collect();
         let got = mcc_names(&naive::naive_mccs(&refs, n), &taxa);
-        r.check(
-          &case,
-          "naive_mccs",
-          &got,
-          &Clades::deserialize(want).unwrap(),
-        );
+        r.check(&case, "naive_mccs", &got, &Clades::deserialize(want).unwrap());
       }
       if let Some(pw) = f.get("pairwise_naive_mccs").and_then(Value::as_object) {
         for (key, want) in pw {
@@ -221,12 +216,7 @@ mod tests {
           .collect();
         let mut want: Vec<(Vec<String>, Option<u64>)> = want
           .iter()
-          .map(|e| {
-            (
-              Vec::<String>::deserialize(&e["clade"]).unwrap(),
-              e["mcc"].as_u64(),
-            )
-          })
+          .map(|e| (Vec::<String>::deserialize(&e["clade"]).unwrap(), e["mcc"].as_u64()))
           .map(|(mut c, m)| {
             c.sort();
             (c, m)
@@ -252,10 +242,7 @@ mod tests {
         let g = splitgraph::Graph::new(&[&r1, &r2], nm.len());
         let sl: Vec<f64> = Deserialize::deserialize(&f["seq_lengths"]).unwrap();
         for (q, entry) in e.iter().enumerate() {
-          let removed = ids(
-            &Clades::deserialize(&entry["removed"]).unwrap(),
-            &taxa,
-          );
+          let removed = ids(&Clades::deserialize(&entry["removed"]).unwrap(), &taxa);
           let mut conf = treeknit_core::bits::full(nm.len());
           for m in &removed {
             conf.set(nm.iter().position(|x| x == m).expect("removed MCC is not naive"), false);
@@ -335,10 +322,7 @@ mod tests {
         continue;
       };
       let (ts, taxa) = load(&f);
-      let julia: Vec<Clades> = runs
-        .iter()
-        .map(|r| Deserialize::deserialize(r).unwrap())
-        .collect();
+      let julia: Vec<Clades> = runs.iter().map(|r| Deserialize::deserialize(r).unwrap()).collect();
       let jset: BTreeSet<&Clades> = julia.iter().collect();
       let o = Options::treeknit_jl(2, None);
       let mut rust: Vec<Clades> = Vec::new();

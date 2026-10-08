@@ -9,9 +9,7 @@ mod labels;
 mod settings;
 
 pub use labels::{label_key, pair_stem, tree_labels};
-pub use settings::{
-  MAX_MCMC_IT, MAX_ROUNDS, MAX_SEED, ResolveMode, SettingKey, Settings, check_settings, options,
-};
+pub use settings::{MAX_MCMC_IT, MAX_ROUNDS, MAX_SEED, ResolveMode, SettingKey, Settings, check_settings, options};
 
 use crate::figure::FigureOptionKey;
 use crate::newick;

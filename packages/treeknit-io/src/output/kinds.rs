@@ -3,8 +3,8 @@
 
 use crate::analysis::{self, ARG_TREE_COUNT, Field, ValidationError};
 use crate::output::{
-  ARG_FIGURE, ARG_NEWICK, ARG_NODES, Figure, FileError, LOG_FILE, MCCS_JSON, OutputOptions, PARAMETERS_FILE, SESSION_FILE,
-  figure_text,
+  ARG_FIGURE, ARG_NEWICK, ARG_NODES, Figure, FileError, LOG_FILE, MCCS_JSON, OutputOptions, PARAMETERS_FILE,
+  SESSION_FILE, figure_text,
 };
 use crate::run::RunResult;
 use crate::{arg, auspice, mccs, newick};
