@@ -1,0 +1,280 @@
+#!/usr/bin/env bash
+#
+# Usage: $0 [options] --version <version> <binaries-dir>
+#
+# Open the pull request that updates the Bioconda recipe of TreeKnit to a
+# release. The recipe recipes/treeknit/meta.yaml lives in
+# bioconda/bioconda-recipes and installs the binaries of the GitHub release:
+# the glibc builds on Linux and the native builds on macOS. The script clones
+# that repository, sets the version, resets the build number to 0, and sets the
+# sha256 of each binary by the selector comment of its source line; every other
+# line of the recipe stays as the Bioconda maintainers left it. It then pushes
+# the branch bump/treeknit-<version> to the fork neherlab/bioconda-recipes and
+# opens the pull request, replacing an open pull request of the same branch.
+# .github/workflows/release.yml runs it for each release.
+#
+# While Bioconda has no recipe of TreeKnit, the script prints a warning and
+# exits successfully: the first recipe is submitted by hand.
+#
+# Runs on the host and needs git, gh, yq, jq, and sha256sum or shasum. Without
+# --dry-run it also needs GH_TOKEN, a token that can push to the fork and open
+# pull requests in bioconda/bioconda-recipes, and the commit identity in
+# GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL, GIT_COMMITTER_NAME, and
+# GIT_COMMITTER_EMAIL.
+#
+# Arguments:
+#   <binaries-dir>        Directory with the release binaries
+#                         treeknit-{x86_64,aarch64}-unknown-linux-gnu and
+#                         treeknit-{x86_64,aarch64}-apple-darwin
+#
+# Options:
+#   -h, --help            Show this help
+#   --version <version>   Version of the release, MAJOR.MINOR.PATCH
+#   --dry-run             Stop after rewriting the recipe and print its diff,
+#                         without pushing or opening a pull request
+#   --recipe <file>       Rewrite this local recipe file instead of the cloned
+#                         one; implies --dry-run
+#
+# Examples:
+#   $0 --version 1.0.0 .out
+#   $0 --recipe tmp/bioconda/treeknit/meta.yaml --version 1.0.1 .out
+#
+set -euo pipefail
+trap "exit" INT
+
+UPSTREAM="bioconda/bioconda-recipes"
+FORK="neherlab/bioconda-recipes"
+RECIPE="recipes/treeknit/meta.yaml"
+REPOSITORY="neherlab/treeknit"
+
+# The selector comment of each source line of the recipe and its release target.
+SELECTORS=(
+  "linux64=x86_64-unknown-linux-gnu"
+  "aarch64=aarch64-unknown-linux-gnu"
+  "osx and x86_64=x86_64-apple-darwin"
+  "osx and arm64=aarch64-apple-darwin"
+)
+
+sha256() {
+  if command -v sha256sum >/dev/null; then
+    sha256sum "${1}" | cut -d ' ' -f 1
+  else
+    shasum -a 256 "${1}" | cut -d ' ' -f 1
+  fi
+}
+
+# Print the version of a recipe.
+recipe_version() {
+  sed -n 's/^{% set version = "\(.*\)" %}$/\1/p' "${1}"
+}
+
+# Set the version, build number, and sha256 values of a recipe. The recipe is
+# Jinja-templated YAML, which a YAML tool would rewrite, so the edits are
+# line-based and leave every other line as it is.
+rewrite_recipe() {
+  local file="${1}" version="${2}" binaries="${3}"
+
+  local count
+  count="$(grep -c '^{% set version = ".*" %}$' "${file}")" || true
+  if [[ "${count}" != 1 ]]; then
+    printf '%s has %s lines "{%% set version = ... %%}", expected one\n' "${file}" "${count}" >&2
+    return 1
+  fi
+  local edited="${file}.new"
+  sed "s/^{% set version = \".*\" %}\$/{% set version = \"${version}\" %}/" "${file}" |
+    awk '/^build:/ { build = 1 } /^[^[:space:]#]/ && !/^build:/ { build = 0 } build && /^[[:space:]]+number:/ { sub(/number:.*/, "number: 0") } { print }' \
+      >"${edited}"
+
+  local entry selector target sum before
+  for entry in "${SELECTORS[@]}"; do
+    selector="${entry%%=*}"
+    target="${entry#*=}"
+    sum="$(sha256 "${binaries}/treeknit-${target}")"
+    count="$(grep -cE "sha256: [0-9a-fA-F]+[[:space:]]+# \[${selector}\]\$" "${edited}")" || true
+    if [[ "${count}" != 1 ]]; then
+      printf '%s has %s sha256 lines with the selector "# [%s]", expected one\n' "${file}" "${count}" "${selector}" >&2
+      rm "${edited}"
+      return 1
+    fi
+    before="${edited}.before"
+    mv "${edited}" "${before}"
+    sed -E "s/(sha256: )[0-9a-fA-F]+([[:space:]]+# \[${selector}\])\$/\1${sum}\2/" "${before}" >"${edited}"
+    rm "${before}"
+  done
+  mv "${edited}" "${file}"
+}
+
+# Print the body of the pull request.
+pr_body() {
+  local recipe="${1}" version_old="${2}" version="${3}"
+
+  # yq reads the recipe once its Jinja lines and expressions are removed.
+  local yaml home summary maintainers
+  yaml="$(sed -e '/^{%/d' -e 's/{{[^}]*}}/""/g' "${recipe}")"
+  home="$(yq '.about.home' <<<"${yaml}")"
+  summary="$(yq '.about.summary' <<<"${yaml}")"
+  maintainers="$(yq -o json '.extra."recipe-maintainers" // []' <<<"${yaml}" | jq -r 'map("@" + .) | join(", ")')"
+
+  cat <<EOF
+Update [treeknit](https://bioconda.github.io/recipes/treeknit/README.html): ${version_old} -> ${version}.
+
+<img src=https://img.shields.io/conda/dn/bioconda/treeknit.svg />
+
+<table>
+<tr>
+	<td>Home</td>
+	<td><a href="${home}">${home}</a></td>
+</tr>
+<tr>
+	<td>Summary</td>
+	<td>${summary}</td>
+</tr>
+<tr>
+	<td>Recipe maintainers</td>
+	<td>${maintainers}</td>
+</tr>
+</table>
+
+@BiocondaBot please add label
+
+@BiocondaBot please fetch artifacts
+
+Note: this pull request is submitted [automatically](https://github.com/${REPOSITORY}/blob/main/.github/workflows/release.yml), triggered by [a release](https://github.com/${REPOSITORY}/releases/tag/v${version}) in [${REPOSITORY}](https://github.com/${REPOSITORY}). If you want to get in touch, please ping the recipe maintainers.
+EOF
+}
+
+# Report that Bioconda has no recipe yet, in the job summary of GitHub Actions too.
+report_no_recipe() {
+  local message="Bioconda has no recipe ${RECIPE} yet: submit the first recipe by hand. No pull request was opened."
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    printf '::warning::%s\n' "${message}"
+  else
+    printf 'Warning: %s\n' "${message}" >&2
+  fi
+  if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    printf '%s\n' "${message}" >>"${GITHUB_STEP_SUMMARY}"
+  fi
+}
+
+# Push the branch to the fork and open the pull request, closing an open pull
+# request of the same branch first.
+submit() {
+  local clone="${1}" version="${2}" version_old="${3}"
+  local branch="bump/treeknit-${version}"
+
+  pushd "${clone}" >/dev/null
+  gh auth setup-git
+  git remote add fork "https://github.com/${FORK}"
+  # The fork's master should contain the commit the branch starts from; a
+  # failed sync only makes the push send more objects.
+  gh repo sync "${FORK}" --branch master || printf 'Syncing %s with %s failed; pushing anyway\n' "${FORK}" "${UPSTREAM}" >&2
+
+  local numbers number
+  numbers="$(gh pr list --repo="${UPSTREAM}" --head="${branch}" --state=open --json=number,headRepositoryOwner \
+    --jq ".[] | select(.headRepositoryOwner.login == \"${FORK%%/*}\") | .number")"
+  while read -r number; do
+    [[ -n "${number}" ]] || continue
+    printf 'Closing the open pull request #%s of %s\n' "${number}" "${branch}" >&2
+    gh pr close "${number}" --repo="${UPSTREAM}" --comment="Replaced by a new pull request for the same release."
+  done <<<"${numbers}"
+  if git ls-remote --exit-code --heads fork "${branch}" >/dev/null; then
+    git push --quiet fork --delete "${branch}"
+  fi
+
+  git switch --quiet --create "${branch}"
+  git add "${RECIPE}"
+  git commit --quiet --message="Update treeknit to ${version}"
+  git push --quiet fork "${branch}"
+
+  local url
+  url="$(pr_body "${RECIPE}" "${version_old}" "${version}" | gh pr create --repo="${UPSTREAM}" --base=master \
+    --head="${FORK%%/*}:${branch}" --title="Update treeknit to ${version}" --body-file=-)"
+  printf 'Opened %s\n' "${url}"
+  gh pr comment "${url}" --body="@BiocondaBot please add label"
+  popd >/dev/null
+}
+
+main() {
+  show_help() {
+    sed -n '2,${/^#/!q; s/^# \?//p}' "${BASH_SOURCE[0]}" | sed "s|\$0|${0##*/}|g"
+  }
+
+  local version="" dry_run="" recipe=""
+  # shfmt:off
+  while (($# > 0)); do
+    case "${1}" in
+    -h | --help)
+      show_help
+      exit 0
+      ;;
+    --version)
+      version="${2:?Missing value of --version}"
+      shift 2
+      ;;
+    --dry-run)
+      dry_run=1
+      shift
+      ;;
+    --recipe)
+      recipe="${2:?Missing value of --recipe}"
+      dry_run=1
+      shift 2
+      ;;
+    -*)
+      printf 'Unknown option: %s\n' "${1}" >&2
+      exit 1
+      ;;
+    *) break ;;
+    esac
+  done
+  # shfmt:on
+  if (($# != 1)); then
+    show_help >&2
+    exit 1
+  fi
+  local binaries="${1}"
+
+  if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    printf 'Invalid version "%s": expected MAJOR.MINOR.PATCH\n' "${version}" >&2
+    exit 1
+  fi
+  local entry
+  for entry in "${SELECTORS[@]}"; do
+    if [[ ! -f "${binaries}/treeknit-${entry#*=}" ]]; then
+      printf 'Missing %s/treeknit-%s\n' "${binaries}" "${entry#*=}" >&2
+      exit 1
+    fi
+  done
+  binaries="$(cd "${binaries}" && pwd -P)"
+
+  WORKDIR="$(mktemp -d)"
+  trap 'rm -rf "${WORKDIR}"' EXIT
+
+  if [[ -n "${recipe}" ]]; then
+    cp "${recipe}" "${WORKDIR}/before.yaml"
+    rewrite_recipe "${recipe}" "${version}" "${binaries}"
+    # diff exits with 1 when the files differ, which is the expected result.
+    diff -u --label="${recipe} (before)" --label="${recipe}" "${WORKDIR}/before.yaml" "${recipe}" || (($? == 1))
+    return
+  fi
+
+  local clone="${WORKDIR}/bioconda-recipes"
+  git clone --quiet --depth=1 --single-branch --branch=master "https://github.com/${UPSTREAM}" "${clone}"
+  if [[ ! -f "${clone}/${RECIPE}" ]]; then
+    report_no_recipe
+    return
+  fi
+
+  local version_old
+  version_old="$(recipe_version "${clone}/${RECIPE}")"
+  rewrite_recipe "${clone}/${RECIPE}" "${version}" "${binaries}"
+  git -C "${clone}" --no-pager diff
+  if [[ -n "${dry_run}" ]]; then
+    return
+  fi
+  submit "${clone}" "${version}" "${version_old}"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
