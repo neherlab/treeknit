@@ -124,8 +124,7 @@ fn example_list() -> String {
     .join("\n")
 }
 
-/// Infer reassortment between segment trees: maximally compatible clades (MCCs) for every
-/// pair of trees, resolved trees, and for two trees an ancestral reassortment graph (ARG).
+/// Infers reassortment from the trees of the segments of a virus, such as the HA and NA trees of influenza
 #[derive(Parser, Debug)]
 #[command(
   name = "treeknit",

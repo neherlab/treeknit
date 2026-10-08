@@ -2,7 +2,7 @@ cff-version: "1.2.0"
 message: "If you use TreeKnit, please cite the article that describes the method."
 type: "software"
 title: "TreeKnit"
-abstract: "TreeKnit infers reassortment from the trees of the segments of a virus: maximally compatible clades (MCCs) for every pair of trees, trees with polytomies resolved using the other trees, and for two trees an ancestral reassortment graph (ARG)."
+abstract: "TreeKnit infers reassortment from the trees of the segments of a virus, such as the HA and NA trees of influenza. It finds maximally compatible clades (MCCs) for every pair of trees, resolves polytomies using the other trees, and for two trees builds an ancestral reassortment graph (ARG)."
 authors:
   - family-names: "Barrat-Charlaix"
     given-names: "Pierre"

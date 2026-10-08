@@ -67,10 +67,10 @@ export function HelpPage() {
           <h1 className="text-lg font-semibold">Help</h1>
           <HelpSection id="help-about" title="What TreeKnit does">
             <p>
-              TreeKnit infers reassortment from the trees of the segments of a genome. For each pair of trees, it finds
-              the MCCs, the groups of leaves that the two trees place in the same way. Where the MCCs change, the
-              segments have different histories. TreeKnit also resolves polytomies with the splits of the other trees,
-              and for two trees it builds the ancestral reassortment graph.
+              TreeKnit infers reassortment from the trees of the segments of a virus, such as the HA and NA trees of
+              influenza. For each pair of trees, it finds the MCCs, the groups of leaves that the two trees place in the
+              same way. Where the MCCs change, the segments have different histories. TreeKnit also resolves polytomies
+              with the splits of the other trees, and for two trees it builds the ancestral reassortment graph.
             </p>
             <ol className="flex list-decimal flex-col gap-1.5 pl-6">
               <li>Add at least two Newick trees: drop files, add files, paste a tree, or start with an example.</li>

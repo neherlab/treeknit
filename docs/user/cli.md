@@ -7,7 +7,7 @@ This page holds the help texts of `treeknit` and the list of the files that it w
 ## Options
 
 ```text
-Infer reassortment between segment trees: maximally compatible clades (MCCs) for every pair of trees, resolved trees, and for two trees an ancestral reassortment graph (ARG)
+Infers reassortment from the trees of the segments of a virus, such as the HA and NA trees of influenza
 
 Usage: treeknit [OPTIONS] [TREE]...
 
