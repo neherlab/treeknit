@@ -20,7 +20,7 @@ Four workflows in `.github/workflows/` check every change and publish the releas
 - `just check-group tests` (`test-rs`, `test-wasm`) and `just test-ts`
 - `just generated-check`
 
-The slow checks (dylint, hawk, knip, cargo-deny, cargo-shear, `just build-web prod`) run in `dev/release` before every release, as part of `just check-all`.
+The slow checks (dylint, hawk, knip, cargo-deny, cargo-shear, `just build-web prod`) run in no workflow; `just check-all` runs them locally. `dev/release` releases only a commit on which `ci.yml` passed.
 
 The release builds (`cli-build.yml`) and the compatibility tests (`cli-compat.yml`) run on every push to `main`, on manual runs, and on pull requests that change `.github/`, `.cargo/`, `dev/cross/`, `dev/docker/`, `dev/lib/`, `dev/pypi-wheels`, `.config/mise.*`, `rust-toolchain.toml`, `Cargo.toml`, or `Cargo.lock`. These binaries report `<version>-dev`. The Docker images of the compatibility tests build 20 images, half of them under QEMU, so they run only when a push or pull request changes `dev/docker/` or `.github/`, and on manual runs.
 
@@ -47,8 +47,8 @@ Every night at 03:40 UTC, `release.yml` deploys the web app of `main` to GitHub 
 ## Publish a release
 
 1. Describe the changes under `## Unreleased` in `CHANGELOG.md`
-2. Update the pinned bases of the Docker images: `./dev/docker/run dev/docker/prod-bases-update`, and commit `dev/docker/prod-bases.json` when it changed
-3. Run `just release <version>` (host only, in the main checkout on `main`). `dev/release` checks that the version is the workspace version of `Cargo.toml` or newer, that `main` contains `origin/main`, that nothing but `CHANGELOG.md` is uncommitted, and that the tag is new; then it runs `just check-all`, sets the workspace version with `cargo set-version` (which also updates `Cargo.lock`), renames `## Unreleased` to `## <version>`, commits `chore: release <version>`, and tags `<version>`, without a `v` prefix
+2. Update the pinned bases of the Docker images: `./dev/docker/run dev/docker/prod-bases-update`, and commit `dev/docker/prod-bases.json` when it changed. Push `main` and wait until `ci.yml` passes on it; `CHANGELOG.md` may stay uncommitted
+3. Run `just release <version>` (host only, in the main checkout on `main`). `dev/release` checks that the version is the workspace version of `Cargo.toml` or newer, that `main` is pushed and `ci.yml` passed on it (with the GitHub CLI), that nothing but `CHANGELOG.md` is uncommitted, and that the tag is new. It runs nothing heavy: it sets a new workspace version with `cargo set-version` in the build container (which also updates `Cargo.lock`) only when the version changes, renames `## Unreleased` to `## <version>`, commits `chore: release <version>`, and tags `<version>`, without a `v` prefix
 4. Confirm the push: `dev/release` pushes `main` and the tag in one atomic push, and the tag starts `release.yml`. Answering no leaves the commit and the tag local
 5. Review the Bioconda pull request when Bioconda maintainers ask for changes
 

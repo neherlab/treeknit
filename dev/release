@@ -2,10 +2,11 @@
 #
 # Usage: $0 <version>
 #
-# Prepare a release and push it: set the workspace version, rename the
-# '## Unreleased' section of CHANGELOG.md to '## <version>', run every check,
-# commit, tag '<version>', and push the commit and the tag after a
-# confirmation. The pushed tag starts .github/workflows/release.yml, which
+# Prepare a release and push it: check that CI passed on the commit, set the
+# workspace version, rename the '## Unreleased' section of CHANGELOG.md to
+# '## <version>', commit, tag '<version>', and push the commit and the tag
+# after a confirmation. The checks themselves run in CI
+# (.github/workflows/ci.yml), so the script runs nothing heavy. The pushed tag starts .github/workflows/release.yml, which
 # builds the CLI for every release target and tests the binaries on Linux,
 # macOS, and Windows. Once they pass, it publishes the binaries as a GitHub
 # release, with the section of the version in CHANGELOG.md as its notes, then
@@ -13,10 +14,11 @@
 # the pull request that updates the Bioconda recipe (conda install -c bioconda
 # treeknit), which Bioconda maintainers merge.
 #
-# Runs on the host, in the main checkout on the branch main, and needs Docker
-# (the checks and cargo run in the build container) and yq. Write the
-# '## Unreleased' section of CHANGELOG.md first; it may be the only uncommitted
-# change.
+# Runs on the host, in the main checkout on the branch main, and needs git,
+# yq, and the GitHub CLI (gh); Docker only when the version differs from the
+# workspace version, because cargo sets it in the build container. Push main
+# and wait for CI to pass first. Write the '## Unreleased' section of
+# CHANGELOG.md before; it may be the only uncommitted change.
 #
 # Arguments:
 #   <version>   Version to release, MAJOR.MINOR.PATCH: the workspace version of
@@ -76,9 +78,9 @@ main() {
   [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Invalid version '${version}': expected MAJOR.MINOR.PATCH"
   printf "✅\n"
 
-  printf "Pre-check: required tools (git, docker, yq)... "
+  printf "Pre-check: required tools (git, yq, gh)... "
   local tool
-  for tool in git docker yq; do
+  for tool in git yq gh; do
     command -v "${tool}" >/dev/null || fail "Required command not found: ${tool}"
   done
   printf "✅\n"
@@ -102,6 +104,18 @@ main() {
   git merge-base --is-ancestor origin/main HEAD || fail "Local main is behind origin/main or has diverged from it. Pull first"
   printf "✅\n"
 
+  printf "Pre-check: CI passed on HEAD... "
+  local head repo ci
+  head="$(git rev-parse HEAD)"
+  repo="$(git remote get-url origin | sed 's|.*github\.com[:/]||; s|\.git$||')"
+  [[ "${head}" == "$(git rev-parse origin/main)" ]] ||
+    fail "HEAD is not on origin/main, so CI has not checked it. Push main, wait for CI, and retry"
+  ci="$(gh run list --repo="${repo}" --workflow=ci.yml --commit="${head}" --event=push --limit=1 \
+    --json=status,conclusion --jq='.[0] // {} | "\(.status // "not started") \(.conclusion // "")"')"
+  [[ "${ci}" == "completed success" ]] ||
+    fail "CI of ${head:0:7} is '${ci% }', not passed. Wait for https://github.com/${repo}/actions/workflows/ci.yml and retry"
+  printf "✅\n"
+
   printf "Pre-check: tag %s exists neither locally nor on origin... " "${tag}"
   ! git rev-parse --quiet --verify "refs/tags/${tag}" >/dev/null || fail "Tag ${tag} exists locally"
   [[ -z "$(git ls-remote --tags origin "refs/tags/${tag}")" ]] || fail "Tag ${tag} exists on origin"
@@ -120,13 +134,12 @@ main() {
   grep -qx '## Unreleased' CHANGELOG.md || fail "CHANGELOG.md has no '## Unreleased' line. Describe the changes under it and retry"
   printf "✅\n"
 
-  printf "\nRunning every check (just check-all)...\n"
-  dev/docker/run just check-all
-  printf "Checks: ✅\n\n"
-
-  printf "Setting the workspace version to %s...\n" "${version}"
-  dev/docker/run cargo set-version --workspace --offline "${version}"
-  [[ "$(yq -p toml -o yaml '.workspace.package.version' Cargo.toml)" == "${version}" ]] || fail "Failed to set the version in Cargo.toml"
+  if [[ "${version}" != "${current}" ]]; then
+    command -v docker >/dev/null || fail "Required command not found: docker"
+    printf "\nSetting the workspace version to %s...\n" "${version}"
+    dev/docker/run cargo set-version --workspace --offline "${version}"
+    [[ "$(yq -p toml -o yaml '.workspace.package.version' Cargo.toml)" == "${version}" ]] || fail "Failed to set the version in Cargo.toml"
+  fi
 
   printf "Renaming '## Unreleased' to '## %s' in CHANGELOG.md... " "${version}"
   sed "s/^## Unreleased\$/## ${version}/" CHANGELOG.md >CHANGELOG.md.new

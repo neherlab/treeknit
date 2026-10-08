@@ -5,8 +5,9 @@ name: "CI"
 # tests of cli-compat.yml, on every push to main, on manual runs, and on pull
 # requests that change the build or release machinery. The Docker images of
 # the compatibility tests take several minutes under QEMU, so they run only
-# when dev/docker/ or .github/ changes, and on manual runs. The slow checks run
-# in dev/release before every release (just check-all).
+# when dev/docker/ or .github/ changes, and on manual runs. dev/release releases
+# only a commit on which this workflow passed. The slow checks (just check-all)
+# run in no workflow.
 on:
   pull_request:
   push:
