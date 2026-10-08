@@ -18,7 +18,8 @@ distribution" on other platforms.
 
 The wheels are reproducible: the same binaries give byte-identical wheels. Zip
 entry dates come from SOURCE_DATE_EPOCH, by default the time of the current
-commit. The package metadata comes from [workspace.package] of Cargo.toml.
+commit. The package metadata comes from [workspace.package] of Cargo.toml, and the
+description starts with docs/channels/summary.md, which Docker Hub shows too.
 
 Runs in the build container (dev/docker/run), with the dependencies pinned
 above and in dev/pypi-wheels.lock. Prints nothing on success.
@@ -67,21 +68,18 @@ PLATFORMS = (
     Platform("x86_64-pc-windows-gnu", "win_amd64", ".exe"),
 )
 
-# The CPU requirements follow the flags of dev/lib/dist-flags.sh, which wheel
-# tags cannot express.
-DESCRIPTION = """\
-# TreeKnit
+# The description of the channels, shared with the Docker Hub page: what TreeKnit
+# does, and the CPU requirements of the flags of dev/lib/dist-flags.sh, which
+# wheel tags cannot express.
+SUMMARY = ROOT / "docs/channels/summary.md"
 
-TreeKnit infers reassortment from segment trees: maximally compatible clades (MCCs) for every \
-pair of trees, trees with polytomies resolved using the other trees, and for two trees an \
-ancestral reassortment graph (ARG).
-
+# The part of the PyPI description that only wheels have, after the summary.
+WHEEL_DESCRIPTION = """
 This package installs the `treeknit` command-line program, the prebuilt binary of the \
-[GitHub release]({releases}/tag/{version}). The [README]({repository}#readme) explains its use.
+[GitHub release]({releases}/tag/{version}).
 
 Wheels exist for Linux on x86_64 and ARM64 (glibc 2.17 or newer, or musl), macOS 10.12 or newer \
-on Intel and 11.0 or newer on Apple Silicon, and Windows on x86_64. The x86_64 builds need a \
-Haswell (2013) or newer CPU, and the Linux ARM64 builds an ARMv8.2-A CPU.
+on Intel and 11.0 or newer on Apple Silicon, and Windows on x86_64.
 """
 
 
@@ -106,10 +104,12 @@ def main() -> None:
         os.environ["SOURCE_DATE_EPOCH"] = commit_time()
     package = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]["package"]
     license_text = (ROOT / "LICENSE").read_bytes()
+    releases = f"{package['repository']}/releases"
+    description = SUMMARY.read_text() + WHEEL_DESCRIPTION.format(releases=releases, version=version)
 
     args.output.mkdir(parents=True, exist_ok=True)
     for platform, binary in zip(PLATFORMS, binaries, strict=True):
-        write_wheel(args.output, version, platform, binary.read_bytes(), package, license_text)
+        write_wheel(args.output, version, platform, binary.read_bytes(), package, license_text, description)
 
 
 def parse_version(text: str) -> str:
@@ -136,9 +136,16 @@ def commit_time() -> str:
 
 
 def write_wheel(
-    output: Path, version: str, platform: Platform, binary: bytes, package: dict, license_text: bytes
+    output: Path,
+    version: str,
+    platform: Platform,
+    binary: bytes,
+    package: dict,
+    license_text: bytes,
+    description: str,
 ) -> None:
-    """Write the wheel of one platform. WheelFile adds RECORD on close."""
+    """Write the wheel of one platform, with the Markdown `description` for PyPI. WheelFile adds
+    RECORD on close."""
     namever = f"{NAME}-{version}"
     dist_info = f"{namever}.dist-info"
     tags = [f"py3-none-{tag}" for tag in platform.tag.split(".")]
@@ -155,7 +162,7 @@ def write_wheel(
             f"Project-URL: Releases, {repository}/releases\n",
             "Description-Content-Type: text/markdown\n",
             "\n",
-            DESCRIPTION.format(repository=repository, releases=f"{repository}/releases", version=version),
+            description,
         ]
     )
     wheel_metadata = "".join(
