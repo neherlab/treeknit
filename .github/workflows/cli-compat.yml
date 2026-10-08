@@ -1,11 +1,5 @@
 name: "Test CLI compatibility"
 
-# Test the binaries of cli-build.yml where users run them: in many Linux
-# distribution images, on macOS and Windows runners, as PyPI wheels installed by
-# pip, and in the Docker images of dev/docker/prod-images. Called by ci.yml and
-# release.yml after cli-build.yml, whose artifacts belong to the same run. The
-# job "wheels" uploads the wheels as the artifact pypi-wheels, which the release
-# publishes to PyPI.
 on:
   workflow_call:
     inputs:
@@ -29,11 +23,7 @@ defaults:
 env:
   CARGO_INCREMENTAL: "0"
   KACHE_STORE: ${{ github.workspace }}/.cache/kache
-  # The binaries of a release report the release version; the binaries of CI
-  # report <crate version>-dev, which differs from the wheel version
-  # <crate version>.dev0, so CI checks only that they start.
   RELEASE_VERSION: ${{ !contains(inputs.wheel_version, '.dev') && inputs.wheel_version || '' }}
-  # Logging in raises the pull limit of Docker Hub; pull requests run without it.
   DOCKERHUB_LOGIN: ${{ github.event_name != 'pull_request' && secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN != '' && '1' || '' }}
 
 jobs:
@@ -100,9 +90,6 @@ jobs:
           name: treeknit-${{ matrix.target }}
           path: ".out"
 
-      # The simulated case and seed of dev/cross/test-distros. The output goes
-      # to the runner's temporary directory, because the root file system of
-      # macOS is read-only.
       - name: "Run the binary"
         env:
           TARGET: ${{ matrix.target }}
@@ -175,8 +162,6 @@ jobs:
           merge-multiple: true
           path: ".out"
 
-      # The wheels stay outside .out/ and the artifact name does not start with
-      # treeknit-, so the GitHub release never attaches them.
       - name: "Write the wheels"
         env:
           WHEEL_VERSION: ${{ inputs.wheel_version }}
@@ -222,8 +207,6 @@ jobs:
         with:
           python-version: "3.x"
 
-      # pip picks the wheel of the runner's platform from the directory, as it
-      # would from PyPI.
       - name: "Install with pip"
         env:
           TAG: ${{ matrix.tag }}
@@ -246,8 +229,6 @@ jobs:
             exit 1
           fi
 
-      # pip on a musl system picks the musllinux wheel; setup-python has no musl
-      # builds, so this runs in the Alpine image of Python.
       - name: "Install with pip on Alpine"
         if: matrix.runner == 'ubuntu-24.04'
         run: |

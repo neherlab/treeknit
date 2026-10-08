@@ -1,8 +1,5 @@
 name: "Checks"
 
-# The fast recipes of the justfile, one job each, in the build container. Called
-# by ci.yml for pull requests and pushes to main, and by release.yml for the
-# commit of a release. The slow checks (just check-all) run in no workflow.
 on:
   workflow_call:
 
@@ -14,8 +11,6 @@ defaults:
     shell: bash -euo pipefail {0}
 
 env:
-  # Every run starts without incremental state, so incremental compiles only add
-  # overhead, and kache caches only compiles without it.
   CARGO_INCREMENTAL: "0"
   KACHE_STORE: ${{ github.workspace }}/.cache/kache
   FORCE_COLOR: "1"

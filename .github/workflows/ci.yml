@@ -1,14 +1,5 @@
 name: "CI"
 
-# Checks: the fast recipes of the justfile (checks.yml) on every pull request
-# and every push to main. Builds: the release binaries of cli-build.yml and the
-# compatibility tests of cli-compat.yml, on every push to main, on manual runs,
-# and on pull requests that change the build or release machinery. The Docker
-# images of the compatibility tests take several minutes under QEMU, so they
-# run only when dev/docker/ or .github/ changes, and on manual runs. A push of
-# the commit that the branch release points to runs nothing: dev/release pushes
-# main and release together, and release.yml checks, builds, and tests that
-# commit.
 on:
   pull_request:
   push:
@@ -44,8 +35,6 @@ jobs:
       docker: ${{ steps.changes.outputs.docker }}
       wheel_version: ${{ steps.changes.outputs.wheel_version }}
     steps:
-      # The merge commit of a pull request has the tip of the base branch as its
-      # first parent, so HEAD^1..HEAD is the change of the pull request.
       - name: "Check out"
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -65,7 +54,6 @@ jobs:
             files="$(git diff --name-only HEAD^1 HEAD)"
             ;;
           push)
-            # A new branch has no previous commit.
             if [[ "${BEFORE}" =~ ^0+$ ]]; then
               all=true
             else
@@ -93,8 +81,6 @@ jobs:
             esac
           done <<<"${files}"
 
-          # dev/release pushes the release commit to main and release together,
-          # and release.yml checks, builds, and tests it.
           release=false
           if [[ "${EVENT}" == "push" ]]; then
             release_sha="$(git ls-remote origin refs/heads/release | cut -f 1)"

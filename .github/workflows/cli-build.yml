@@ -1,9 +1,5 @@
 name: "Build CLI"
 
-# Build the shipped CLI for every release target of dev/cross/targets, one job
-# per target in its cross image, check the libraries each binary needs, and
-# upload each binary as the artifact treeknit-<target>. Called by ci.yml and
-# release.yml; a failed target fails the run.
 on:
   workflow_call:
     inputs:
@@ -25,8 +21,6 @@ defaults:
     shell: bash -euo pipefail {0}
 
 env:
-  # Every run starts without incremental state, so incremental compiles only add
-  # overhead, and kache caches only compiles without it.
   CARGO_INCREMENTAL: "0"
   KACHE_STORE: ${{ github.workspace }}/.cache/kache
 
@@ -74,6 +68,5 @@ jobs:
         with:
           name: treeknit-${{ matrix.target }}
           path: .out/treeknit-${{ matrix.target }}*
-          # The action skips paths under a directory whose name starts with a dot, such as .out/.
           include-hidden-files: true
           if-no-files-found: error

@@ -1,20 +1,5 @@
 name: "Release"
 
-# Nightly: every night, when main has changed since the latest deployment of
-# the web app, deploy the web app of main to GitHub Pages. dev/trigger-nightly
-# and the "Run workflow" button start one by hand; with "force", they deploy an
-# unchanged main.
-#
-# Release: a push to the branch release (dev/release) runs the checks of
-# checks.yml, builds the CLI for every release target (cli-build.yml), and runs
-# the compatibility tests (cli-compat.yml) on that commit. Once every check,
-# build, and test passes, it publishes the binaries as a GitHub release of the
-# workspace version, which creates the tag <version> on that commit, with the
-# section of the version in CHANGELOG.md as its notes. Then
-# it publishes the same binaries to PyPI (as wheels), to Docker Hub (as
-# images, with the description of docs/channels/), and opens the update pull
-# request of the Bioconda recipe, and finally installs the release from PyPI
-# and Docker Hub and runs it.
 on:
   schedule:
     - cron: "40 3 * * *"
@@ -31,8 +16,6 @@ on:
 permissions:
   contents: read
 
-# A release run takes much longer than a nightly; in one shared group, the
-# next nightly would cancel a pending release run.
 concurrency:
   group: release-${{ github.ref == 'refs/heads/release' && 'release' || 'nightly' }}
   cancel-in-progress: false
@@ -65,12 +48,6 @@ jobs:
           sparse-checkout: "Cargo.toml"
           sparse-checkout-cone-mode: false
 
-      # A release never deploys the web app: the next nightly deploys main,
-      # which holds the release commit. A nightly deploys when the commit of
-      # the latest successful deployment of GitHub Pages is not this commit.
-      # A version is released from one commit only: a later push to release
-      # with the same version fails here, and a re-run of the same commit
-      # continues.
       - name: "Resolve the version"
         id: version
         env:
@@ -91,7 +68,6 @@ jobs:
             tag="${crate_version}"
             release=true
           else
-            # An API failure fails the job instead of passing as "no deployment".
             deployments="$(gh api "repos/${GITHUB_REPOSITORY}/deployments?environment=github-pages&per_page=30" --jq '.[] | "\(.id) \(.sha)"')"
             deployed=""
             while read -r id sha; do
@@ -137,8 +113,6 @@ jobs:
       docker: true
     secrets: inherit
 
-  # A failed check, build, or test publishes nothing; "Re-run failed jobs" runs
-  # them again and then publishes.
   publish-release:
     name: "Publish the GitHub release"
     needs: [version, checks, build, compat]
@@ -164,12 +138,6 @@ jobs:
           merge-multiple: true
           path: ".out"
 
-      # A release of the tag can exist from an earlier attempt: published, or
-      # a draft with some assets that a cancelled job left behind. Then an
-      # asset with other content than the local file fails the job, missing
-      # assets are uploaded, and a draft is published, so a re-run never
-      # changes a published binary. The notes are written to a file first, so
-      # a failure stops the step before the release exists.
       - name: "Publish"
         env:
           GH_TOKEN: ${{ github.token }}
@@ -223,8 +191,6 @@ jobs:
           name: pypi-wheels
           path: "wheels"
 
-      # PyPI never accepts a file name twice, and skip-existing skips a file
-      # that exists without comparing it, so a re-run checks the content here.
       - name: "Compare with the files on PyPI"
         env:
           VERSION: ${{ needs.version.outputs.version }}
@@ -287,11 +253,6 @@ jobs:
       - name: "Build, run, and push the images"
         run: dev/docker/prod-images --run --push
 
-  # The Bioconda recipe lives in bioconda/bioconda-recipes; this opens the pull
-  # request that updates its version and sha256 values. Bioconda maintainers
-  # review and merge it. The bot token is a classic token, because a
-  # fine-grained token cannot open pull requests in a repository of another
-  # owner.
   bioconda:
     name: "Open the Bioconda update"
     needs: [version, compat, publish-release]
@@ -327,8 +288,6 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
         run: dev/bioconda-update --version "${VERSION}" .out
 
-  # A new version can take a short time to appear on PyPI and Docker Hub, so the
-  # checks retry.
   verify-pypi:
     name: "Install from PyPI (${{ matrix.runner }})"
     needs: [version, pypi]
