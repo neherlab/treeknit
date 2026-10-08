@@ -42,70 +42,72 @@ pub const SETTING_KEYS: [SettingKey; 10] = [
   SettingKey {
     setting: SettingName::Gamma,
     key: "gamma",
-    opposite: None,
     value: KeyValue::Number,
     description: GAMMA_HELP,
   },
   SettingKey {
     setting: SettingName::SeqLengths,
     key: "seq-lengths",
-    opposite: None,
     value: KeyValue::Numbers,
     description: "Sequence length of each segment, in the order of the trees, for the likelihood tie-break and the drawn length of a split that some trees lack.",
   },
   SettingKey {
     setting: SettingName::NMcmcIt,
     key: "n-mcmc-it",
-    opposite: None,
     value: KeyValue::Integer,
     description: N_MCMC_IT_HELP,
   },
   SettingKey {
     setting: SettingName::Resolve,
     key: "resolve",
-    opposite: None,
     value: KeyValue::Mode,
     description: "How trees are resolved: matched, strict, liberal, or none.",
   },
   SettingKey {
     setting: SettingName::PreResolve,
     key: "pre-resolve",
-    opposite: Some("no-pre-resolve"),
-    value: KeyValue::Flag { key_sets: true },
+    value: KeyValue::Flag {
+      key_sets: true,
+      opposite: "no-pre-resolve",
+    },
     description: "Before inference, add to each tree the splits of other trees that are compatible with all trees.",
   },
   SettingKey {
     setting: SettingName::Rounds,
     key: "rounds",
-    opposite: None,
     value: KeyValue::Integer,
     description: ROUNDS_HELP,
   },
   SettingKey {
     setting: SettingName::FinalRound,
     key: "no-final-round",
-    opposite: Some("final-round"),
-    value: KeyValue::Flag { key_sets: false },
+    value: KeyValue::Flag {
+      key_sets: false,
+      opposite: "final-round",
+    },
     description: "With strict or liberal resolution and more than two trees, skip the final round without resolution.",
   },
   SettingKey {
     setting: SettingName::Likelihood,
     key: "no-likelihood",
-    opposite: Some("likelihood"),
-    value: KeyValue::Flag { key_sets: false },
+    value: KeyValue::Flag {
+      key_sets: false,
+      opposite: "likelihood",
+    },
     description: "Do not break ties between configurations with branch lengths.",
   },
   SettingKey {
     setting: SettingName::Naive,
     key: "naive",
-    opposite: Some("no-naive"),
-    value: KeyValue::Flag { key_sets: true },
+    value: KeyValue::Flag {
+      key_sets: true,
+      opposite: "no-naive",
+    },
     description: "Naive MCCs (γ → ∞): the maximal clades whose subtrees are identical, without inference.",
   },
   SettingKey {
     setting: SettingName::Seed,
     key: "seed",
-    opposite: None,
     value: KeyValue::Integer,
     description: SEED_HELP,
   },
@@ -117,11 +119,19 @@ pub struct SettingKey {
   pub setting: SettingName,
   /// Key of links and long flag of the command line without `--`: `gamma` for `--gamma`.
   pub key: &'static str,
-  /// For a flag, the key that sets the other value: `final-round` for `no-final-round`.
-  pub opposite: Option<&'static str>,
   pub value: KeyValue,
   /// One-line description.
   pub description: &'static str,
+}
+
+impl SettingKey {
+  /// For a flag, the key that sets the other value: `final-round` for `no-final-round`.
+  pub fn opposite(&self) -> Option<&'static str> {
+    match self.value {
+      KeyValue::Flag { opposite, .. } => Some(opposite),
+      KeyValue::Number | KeyValue::Numbers | KeyValue::Integer | KeyValue::Mode => None,
+    }
+  }
 }
 
 /// A field of `Settings`.
@@ -150,8 +160,9 @@ pub enum KeyValue {
   Integer,
   /// A resolution mode: `resolve=strict`.
   Mode,
-  /// No value: the key sets the setting to `key_sets`, its opposite to the other value.
-  Flag { key_sets: bool },
+  /// No value: the key sets the setting to `key_sets`, and the key `opposite` sets it to the
+  /// other value: `final-round` for `no-final-round`.
+  Flag { key_sets: bool, opposite: &'static str },
 }
 
 /// Rules and help of the settings for a request with a given number of trees and settings.

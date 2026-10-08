@@ -990,8 +990,8 @@ fn options_patch(
 /// The keys of the settings that `patch` sets, as the options that set them: `gamma`,
 /// `no-final-round`.
 fn patch_keys(patch: &SettingsPatch) -> Vec<&'static str> {
-  let flag = |value: Option<bool>, key: &'static str, opposite: Option<&'static str>, key_sets: bool| {
-    value.map(|v| if v == key_sets { key } else { opposite.unwrap_or(key) })
+  let flag = |value: Option<bool>, key: &'static str, opposite: &'static str, key_sets: bool| {
+    value.map(|v| if v == key_sets { key } else { opposite })
   };
   SETTING_KEYS
     .iter()
@@ -1004,16 +1004,18 @@ fn patch_keys(patch: &SettingsPatch) -> Vec<&'static str> {
         (schema::SettingName::Resolve, _) => set(patch.resolve.is_some()),
         (schema::SettingName::Rounds, _) => set(patch.rounds.is_some()),
         (schema::SettingName::Seed, _) => set(patch.seed.is_some()),
-        (schema::SettingName::PreResolve, KeyValue::Flag { key_sets }) => {
-          flag(patch.pre_resolve, s.key, s.opposite, key_sets)
+        (schema::SettingName::PreResolve, KeyValue::Flag { key_sets, opposite }) => {
+          flag(patch.pre_resolve, s.key, opposite, key_sets)
         },
-        (schema::SettingName::FinalRound, KeyValue::Flag { key_sets }) => {
-          flag(patch.final_round, s.key, s.opposite, key_sets)
+        (schema::SettingName::FinalRound, KeyValue::Flag { key_sets, opposite }) => {
+          flag(patch.final_round, s.key, opposite, key_sets)
         },
-        (schema::SettingName::Likelihood, KeyValue::Flag { key_sets }) => {
-          flag(patch.likelihood, s.key, s.opposite, key_sets)
+        (schema::SettingName::Likelihood, KeyValue::Flag { key_sets, opposite }) => {
+          flag(patch.likelihood, s.key, opposite, key_sets)
         },
-        (schema::SettingName::Naive, KeyValue::Flag { key_sets }) => flag(patch.naive, s.key, s.opposite, key_sets),
+        (schema::SettingName::Naive, KeyValue::Flag { key_sets, opposite }) => {
+          flag(patch.naive, s.key, opposite, key_sets)
+        },
         (
           schema::SettingName::PreResolve
           | schema::SettingName::FinalRound
@@ -1430,7 +1432,7 @@ mod tests {
       .collect();
     let keys: BTreeSet<&str> = SETTING_KEYS
       .iter()
-      .flat_map(|s| iter::once(s.key).chain(s.opposite))
+      .flat_map(|s| iter::once(s.key).chain(s.opposite()))
       .collect();
     assert_eq!(keys, options);
   }

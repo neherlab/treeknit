@@ -463,7 +463,7 @@ pub fn launch_keys() -> Vec<LaunchKeyInfo> {
   ];
   keys.extend(SETTING_KEYS.iter().map(|s| LaunchKeyInfo {
     key: s.key.to_owned(),
-    opposite: s.opposite.map(str::to_owned),
+    opposite: s.opposite().map(str::to_owned),
     value: value_placeholder(s.value).map(str::to_owned),
     description: s.description.to_owned(),
   }));
@@ -913,8 +913,8 @@ fn input_kind(key: &str) -> Option<InputKind> {
 /// The setting of a key and, for a flag, the value it sets.
 fn setting_key(key: &str) -> Option<(&'static SettingKey, Option<bool>)> {
   SETTING_KEYS.iter().find_map(|s| match s.value {
-    KeyValue::Flag { key_sets } if s.key == key => Some((s, Some(key_sets))),
-    KeyValue::Flag { key_sets } if s.opposite == Some(key) => Some((s, Some(!key_sets))),
+    KeyValue::Flag { key_sets, .. } if s.key == key => Some((s, Some(key_sets))),
+    KeyValue::Flag { key_sets, opposite } if opposite == key => Some((s, Some(!key_sets))),
     KeyValue::Flag { .. } => None,
     _ if s.key == key => Some((s, None)),
     _ => None,
@@ -1013,7 +1013,7 @@ fn suggestion(key: &str, view_keys: &[String]) -> Option<String> {
   }
   let launch = INPUT_KEYS
     .into_iter()
-    .chain(SETTING_KEYS.iter().flat_map(|s| [Some(s.key), s.opposite]).flatten())
+    .chain(SETTING_KEYS.iter().flat_map(|s| [Some(s.key), s.opposite()]).flatten())
     .chain(["run"]);
   closest(key, launch.chain(view_keys.iter().map(String::as_str))).map(str::to_owned)
 }
@@ -1212,14 +1212,14 @@ fn value_pair(s: &SettingKey, value: String) -> (String, String) {
 /// The key of a flag that differs from `base`: the key when it sets `value`, its opposite
 /// otherwise.
 fn flag_pair(s: &SettingKey, value: bool, base: bool) -> Option<String> {
-  let KeyValue::Flag { key_sets } = s.value else {
+  let KeyValue::Flag { key_sets, opposite } = s.value else {
     return None;
   };
   (value != base).then(|| {
     if value == key_sets {
       s.key.to_owned()
     } else {
-      s.opposite.unwrap_or(s.key).to_owned()
+      opposite.to_owned()
     }
   })
 }
