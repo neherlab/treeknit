@@ -122,7 +122,26 @@ pub fn graft_attachments(target: &mut Tree, trees: &[Tree], atts: &[&Attachment]
   }
 }
 
+/// Copy the subtree of `src` below `n` into `dst` and return the root of the copy. Leaves keep
+/// their names; internal nodes get the labels `IMPUTED_<label>` in preorder, advancing `label`.
+///
+/// The copy runs in preorder with an explicit stack, because a grafted subtree can be deeper
+/// than the call stack allows. Each copy is attached to the copy of its parent when it is made,
+/// so the children keep the order of the source.
 fn copy_subtree(dst: &mut Tree, src: &Tree, n: NodeId, label: &mut usize) -> NodeId {
+  let root = copy_node(dst, src, n, label);
+  let mut stack: Vec<(NodeId, NodeId)> = src.children(n).iter().rev().map(|&ch| (ch, root)).collect();
+  while let Some((m, parent)) = stack.pop() {
+    let c = copy_node(dst, src, m, label);
+    dst.attach(parent, c);
+    stack.extend(src.children(m).iter().rev().map(|&ch| (ch, c)));
+  }
+  root
+}
+
+/// Add a detached copy of node `n` of `src` to `dst`: a leaf keeps its name and taxon, an
+/// internal node gets the label `IMPUTED_<label>` and advances `label`.
+fn copy_node(dst: &mut Tree, src: &Tree, n: NodeId, label: &mut usize) -> NodeId {
   let s = &src.nodes[n];
   let name = if src.is_leaf(n) {
     s.name.clone()
@@ -132,17 +151,13 @@ fn copy_subtree(dst: &mut Tree, src: &Tree, n: NodeId, label: &mut usize) -> Nod
   };
   let c = dst.add_node(name, s.branch_length);
   dst.nodes[c].taxon = s.taxon;
-  for &ch in src.children(n) {
-    let x = copy_subtree(dst, src, ch, label);
-    dst.attach(c, x);
-  }
   c
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::tree::test_util::trees;
+  use crate::tree::test_util::{DEEP, caterpillar_at, numbered, nwk, on_small_stack, trees, with_taxa};
 
   #[test]
   fn private_leaf_joins_mcc_of_neighbours() {
@@ -234,5 +249,72 @@ mod tests {
     let a = attach_private(&ts[0], 0, &shared, &mccs, taxa.len());
     assert_eq!(a.len(), 1);
     assert_eq!(a[0].leaves.len(), 2);
+  }
+
+  /// The node of `t` named `name`.
+  fn named(t: &Tree, name: &str) -> NodeId {
+    t.preorder().into_iter().find(|&n| t.name(n) == name).unwrap()
+  }
+
+  /// The nodes of the subtree of `t` below `n`, `n` included, in preorder.
+  fn preorder_below(t: &Tree, n: NodeId) -> Vec<NodeId> {
+    let mut out = Vec::new();
+    let mut stack = vec![n];
+    while let Some(m) = stack.pop() {
+      out.push(m);
+      stack.extend(t.children(m).iter().rev());
+    }
+    out
+  }
+
+  /// The private subtree of `source` grafted into `target`, whose leaves the pair shares.
+  fn grafted(source: Tree, target: Tree) -> Tree {
+    let (ts, taxa) = with_taxa(vec![source, target]);
+    let shared = ts[1].leaf_set(taxa.len());
+    let mccs = vec![(0..taxa.len()).filter(|&x| shared.contains(x)).collect()];
+    let a = attach_private(&ts[0], 0, &shared, &mccs, taxa.len());
+    let mut t = ts[1].clone();
+    on_small_stack(|| graft_attachments(&mut t, &ts, &a.iter().collect::<Vec<_>>(), taxa.len()));
+    t
+  }
+
+  #[test]
+  fn graft_copies_the_subtree_with_labels_in_preorder() {
+    let (ts, _) = trees(&["((A,B),(C,((P:1,Q:2):3,R:4)));", "((A,B),C);"]);
+    let t = grafted(ts[0].clone(), ts[1].clone());
+    let at = t.parent(named(&t, "C")).unwrap();
+    let shown: Vec<(&str, Option<f64>)> = preorder_below(&t, at)
+      .into_iter()
+      .map(|n| (t.name(n), t.nodes[n].branch_length))
+      .collect();
+    // Oracle: the doc of `graft_attachments`; the new parent of the single anchor leaf C takes
+    // the first label, the copy keeps the child order and lengths of the source, drops the
+    // length of its root, and labels its internal nodes in preorder.
+    let expected = vec![
+      ("IMPUTED_1", None),
+      ("C", None),
+      ("IMPUTED_2", None),
+      ("IMPUTED_3", Some(3.0)),
+      ("P", Some(1.0)),
+      ("Q", Some(2.0)),
+      ("R", Some(4.0)),
+    ];
+    assert_eq!(expected, shown);
+  }
+
+  #[test]
+  fn graft_copies_a_deep_subtree() {
+    let private = numbered("P", DEEP);
+    let mut source = nwk("((A,B),(C,X));");
+    let x = named(&source, "X");
+    source.nodes[x].name = String::new();
+    caterpillar_at(&mut source, x, &private);
+    let t = grafted(source, nwk("((A,B),C);"));
+    // Oracle: imputation adds every missing leaf to the target tree.
+    let mut expected: Vec<String> = ["A", "B", "C"].map(str::to_owned).into_iter().chain(private).collect();
+    expected.sort();
+    let mut leaves = t.leaf_names();
+    leaves.sort();
+    assert_eq!((true, expected), (t.check(), leaves));
   }
 }
