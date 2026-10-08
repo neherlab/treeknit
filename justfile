@@ -77,9 +77,11 @@ dylint_over_baseline := dylint_target_dir / "mordant/over-baseline.txt"
 
 # Library crates whose public API is an external boundary, skipped by both
 # unused-public-code checks (hawk and pub-unused-report): the `#[wasm_bindgen]`
-# surface of the WebAssembly bindings is consumed by the web app, and the test
-# helpers by the tests of the other crates, which the checks do not count.
-public_api_crates := "treeknit_wasm treeknit_testing"
+# surface of the WebAssembly bindings is consumed by the web app, the test
+# helpers by the tests of the other crates, which the checks do not count, and
+# util-newick is a copy of the TreeTime crate that stays identical to it, so its
+# documented API serves TreeTime as well.
+public_api_crates := "treeknit_wasm treeknit_testing util_newick"
 
 # Cargo with the seven-day minimum publish age of new dependency releases. The
 # setting is unstable in the pinned Rust (stable from 1.100), so the dependency
