@@ -1,7 +1,7 @@
 import type { ExampleInfo } from "@neherlab/treeknit-wasm";
 import { describe, expect, test } from "vitest";
 
-import { exampleGroups, exampleTreePaths, loadExample, type TreeFileReaders } from "../example";
+import { exampleGroups, loadExample, type TreeFileReaders } from "../example";
 
 const SMALL: ExampleInfo = {
   id: "5-leaves",
@@ -74,15 +74,19 @@ describe("exampleGroups", () => {
   });
 });
 
-describe("exampleTreePaths", () => {
-  test("bundles the tree files of data/ and fixtures/sim/, which the Rust catalog lists one by one", () => {
-    const paths = exampleTreePaths();
+describe("the tree files of the build", () => {
+  test("hold the trees of data/ and fixtures/sim/, which the Rust catalog lists by their paths", async () => {
+    const simulated: ExampleInfo = {
+      ...REAL,
+      trees: [{ file: "tree3.nwk", label: "tree3", path: "fixtures/sim/sim_k3_n50_r0.1/tree3.nwk", newick: null }],
+    };
 
-    expect([
-      paths.includes("data/h3n2-2017/ha.nwk"),
-      paths.includes("data/h3n2-2k-4-segments/pb2.nwk"),
-      paths.includes("fixtures/sim/sim_k3_n50_r0.1/tree3.nwk"),
-      paths.every((path) => /^(data|fixtures\/sim)\/[^/]+\/[^/]+\.nwk$/u.test(path)),
-    ]).toStrictEqual([true, true, true, true]);
+    const trees = [...(await loadExample(REAL)), ...(await loadExample(simulated))];
+
+    expect(trees.map(({ newick }) => newick.startsWith("(") && newick.trimEnd().endsWith(";"))).toStrictEqual([
+      true,
+      true,
+      true,
+    ]);
   });
 });

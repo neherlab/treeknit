@@ -4,7 +4,6 @@ import { describe, expect, test } from "vitest";
 
 import type { RunOutcome } from "../../analysis/client";
 import {
-  formatNodeRef,
   isViewAvailable,
   NO_WORKSPACE,
   type NodeRef,
@@ -260,8 +259,8 @@ describe("stringifySearch", () => {
     );
   });
 
-  test("formatNodeRef writes side and name", () => {
-    expect(formatNodeRef({ side: "right", name: "NODE_12:x" })).toBe("right:NODE_12:x");
+  test("writes a node name that contains colons after its side", () => {
+    expect(stringifySearch({ node: { side: "right", name: "NODE_12:x" } })).toBe("?node=right:NODE_12:x");
   });
 });
 

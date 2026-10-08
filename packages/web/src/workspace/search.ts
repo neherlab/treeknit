@@ -180,10 +180,6 @@ export type SearchRecord = Record<string, SearchValue>;
 
 export type SearchValue = QueryRecord[string] | number | PairRef | NodeRef | undefined;
 
-export function formatNodeRef(node: NodeRef): string {
-  return z.encode(nodeCodec, node);
-}
-
 export interface WorkspaceAvailability {
   hasResult: boolean;
   treeCount: number;

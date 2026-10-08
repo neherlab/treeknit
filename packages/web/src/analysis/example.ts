@@ -28,12 +28,6 @@ export function exampleGroups(examples: readonly ExampleInfo[]): ExampleGroup[] 
   );
 }
 
-export function exampleTreePaths(files: TreeFileReaders = TREE_FILES): string[] {
-  return Object.keys(files)
-    .map((key) => key.slice(REPOSITORY_ROOT.length))
-    .toSorted();
-}
-
 export interface ExampleGroup {
   id: string;
   name: string;

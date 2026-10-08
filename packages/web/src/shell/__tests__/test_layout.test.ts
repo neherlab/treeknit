@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 
 import {
-  CENTER_MIN_WIDTH_PX,
   INSPECTOR_PANE_MIN_WIDTH_PX,
   INSPECTOR_WIDTH_CLASS,
   INSPECTOR_WIDTH_PX,
@@ -12,6 +11,8 @@ import {
   SHELL_MEDIA_QUERIES,
   shellLayout,
 } from "../layout";
+
+const CENTER_MIN_WIDTH_PX = 640;
 
 describe("shellLayout", () => {
   test.each([
