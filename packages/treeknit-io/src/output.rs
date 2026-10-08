@@ -265,6 +265,52 @@ impl FileKind {
     }
   }
 
+  /// What the file holds, and the runs and options that write it, for `file_reference`.
+  fn description(self) -> &'static str {
+    match self {
+      FileKind::Mccs => {
+        "The MCCs of every pair, in the `MCC_dict` format of TreeKnit.jl. When leaves are missing \
+         from one tree of a pair, the list `imputed` gives each such leaf, its source tree, the \
+         index of the MCC it joined, and whether the placement was ambiguous"
+      },
+      FileKind::MccLines { .. } => {
+        "The MCCs of a pair in the text format of TreeKnit.jl before 0.5: one MCC per line, leaves \
+         separated by commas. `MCCs.dat` for two trees, one file per pair for more"
+      },
+      FileKind::Resolved { .. } => {
+        "The tree after resolution, with polytomies sorted for tanglegrams. Tree files keep the \
+         extension of their input file"
+      },
+      FileKind::Imputed { .. } => {
+        "With `--impute`: the resolved tree with the leaves that only other trees have, placed by \
+         imputation"
+      },
+      FileKind::Auspice { .. } => {
+        "With `--auspice-view`: the resolved tree in the JSON format of Auspice, colored by MCC, \
+         for tanglegrams in Auspice"
+      },
+      FileKind::ArgNewick => {
+        "Two trees: the ARG in extended Newick, with `[&segments={0,1}]` annotations and the \
+         hybrid nodes `#H<i>`"
+      },
+      FileKind::ArgNodes => "Two trees: the table of the ARG nodes and the tree nodes they stand for",
+      FileKind::ArgTree { .. } => "Two trees: the liberally resolved trees that the ARG was built from",
+      FileKind::Figure {
+        figure: Figure::Pair { .. },
+        ..
+      } => {
+        "With `--plot`: the tanglegram of the resolved trees of a pair, with MCC colors and the \
+         reassortment branches marked"
+      },
+      FileKind::Figure {
+        figure: Figure::Arg, ..
+      } => {
+        "With `--plot`, two trees with a built ARG: the ARG, colored by segment, with \
+         reassortments as dashed curves"
+      },
+    }
+  }
+
   /// The text of the file of `run` at `path`, with the bytes the command line writes; an error
   /// when `run` lacks the pair or the ARG of the file, or when Newick cannot hold one of its trees.
   fn text(self, run: &RunResult, path: &str) -> Result<String, FileError> {
@@ -301,6 +347,45 @@ impl FileKind {
       FileKind::Figure { figure, .. } => figure_text(run, figure).ok_or_else(missing)?,
     })
   }
+}
+
+/// Labels of the trees of `file_reference`: a placeholder for any tree, and placeholders for the
+/// trees of a pair, with a third tree for the names that depend on the number of trees.
+const TREE_PLACEHOLDER: [&str; 1] = ["<tree>"];
+const PAIR_PLACEHOLDERS: [&str; 3] = ["<a>", "<b>", "<c>"];
+
+/// One file of each kind for `file_reference`, with the label sets of its paths.
+fn reference_kinds() -> Vec<(FileKind, Vec<&'static [&'static str]>)> {
+  let two: &[&str] = &PAIR_PLACEHOLDERS[..ARG_TREE_COUNT];
+  let more: &[&str] = &PAIR_PLACEHOLDERS;
+  let tree: &[&str] = &TREE_PLACEHOLDER;
+  let pair = Figure::Pair { pair: 0 };
+  vec![
+    (FileKind::Mccs, vec![two]),
+    (FileKind::MccLines { pair: 0, i: 0, j: 1 }, vec![two, more]),
+    (FileKind::Resolved { tree: 0 }, vec![tree]),
+    (FileKind::Imputed { tree: 0 }, vec![tree]),
+    (FileKind::Auspice { tree: 0 }, vec![tree]),
+    (FileKind::ArgNewick, vec![two]),
+    (FileKind::ArgNodes, vec![two]),
+    (FileKind::ArgTree { tree: 0 }, vec![tree]),
+    (
+      FileKind::Figure {
+        figure: pair,
+        i: 0,
+        j: 1,
+      },
+      vec![two],
+    ),
+    (
+      FileKind::Figure {
+        figure: Figure::Arg,
+        i: 0,
+        j: 1,
+      },
+      vec![two],
+    ),
+  ]
 }
 
 /// The labels of the trees of `run`.
@@ -342,6 +427,47 @@ pub fn output_files(run: &RunResult, options: &OutputOptions) -> Result<Vec<Outp
       Ok(OutputFile::new(path, text))
     })
     .collect()
+}
+
+/// The output files of the command line for its documentation: one entry per kind of file, in
+/// the order of `output_files`, then `parameters.json`, `log.txt`, and the session file. Paths
+/// hold the placeholders `<tree>` for the label of a tree and `<a>`, `<b>` for the labels of the
+/// trees of a pair; tree files have the extension `.nwk`.
+pub fn file_reference() -> Vec<FileReference> {
+  let options = OutputOptions::web(PAIR_PLACEHOLDERS.len());
+  let run_files = [
+    (PARAMETERS_FILE, "The options and the seed of the run"),
+    (LOG_FILE, "The log of the run"),
+    (
+      SESSION_FILE,
+      "With `--session`, `--example`, `--link`, or `--print-link`: the trees and settings that ran, \
+       which the web app opens and `--session` runs",
+    ),
+  ];
+  reference_kinds()
+    .into_iter()
+    .map(|(kind, label_sets)| FileReference {
+      paths: label_sets
+        .into_iter()
+        .map(|labels| kind.path(labels, &options))
+        .collect(),
+      description: kind.description(),
+    })
+    .chain(run_files.map(|(path, description)| FileReference {
+      paths: vec![path.to_owned()],
+      description,
+    }))
+    .collect()
+}
+
+/// An entry of `file_reference`: the paths of one kind of output file and what it holds.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FileReference {
+  /// The paths of the file, with placeholders for the tree labels; a file whose name depends on
+  /// the number of trees has a path for two trees and one for more.
+  pub paths: Vec<String>,
+  /// What the file holds, and the runs and options that write it.
+  pub description: &'static str,
 }
 
 /// The file set of a run of the web app for `request`, in order: the session file, the files of
@@ -797,6 +923,7 @@ mod tests {
   use crate::figure::LabelMode;
   use crate::test_support::{clades, run_trees};
   use indoc::indoc;
+  use std::collections::BTreeSet;
   use treeknit_testing::assert_err;
 
   use crate::summary::Level;
@@ -873,6 +1000,47 @@ mod tests {
       "auspice_pb2.json",
     ];
     assert_eq!(expected, paths(&files));
+  }
+
+  #[test]
+  fn file_reference_lists_one_entry_per_kind_of_file_with_placeholder_names() {
+    let actual: Vec<Vec<String>> = file_reference().into_iter().map(|r| r.paths).collect();
+    let expected = vec![
+      vec!["MCCs.json"],
+      vec!["MCCs.dat", "MCCs_<a>_<b>.dat"],
+      vec!["<tree>_resolved.nwk"],
+      vec!["<tree>_imputed.nwk"],
+      vec!["auspice_<tree>.json"],
+      vec!["ARG/arg.nwk"],
+      vec!["ARG/nodes.dat"],
+      vec!["ARG/<tree>_liberal_resolved.nwk"],
+      vec!["tanglegram_<a>_<b>.svg"],
+      vec!["ARG/arg.svg"],
+      vec!["parameters.json"],
+      vec!["log.txt"],
+      vec!["treeknit_session.json"],
+    ];
+    assert_eq!(expected, actual);
+  }
+
+  #[rstest]
+  #[case::two_trees(2)]
+  #[case::three_trees(3)]
+  #[trace]
+  fn file_reference_describes_every_file_that_a_run_writes(#[case] k: usize) {
+    let described: BTreeSet<&str> = reference_kinds()
+      .into_iter()
+      .map(|(kind, _)| kind.description())
+      .collect();
+    let written: BTreeSet<&str> = file_kinds(k, &OutputOptions::web(k), true)
+      .into_iter()
+      .map(FileKind::description)
+      .collect();
+    assert!(
+      written.is_subset(&described),
+      "undescribed: {:?}",
+      written.difference(&described)
+    );
   }
 
   #[test]
