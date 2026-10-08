@@ -6,25 +6,13 @@
 # [tool.uv]
 # exclude-newer = "2026-09-30T00:00:00Z"
 # ///
-"""Write one PyPI wheel per release binary of the CLI.
+"""Write one PyPI wheel per release binary of the CLI, with the binary as the script `treeknit`.
 
-Each wheel holds the prebuilt binary treeknit-<target> of dev/cross/build as the
-script `treeknit`, which pip installs into the bin directory (Scripts on
-Windows) of the environment. The platform tag of each wheel lets pip pick the
-binary of the user's system: the glibc build on glibc Linux systems, the static
-musl build on musl systems such as Alpine, and the native builds on macOS and
-Windows. There is no source distribution, so pip reports "no matching
-distribution" on other platforms.
+The same binaries give byte-identical wheels (zip dates from SOURCE_DATE_EPOCH,
+by default the commit time), because a re-run of the release compares them with
+the files on PyPI.
 
-The wheels are reproducible: the same binaries give byte-identical wheels. Zip
-entry dates come from SOURCE_DATE_EPOCH, by default the time of the current
-commit. The package metadata comes from [workspace.package] of Cargo.toml, and the
-description starts with docs/channels/summary.md, which Docker Hub shows too.
-
-Runs in the build container (dev/docker/run), with the dependencies pinned
-above and in dev/pypi-wheels.lock. Prints nothing on success.
-
-Examples:
+Example:
   dev/docker/run dev/pypi-wheels --version 1.0.0 .out tmp/pypi-wheels
 """
 
@@ -68,19 +56,9 @@ PLATFORMS = (
     Platform("x86_64-pc-windows-gnu", "win_amd64", ".exe"),
 )
 
-# The description of the channels, shared with the Docker Hub page: what TreeKnit
-# does, and the CPU requirements of the flags of dev/lib/dist-flags.sh, which
-# wheel tags cannot express.
+# The PyPI description: what TreeKnit does, with links to the repository, shared
+# with the Docker Hub page.
 SUMMARY = ROOT / "docs/channels/summary.md"
-
-# The part of the PyPI description that only wheels have, after the summary.
-WHEEL_DESCRIPTION = """
-This package installs the `treeknit` command-line program, the prebuilt binary of the \
-[GitHub release]({releases}/tag/{version}).
-
-Wheels exist for Linux on x86_64 and ARM64 (glibc 2.17 or newer, or musl), macOS 10.12 or newer \
-on Intel and 11.0 or newer on Apple Silicon, and Windows on x86_64.
-"""
 
 
 def main() -> None:
@@ -104,8 +82,7 @@ def main() -> None:
         os.environ["SOURCE_DATE_EPOCH"] = commit_time()
     package = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]["package"]
     license_text = (ROOT / "LICENSE").read_bytes()
-    releases = f"{package['repository']}/releases"
-    description = SUMMARY.read_text() + WHEEL_DESCRIPTION.format(releases=releases, version=version)
+    description = SUMMARY.read_text()
 
     args.output.mkdir(parents=True, exist_ok=True)
     for platform, binary in zip(PLATFORMS, binaries, strict=True):
