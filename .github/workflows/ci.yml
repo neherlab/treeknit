@@ -1,0 +1,143 @@
+name: "CI"
+
+# Checks: the fast recipes of the justfile on every pull request and every push
+# to main. Builds: the release binaries of cli-build.yml and the compatibility
+# tests of cli-compat.yml, on every push to main, on manual runs, and on pull
+# requests that change the build or release machinery. The Docker images of
+# the compatibility tests take several minutes under QEMU, so they run only
+# when dev/docker/ or .github/ changes, and on manual runs. The slow checks run
+# in dev/release before every release (just check-all).
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+env:
+  # Every run starts without incremental state, so incremental compiles only add
+  # overhead, and kache caches only compiles without it.
+  CARGO_INCREMENTAL: "0"
+  KACHE_STORE: ${{ github.workspace }}/.cache/kache
+  FORCE_COLOR: "1"
+
+jobs:
+  check:
+    name: "Check (${{ matrix.name }})"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "lint"
+            command: "just check"
+          - name: "config lints"
+            command: "dev/run-checks --serial lint-shell lint-py lint-docker lint-workflows"
+          - name: "tests"
+            command: "dev/run-checks --serial check-group:tests test-ts"
+          - name: "generated files"
+            command: "just generated-check"
+    steps:
+      - name: "Check out"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: "Prepare the build container"
+        uses: ./.github/actions/prepare
+        with:
+          cache: ${{ matrix.name }}
+          dockerhub-username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ github.event_name != 'pull_request' && secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN || '' }}
+
+      - name: "Run ${{ matrix.name }}"
+        run: dev/docker/run ${{ matrix.command }}
+
+  changes:
+    name: "Changed files"
+    runs-on: ubuntu-24.04
+    outputs:
+      builds: ${{ steps.changes.outputs.builds }}
+      docker: ${{ steps.changes.outputs.docker }}
+      wheel_version: ${{ steps.changes.outputs.wheel_version }}
+    steps:
+      # The merge commit of a pull request has the tip of the base branch as its
+      # first parent, so HEAD^1..HEAD is the change of the pull request.
+      - name: "Check out"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 1 }}
+
+      - name: "List the changed files"
+        id: changes
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          crate_version="$(yq -p toml -o yaml '.workspace.package.version' Cargo.toml)"
+          files=""
+          all=false
+          case "${EVENT}" in
+          pull_request)
+            files="$(git diff --name-only HEAD^1 HEAD)"
+            ;;
+          push)
+            # A new branch has no previous commit.
+            if [[ "${BEFORE}" =~ ^0+$ ]]; then
+              all=true
+            else
+              git fetch --quiet --depth=1 origin "${BEFORE}"
+              files="$(git diff --name-only "${BEFORE}" HEAD)"
+            fi
+            ;;
+          *) all=true ;;
+          esac
+
+          builds="${all}"
+          docker="${all}"
+          if [[ "${EVENT}" != "pull_request" ]]; then
+            builds=true
+          fi
+          while IFS= read -r file; do
+            case "${file}" in
+            .github/* | dev/docker/*)
+              builds=true
+              docker=true
+              ;;
+            .cargo/* | dev/cross/* | dev/lib/* | dev/pypi-wheels* | .config/mise.* | rust-toolchain.toml | Cargo.toml | Cargo.lock)
+              builds=true
+              ;;
+            esac
+          done <<<"${files}"
+
+          printf 'Builds: %s\nDocker images: %s\n' "${builds}" "${docker}"
+          printf 'builds=%s\ndocker=%s\nwheel_version=%s\n' "${builds}" "${docker}" "${crate_version}.dev0" >>"${GITHUB_OUTPUT}"
+
+  build:
+    name: "Build CLI"
+    needs: changes
+    if: needs.changes.outputs.builds == 'true'
+    uses: ./.github/workflows/cli-build.yml
+    with:
+      source_ref: ${{ github.sha }}
+    secrets: inherit
+
+  compat:
+    name: "Test CLI compatibility"
+    needs: [changes, build]
+    if: needs.changes.outputs.builds == 'true'
+    uses: ./.github/workflows/cli-compat.yml
+    with:
+      wheel_version: ${{ needs.changes.outputs.wheel_version }}
+      docker: ${{ needs.changes.outputs.docker == 'true' }}
+    secrets: inherit

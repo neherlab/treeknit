@@ -1,0 +1,79 @@
+name: "Build CLI"
+
+# Build the shipped CLI for every release target of dev/cross/targets, one job
+# per target in its cross image, check the libraries each binary needs, and
+# upload each binary as the artifact treeknit-<target>. Called by ci.yml and
+# release.yml; a failed target fails the run.
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: "Commit to build"
+        required: true
+        type: string
+      version:
+        description: "Version that the binaries report; empty for <crate version>-dev"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+env:
+  # Every run starts without incremental state, so incremental compiles only add
+  # overhead, and kache caches only compiles without it.
+  CARGO_INCREMENTAL: "0"
+  KACHE_STORE: ${{ github.workspace }}/.cache/kache
+
+jobs:
+  build:
+    name: "Build (${{ matrix.target }})"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-apple-darwin
+          - aarch64-unknown-linux-gnu
+          - aarch64-unknown-linux-musl
+          - x86_64-apple-darwin
+          - x86_64-pc-windows-gnu
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+    env:
+      CROSS_COMPILE: ${{ matrix.target }}
+      TREEKNIT_VERSION: ${{ inputs.version }}
+    steps:
+      - name: "Check out"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+
+      - name: "Prepare the build container"
+        uses: ./.github/actions/prepare
+        with:
+          image: ${{ matrix.target }}
+          cache: "release"
+          dockerhub-username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ github.event_name != 'pull_request' && secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN || '' }}
+
+      - name: "Build"
+        run: dev/docker/run dev/cross/build --profile=dist treeknit
+
+      - name: "Check the libraries"
+        run: dev/docker/run dev/cross/check treeknit
+
+      - name: "Upload"
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: treeknit-${{ matrix.target }}
+          path: .out/treeknit-${{ matrix.target }}*
+          # The action skips paths under a directory whose name starts with a dot, such as .out/.
+          include-hidden-files: true
+          if-no-files-found: error
