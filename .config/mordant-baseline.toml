@@ -1,0 +1,26 @@
+["energy_cost (bin energy_cost)"]
+"stringified_error:packages/treeknit-io/examples/energy_cost.rs" = 2
+
+["large_tree_pair (bin large_tree_pair)"]
+"stringified_error:packages/treeknit-io/examples/large_tree_pair.rs" = 3
+
+[treeknit_core]
+"parallel_vecs:packages/treeknit-core/src/splitgraph.rs" = 1
+"tuple_wants_struct:packages/treeknit-core/src/pipeline.rs" = 1
+"wildcard_over_own_enum:packages/treeknit-core/src/arg.rs" = 1
+
+[treeknit_io]
+"bare_bool_args:packages/treeknit-io/src/display/legend.rs" = 1
+"derived_field:packages/treeknit-io/src/schema.rs" = 2
+"same_match_twice:packages/treeknit-io/src/palette.rs" = 1
+"stringified_error:packages/treeknit-io/src/launch.rs" = 1
+"wildcard_over_own_enum:packages/treeknit-io/src/display.rs" = 1
+"wildcard_over_own_enum:packages/treeknit-io/src/launch.rs" = 3
+
+[treeknit_wasm]
+"stringified_error:packages/treeknit-wasm/src/lib.rs" = 3
+
+[util_newick]
+"bare_bool_args:packages/util-newick/src/__tests__/test_prop_roundtrip.rs" = 1
+"stringified_error:packages/util-newick/src/__tests__/test_stream.rs" = 1
+"wildcard_over_own_enum:packages/util-newick/src/__tests__/test_read_errors.rs" = 1
