@@ -497,12 +497,66 @@ pub(crate) mod test_util {
 
   /// Parse trees and assign a shared taxon table.
   pub(crate) fn trees(s: &[&str]) -> (Vec<Tree>, Taxa) {
-    let mut ts: Vec<Tree> = s.iter().map(|x| nwk(x)).collect();
+    with_taxa(s.iter().map(|x| nwk(x)).collect())
+  }
+
+  /// `ts` with the leaves assigned to their shared taxon table.
+  pub(crate) fn with_taxa(mut ts: Vec<Tree>) -> (Vec<Tree>, Taxa) {
     let taxa = Taxa::from_trees(&ts);
     for t in &mut ts {
       t.assign_taxa(&taxa).unwrap();
     }
     (ts, taxa)
+  }
+
+  /// Depth of the trees that test the absence of recursion per tree level: a function that
+  /// recurses once per level overflows the stack of `on_small_stack` well before it. The same
+  /// as `treeknit_testing::DEEP`, which this crate does not depend on.
+  pub(crate) const DEEP: usize = 5_000;
+
+  /// Stack size of `on_small_stack`.
+  const SMALL_STACK: usize = 256 * 1024;
+
+  /// The result of `f`, run on a thread with a stack of 256 KiB, as
+  /// `treeknit_testing::on_small_stack` runs it.
+  pub(crate) fn on_small_stack<T: Send>(f: impl FnOnce() -> T + Send) -> T {
+    std::thread::scope(|s| {
+      std::thread::Builder::new()
+        .stack_size(SMALL_STACK)
+        .spawn_scoped(s, f)
+        .unwrap()
+        .join()
+        .unwrap()
+    })
+  }
+
+  /// The names `<prefix>0` to `<prefix><n - 1>`.
+  pub(crate) fn numbered(prefix: &str, n: usize) -> Vec<String> {
+    (0..n).map(|i| format!("{prefix}{i}")).collect()
+  }
+
+  /// Make `top` the root of a caterpillar over `names` (at least two): each internal node has a
+  /// leaf as its first child and the next internal node as its second, down to the cherry of
+  /// the last two names. Built without a Newick reader, because `nwk` recurses per level.
+  pub(crate) fn caterpillar_at(t: &mut Tree, top: NodeId, names: &[String]) {
+    let mut n = top;
+    for (k, name) in names.iter().enumerate() {
+      let leaf = t.add_node(name.clone(), None);
+      t.attach(n, leaf);
+      if k + 2 < names.len() {
+        let inner = t.add_node("", None);
+        t.attach(n, inner);
+        n = inner;
+      }
+    }
+  }
+
+  /// A tree that is the caterpillar of `names`, as [`caterpillar_at`] builds it.
+  pub(crate) fn caterpillar(names: &[String]) -> Tree {
+    let mut t = Tree::new("t");
+    let root = t.root;
+    caterpillar_at(&mut t, root, names);
+    t
   }
 
   /// Sorted list of non-root internal clades as sorted name lists.

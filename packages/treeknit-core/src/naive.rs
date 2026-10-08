@@ -57,30 +57,40 @@ pub fn naive_mccs(trees: &[&Tree], n_taxa: usize) -> Vec<Mcc> {
 
 /// Are the subtrees below `roots` (one node per tree) identical?
 /// `memo` caches tree-0 nodes already known to be coherent.
+///
+/// Depth-first over the matched nodes with an explicit stack, because identical subtrees can be
+/// deeper than the call stack allows. Each frame holds one node per tree and the position of the
+/// next child of its tree-0 node; a node enters `memo` when all its children are checked.
 fn is_coherent(trees: &[&Tree], clades: &[Vec<Bits>], roots: &[NodeId], memo: &mut [bool]) -> bool {
-  if memo[roots[0]] {
-    return true;
-  }
   let t0 = trees[0];
-  let nc = t0.children(roots[0]).len();
-  if (1..roots.len()).any(|k| trees[k].children(roots[k]).len() != nc) {
-    return false;
+  let mut stack: Vec<(Vec<NodeId>, usize)> = Vec::new();
+  if !memo[roots[0]] {
+    if !same_child_count(trees, roots) {
+      return false;
+    }
+    stack.push((roots.to_vec(), 0));
   }
-  for &c in t0.children(roots[0]) {
+  while let Some((nodes, next)) = stack.last_mut() {
+    let Some(&c) = t0.children(nodes[0]).get(*next) else {
+      memo[nodes[0]] = true;
+      stack.pop();
+      continue;
+    };
+    *next += 1;
     if t0.is_leaf(c) {
       let x = t0.taxon(c);
-      for k in 1..roots.len() {
+      for k in 1..nodes.len() {
         let t = trees[k];
-        if !t.children(roots[k]).iter().any(|&d| t.is_leaf(d) && t.taxon(d) == x) {
+        if !t.children(nodes[k]).iter().any(|&d| t.is_leaf(d) && t.taxon(d) == x) {
           return false;
         }
       }
     } else {
       let mut matched = vec![c];
-      for k in 1..roots.len() {
+      for k in 1..nodes.len() {
         let t = trees[k];
         match t
-          .children(roots[k])
+          .children(nodes[k])
           .iter()
           .find(|&&d| !t.is_leaf(d) && clades[k][d] == clades[0][c])
         {
@@ -88,19 +98,28 @@ fn is_coherent(trees: &[&Tree], clades: &[Vec<Bits>], roots: &[NodeId], memo: &m
           None => return false,
         }
       }
-      if !is_coherent(trees, clades, &matched, memo) {
+      if memo[c] {
+        continue;
+      }
+      if !same_child_count(trees, &matched) {
         return false;
       }
+      stack.push((matched, 0));
     }
   }
-  memo[roots[0]] = true;
   true
+}
+
+/// Do the nodes `nodes` (one per tree) have the same number of children?
+fn same_child_count(trees: &[&Tree], nodes: &[NodeId]) -> bool {
+  let nc = trees[0].children(nodes[0]).len();
+  (1..nodes.len()).all(|k| trees[k].children(nodes[k]).len() == nc)
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::tree::test_util::trees;
+  use crate::tree::test_util::{DEEP, caterpillar, numbered, on_small_stack, trees, with_taxa};
 
   fn names(m: &[Mcc], taxa: &crate::tree::Taxa) -> Vec<Vec<String>> {
     m.iter().map(|x| taxa.names_of(x)).collect()
@@ -121,5 +140,15 @@ mod tests {
     let (ts, taxa) = trees(&["((A,B),(C,D));", "((C,D),(B,A));"]);
     let m = naive_mccs(&[&ts[0], &ts[1]], taxa.len());
     assert_eq!(m.len(), 1);
+  }
+
+  #[test]
+  fn identical_deep_trees_give_one_mcc() {
+    let names = numbered("L", DEEP);
+    let (ts, taxa) = with_taxa(vec![caterpillar(&names), caterpillar(&names)]);
+    let m = on_small_stack(|| naive_mccs(&[&ts[0], &ts[1]], taxa.len()));
+    // Oracle: the module doc; identical trees are one subtree identical in all trees.
+    let expected: Vec<Mcc> = vec![(0..taxa.len()).collect()];
+    assert_eq!(expected, m);
   }
 }
