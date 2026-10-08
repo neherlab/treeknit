@@ -639,18 +639,22 @@ mod tests {
     assert_eq!(Some(&expected), largest.scale.as_ref());
     // Every leaf outside the 8 largest MCCs has the value "Other".
     let kept: BTreeSet<String> = expected.iter().map(|(name, _)| name.clone()).collect();
+    let mut want = Vec::new();
+    let mut got = Vec::new();
     let mut stack = vec![&view.left.tree];
     while let Some(n) = stack.pop() {
       if let (Some(mcc), Some(largest)) = (&n.node_attrs.mcc, &n.node_attrs.largest_mcc) {
-        let want = if kept.contains(&mcc.value) {
+        let value = if kept.contains(&mcc.value) {
           mcc.value.as_str()
         } else {
           "Other"
         };
-        assert_eq!(want, largest.value, "{}", n.name);
+        want.push((n.name.as_str(), value));
+        got.push((n.name.as_str(), largest.value.as_str()));
       }
       stack.extend(n.children.iter().flatten());
     }
+    assert_eq!(want, got);
   }
 
   #[test]
