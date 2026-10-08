@@ -110,8 +110,11 @@
   "overrides": {
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "d3-color": "3.1.0",
+    "dompurify": "3.4.16",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-tooltip>uuid": "11.1.1",
     "styled-components": "5.3.11"
   },
   "engines": {
