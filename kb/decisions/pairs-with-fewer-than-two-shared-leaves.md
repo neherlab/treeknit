@@ -5,13 +5,13 @@ TreeKnit.jl requires every tree to have the same leaves. The port accepts trees 
 ## Decision
 
 - **A request is invalid on both surfaces.** The shared tree checks of `treeknit_io::analysis` report every pair with fewer than two shared leaves as `trees "<a>" and "<b>" share fewer than 2 leaves` on the field `trees` [[src](../../packages/treeknit-io/src/analysis.rs#L217-L268)]. The command line stops with exit code 1 before it writes `parameters.json`, with the resolution modes and with the former options. The web app shows the error before a run, and `Session.run` throws a `ValidationError`
-- **The core skips the pair.** `treeknit_core::run` called directly (a library user, a test) skips such a pair with the warning "trees <a> and <b> share fewer than two leaves: skipped": inference returns no MCCs, and resolution, sorting, and matching leave the pair's trees unchanged [[src](../../packages/treeknit-core/src/pipeline.rs#L444-L486)]. `attach_pair` attaches nothing to a pair without MCCs, so imputation places no leaf through it
+- **The core skips the pair.** `treeknit_core::run` called directly (a library user, a test) skips such a pair with the warning "trees <a> and <b> share fewer than two leaves: skipped": inference returns no MCCs, and resolution, sorting, and matching leave the pair's trees unchanged [[src](../../packages/treeknit-core/src/pipeline.rs#L441-L484)]. `attach_pair` attaches nothing to a pair without MCCs, so imputation places no leaf through it
 
 ## Rationale
 
 - **No result is the true result.** Zero or one shared leaf gives no information on co-inheritance. One MCC per leaf would state the most reassortments, and one MCC of all leaves, the earlier behavior with one shared leaf, would state that the trees share every branch. The input supports neither
 - **Error before a run.** A user who loads such a pair has the wrong trees or the wrong leaf names (for example different strain-name formats). An error that names the pair says what to fix; a skipped pair in a finished run is easy to miss
-- **No panic in the core.** The earlier `restrict_pair` panicked on a pair without shared leaves, and a panic traps the WebAssembly instance. The skip at the pair boundary makes the core total, so the validation is the user-facing rule and not a guard against a crash
+- **No panic in the core.** The restriction of a tree to the shared leaves of its pair (`restricted_to_shared`) panics on a pair without shared leaves, and a panic traps the WebAssembly instance. The skip at the pair boundary makes the core total, so the validation is the user-facing rule and not a guard against a crash
 
 ## Tests
 
