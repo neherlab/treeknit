@@ -546,10 +546,12 @@ audit: _js
 audit-rs:
     cargo deny --locked --all-features --config .config/deny.toml check advisories
 
-# Security advisories of the JavaScript dependencies (bun audit, network)
+# Security advisories of the JavaScript dependencies (bun audit, network), except those that .config/audit-ignore.json lists for code that never runs
 [group("deps")]
+[script]
 audit-ts: _js
-    bun audit
+    mapfile -t ignored < <(jq -r '.packages[].advisories[] | "--ignore=\(.)"' .config/audit-ignore.json)
+    bun audit "${ignored[@]}"
 
 # Newer releases of the tools pinned in .config/mise.toml
 [group("deps")]

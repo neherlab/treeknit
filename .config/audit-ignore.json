@@ -1,0 +1,55 @@
+{
+  "packages": {
+    "ejs": {
+      "affected": "<3.1.10",
+      "advisories": ["GHSA-phwq-j96m-2c2q", "GHSA-ghr5-ch3p-vcr6"],
+      "reason": "ejs 2 renders the report of webpack-bundle-analyzer in the Auspice build command, which the project never runs"
+    },
+    "maplibre-gl": {
+      "affected": "<=6.4.0",
+      "advisories": ["GHSA-jrc7-96c5-q579"],
+      "reason": "The map of Auspice, which the web app does not bundle"
+    },
+    "postcss": {
+      "affected": "<=8.5.22",
+      "advisories": [
+        "GHSA-7fh5-64p2-3v2j",
+        "GHSA-fxqj-rqcc-2cmp",
+        "GHSA-qx2v-qp2m-jg93",
+        "GHSA-6g55-p6wh-862q",
+        "GHSA-r28c-9q8g-f849"
+      ],
+      "reason": "postcss 7 runs only in css-loader of the Auspice build command, which the project never runs; the postcss 8 of Vite is newer than every affected range"
+    },
+    "postcss-selector-parser": {
+      "affected": "<7.1.6",
+      "advisories": ["GHSA-rj75-hqrm-r3gf"],
+      "reason": "postcss-selector-parser 6 runs only in css-loader of the Auspice build command, which the project never runs"
+    },
+    "serialize-javascript": {
+      "affected": "<=7.0.2",
+      "advisories": ["GHSA-5c6j-r48x-rmvq", "GHSA-hxcc-f52p-wc94"],
+      "reason": "serialize-javascript 2 runs only in compression-webpack-plugin of the Auspice build command, which the project never runs"
+    },
+    "sprintf-js": {
+      "affected": "<=1.1.3",
+      "advisories": ["GHSA-hp3w-g68c-fv3c"],
+      "reason": "argparse 1 loads sprintf-js only in the command lines of Auspice and js-yaml 3, which the project never runs; every release up to the latest, 1.1.3, is affected"
+    },
+    "uuid": {
+      "affected": "<11.1.1",
+      "advisories": ["GHSA-w5hq-g745-h8pq"],
+      "reason": "uuid 3 runs only in webpack-log of the Auspice development server, which the project never runs; react-tooltip uses uuid 11.1.1 through an override"
+    },
+    "webpack-dev-middleware": {
+      "affected": "<7.4.5",
+      "advisories": ["GHSA-wr3j-pwj9-hqq6", "GHSA-g84c-rxfj-3j2c"],
+      "reason": "The Auspice development server, which the project never runs"
+    },
+    "xlsx": {
+      "affected": "<0.20.2",
+      "advisories": ["GHSA-4r6h-8v6p-xvw6", "GHSA-5pgg-2g8v-p4x9"],
+      "reason": "The spreadsheet export of Auspice, which the web app does not bundle; npm has no fixed release"
+    }
+  }
+}

@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import Icons from "unplugin-icons/vite";
 import { defineConfig } from "vite";
 
+import { auditIgnoredCopiesUnbundled } from "./build/audit-ignore.ts";
 import { auspice } from "./build/auspice.ts";
 import { contentSecurityPolicyMeta } from "./build/content-security-policy.ts";
 import { pageFiles } from "./build/pages.ts";
@@ -16,6 +17,7 @@ const ICON_SIZE = "1.25em";
 export default defineConfig(({ mode }) => ({
   plugins: [
     auspice(),
+    auditIgnoredCopiesUnbundled(),
     contentSecurityPolicyMeta(),
     Icons({
       compiler: "jsx",
