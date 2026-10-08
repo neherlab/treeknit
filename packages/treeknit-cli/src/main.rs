@@ -349,11 +349,11 @@ fn main() -> Result<ExitCode> {
   match run() {
     Ok(()) => Ok(ExitCode::SUCCESS),
     Err(report) => match report.downcast_ref::<InputError>() {
+      #[cfg_attr(
+        dylint_lib = "custom",
+        expect(debug_remnants, reason = "the CLI reports input errors on stderr")
+      )]
       Some(error) => {
-        #[cfg_attr(
-          dylint_lib = "custom",
-          expect(debug_remnants, reason = "the CLI reports input errors on stderr")
-        )]
         eprintln!("Error: {error}");
         Ok(ExitCode::FAILURE)
       },
