@@ -97,7 +97,7 @@ fn reference_markdown() -> String {
     .join("\n");
   format!(
     "<!-- Written by `just gen` from `treeknit --help-markdown`. Edit the command-line definitions in \
-     `packages/treeknit-cli/src/main.rs` and the file list in `packages/treeknit-io/src/output.rs` \
+     `packages/treeknit-cli/src/main.rs` and the file list in `packages/treeknit-io/src/output/kinds.rs` \
      instead of this file. -->\n\n\
      # Command-line reference\n\n\
      This page holds the help texts of `treeknit` and the list of the files that it writes. \

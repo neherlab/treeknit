@@ -1,4 +1,4 @@
-<!-- Written by `just gen` from `treeknit --help-markdown`. Edit the command-line definitions in `packages/treeknit-cli/src/main.rs` and the file list in `packages/treeknit-io/src/output.rs` instead of this file. -->
+<!-- Written by `just gen` from `treeknit --help-markdown`. Edit the command-line definitions in `packages/treeknit-cli/src/main.rs` and the file list in `packages/treeknit-io/src/output/kinds.rs` instead of this file. -->
 
 # Command-line reference
 
