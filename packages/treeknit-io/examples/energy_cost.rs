@@ -12,7 +12,9 @@ use clap::Parser;
 use rand::{Rng, SeedableRng};
 use rand_xoshiro::Xoshiro256PlusPlus;
 use std::error::Error;
+use std::fs;
 use std::hint::black_box;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
@@ -20,7 +22,7 @@ use treeknit_core::bits;
 use treeknit_core::pair::reduce_to_mccs;
 use treeknit_core::splitgraph::{EnergyState, Graph};
 use treeknit_core::{Taxa, Tree, naive_mccs};
-use treeknit_io::newick;
+use treeknit_io::newick::{self, ParseError};
 
 /// Cost of a removed leaf, the default γ of TreeKnit.
 const GAMMA: f64 = 2.0;
@@ -95,14 +97,25 @@ fn run(args: &Args) -> Result<(), Box<dyn Error>> {
   Ok(())
 }
 
-fn read_tree(path: &Path) -> Result<Tree, String> {
-  let name = path.display().to_string();
-  let text = std::fs::read_to_string(path).map_err(|e| format!("{name}: {e}"))?;
-  Ok(
-    newick::parse_first(&text, &name)
-      .map_err(|e| format!("{name}: {e}"))?
-      .tree,
-  )
+fn read_tree(path: &Path) -> Result<Tree, ReadTreeError> {
+  let text = fs::read_to_string(path).map_err(|source| ReadTreeError::Io {
+    path: path.to_path_buf(),
+    source,
+  })?;
+  let parsed = newick::parse_first(&text, &path.display().to_string()).map_err(|source| ReadTreeError::Newick {
+    path: path.to_path_buf(),
+    source,
+  })?;
+  Ok(parsed.tree)
+}
+
+/// Why a tree file cannot be read.
+#[derive(Debug, thiserror::Error)]
+enum ReadTreeError {
+  #[error("{}: {source}", path.display())]
+  Io { path: PathBuf, source: io::Error },
+  #[error("{}: {source}", path.display())]
+  Newick { path: PathBuf, source: ParseError },
 }
 
 /// Run a Metropolis chain of `steps` single-leaf flips at temperature `t` from the configuration

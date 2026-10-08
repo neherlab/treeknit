@@ -14,10 +14,12 @@
 use clap::Parser;
 use rand::{Rng, SeedableRng};
 use rand_xoshiro::Xoshiro256PlusPlus;
+use std::fs;
+use std::io;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use treeknit_core::{NodeId, Tree};
-use treeknit_io::newick;
+use treeknit_io::newick::{self, ParseError, WriteError};
 
 /// Smallest number of leaves on which a subtree move changes the topology.
 const MIN_LEAVES: u32 = 3;
@@ -53,27 +55,51 @@ fn main() -> ExitCode {
 }
 
 /// Write both trees, then read each file back with the parser of the CLI.
-fn write_pair(args: &Args) -> Result<(), String> {
+fn write_pair(args: &Args) -> Result<(), WritePairError> {
   let (a, b) = tree_pair(args.leaves, args.seed, args.moves);
-  std::fs::create_dir_all(&args.outdir).map_err(|e| format!("{}: {e}", args.outdir.display()))?;
+  fs::create_dir_all(&args.outdir).map_err(|source| WritePairError::Io {
+    path: args.outdir.clone(),
+    source,
+  })?;
   for (t, file) in [(&a, "tree_a.nwk"), (&b, "tree_b.nwk")] {
     let path = args.outdir.join(file);
-    let io_err = |e: std::io::Error| format!("{}: {e}", path.display());
-    let text = newick::write(t).map_err(|e| format!("{}: {e}", path.display()))?;
-    std::fs::write(&path, format!("{text}\n")).map_err(io_err)?;
-    let parsed = newick::parse_first(&std::fs::read_to_string(&path).map_err(io_err)?, file)
-      .map_err(|e| e.to_string())?
+    let io_error = |source: io::Error| WritePairError::Io {
+      path: path.clone(),
+      source,
+    };
+    let text = newick::write(t).map_err(|source| WritePairError::Write {
+      path: path.clone(),
+      source,
+    })?;
+    fs::write(&path, format!("{text}\n")).map_err(io_error)?;
+    let parsed = newick::parse_first(&fs::read_to_string(&path).map_err(io_error)?, file)
+      .map_err(|source| WritePairError::Read {
+        path: path.clone(),
+        source,
+      })?
       .tree;
     if parsed.n_leaves() != t.n_leaves() {
-      return Err(format!(
-        "{}: read {} leaves back, wrote {}",
-        path.display(),
-        parsed.n_leaves(),
-        t.n_leaves()
-      ));
+      return Err(WritePairError::LeafCount {
+        path,
+        read: parsed.n_leaves(),
+        written: t.n_leaves(),
+      });
     }
   }
   Ok(())
+}
+
+/// Why the tree pair cannot be written or read back.
+#[derive(Debug, thiserror::Error)]
+enum WritePairError {
+  #[error("{}: {source}", path.display())]
+  Io { path: PathBuf, source: io::Error },
+  #[error("{}: {source}", path.display())]
+  Write { path: PathBuf, source: WriteError },
+  #[error("{}: {source}", path.display())]
+  Read { path: PathBuf, source: ParseError },
+  #[error("{}: read {read} leaves back, wrote {written}", path.display())]
+  LeafCount { path: PathBuf, read: usize, written: usize },
 }
 
 /// Tree A from the coalescent, and tree B as A after `moves` subtree moves.
