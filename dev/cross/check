@@ -9,7 +9,8 @@
 #
 # Libraries a user system provides:
 #   Linux glibc   glibc and the GCC runtime (libgcc_s); the newest glibc
-#                 symbol version the binary needs is printed
+#                 symbol version the binary needs is printed, and must not
+#                 exceed GLIBC_MAX
 #   Linux musl    none: the binary must be static
 #   Windows       system DLLs; MinGW runtime DLLs (lib*.dll) fail
 #   macOS         libraries under /usr/lib and /System; the oldest macOS
@@ -24,6 +25,13 @@ shopt -s inherit_errexit
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 
 GLIBC_LIBRARIES='^(ld-linux.*|libc|libdl|libgcc_s|libm|libpthread|librt)\.so\.[0-9]+$'
+
+# The newest glibc that the -gnu binaries may need. Users are promised this
+# version: the manylinux_2_17 tags of the wheels (dev/pypi-wheels), the Linux
+# platforms of the Bioconda recipe, the glibc footnote of the release notes
+# (dev/release-notes), and the image list dev/cross/distros-glibc; change them
+# together with it.
+GLIBC_MAX="2.17"
 
 # Print the libraries a binary needs, one per line.
 dependencies() {
@@ -95,7 +103,13 @@ main() {
     printf 'Needs no shared library\n'
   fi
   if [[ "${target}" == *-linux-gnu ]]; then
-    printf 'Needs glibc %s or newer\n' "$(glibc_version "${file}")"
+    local glibc
+    glibc="$(glibc_version "${file}")"
+    printf 'Needs glibc %s or newer\n' "${glibc}"
+    if [[ "$(printf '%s\n%s\n' "${glibc}" "${GLIBC_MAX}" | sort -V | tail -n 1)" != "${GLIBC_MAX}" ]]; then
+      printf '%s needs glibc %s, newer than the promised %s\n' "${file}" "${glibc}" "${GLIBC_MAX}" >&2
+      exit 1
+    fi
   fi
   if [[ "${target}" == *-apple-darwin ]]; then
     printf 'Needs macOS %s or newer\n' "$(macos_version "${file}")"
