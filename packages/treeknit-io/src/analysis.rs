@@ -326,7 +326,7 @@ pub(crate) mod tests {
   use serde_json::json;
   use std::collections::BTreeSet;
 
-  pub(crate) const T: &str = "((A,B),(C,D));";
+  const T: &str = "((A,B),(C,D));";
 
   /// The validation errors of `trees`, none when they parse.
   pub(crate) fn tree_errors(trees: &[TreeText]) -> Vec<ValidationError> {

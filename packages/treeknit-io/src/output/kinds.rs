@@ -238,7 +238,7 @@ pub(crate) enum FileKind {
 
 impl FileKind {
   /// The path of the file for the trees labeled `labels`.
-  pub(crate) fn path(self, labels: &[&str], options: &OutputOptions) -> String {
+  fn path(self, labels: &[&str], options: &OutputOptions) -> String {
     let tree = |dir: &str, suffix: &str, i: usize| tree_path(dir, labels[i], suffix, options.extension(i));
     match self {
       FileKind::Mccs => MCCS_JSON.to_owned(),
