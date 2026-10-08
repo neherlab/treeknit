@@ -23,18 +23,31 @@ pub struct Graph {
   colors: Vec<Color>,
 }
 
-/// The internal nodes of one tree.
+/// The internal nodes of one tree, indexed in preorder from the root at 0, and its leaves.
 struct Color {
+  /// Leaf set of each internal node.
   clade: Clades,
-  parent: Vec<Option<usize>>,
-  /// Internal children of each internal node.
-  children: Vec<Vec<usize>>,
-  /// Leaf children of each internal node.
-  leaf_children: Vec<Vec<usize>>,
-  tree_node: Vec<NodeId>,
-  /// Parent (internal index) of each leaf.
-  leaf_anc: Vec<usize>,
-  leaf_node: Vec<NodeId>,
+  nodes: Vec<Internal>,
+  /// `leaves[i]`: leaf `i`.
+  leaves: Vec<Leaf>,
+}
+
+/// An internal node of one tree.
+struct Internal {
+  parent: Option<usize>,
+  /// Internal children.
+  children: Vec<usize>,
+  /// Leaf children.
+  leaf_children: Vec<usize>,
+  tree_node: NodeId,
+}
+
+/// A leaf of one tree.
+#[derive(Clone, Copy)]
+struct Leaf {
+  /// Parent (internal index).
+  anc: usize,
+  tree_node: NodeId,
 }
 
 impl Graph {
@@ -62,9 +75,9 @@ impl Graph {
   #[inline]
   fn climb(&self, k: usize, leaf: usize, mask: &Bits) -> usize {
     let c = &self.colors[k];
-    let mut a = c.leaf_anc[leaf];
+    let mut a = c.leaves[leaf].anc;
     while c.clade.get(a).trivial_on(mask.as_slice()) {
-      match c.parent[a] {
+      match c.nodes[a].parent {
         Some(p) => a = p,
         None => break,
       }
@@ -90,7 +103,7 @@ impl Graph {
   /// child of `a` is either inside `s` or disjoint from it.
   fn refinable(&self, s: Clade<'_>, k: usize, a: usize, mask: &[usize]) -> bool {
     let color = &self.colors[k];
-    color.children[a].iter().all(|&ch| {
+    color.nodes[a].children.iter().all(|&ch| {
       let child = color.clade.get(ch);
       child.subset_on(s, mask) || child.disjoint_on(s, mask)
     })
@@ -158,66 +171,67 @@ impl Graph {
 
   fn branch(&self, k: usize, leaf: usize, a: usize, t: &Tree) -> Option<f64> {
     let c = &self.colors[k];
-    t.divtime(c.leaf_node[leaf], c.tree_node[a])
+    t.divtime(c.leaves[leaf].tree_node, c.nodes[a].tree_node)
   }
 
   fn leaf_branch(&self, k: usize, leaf: usize, t: &Tree) -> Option<f64> {
     let c = &self.colors[k];
-    t.divtime(c.leaf_node[leaf], c.tree_node[c.leaf_anc[leaf]])
+    let l = c.leaves[leaf];
+    t.divtime(l.tree_node, c.nodes[l.anc].tree_node)
   }
 }
 
 impl Color {
   /// The internal nodes of `t`, with leaf `i` at position `bit[i]` of the leaf sets.
   fn new(t: &Tree, n: usize, bit: &[usize]) -> Color {
-    let mut idx = vec![usize::MAX; t.nodes.len()];
-    let mut c = Color {
-      clade: Clades::default(),
-      parent: vec![],
+    let mut nodes = vec![Internal {
+      parent: None,
       children: vec![],
       leaf_children: vec![],
-      tree_node: vec![],
-      leaf_anc: vec![usize::MAX; n],
-      leaf_node: vec![usize::MAX; n],
+      tree_node: t.root,
+    }];
+    let mut leaves = vec![
+      Leaf {
+        anc: usize::MAX,
+        tree_node: usize::MAX,
+      };
+      n
+    ];
+    // The preorder of `Tree::preorder` below the root, each node with the internal index of its
+    // parent. A single-leaf tree gets an artificial root above the leaf.
+    let mut stack: Vec<(NodeId, usize)> = if t.is_leaf(t.root) {
+      vec![(t.root, 0)]
+    } else {
+      t.children(t.root).iter().rev().map(|&c| (c, 0)).collect()
     };
-    // A single-leaf tree gets an artificial root above the leaf.
-    if t.is_leaf(t.root) {
-      c.clade = Clades::new(vec![bits::from_iter(n, [bit[t.taxon(t.root)]])]);
-      c.parent.push(None);
-      c.children.push(vec![]);
-      c.leaf_children.push(vec![t.taxon(t.root)]);
-      c.tree_node.push(t.root);
-      c.leaf_anc[t.taxon(t.root)] = 0;
-      c.leaf_node[t.taxon(t.root)] = t.root;
-      return c;
-    }
-    for v in t.preorder() {
+    while let Some((v, parent)) = stack.pop() {
       if t.is_leaf(v) {
         let taxon = t.taxon(v);
-        c.leaf_anc[taxon] = idx[t.parent(v).unwrap()];
-        c.leaf_children[c.leaf_anc[taxon]].push(taxon);
-        c.leaf_node[taxon] = v;
-        continue;
+        nodes[parent].leaf_children.push(taxon);
+        leaves[taxon] = Leaf {
+          anc: parent,
+          tree_node: v,
+        };
+      } else {
+        let index = nodes.len();
+        nodes[parent].children.push(index);
+        nodes.push(Internal {
+          parent: Some(parent),
+          children: vec![],
+          leaf_children: vec![],
+          tree_node: v,
+        });
+        stack.extend(t.children(v).iter().rev().map(|&c| (c, index)));
       }
-      let index = c.parent.len();
-      idx[v] = index;
-      let parent = t.parent(v).map(|tp| idx[tp]);
-      if let Some(parent) = parent {
-        c.children[parent].push(index);
-      }
-      c.parent.push(parent);
-      c.children.push(vec![]);
-      c.leaf_children.push(vec![]);
-      c.tree_node.push(v);
     }
     let clades = t.clades(n);
-    c.clade = Clades::new(
-      c.tree_node
+    let clade = Clades::new(
+      nodes
         .iter()
-        .map(|&v| bits::from_iter(n, clades[v].ones().map(|i| bit[i])))
+        .map(|a| bits::from_iter(n, clades[a.tree_node].ones().map(|i| bit[i])))
         .collect(),
     );
-    c
+    Color { clade, nodes, leaves }
   }
 }
 
@@ -360,7 +374,7 @@ impl<'g> EnergyState<'g> {
       .colors
       .iter()
       .map(|c| {
-        (0..c.parent.len())
+        (0..c.nodes.len())
           .map(|a| c.clade.get(a).count_on(mask.as_slice()))
           .collect()
       })
@@ -401,9 +415,9 @@ impl<'g> EnergyState<'g> {
 
   fn climb(&self, k: usize, leaf: usize) -> usize {
     let c = &self.g.colors[k];
-    let mut a = c.leaf_anc[leaf];
+    let mut a = c.leaves[leaf].anc;
     while self.count[k][a] < 2 {
-      match c.parent[a] {
+      match c.nodes[a].parent {
         Some(p) => a = p,
         None => break,
       }
@@ -442,7 +456,7 @@ impl<'g> EnergyState<'g> {
     let g = self.g;
     for (k, c) in g.colors.iter().enumerate() {
       let mut below = None;
-      let mut a = Some(c.leaf_anc[j]);
+      let mut a = Some(c.leaves[j].anc);
       while let Some(v) = a {
         if add {
           self.count[k][v] += 1;
@@ -450,18 +464,19 @@ impl<'g> EnergyState<'g> {
           self.count[k][v] -= 1;
         }
         out.extend(
-          c.leaf_children[v]
+          c.nodes[v]
+            .leaf_children
             .iter()
             .copied()
             .filter(|&x| x != j && self.conf.contains(x)),
         );
-        for &ch in &c.children[v] {
+        for &ch in &c.nodes[v].children {
           if Some(ch) != below && self.count[k][ch] == 1 {
             out.push(self.single_kept(k, ch));
           }
         }
         below = Some(v);
-        a = c.parent[v];
+        a = c.nodes[v].parent;
       }
     }
   }
@@ -470,23 +485,23 @@ impl<'g> EnergyState<'g> {
   fn single_kept(&self, k: usize, mut a: usize) -> usize {
     let c = &self.g.colors[k];
     loop {
-      if let Some(&x) = c.leaf_children[a].iter().find(|&&x| self.conf.contains(x)) {
+      if let Some(&x) = c.nodes[a].leaf_children.iter().find(|&&x| self.conf.contains(x)) {
         return x;
       }
-      a = *c.children[a].iter().find(|&&ch| self.count[k][ch] == 1).unwrap();
+      a = *c.nodes[a].children.iter().find(|&&ch| self.count[k][ch] == 1).unwrap();
     }
   }
 
   fn update_counts(&mut self, j: usize, add: bool) {
     for (k, c) in self.g.colors.iter().enumerate() {
-      let mut a = Some(c.leaf_anc[j]);
+      let mut a = Some(c.leaves[j].anc);
       while let Some(v) = a {
         if add {
           self.count[k][v] += 1;
         } else {
           self.count[k][v] -= 1;
         }
-        a = c.parent[v];
+        a = c.nodes[v].parent;
       }
     }
   }
