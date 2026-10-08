@@ -167,8 +167,8 @@ mod tests {
     let shared = ts[1].leaf_set(taxa.len());
     let mccs = vec![vec![id("X")], vec![id("A"), id("B"), id("C"), id("D")]];
     let a = attach_private(&ts[0], 0, &shared, &mccs, taxa.len());
-    assert_eq!(a.len(), 1);
-    assert_eq!(a[0].mcc, 1);
+    assert_eq!(1, a.len());
+    assert_eq!(1, a[0].mcc);
     assert!(!a[0].ambiguous);
     assert_eq!(a[0].anchor, vec![id("D")]);
 
@@ -187,8 +187,8 @@ mod tests {
     let shared = ts[1].leaf_set(taxa.len());
     let mccs = vec![vec![id("X")], vec![id("A"), id("B"), id("C"), id("D")]];
     let a = attach_private(&ts[0], 0, &shared, &mccs, taxa.len());
-    assert_eq!(a.len(), 1);
-    assert_eq!(a[0].mcc, 1);
+    assert_eq!(1, a.len());
+    assert_eq!(1, a[0].mcc);
     assert!(a[0].ambiguous);
   }
 
@@ -247,8 +247,8 @@ mod tests {
     let shared = ts[1].leaf_set(taxa.len());
     let mccs = vec![(0..taxa.len()).filter(|&x| shared.contains(x)).collect()];
     let a = attach_private(&ts[0], 0, &shared, &mccs, taxa.len());
-    assert_eq!(a.len(), 1);
-    assert_eq!(a[0].leaves.len(), 2);
+    assert_eq!(1, a.len());
+    assert_eq!(2, a[0].leaves.len());
   }
 
   /// The node of `t` named `name`.

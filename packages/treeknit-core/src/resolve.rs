@@ -326,22 +326,22 @@ mod tests {
     let (mut ts, taxa) = trees(&["(A,(B,C));", "(A,B,C);"]);
     let ns = resolve_trees(&mut ts, taxa.len());
     assert!(ns[0].is_empty());
-    assert_eq!(names(&ns[1], &taxa), vec![vec!["B", "C"]]);
-    assert_eq!(splits(&ts[1], &taxa), vec![vec!["B", "C"]]);
+    assert_eq!(vec![vec!["B", "C"]], names(&ns[1], &taxa));
+    assert_eq!(vec![vec!["B", "C"]], splits(&ts[1], &taxa));
   }
 
   #[test]
   fn three_trees() {
     let (mut ts, taxa) = trees(&["(A,B,C,D);", "(A,(B,C,D));", "(A,B,(C,D));"]);
     let ns = resolve_trees(&mut ts, taxa.len());
-    assert_eq!(names(&ns[1], &taxa), vec![vec!["C", "D"]]);
-    assert_eq!(names(&ns[2], &taxa), vec![vec!["B", "C", "D"]]);
-    assert_eq!(names(&ns[0], &taxa), vec![vec!["B", "C", "D"], vec!["C", "D"]]);
+    assert_eq!(vec![vec!["C", "D"]], names(&ns[1], &taxa));
+    assert_eq!(vec![vec!["B", "C", "D"]], names(&ns[2], &taxa));
+    assert_eq!(vec![vec!["B", "C", "D"], vec!["C", "D"]], names(&ns[0], &taxa));
 
     let (mut ts, taxa) = trees(&["(A,B,C,D);", "(A,(B,C,D));", "((A,B),(C,D));"]);
     let ns = resolve_trees(&mut ts, taxa.len());
-    assert_eq!(names(&ns[0], &taxa), vec![vec!["C", "D"]]);
-    assert_eq!(names(&ns[1], &taxa), vec![vec!["C", "D"]]);
+    assert_eq!(vec![vec!["C", "D"]], names(&ns[0], &taxa));
+    assert_eq!(vec![vec!["C", "D"]], names(&ns[1], &taxa));
     assert!(ns[2].is_empty());
   }
 
@@ -364,7 +364,7 @@ mod tests {
     let (mut ts, _) = mk();
     let [a, b] = ts.get_disjoint_mut([0, 1]).unwrap();
     let ns = resolve_with_mccs(a, b, &mccs, taxa.len(), false);
-    assert_eq!(names(&ns[1], &taxa), vec![vec!["A", "B", "C"], vec!["B", "C"]]);
+    assert_eq!(vec![vec!["A", "B", "C"], vec!["B", "C"]], names(&ns[1], &taxa));
   }
 
   #[test]
@@ -382,7 +382,7 @@ mod tests {
     ];
     let map = map_mccs(&ts[1], &leaf_mcc_map(&mccs, taxa.len()));
     let p = ts[1].parent(ts[1].leaves()[0]).unwrap();
-    assert_eq!(map[p], None);
+    assert_eq!(None, map[p]);
     let [a, b] = ts.get_disjoint_mut([0, 1]).unwrap();
     let ns = resolve_with_mccs(a, b, &mccs, taxa.len(), true);
     assert!(names(&ns[1], &taxa).contains(&vec!["A".to_owned(), "B".into(), "C".into()]));
@@ -411,6 +411,6 @@ mod tests {
     // P is only in tree 2; split (B,C) from tree 1 should group B and C but leave P.
     let (mut ts, taxa) = trees(&["(A,(B,C));", "(A,B,C,P);"]);
     resolve_trees(&mut ts, taxa.len());
-    assert_eq!(splits(&ts[1], &taxa), vec![vec!["B", "C"]]);
+    assert_eq!(vec![vec!["B", "C"]], splits(&ts[1], &taxa));
   }
 }

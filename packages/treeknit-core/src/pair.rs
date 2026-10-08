@@ -276,13 +276,13 @@ mod tests {
       ..Options::default()
     };
     let m = run(nwk, &o2, 1);
-    assert_eq!(m.len(), 3);
-    assert_eq!(m[2].len(), 3);
+    assert_eq!(3, m.len());
+    assert_eq!(3, m[2].len());
     let o3 = Options {
       gamma: 3.0,
       ..Options::default()
     };
-    assert_eq!(run(nwk, &o3, 1).len(), 5);
+    assert_eq!(5, run(nwk, &o3, 1).len());
   }
 
   #[test]
@@ -339,6 +339,6 @@ mod tests {
   fn resolution_during_inference() {
     let nwk = ["((A,B),(C,(D,(E,X))));", "((A,(B,X)),(C,D,E));"];
     let m = run(nwk, &Options::default(), 3);
-    assert_eq!(m, vec![vec!["X"], vec!["A", "B", "C", "D", "E"]]);
+    assert_eq!(vec![vec!["X"], vec!["A", "B", "C", "D", "E"]], m);
   }
 }

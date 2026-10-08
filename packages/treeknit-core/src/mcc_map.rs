@@ -158,8 +158,8 @@ mod tests {
     let m = map_mccs(&ts[0], &leaf_mcc_map(&mccs, taxa.len()));
     let t = &ts[0];
     let dx = t.parent(t.leaves()[3]).unwrap();
-    assert_eq!(m[dx], Some(1));
-    assert_eq!(m[t.root], Some(1));
+    assert_eq!(Some(1), m[dx]);
+    assert_eq!(Some(1), m[t.root]);
   }
 
   #[test]

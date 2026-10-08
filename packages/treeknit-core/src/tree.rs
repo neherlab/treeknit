@@ -598,24 +598,24 @@ mod tests {
     let keep = crate::bits::from_iter(taxa.len(), [0, 2, 3]);
     let r = ts[0].restricted(&keep).unwrap();
     assert!(r.check());
-    assert_eq!(r.leaf_names(), vec!["A", "C", "D"]);
+    assert_eq!(vec!["A", "C", "D"], r.leaf_names());
     let d = r.leaves()[2];
-    assert_eq!(r.node(d).branch_length, Some(3.0));
+    assert_eq!(Some(3.0), r.node(d).branch_length);
     let a = r.leaves()[0];
-    assert_eq!(r.node(a).branch_length, Some(2.0));
+    assert_eq!(Some(2.0), r.node(a).branch_length);
 
     let mut t = ts[0].clone();
     let de = t.parent(t.leaves()[3]).unwrap();
     t.prune(de);
     assert!(t.check());
-    assert_eq!(t.leaf_names(), vec!["A", "B", "C"]);
-    assert_eq!(t.node(t.leaves()[2]).branch_length, Some(2.0));
+    assert_eq!(vec!["A", "B", "C"], t.leaf_names());
+    assert_eq!(Some(2.0), t.node(t.leaves()[2]).branch_length);
   }
 
   #[test]
   fn ladderize_sorts_by_size_then_name() {
     let (mut ts, _) = trees(&["((C,(A,B)),D);"]);
     ts[0].ladderize();
-    assert_eq!(ts[0].leaf_names(), vec!["D", "C", "A", "B"]);
+    assert_eq!(vec!["D", "C", "A", "B"], ts[0].leaf_names());
   }
 }

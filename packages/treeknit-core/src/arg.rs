@@ -549,7 +549,7 @@ mod tests {
     let id = |s: &str| taxa.index[s];
     let mccs = vec![vec![id("X")], vec![id("A"), id("B"), id("C"), id("D")]];
     let arg = arg_from_trees(&ts[0], &ts[1], &mccs, taxa.len()).unwrap();
-    assert_eq!(arg.n_hybrids(), 1);
+    assert_eq!(1, arg.n_hybrids());
     // Each segment tree of the ARG has the splits of its input tree.
     let (segments, inputs): (Vec<_>, Vec<_>) = ts
       .iter()

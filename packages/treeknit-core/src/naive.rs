@@ -130,8 +130,8 @@ mod tests {
     let (ts, taxa) = trees(&["(((A1,A2),(B1,B2)),(C1,C2));", "(((A1,A2),(C1,C2)),(B1,B2));"]);
     let m = naive_mccs(&[&ts[0], &ts[1]], taxa.len());
     assert_eq!(
-      names(&m, &taxa),
-      vec![vec!["A1", "A2"], vec!["B1", "B2"], vec!["C1", "C2"]]
+      vec![vec!["A1", "A2"], vec!["B1", "B2"], vec!["C1", "C2"]],
+      names(&m, &taxa)
     );
   }
 
@@ -139,7 +139,7 @@ mod tests {
   fn identical_trees_give_one_mcc() {
     let (ts, taxa) = trees(&["((A,B),(C,D));", "((C,D),(B,A));"]);
     let m = naive_mccs(&[&ts[0], &ts[1]], taxa.len());
-    assert_eq!(m.len(), 1);
+    assert_eq!(1, m.len());
   }
 
   #[test]
