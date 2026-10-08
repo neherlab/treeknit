@@ -8,6 +8,7 @@ mod tests {
   use approx::abs_diff_eq;
   use ctor::ctor;
   use rstest::rstest;
+  use serde::Deserialize;
   use serde_json::Value;
   use std::collections::BTreeSet;
   use std::path::PathBuf;
@@ -75,7 +76,7 @@ mod tests {
   }
 
   fn clades_json(v: &Value) -> Clades {
-    let mut c: Clades = serde_json::from_value(v.clone()).unwrap();
+    let mut c: Clades = Deserialize::deserialize(v).unwrap();
     for x in &mut c {
       x.sort();
     }
@@ -150,7 +151,7 @@ mod tests {
           &case,
           "naive_mccs",
           &got,
-          &serde_json::from_value::<Clades>(want.clone()).unwrap(),
+          &Clades::deserialize(want).unwrap(),
         );
       }
       if let Some(pw) = f.get("pairwise_naive_mccs").and_then(Value::as_object) {
@@ -162,7 +163,7 @@ mod tests {
             &case,
             &format!("naive_mccs {key}"),
             &got,
-            &serde_json::from_value::<Clades>(want.clone()).unwrap(),
+            &Clades::deserialize(want).unwrap(),
           );
         }
       }
@@ -188,7 +189,7 @@ mod tests {
         continue;
       }
       let Some(mv) = f.get("mccs") else { continue };
-      let mccs = ids(&serde_json::from_value::<Clades>(mv.clone()).unwrap(), &taxa);
+      let mccs = ids(&Clades::deserialize(mv).unwrap(), &taxa);
 
       for (field, strict) in [("mcc_resolve_strict", true), ("mcc_resolve_liberal", false)] {
         let Some(want) = f.get(field) else { continue };
@@ -222,7 +223,7 @@ mod tests {
           .iter()
           .map(|e| {
             (
-              serde_json::from_value::<Vec<String>>(e["clade"].clone()).unwrap(),
+              Vec::<String>::deserialize(&e["clade"]).unwrap(),
               e["mcc"].as_u64(),
             )
           })
@@ -240,7 +241,7 @@ mod tests {
         let (mut a, mut b) = (ts[0].clone(), ts[1].clone());
         a.ladderize();
         mcc_map::sort_polytomies_by_mccs(&a, &mut b, &mccs, n);
-        let want: Clades = serde_json::from_value(want.clone()).unwrap();
+        let want: Clades = Deserialize::deserialize(want).unwrap();
         r.check(&case, "sorted_leaf_order", &vec![a.leaf_names(), b.leaf_names()], &want);
       }
 
@@ -249,10 +250,10 @@ mod tests {
         let r1 = pair::reduce_to_mccs(&ts[0], &nm, n);
         let r2 = pair::reduce_to_mccs(&ts[1], &nm, n);
         let g = splitgraph::Graph::new(&[&r1, &r2], nm.len());
-        let sl: Vec<f64> = serde_json::from_value(f["seq_lengths"].clone()).unwrap();
+        let sl: Vec<f64> = Deserialize::deserialize(&f["seq_lengths"]).unwrap();
         for (q, entry) in e.iter().enumerate() {
           let removed = ids(
-            &serde_json::from_value::<Clades>(entry["removed"].clone()).unwrap(),
+            &Clades::deserialize(&entry["removed"]).unwrap(),
             &taxa,
           );
           let mut conf = treeknit_core::bits::full(nm.len());
@@ -336,7 +337,7 @@ mod tests {
       let (ts, taxa) = load(&f);
       let julia: Vec<Clades> = runs
         .iter()
-        .map(|r| serde_json::from_value(r.clone()).unwrap())
+        .map(|r| Deserialize::deserialize(r).unwrap())
         .collect();
       let jset: BTreeSet<&Clades> = julia.iter().collect();
       let o = Options::treeknit_jl(2, None);

@@ -8,6 +8,7 @@
 use clap::Parser;
 use rand::SeedableRng;
 use rand::seq::SliceRandom;
+use serde::Deserialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use treeknit_core::{Options, Taxa, Tree};
@@ -120,16 +121,16 @@ fn main() {
     let case = path.file_stem().unwrap().to_string_lossy().into_owned();
     let (ts, taxa) = load(&f);
     let n_trees = ts.len();
-    let truth: BTreeMap<String, Partition> = serde_json::from_value(f["true_mccs"].clone()).unwrap();
+    let truth: BTreeMap<String, Partition> = Deserialize::deserialize(&f["true_mccs"]).unwrap();
     let julia: Vec<BTreeMap<String, Partition>> = if n_trees == 2 {
       f["runs"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|r| BTreeMap::from([("0-1".to_owned(), serde_json::from_value(r.clone()).unwrap())]))
+        .map(|r| BTreeMap::from([("0-1".to_owned(), Deserialize::deserialize(r).unwrap())]))
         .collect()
     } else {
-      serde_json::from_value(f["multi_runs"].clone()).unwrap()
+      Deserialize::deserialize(&f["multi_runs"]).unwrap()
     };
     let opts = Options::treeknit_jl(n_trees, None); // as the Julia runs it is compared with
     let rust: Vec<BTreeMap<String, Partition>> = (0..julia.len() as u64)
