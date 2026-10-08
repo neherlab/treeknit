@@ -45,9 +45,9 @@ mod tests {
     // new-issue pages under it.
     let expected = AppVersion {
       version: "1.0.0-dev".into(),
-      repository: "https://github.com/neherlab/treeknit-rs".into(),
-      releases: "https://github.com/neherlab/treeknit-rs/releases".into(),
-      new_issue: "https://github.com/neherlab/treeknit-rs/issues/new".into(),
+      repository: "https://github.com/neherlab/treeknit".into(),
+      releases: "https://github.com/neherlab/treeknit/releases".into(),
+      new_issue: "https://github.com/neherlab/treeknit/issues/new".into(),
     };
     assert_eq!(expected, AppVersion::new("1.0.0-dev"));
   }

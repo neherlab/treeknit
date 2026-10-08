@@ -1027,7 +1027,7 @@ mod tests {
     let first = dir.path().join("first");
     let link = run_stdout(&["--example", "5-leaves", "--gamma", "3", "--print-link"], &first);
     assert_eq!(
-      "https://neherlab.github.io/treeknit-rs/?example=5-leaves&gamma=3&run\n",
+      "https://neherlab.github.io/treeknit/?example=5-leaves&gamma=3&run\n",
       link
     );
     let second = dir.path().join("second");
@@ -1050,7 +1050,7 @@ mod tests {
       ],
       &first,
     );
-    let prefix = "https://neherlab.github.io/treeknit-rs/?run#session=data:application/gzip;base64,";
+    let prefix = "https://neherlab.github.io/treeknit/?run#session=data:application/gzip;base64,";
     assert!(link.starts_with(prefix), "{link}");
     let second = dir.path().join("second");
     run(&["--link", link.trim()], &second);
@@ -1062,7 +1062,7 @@ mod tests {
   fn link_with_data_trees_runs_them_with_their_labels() {
     let dir = tempdir().unwrap();
     let out = dir.path().join("out");
-    let link = "https://neherlab.github.io/treeknit-rs/?tree=HA=data:,((A,B),(C,(D,X)));&tree=NA=data:,((A,(B,X)),(C,D));&run&view=mccs";
+    let link = "https://neherlab.github.io/treeknit/?tree=HA=data:,((A,B),(C,(D,X)));&tree=NA=data:,((A,(B,X)),(C,D));&run&view=mccs";
     run(&["--link", link], &out);
     let present = ["HA_resolved.nwk", "NA_resolved.nwk"].map(|f| out.join(f).exists());
     assert_eq!([true, true], present);

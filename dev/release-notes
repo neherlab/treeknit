@@ -19,7 +19,7 @@
 #   -n, --nightly             Write the notes of a nightly
 #
 # Examples:
-#   $0 --repo neherlab/treeknit-rs --tag v1.0.0 --sha "$(git rev-parse HEAD)" .out/treeknit-*
+#   $0 --repo neherlab/treeknit --tag v1.0.0 --sha "$(git rev-parse HEAD)" .out/treeknit-*
 #
 set -euo pipefail
 trap "exit" INT

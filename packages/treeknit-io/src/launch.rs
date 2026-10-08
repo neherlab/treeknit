@@ -398,7 +398,7 @@ pub fn web_link(query: &[(String, String)], fragment: &[(String, String)]) -> St
 }
 
 /// Address of the web app: the GitHub Pages site of the repository of the workspace, such as
-/// `https://neherlab.github.io/treeknit-rs/` for `https://github.com/neherlab/treeknit-rs`.
+/// `https://neherlab.github.io/treeknit/` for `https://github.com/neherlab/treeknit`.
 fn web_app_url() -> String {
   let repository = env!("CARGO_PKG_REPOSITORY").trim_end_matches('/');
   match repository
@@ -1703,7 +1703,7 @@ mod tests {
 
   #[test]
   fn web_app_url_is_the_pages_site_of_the_repository() {
-    assert_eq!("https://neherlab.github.io/treeknit-rs/", web_app_url());
+    assert_eq!("https://neherlab.github.io/treeknit/", web_app_url());
   }
 
   #[test]

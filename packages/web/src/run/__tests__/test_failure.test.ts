@@ -61,7 +61,7 @@ describe("run failures", () => {
 
   test("prefills a new issue with the kind, version, browser, and settings", () => {
     const url = new URL(
-      bugReportUrl("https://github.com/neherlab/treeknit-rs/issues/new", {
+      bugReportUrl("https://github.com/neherlab/treeknit/issues/new", {
         kind: "internal",
         version: "0.5.0-dev",
         userAgent: "Mozilla/5.0 Firefox/140.0",
@@ -81,7 +81,7 @@ describe("run failures", () => {
       ].map((line) => body.includes(line)),
       settings: body.includes(JSON.stringify(SETTINGS, null, 2)),
     }).toStrictEqual({
-      page: "https://github.com/neherlab/treeknit-rs/issues/new",
+      page: "https://github.com/neherlab/treeknit/issues/new",
       lines: [true, true, true, true],
       settings: true,
     });
@@ -91,7 +91,7 @@ describe("run failures", () => {
     const message = `tree "ha": duplicate leaf name ${LEAF} at line 1`;
     const notice = failureNotice("internal", message);
 
-    const url = bugReportUrl("https://github.com/neherlab/treeknit-rs/issues/new", {
+    const url = bugReportUrl("https://github.com/neherlab/treeknit/issues/new", {
       kind: "internal",
       version: "0.5.0",
       userAgent: "Mozilla/5.0",

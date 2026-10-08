@@ -14,7 +14,7 @@ Compared with the Julia version:
 
 ## Usage
 
-Releases and nightly builds of `main` are on the [releases page](https://github.com/neherlab/treeknit-rs/releases): the CLI for Linux, macOS, and Windows, with the changes of each release in `CHANGELOG.md`. The [web app](https://neherlab.github.io/treeknit-rs/) runs the same analyses in the browser, and a link to it can name trees, settings, a run, and a view, such as [`?example=h3n2-2017&run&view=tanglegram`](https://neherlab.github.io/treeknit-rs/?example=h3n2-2017&run&view=tanglegram); its help page lists the keys, which the analysis options of the command line share. To build the CLI from source:
+Releases and nightly builds of `main` are on the [releases page](https://github.com/neherlab/treeknit/releases): the CLI for Linux, macOS, and Windows, with the changes of each release in `CHANGELOG.md`. The [web app](https://neherlab.github.io/treeknit/) runs the same analyses in the browser, and a link to it can name trees, settings, a run, and a view, such as [`?example=h3n2-2017&run&view=tanglegram`](https://neherlab.github.io/treeknit/?example=h3n2-2017&run&view=tanglegram); its help page lists the keys, which the analysis options of the command line share. To build the CLI from source:
 
 ```sh
 cargo build --release

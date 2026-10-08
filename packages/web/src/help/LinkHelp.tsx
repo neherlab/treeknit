@@ -15,7 +15,7 @@ const LINK_EXAMPLES: readonly LinkExample[] = [
   },
   {
     query:
-      "?tree=https://raw.githubusercontent.com/neherlab/treeknit-rs/main/data/h3n2-2017/ha.nwk&tree=https://raw.githubusercontent.com/neherlab/treeknit-rs/main/data/h3n2-2017/na.nwk&resolve=strict&gamma=3",
+      "?tree=https://raw.githubusercontent.com/neherlab/treeknit/main/data/h3n2-2017/ha.nwk&tree=https://raw.githubusercontent.com/neherlab/treeknit/main/data/h3n2-2017/na.nwk&resolve=strict&gamma=3",
     effect: "Loads two trees from their addresses with strict resolution and γ = 3, ready to run.",
     opens: true,
   },

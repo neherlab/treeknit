@@ -13,8 +13,8 @@ TreeKnit builds in two ways: in the build container (recommended), or directly o
 Requirements: Docker with buildx, git, and bash (the stock bash 3.2 of macOS works).
 
 ```bash
-git clone https://github.com/neherlab/treeknit-rs
-cd treeknit-rs
+git clone https://github.com/neherlab/treeknit
+cd treeknit
 ./dev/docker/run just check
 ```
 
@@ -224,7 +224,7 @@ The dependency recipes run in the main checkout only.
 
 `.github/workflows/release.yml`, the only workflow, publishes two kinds of releases on the releases page. It runs no checks. A failed target leaves only its binary out of a nightly, and a release publishes only once every target builds. `dev/release-notes` writes the notes of both kinds: a table that links the web app, every binary with its size, the source commit, and the issue tracker, with footnotes on the glibc and musl builds, unsigned macOS executables, `chmod +x`, and the CPU requirement.
 
-- **Nightly**: every night at 03:40 UTC, when `main` has changed since the latest nightly, it builds the shipped CLI for every release target, one job per target in its cross image, and publishes the binaries as a prerelease tagged `<version>-nightly.<UTC time>+<commit>`. It also deploys the web app to GitHub Pages (`just build-web prod`). The site is public even though the repository is private; the build uses relative asset paths (Vite `base: "./"`), so it works under the `/treeknit-rs/` path of Pages and at any other path
+- **Nightly**: every night at 03:40 UTC, when `main` has changed since the latest nightly, it builds the shipped CLI for every release target, one job per target in its cross image, and publishes the binaries as a prerelease tagged `<version>-nightly.<UTC time>+<commit>`. It also deploys the web app to GitHub Pages (`just build-web prod`). The site is public even though the repository is private; the build uses relative asset paths (Vite `base: "./"`), so it works under the `/treeknit/` path of Pages and at any other path
 - **Release**: a pushed tag `v<version>` builds the same binaries and publishes them as the latest release, with the section `## <version>` of `CHANGELOG.md` above the table in its notes. The tag must match the workspace version in `Cargo.toml`. When a target fails, the release publishes nothing; "Re-run failed jobs" builds the failed targets again and then publishes. The next nightly deploys the web app of `main`, which holds the release commit
 
 Every release stays on the releases page.

@@ -1411,7 +1411,7 @@ mod tests {
   fn link_with_https_trees_is_read_and_its_printed_link_reads_back() {
     let fetch = server(&[("https://x/seg4.nwk", HA), ("https://x/na.nwk", NA)]);
     let link =
-      "https://neherlab.github.io/treeknit-rs/?tree=HA=https://x/seg4.nwk&tree=https://x/na.nwk&gamma=3&view=mccs";
+      "https://neherlab.github.io/treeknit/?tree=HA=https://x/seg4.nwk&tree=https://x/na.nwk&gamma=3&view=mccs";
     let input = read_input(&cli(&["--link", link]), &fetch).unwrap();
     assert_eq!(trees(&[("HA", HA), ("na", NA)]), input.texts);
     let request = AnalysisRequest {
@@ -1420,7 +1420,7 @@ mod tests {
     };
     let printed = share_link(&request, &input.addresses).unwrap();
     assert_eq!(
-      "https://neherlab.github.io/treeknit-rs/?tree=HA=https://x/seg4.nwk&tree=https://x/na.nwk&gamma=3&run",
+      "https://neherlab.github.io/treeknit/?tree=HA=https://x/seg4.nwk&tree=https://x/na.nwk&gamma=3&run",
       printed
     );
     let again = read_input(&cli(&["--link", &printed]), &fetch).unwrap();

@@ -215,13 +215,13 @@ describe("the address bar sync", () => {
 describe("copy link", () => {
   test("puts an inline session into the fragment next to run and the view keys", () => {
     const link = inlineSessionLink(
-      "https://neherlab.github.io/treeknit-rs/",
+      "https://neherlab.github.io/treeknit/",
       { view: "tanglegram", pair: ["ha", "na"], mcc: 3, example: "5-leaves" },
       "data:application/gzip;base64,H4sI+/A=",
     );
 
     expect({ link, read: linkEntries(new URL(link)) }).toStrictEqual({
-      link: "https://neherlab.github.io/treeknit-rs/?run&view=tanglegram&pair=ha:na&mcc=4#session=data:application/gzip;base64,H4sI%2B/A=",
+      link: "https://neherlab.github.io/treeknit/?run&view=tanglegram&pair=ha:na&mcc=4#session=data:application/gzip;base64,H4sI%2B/A=",
       read: [
         { key: "run", value: true },
         { key: "view", value: "tanglegram" },

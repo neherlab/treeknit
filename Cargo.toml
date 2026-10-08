@@ -12,8 +12,8 @@ members = [
 [workspace.package]
 description = "Inference of reassortment from segment trees"
 version = "1.0.0"
-repository = "https://github.com/neherlab/treeknit-rs"
-homepage = "https://github.com/neherlab/treeknit-rs"
+repository = "https://github.com/neherlab/treeknit"
+homepage = "https://github.com/neherlab/treeknit"
 edition = "2024"
 rust-version = "1.98"
 license = "MIT"

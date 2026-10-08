@@ -26,3 +26,4 @@ First release of the Rust port of [TreeKnit.jl](https://github.com/PierreBarrat/
 - **Every option takes effect**: in TreeKnit.jl 0.5.8, `--gamma`, `--n-mcmc-it`, `--no-likelihood`, `--seq-lengths` and `--parallel` are silently ignored
 - **Prebuilt binaries**: the CLI for Linux (glibc and static musl), macOS, and Windows; the Linux binaries allocate memory with jemalloc
 - **Web app**: the same analyses in the browser, on the WebAssembly build of the core
+- **New address**: the repository moved to [github.com/neherlab/treeknit](https://github.com/neherlab/treeknit) and the web app to [neherlab.github.io/treeknit](https://neherlab.github.io/treeknit/). Links to the old web address `neherlab.github.io/treeknit-rs` no longer work; replace `treeknit-rs` with `treeknit` in them
