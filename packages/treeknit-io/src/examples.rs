@@ -243,7 +243,7 @@ mod tests {
   use pretty_assertions::assert_eq;
 
   #[test]
-  fn example_ids_are_fixed() {
+  fn example_ids_never_change() {
     // Published links name these ids; a renamed example keeps its old id.
     let expected = [
       "5-leaves",

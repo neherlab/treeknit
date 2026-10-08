@@ -47,6 +47,10 @@ struct Args {
 fn main() -> ExitCode {
   match write_pair(&Args::parse()) {
     Ok(()) => ExitCode::SUCCESS,
+    #[cfg_attr(
+      dylint_lib = "custom",
+      expect(debug_remnants, reason = "the example reports its error on stderr")
+    )]
     Err(e) => {
       eprintln!("large_tree_pair: {e}");
       ExitCode::FAILURE

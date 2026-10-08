@@ -34,10 +34,21 @@ fn main() -> ExitCode {
     columns,
     rows,
   }) {
+    #[cfg_attr(
+      dylint_lib = "custom",
+      expect(
+        debug_remnants,
+        reason = "the example writes the generated file to stdout, which `just gen` saves"
+      )
+    )]
     Ok(json) => {
       println!("{json}");
       ExitCode::SUCCESS
     },
+    #[cfg_attr(
+      dylint_lib = "custom",
+      expect(debug_remnants, reason = "the example reports its error on stderr")
+    )]
     Err(e) => {
       eprintln!("drawing_cases: {e}");
       ExitCode::FAILURE

@@ -16,6 +16,13 @@ use std::process::ExitCode;
 use treeknit_io::launch::{link_pairs, link_query, query_pairs};
 
 /// Key-value pairs to write, one list per query.
+#[cfg_attr(
+  dylint_lib = "custom",
+  expect(
+    typographic_characters,
+    reason = "keys and values outside ASCII are test cases of the encoding"
+  )
+)]
 const WRITTEN: &[&[(&str, &str)]] = &[
   &[
     ("tree", "https://x.org/a/ha.nwk"),
@@ -80,10 +87,21 @@ fn main() -> ExitCode {
     })
     .collect();
   match serde_json::to_string_pretty(&Table { written, read, links }) {
+    #[cfg_attr(
+      dylint_lib = "custom",
+      expect(
+        debug_remnants,
+        reason = "the example writes the generated file to stdout, which `just gen` saves"
+      )
+    )]
     Ok(json) => {
       println!("{json}");
       ExitCode::SUCCESS
     },
+    #[cfg_attr(
+      dylint_lib = "custom",
+      expect(debug_remnants, reason = "the example reports its error on stderr")
+    )]
     Err(e) => {
       eprintln!("link_cases: {e}");
       ExitCode::FAILURE

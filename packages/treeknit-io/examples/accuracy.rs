@@ -88,6 +88,10 @@ fn mean(v: &[f64]) -> f64 {
   clippy::as_conversions,
   reason = "leaf and run counts become f64 statistics; they stay far below 2^52, so the conversion is exact"
 )]
+#[cfg_attr(
+  dylint_lib = "custom",
+  expect(debug_remnants, reason = "the example prints its accuracy report on stdout")
+)]
 fn main() {
   let drop = Args::parse().drop;
   let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures");

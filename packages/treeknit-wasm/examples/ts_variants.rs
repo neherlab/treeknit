@@ -11,6 +11,13 @@ use treeknit_io::analysis::{ARG_TREE_COUNT, MIN_TREES};
 use treeknit_io::display::{LegendKind, Scale, TreeVersion};
 use treeknit_io::figure::LabelMode;
 
+#[cfg_attr(
+  dylint_lib = "custom",
+  expect(
+    debug_remnants,
+    reason = "the example writes the generated file to stdout, which `just gen` saves"
+  )
+)]
 fn main() -> Result<(), serde_json::Error> {
   let lists = [
     value_list::<TreeVersion>("TREE_VERSION")?,

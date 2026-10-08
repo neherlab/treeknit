@@ -48,6 +48,10 @@ struct Args {
 fn main() -> ExitCode {
   match run(&Args::parse()) {
     Ok(()) => ExitCode::SUCCESS,
+    #[cfg_attr(
+      dylint_lib = "custom",
+      expect(debug_remnants, reason = "the example reports its error on stderr")
+    )]
     Err(e) => {
       eprintln!("energy_cost: {e}");
       ExitCode::FAILURE
@@ -55,6 +59,10 @@ fn main() -> ExitCode {
   }
 }
 
+#[cfg_attr(
+  dylint_lib = "custom",
+  expect(debug_remnants, reason = "the example prints its timing report on stdout")
+)]
 fn run(args: &Args) -> Result<(), Box<dyn Error>> {
   let steps = args.steps;
   let mut trees = vec![read_tree(&args.tree1)?, read_tree(&args.tree2)?];
