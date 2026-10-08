@@ -19,7 +19,7 @@
     },
     "packages/web": {
       "entry": ["index.html!", "src/analysis/worker.ts!"],
-      "project": ["src/**/*.{ts,tsx,css}!", "build/**/*.ts"],
+      "project": ["src/**/*.{ts,tsx,css}!", "!src/**/__tests__/**!", "build/**/*.ts"],
       "ignoreDependencies": ["@svgr/plugin-jsx"]
     }
   }
