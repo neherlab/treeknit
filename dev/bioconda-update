@@ -139,7 +139,7 @@ Update [treeknit](https://bioconda.github.io/recipes/treeknit/README.html): ${ve
 
 @BiocondaBot please fetch artifacts
 
-Note: this pull request is submitted [automatically](https://github.com/${REPOSITORY}/blob/main/.github/workflows/release.yml), triggered by [a release](https://github.com/${REPOSITORY}/releases/tag/v${version}) in [${REPOSITORY}](https://github.com/${REPOSITORY}). If you want to get in touch, please ping the recipe maintainers.
+Note: this pull request is submitted [automatically](https://github.com/${REPOSITORY}/blob/main/.github/workflows/release.yml), triggered by [a release](https://github.com/${REPOSITORY}/releases/tag/${version}) in [${REPOSITORY}](https://github.com/${REPOSITORY}). If you want to get in touch, please ping the recipe maintainers.
 EOF
 }
 

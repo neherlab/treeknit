@@ -14,11 +14,11 @@
 # Options:
 #   -h, --help                Show this help
 #   -r, --repo <owner/repo>   GitHub repository of the release
-#   -t, --tag <tag>           Tag of the release: v<version>
+#   -t, --tag <tag>           Tag of the release, its version MAJOR.MINOR.PATCH
 #   -s, --sha <sha>           Source commit of the release
 #
 # Examples:
-#   $0 --repo neherlab/treeknit --tag v1.0.0 --sha "$(git rev-parse HEAD)" .out/treeknit-*
+#   $0 --repo neherlab/treeknit --tag 1.0.0 --sha "$(git rev-parse HEAD)" .out/treeknit-*
 #
 set -euo pipefail
 trap "exit" INT
@@ -52,7 +52,7 @@ generate_release_notes() {
   local sha="${3}"
   shift 3
 
-  changelog_section "${tag#v}"
+  changelog_section "${tag}"
   generate_download_table "${repo}" "${tag}" "${sha}" "$@"
 }
 
@@ -81,7 +81,7 @@ generate_download_table() {
   local sha="${3}"
   shift 3
 
-  local version="${tag#v}"
+  local version="${tag}"
   local base_url="https://github.com/${repo}/releases/download/${tag}"
   local web_address="${repo%%/*}.github.io/${repo#*/}"
 
