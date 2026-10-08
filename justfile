@@ -351,7 +351,7 @@ dylint-fix:
 dylint-baseline:
     DYLINT_RUSTFLAGS={{ quote(dylint_rustflags) }} MORDANT_BASELINE_WRITE=1 {{ dylint_cmd }} -- {{ dylint_cargo_args }} --keep-going
 
-# Unnecessary public surface (cargo-hawk), denying warnings
+# Unnecessary public surface (cargo-hawk); reports the findings without failing
 [group("lint")]
 hawk *args:
     {{ uncached_env }} cargo +{{ hawk_toolchain }} hawk check --config .config/hawk.toml --target-dir {{ quote(hawk_target_dir) }} {{ prepend("--exclude-crate=", public_api_crates) }} -W warnings "$@"
