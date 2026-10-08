@@ -366,6 +366,36 @@ mod tests {
     assert_eq!(Vec::<&String>::new(), missing, "{help}");
   }
 
+  #[test]
+  fn help_markdown_holds_the_help_texts_and_a_row_per_output_file() {
+    let stdout = |arg: &str| {
+      let output = Command::new(env!("CARGO_BIN_EXE_treeknit")).arg(arg).output().unwrap();
+      assert!(output.status.success(), "{arg}");
+      String::from_utf8(output.stdout).unwrap()
+    };
+    let markdown = stdout("--help-markdown");
+    // Oracle: the texts that the binary prints for `--help` and `--help-resolve`.
+    let help = stdout("--help");
+    let resolve = stdout("--help-resolve");
+    let rows: Vec<&str> = markdown.lines().filter(|l| l.starts_with("| `")).collect();
+    let expected_rows: Vec<String> = treeknit_io::output::file_reference()
+      .into_iter()
+      .map(|f| f.paths.iter().map(|p| format!("`{p}`")).collect::<Vec<_>>().join(", "))
+      .collect();
+    let actual_rows: Vec<String> = rows
+      .iter()
+      .map(|r| r.trim_start_matches("| ").split(" | ").next().unwrap().to_owned())
+      .collect();
+    assert_eq!(
+      (true, true, expected_rows),
+      (
+        markdown.contains(help.trim_end()),
+        markdown.contains(resolve.trim_end()),
+        actual_rows
+      )
+    );
+  }
+
   /// Every file under `dir` except `log.txt`, by its path relative to `dir` with `/` separators.
   fn files_below(dir: &Path) -> BTreeMap<String, Vec<u8>> {
     let mut files = BTreeMap::new();

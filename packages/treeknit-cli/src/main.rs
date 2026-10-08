@@ -75,6 +75,43 @@ fn resolve_help() -> String {
   )
 }
 
+/// The command-line reference of `docs/user/cli.md`: the text of `--help` and of `--help-resolve`,
+/// and the table of output files of `treeknit_io::output::file_reference`.
+fn reference_markdown() -> String {
+  let help = Cli::command().render_help().to_string();
+  let files = output::file_reference()
+    .into_iter()
+    .map(|file| {
+      let paths = file
+        .paths
+        .iter()
+        .map(|path| format!("`{path}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+      format!("| {paths} | {} |", file.description)
+    })
+    .collect::<Vec<_>>()
+    .join("\n");
+  format!(
+    "<!-- Written by `just gen` from `treeknit --help-markdown`. Edit the command-line definitions in \
+     `packages/treeknit-cli/src/main.rs` and the file list in `packages/treeknit-io/src/output.rs` \
+     instead of this file. -->\n\n\
+     # Command-line reference\n\n\
+     This page holds the help texts of `treeknit` and the list of the files that it writes. \
+     `treeknit --help` and `treeknit --help-resolve` print the same texts.\n\n\
+     ## Options\n\n```text\n{help}\n```\n\n\
+     ## Resolution of the trees\n\n```text\n{resolve}\n```\n\n\
+     ## Output files\n\n\
+     The files go into the results directory, `{dir}` unless `--outdir` names another one. In the \
+     names, `<tree>` stands for the label of a tree, and `<a>` and `<b>` for the labels of the two \
+     trees of a pair.\n\n\
+     | File | Content |\n|---|---|\n{files}\n",
+    help = help.trim_end(),
+    resolve = resolve_help(),
+    dir = output::RESULTS_DIR,
+  )
+}
+
 /// The text of `--list-examples`: the id, the group, and the trees of each example.
 fn example_list() -> String {
   examples::EXAMPLES
@@ -100,7 +137,9 @@ struct Cli {
   /// Trees, one per segment (at least two): Newick files, gzip-compressed or not, or https:
   /// addresses. `<label>=<tree>` labels a tree; by default, the file name labels it.
   #[arg(
-    required_unless_present_any = ["help_resolve", "help_defaults", "session", "example", "link", "list_examples"],
+    required_unless_present_any = [
+      "help_resolve", "help_defaults", "help_markdown", "session", "example", "link", "list_examples",
+    ],
     value_name = "TREE",
     help_heading = INPUT_HEADING,
   )]
@@ -229,6 +268,10 @@ struct Cli {
   #[arg(long)]
   help_resolve: bool,
 
+  /// Print the command-line reference in Markdown, as committed in `docs/user/cli.md`.
+  #[arg(long, hide = true)]
+  help_markdown: bool,
+
   /// Write trees with leaves missing from them placed by imputation (`*_imputed.nwk`).
   #[arg(long, help_heading = OUTPUT_HEADING)]
   impute: bool,
@@ -324,6 +367,10 @@ fn run() -> Result<()> {
   let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
   if cli.help_resolve || cli.help_defaults {
     println!("{}", resolve_help());
+    return Ok(());
+  }
+  if cli.help_markdown {
+    print!("{}", reference_markdown());
     return Ok(());
   }
   if cli.list_examples {
