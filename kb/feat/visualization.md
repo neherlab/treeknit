@@ -17,13 +17,14 @@ Counterpart: [`v0/visualization.md`](v0/visualization.md). TreeKnit.jl draws not
 
 ## Auspice JSON
 
-`fn auspice_json` returns the file content for one tree [[src](../../packages/treeknit-io/src/auspice.rs#L17-L59)]:
+`fn auspice_json` returns the file content for one tree [[src](../../packages/treeknit-io/src/auspice.rs#L12-L64)]:
 
-- [x] **Files**: `auspice_<label>.json` per tree with `--auspice-view`. The library function returns a JSON value, so there is no directory argument with a trailing `/`
-- [x] **Colorings**: one per other tree, key and title `mcc_<a>_<b>` with the labels in order, type `ordinal` [[src](../../packages/treeknit-io/src/auspice.rs#L12-L15)]
+- [x] **Files**: `auspice_<label>.json` per tree with `--auspice-view`. The library function returns the text, so there is no directory argument with a trailing `/`
+- [x] **Colorings**: one per other tree, key and title `mcc_<a>_<b>` with the labels in order, type `ordinal` [[src](../../packages/treeknit-io/src/auspice.rs#L7-L10)]
 - [x] **Node values**: the 1-based MCC index as a string, from the Fitch map, or `"null"`
 - [x] **Divergence**: `div` from the root, a missing length counted as 0. The tree itself does not change; TreeKnit.jl sets missing lengths to `0.0` in the tree
 - [x] **`meta.updated`**: the empty string, as in TreeKnit.jl. It does not match the date pattern of the augur schema, and Auspice still reads the file
+- [x] **Layout**: compact JSON, as TreeKnit.jl writes it with `JSON3.write`, so the size grows linearly with the depth of the tree. The nodes are written with an explicit stack, so trees of any depth are written [[src](../../packages/treeknit-io/src/auspice.rs#L66-L92)]
 - [x] **Tanglegram on auspice.us**: the same files as TreeKnit.jl, so the same procedure applies. No test loads them in Auspice
 - [x] **Auspice view in the web app (new)**: the web app embeds Auspice and draws each pair as an Auspice tanglegram from datasets that Rust builds for display, separate from the files: one categorical coloring `mcc` with the colors of the MCC slots, the MCC number as a node attribute, branch labels "MCC" where an MCC starts, and `div` from the branch lengths or, for a cladogram, the depth. The files `auspice_<label>.json` stay as in TreeKnit.jl (see [`web-app.md`](web-app.md#web-app))
 

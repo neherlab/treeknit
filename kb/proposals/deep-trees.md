@@ -1,16 +1,16 @@
 # Deep trees: recursion limits and benchmarks
 
-Influenza segment trees are deep and ladder-like: most internal nodes have one small and one large child, so the depth of the tree grows almost in proportion to the number of leaves. Two parts of the port assume shallow trees. Some functions of the core recurse once per tree level and overflow the stack on deep input. The benchmark generator writes coalescent trees, whose depth grows with the logarithm of the number of leaves, so costs that grow with depth do not show in benchmarks. This proposal collects both.
+Influenza segment trees are deep and ladder-like: most internal nodes have one small and one large child, so the depth of the tree grows almost in proportion to the number of leaves. Two parts of the port assumed shallow trees. Functions that recursed once per tree level overflowed the stack on deep input; the Auspice view of the web app still does. The benchmark generator writes coalescent trees, whose depth grows with the logarithm of the number of leaves, so costs that grow with depth do not show in benchmarks. This proposal collects both.
 
 ## Problem
 
 ### Recursion on tree depth
 
-- **Naive MCCs**: `fn is_coherent()` [packages/treeknit-core/src/naive.rs#L60-L98](../../packages/treeknit-core/src/naive.rs#L60-L98) recurses once per level of an identical subtree ([`naive-mccs-by-subtree-hashing.md`](naive-mccs-by-subtree-hashing.md) removes it)
-- **Imputation**: `fn copy_subtree()` [packages/treeknit-core/src/impute.rs#L125-L140](../../packages/treeknit-core/src/impute.rs#L125-L140) recurses once per level of a grafted subtree
-- **Auspice JSON**: `pub fn auspice_json()` [packages/treeknit-io/src/auspice.rs#L18-L59](../../packages/treeknit-io/src/auspice.rs#L18-L59) copies, formats, and drops a nested `serde_json::Value`, and `struct AuspiceNode` of the web app's Auspice view serializes and drops recursively
+The analysis and every output file handle trees of any depth without recursion: the Newick reader and writer of `util-newick` keep their own stack of open nodes ([packages/util-newick/README.md](../../packages/util-newick/README.md)), and naive MCC inference (`fn is_coherent`), imputation (`fn copy_subtree`), and the Auspice JSON files (`pub fn auspice_json`) use explicit stacks. Tests run each of them on a caterpillar tree (every internal node has one leaf child) of depth 5,000 on a 256 KiB thread stack, and in WebAssembly at depth 12,000. Before these rewrites, the command line overflowed at depths between 5,000 and 60,000, depending on the function and the thread, and the web app failed every run with a tree deeper than 1,000 to 2,000 levels.
 
-The Newick reader and writer of `util-newick` keep their own stack of open nodes ([packages/util-newick/README.md](../../packages/util-newick/README.md)); a test reads and writes a caterpillar tree (every internal node has one leaf child) of depth 200,000. Measured with the `release` build on 2026-10-08, the command line overflows at a depth between 30,000 and 60,000 for naive MCCs on its 8 MiB main thread, between 5,000 and 10,000 on the 2 MiB `rayon` workers that infer the pairs of three or more trees, and between 5,000 and 10,000 for `--auspice-view`. The web app runs the core in a WebAssembly worker, which Rust links with a 1 MiB stack [[src](https://github.com/rust-lang/rust/blob/1b7609cf1cb04d5dc480375f8addd357e5fa83aa/compiler/rustc_target/src/spec/base/wasm.rs#L12-L14)]; every run writes the Auspice JSON of each tree and fails when a tree is deeper than 1,000 to 2,000 levels. [`H-recursion-overflows-stack-on-deep-trees.md`](../issues/H-recursion-overflows-stack-on-deep-trees.md) holds all measurements.
+The Auspice view of the web app still nests one object per tree level and fails at about 1,100 levels ([`M-auspice-view-fails-on-deep-trees.md`](../issues/M-auspice-view-fails-on-deep-trees.md)). The command line and the web worker have fixed stacks: 8 MiB on the main thread of the command line under the usual Linux limit (`ulimit -s` 8192), 2 MiB on the `rayon` workers that infer the pairs of three or more trees, and 1 MiB in WebAssembly [[src](https://github.com/rust-lang/rust/blob/1b7609cf1cb04d5dc480375f8addd357e5fa83aa/compiler/rustc_target/src/spec/base/wasm.rs#L12-L14)], so new code that recurses per level fails on deep trees again.
+
+Memory, not stack, limits the depth now: `Tree::clades` stores one bit per taxon for every node, about 10 GB per caterpillar of 200,000 leaves, and three such trees run out of memory ([`tree-query-indices.md`](tree-query-indices.md)).
 
 ### Benchmarks without deep trees
 
@@ -32,6 +32,6 @@ The Newick reader and writer of `util-newick` keep their own stack of open nodes
 
 ## Work items
 
-- [`H-recursion-overflows-stack-on-deep-trees.md`](../issues/H-recursion-overflows-stack-on-deep-trees.md): the recursion sites of the core and the Auspice JSON
+- [`M-auspice-view-fails-on-deep-trees.md`](../issues/M-auspice-view-fails-on-deep-trees.md): the nesting of the Auspice view of the web app
 - [`N-benchmarks-lack-deep-trees.md`](../issues/N-benchmarks-lack-deep-trees.md): deep trees in the benchmark generator
-- [`H-naive-mccs-overlap-with-unary-nodes.md`](../issues/H-naive-mccs-overlap-with-unary-nodes.md): its proposed fix also removes the recursion of `is_coherent`
+- [`H-naive-mccs-overlap-with-unary-nodes.md`](../issues/H-naive-mccs-overlap-with-unary-nodes.md): the climb of naive MCC inference, which its proposed fix replaces

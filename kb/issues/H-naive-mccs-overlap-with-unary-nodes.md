@@ -15,7 +15,7 @@ t1.nwk: ((((A,B)),(C,D)),E);
 
 ## Cause
 
-`fn is_coherent` ([naive.rs#L60-L99](../../packages/treeknit-core/src/naive.rs#L60-L99)) caches coherent subtrees in a memo indexed by the tree-0 node only. The climb from A stores the tree-0 node of `(A,B)` as coherent, matched with the binary `(A,B)` node of tree 1. The climb from C later matches the same tree-0 node with the unary node above `(A,B)` in tree 1, which has the same clade. The memo returns `true` before the child counts are compared (one child against two), so the climb continues to the root and the MCC of C contains A and B.
+`fn is_coherent` ([naive.rs#L58-L111](../../packages/treeknit-core/src/naive.rs#L58-L111)) caches coherent subtrees in a memo indexed by the tree-0 node only. The climb from A stores the tree-0 node of `(A,B)` as coherent, matched with the binary `(A,B)` node of tree 1. The climb from C later matches the same tree-0 node with the unary node above `(A,B)` in tree 1, which has the same clade. The memo returns `true` before the child counts are compared (one child against two), so the climb continues to the root and the MCC of C contains A and B.
 
 TreeKnit.jl `is_coherent_clade` (`src/mcc_base.jl`) has no memo and rejects the pair on the different child counts.
 
@@ -29,7 +29,7 @@ Neither the Newick reader ([newick.rs](../../packages/treeknit-io/src/newick.rs)
 
 ## Fix direction
 
-- Find naive MCCs with canonical subtree identifiers, which treat a unary node as a node and need no memo or recursion ([`naive-mccs-by-subtree-hashing.md`](../proposals/naive-mccs-by-subtree-hashing.md))
+- Find naive MCCs with canonical subtree identifiers, which treat a unary node as a node and need no memo ([`naive-mccs-by-subtree-hashing.md`](../proposals/naive-mccs-by-subtree-hashing.md))
 - Key the memo by the matched node of every tree, not by the tree-0 node alone, or drop the memo and measure the cost on large trees
 - Alternatively, splice unary nodes out of input trees when reading them. That changes the topology TreeKnit.jl compares (it keeps unary nodes), so it needs a recorded decision
 

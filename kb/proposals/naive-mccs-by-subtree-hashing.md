@@ -1,13 +1,12 @@
 # Naive MCCs by canonical subtree identifiers
 
-Naive MCCs are the maximal subtrees that are identical in all trees. The port finds them with a climb from each leaf and a recursive check with a memo, ported from TreeKnit.jl with the memo added. The memo causes overlapping MCCs and a panic on trees with unary nodes. This proposal replaces the climb with canonical identifiers of subtrees, which decide identity by construction and need no recursion.
+Naive MCCs are the maximal subtrees that are identical in all trees. The port finds them with a climb from each leaf and a depth-first check with a memo, ported from TreeKnit.jl with the memo added. The memo causes overlapping MCCs and a panic on trees with unary nodes. This proposal replaces the climb with canonical identifiers of subtrees, which decide identity by construction and need no climb.
 
 ## Problem
 
-- **Algorithm**: `pub fn naive_mccs()` and `fn is_coherent()` [packages/treeknit-core/src/naive.rs#L24-L99](../../packages/treeknit-core/src/naive.rs#L24-L99). From each unvisited leaf, the climb moves to the parent while the parent clades are equal in all trees and `is_coherent` confirms that the subtrees below are identical. `is_coherent` recurses into the matched children and caches positive answers in a memo keyed by the node of the first tree only
+- **Algorithm**: `pub fn naive_mccs()` and `fn is_coherent()` [packages/treeknit-core/src/naive.rs#L24-L117](../../packages/treeknit-core/src/naive.rs#L24-L117). From each unvisited leaf, the climb moves to the parent while the parent clades are equal in all trees and `is_coherent` confirms that the subtrees below are identical. `is_coherent` walks the matched children depth-first with an explicit stack and caches positive answers in a memo keyed by the node of the first tree only
 - **Origin**: TreeKnit.jl `naive_mccs` and `is_coherent_clade` [[src](https://github.com/PierreBarrat/TreeKnit.jl/blob/dbbc89ac691fed0949a622eedbae103787b89320/src/mcc_base.jl#L13-L149)] use the same climb without a memo
 - **Defect**: the memo returns `true` for a node of the first tree that was matched earlier with a different node of another tree, before the child counts are compared. With a unary node in one tree, MCCs overlap and inference panics ([`H-naive-mccs-overlap-with-unary-nodes.md`](../issues/H-naive-mccs-overlap-with-unary-nodes.md))
-- **Recursion**: `is_coherent` recurses once per level of the subtree, so a deep identical subtree uses stack in proportion to its depth ([`deep-trees.md`](deep-trees.md))
 
 ## Background
 
@@ -28,9 +27,9 @@ Rooted trees with labeled leaves are identical exactly when their <a id="gloss-u
 
 ### Algorithm
 
-- **Canonical identifiers (recommended)**: fixes the defect by construction, removes the recursion, and handles any number of trees in one pass
+- **Canonical identifiers (recommended)**: fixes the defect by construction and handles any number of trees in one pass
 - **Day's cluster table with a child-count test**: linear time, but a unary node shares its cluster with its child, so the matching of nodes with equal clusters needs extra rules
-- **Keep the climb and key the memo by the tuple of matched nodes**: the smallest change; keeps the recursion and the cost of comparing bit sets on every climb step
+- **Keep the climb and key the memo by the tuple of matched nodes**: the smallest change; keeps the cost of comparing bit sets on every climb step
 
 ### Unary nodes in the input
 

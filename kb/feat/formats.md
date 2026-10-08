@@ -53,6 +53,7 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 `fn parameters_file` [[src](../../packages/treeknit-io/src/output.rs#L596-L598)]:
 
 - [x] **Time of writing**: before the inference, so the file exists when a run fails
+- [x] **Layout**: compact, as in TreeKnit.jl
 - [x] **Line end**: no newline after the closing brace
 - [/] **Fields**: `gamma`, `itmax`, `likelihood_sort`, `resolution`, `seq_lengths`, `pre_resolve`, `rounds`, `final_unresolved_round`, `nMCMC`, `sa_rep`, `Tmin`, `Tmax`, `nT`, `cooling_schedule`, `naive`, and `seed`. TreeKnit.jl writes the `OptArgs` fields: `γ`, `resolve`, `strict`, `final_no_resolve`, `parallel`, and `Trange`, which the port does not write. A reader of the TreeKnit.jl file cannot read this file
 - [x] **Values**: the values the run uses. TreeKnit.jl shows defaults for the five fields it ignores
