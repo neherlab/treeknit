@@ -101,7 +101,7 @@ pub fn validate(request: &Ts<AnalysisRequest>) -> Result<Vec<Ts<ValidationError>
   let _log = log_capture::discard();
   let errors = match parse_js("request", request) {
     Ok(request) => analysis::validate(&request),
-    Err(message) => vec![ValidationError::new(message)],
+    Err(e) => vec![ValidationError::new(e.to_string())],
   };
   errors.iter().map(to_js).collect()
 }
@@ -277,7 +277,7 @@ impl Session {
   ) -> Result<Session, JsValue> {
     let _log = log_capture::discard();
     let _run = log_capture::begin_run().ok_or_else(|| JsError::new("a run is already in progress"))?;
-    let request = parse_js("request", request).map_err(|message| validation_error(&[ValidationError::new(message)]))?;
+    let request = parse_js("request", request).map_err(|e| validation_error(&[ValidationError::new(e.to_string())]))?;
     let unavailable = log_capture::unavailable();
     log::info!("TreeKnit {}", env!("TREEKNIT_LONG_VERSION"));
     let k = request.trees.len();
@@ -467,7 +467,7 @@ impl Session {
     let _log = log_capture::discard();
     let pair = from_js("pair", pair)?.0;
     let version = from_js("version", version)?;
-    let options = parse_js("options", options).map_err(|message| validation_error(&[ValidationError::new(message)]))?;
+    let options = parse_js("options", options).map_err(|e| validation_error(&[ValidationError::new(e.to_string())]))?;
     let figure = output::pair_figure(&self.run, pair, version, &options)
       .map_err(|e| validation_error(&e))?
       .ok_or_else(|| no_pair(&self.run, pair))?;
@@ -482,7 +482,7 @@ impl Session {
   #[wasm_bindgen(js_name = argFigure)]
   pub fn arg_figure(&self, options: &Ts<FigureOptions>) -> Result<Ts<FigureDownload>, JsValue> {
     let _log = log_capture::discard();
-    let options = parse_js("options", options).map_err(|message| validation_error(&[ValidationError::new(message)]))?;
+    let options = parse_js("options", options).map_err(|e| validation_error(&[ValidationError::new(e.to_string())]))?;
     let figure = output::arg_figure(&self.run, &options)
       .map_err(|e| validation_error(&e))?
       .ok_or_else(|| JsError::new("the run has no ARG: it needs two trees and a built ARG"))?;
@@ -569,23 +569,49 @@ fn messages(errors: &[ValidationError]) -> String {
 
 /// The Rust value of the argument `name`; errors start with `invalid <name>:`.
 fn from_js<T: DeserializeOwned + Tsify>(name: &str, value: &Ts<T>) -> Result<T, JsError> {
-  parse_js(name, value).map_err(|message| JsError::new(&message))
+  parse_js(name, value).map_err(|e| JsError::new(&e.to_string()))
 }
 
-/// The Rust value of the argument `name`, or the message of the error: `invalid <name>:`, then
-/// the path of the field inside the value when the error is below its root, such as
+/// The Rust value of the argument `name`. The message of the error is `invalid <name>:`, then the
+/// path of the field inside the value when the error is below its root, such as
 /// `invalid request: trees[0].newick: ...`.
-fn parse_js<T: DeserializeOwned + Tsify>(name: &str, value: &Ts<T>) -> Result<T, String> {
+fn parse_js<T: DeserializeOwned + Tsify>(name: &str, value: &Ts<T>) -> Result<T, ArgumentError> {
   // JSON text instead of serde-wasm-bindgen: serde_json errors say what is wrong, and
   // serde_path_to_error says where.
   let text = JSON::stringify(&value.js_value())
-    .map_err(|e| format!("invalid {name}: {}", js_message(&e)))?
+    .map_err(|e| ArgumentError::Stringify {
+      name: name.to_owned(),
+      message: js_message(&e),
+    })?
     .as_string()
-    .ok_or_else(|| format!("invalid {name}: expected a JSON value"))?;
+    .ok_or_else(|| ArgumentError::NotJson { name: name.to_owned() })?;
   let mut deserializer = serde_json::Deserializer::from_str(&text);
-  let parsed = serde_path_to_error::deserialize(&mut deserializer).map_err(|e| format!("invalid {name}: {e}"))?;
-  deserializer.end().map_err(|e| format!("invalid {name}: {e}"))?;
+  let parsed = serde_path_to_error::deserialize(&mut deserializer).map_err(|source| ArgumentError::Value {
+    name: name.to_owned(),
+    source,
+  })?;
+  deserializer.end().map_err(|source| ArgumentError::TrailingText {
+    name: name.to_owned(),
+    source,
+  })?;
   Ok(parsed)
+}
+
+/// Why a JavaScript argument is not a value of its Rust type.
+#[derive(Debug, thiserror::Error)]
+enum ArgumentError {
+  /// `JSON.stringify` threw, with the message of the JavaScript error.
+  #[error("invalid {name}: {message}")]
+  Stringify { name: String, message: String },
+  #[error("invalid {name}: expected a JSON value")]
+  NotJson { name: String },
+  #[error("invalid {name}: {source}")]
+  Value {
+    name: String,
+    source: serde_path_to_error::Error<serde_json::Error>,
+  },
+  #[error("invalid {name}: {source}")]
+  TrailingText { name: String, source: serde_json::Error },
 }
 
 /// The JavaScript value of `value`. A NaN or infinite number is an error that names the type and

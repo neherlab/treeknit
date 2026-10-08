@@ -125,6 +125,10 @@ mod tests {
 
     const FIRST_READ_SIZE: usize = 64 * 1024;
 
+    #[cfg_attr(
+      dylint_lib = "mordant",
+      expect(stringified_error, reason = "the test checks the messages that users see")
+    )]
     pub(super) fn names_and_errors(reader: impl Read, options: &NewickReadOptions) -> Vec<Result<Vec<String>, String>> {
       newick_trees(reader, options.clone())
         .map(|tree| tree.map(|tree| summary(&tree.graph)).map_err(|error| error.to_string()))

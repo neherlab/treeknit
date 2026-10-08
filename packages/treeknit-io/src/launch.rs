@@ -1659,7 +1659,12 @@ mod tests {
   #[case::html_name(b"(<html>,B);".as_slice(),                   Ok("(<html>,B);".to_owned()))]
   #[trace]
   fn tree_bytes_are_checked(#[case] bytes: &[u8], #[case] expected: Result<String, String>) {
-    assert_eq!(expected, decode_tree_bytes(bytes).map_err(|e| e.to_string()));
+    #[cfg_attr(
+      dylint_lib = "mordant",
+      expect(stringified_error, reason = "the test checks the messages that users see")
+    )]
+    let actual = decode_tree_bytes(bytes).map_err(|e| e.to_string());
+    assert_eq!(expected, actual);
   }
 
   #[test]
