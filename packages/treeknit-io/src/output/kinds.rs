@@ -12,29 +12,166 @@ use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 use treeknit_core::Tree;
 
-/// A file of the output set, by what it holds; `file_kinds` lists them in the order of the set,
-/// and `FileKind::path` and `FileKind::text` make their paths and texts, so the paths of a run
-/// that has not happened yet and the files of a finished run follow one list.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum FileKind {
-  /// `MCCs.json`.
-  Mccs,
-  /// The MCCs of pair `pair` (pipeline order) of the trees `i` and `j`, one per line.
-  MccLines { pair: usize, i: usize, j: usize },
-  /// The resolved tree `tree`.
-  Resolved { tree: usize },
-  /// The imputed tree `tree`.
-  Imputed { tree: usize },
-  /// The Auspice JSON of tree `tree`.
-  Auspice { tree: usize },
-  /// `ARG/arg.nwk`.
-  ArgNewick,
-  /// `ARG/nodes.dat`.
-  ArgNodes,
-  /// The liberally resolved tree `tree` of the ARG.
-  ArgTree { tree: usize },
-  /// A figure, tanglegram `i` and `j` of a pair or the ARG.
-  Figure { figure: Figure, i: usize, j: usize },
+/// Labels of the trees of `file_reference`: a placeholder for any tree, and placeholders for the
+/// trees of a pair, with a third tree for the names that depend on the number of trees.
+const TREE_PLACEHOLDER: [&str; 1] = ["<tree>"];
+
+const PAIR_PLACEHOLDERS: [&str; 3] = ["<a>", "<b>", "<c>"];
+
+/// The files of `run` with `options`, each at its path with the kind of file it is.
+pub(crate) fn run_files(run: &RunResult, options: &OutputOptions) -> Vec<(FileKind, String)> {
+  let labels = run_labels(run);
+  file_kinds(labels.len(), options, run.built_arg().is_some())
+    .into_iter()
+    .map(|kind| (kind, kind.path(&labels, options)))
+    .collect()
+}
+
+/// The labels of the trees of `run`.
+fn run_labels(run: &RunResult) -> Vec<&str> {
+  run.trees.iter().map(|t| t.label.as_str()).collect()
+}
+/// The output files of the command line for its documentation: one entry per kind of file, in
+/// the order of `output_files`, then `parameters.json`, `log.txt`, and the session file. Paths
+/// hold the placeholders `<tree>` for the label of a tree and `<a>`, `<b>` for the labels of the
+/// trees of a pair; tree files have the extension `.nwk`.
+pub fn file_reference() -> Vec<FileReference> {
+  let options = OutputOptions::web(PAIR_PLACEHOLDERS.len());
+  let run_files = [
+    (PARAMETERS_FILE, "The options and the seed of the run"),
+    (LOG_FILE, "The log of the run"),
+    (
+      SESSION_FILE,
+      "With `--session`, `--example`, `--link`, or `--print-link`: the trees and settings that ran, \
+       which the web app opens and `--session` runs",
+    ),
+  ];
+  reference_kinds()
+    .into_iter()
+    .map(|(kind, label_sets)| FileReference {
+      paths: label_sets
+        .into_iter()
+        .map(|labels| kind.path(labels, &options))
+        .collect(),
+      description: kind.description(),
+    })
+    .chain(run_files.map(|(path, description)| FileReference {
+      paths: vec![path.to_owned()],
+      description,
+    }))
+    .collect()
+}
+
+/// One file of each kind for `file_reference`, with the label sets of its paths.
+fn reference_kinds() -> Vec<(FileKind, Vec<&'static [&'static str]>)> {
+  let two: &[&str] = &PAIR_PLACEHOLDERS[..ARG_TREE_COUNT];
+  let more: &[&str] = &PAIR_PLACEHOLDERS;
+  let tree: &[&str] = &TREE_PLACEHOLDER;
+  let pair = Figure::Pair { pair: 0 };
+  vec![
+    (FileKind::Mccs, vec![two]),
+    (FileKind::MccLines { pair: 0, i: 0, j: 1 }, vec![two, more]),
+    (FileKind::Resolved { tree: 0 }, vec![tree]),
+    (FileKind::Imputed { tree: 0 }, vec![tree]),
+    (FileKind::Auspice { tree: 0 }, vec![tree]),
+    (FileKind::ArgNewick, vec![two]),
+    (FileKind::ArgNodes, vec![two]),
+    (FileKind::ArgTree { tree: 0 }, vec![tree]),
+    (
+      FileKind::Figure {
+        figure: pair,
+        i: 0,
+        j: 1,
+      },
+      vec![two],
+    ),
+    (
+      FileKind::Figure {
+        figure: Figure::Arg,
+        i: 0,
+        j: 1,
+      },
+      vec![two],
+    ),
+  ]
+}
+
+/// An entry of `file_reference`: the paths of one kind of output file and what it holds.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FileReference {
+  /// The paths of the file, with placeholders for the tree labels; a file whose name depends on
+  /// the number of trees has a path for two trees and one for more.
+  pub paths: Vec<String>,
+  /// What the file holds, and the runs and options that write it.
+  pub description: &'static str,
+}
+
+/// Longest file name of the file systems of the release targets, in bytes: 255 bytes in ext4,
+/// APFS, and NTFS (where it is 255 UTF-16 units, which UTF-8 bytes bound from above).
+pub const MAX_FILE_NAME_BYTES: usize = 255;
+
+/// Output file names that a file system cannot hold: names longer than `MAX_FILE_NAME_BYTES`,
+/// such as `tanglegram_<a>_<b>.svg` of two long labels, and files of different trees or kinds
+/// that would get the same name, ignoring case as the label check does: the resolved tree of
+/// `MCCs_a` from `MCCs_a.dat` and the MCCs of the pair (`a`, `resolved`) are both
+/// `MCCs_a_resolved.dat`. The command line would fail after the inference or overwrite one file
+/// with the other, and the ZIP archive of the web app cannot hold both. A clash needs a tree
+/// extension of the command line, such as `.dat`: the file set of the web app gives each kind of
+/// file its own prefix, suffix, extension, or folder. `labels` must have passed the checks of
+/// `analysis::parse_trees`, which reports repeated labels and pair names.
+pub fn check_output_paths(labels: &[String], options: &OutputOptions) -> Vec<ValidationError> {
+  let error = |message: String| ValidationError::at(Field::Trees, message);
+  let paths = output_paths(labels, options);
+  let mut errors = Vec::new();
+  let too_long: Vec<&str> = paths
+    .iter()
+    .flat_map(|p| p.split('/'))
+    .filter(|name| name.len() > MAX_FILE_NAME_BYTES)
+    .collect();
+  if let Some(longest) = too_long.iter().max_by_key(|name| name.len()) {
+    let (count, bytes) = (too_long.len(), longest.len());
+    errors.push(error(if count == 1 {
+      format!(
+        "the output file name {longest:?} has {bytes} bytes, more than the {MAX_FILE_NAME_BYTES} of a file name; \
+         shorten the tree labels"
+      )
+    } else {
+      format!(
+        "{count} output file names have more than the {MAX_FILE_NAME_BYTES} bytes of a file name, such as \
+         {longest:?} with {bytes} bytes; shorten the tree labels"
+      )
+    }));
+  }
+  let mut first: BTreeMap<String, &str> = BTreeMap::new();
+  for path in &paths {
+    match first.entry(analysis::label_key(path)) {
+      Entry::Vacant(e) => {
+        e.insert(path);
+      },
+      Entry::Occupied(e) => errors.push(error(if *e.get() == path {
+        format!("two output files are named {path:?}; rename a tree")
+      } else {
+        format!(
+          "the output files {:?} and {path:?} differ only in case; rename a tree",
+          e.get()
+        )
+      })),
+    }
+  }
+  errors
+}
+
+/// Every path that a run of the trees labeled `labels` can write with `options`, in the order of
+/// `output_files`, followed by `parameters.json`, `log.txt`, and the session file. For two trees
+/// the ARG files are listed, although a run writes them only when the ARG is built.
+fn output_paths(labels: &[String], options: &OutputOptions) -> Vec<String> {
+  let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
+  let mut paths: Vec<String> = file_kinds(labels.len(), options, labels.len() == ARG_TREE_COUNT)
+    .into_iter()
+    .map(|kind| kind.path(&labels, options))
+    .collect();
+  paths.extend([PARAMETERS_FILE, LOG_FILE, SESSION_FILE].map(str::to_owned));
+  paths
 }
 
 /// The files of a run of `k` trees with `options`, in their order; `arg` lists the ARG files.
@@ -72,6 +209,31 @@ fn file_kinds(k: usize, options: &OutputOptions, arg: bool) -> Vec<FileKind> {
     }
   }
   kinds
+}
+
+/// A file of the output set, by what it holds; `file_kinds` lists them in the order of the set,
+/// and `FileKind::path` and `FileKind::text` make their paths and texts, so the paths of a run
+/// that has not happened yet and the files of a finished run follow one list.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum FileKind {
+  /// `MCCs.json`.
+  Mccs,
+  /// The MCCs of pair `pair` (pipeline order) of the trees `i` and `j`, one per line.
+  MccLines { pair: usize, i: usize, j: usize },
+  /// The resolved tree `tree`.
+  Resolved { tree: usize },
+  /// The imputed tree `tree`.
+  Imputed { tree: usize },
+  /// The Auspice JSON of tree `tree`.
+  Auspice { tree: usize },
+  /// `ARG/arg.nwk`.
+  ArgNewick,
+  /// `ARG/nodes.dat`.
+  ArgNodes,
+  /// The liberally resolved tree `tree` of the ARG.
+  ArgTree { tree: usize },
+  /// A figure, tanglegram `i` and `j` of a pair or the ARG.
+  Figure { figure: Figure, i: usize, j: usize },
 }
 
 impl FileKind {
@@ -180,168 +342,6 @@ impl FileKind {
       FileKind::Figure { figure, .. } => figure_text(run, figure).ok_or_else(missing)?,
     })
   }
-}
-
-/// Labels of the trees of `file_reference`: a placeholder for any tree, and placeholders for the
-/// trees of a pair, with a third tree for the names that depend on the number of trees.
-const TREE_PLACEHOLDER: [&str; 1] = ["<tree>"];
-const PAIR_PLACEHOLDERS: [&str; 3] = ["<a>", "<b>", "<c>"];
-
-/// One file of each kind for `file_reference`, with the label sets of its paths.
-fn reference_kinds() -> Vec<(FileKind, Vec<&'static [&'static str]>)> {
-  let two: &[&str] = &PAIR_PLACEHOLDERS[..ARG_TREE_COUNT];
-  let more: &[&str] = &PAIR_PLACEHOLDERS;
-  let tree: &[&str] = &TREE_PLACEHOLDER;
-  let pair = Figure::Pair { pair: 0 };
-  vec![
-    (FileKind::Mccs, vec![two]),
-    (FileKind::MccLines { pair: 0, i: 0, j: 1 }, vec![two, more]),
-    (FileKind::Resolved { tree: 0 }, vec![tree]),
-    (FileKind::Imputed { tree: 0 }, vec![tree]),
-    (FileKind::Auspice { tree: 0 }, vec![tree]),
-    (FileKind::ArgNewick, vec![two]),
-    (FileKind::ArgNodes, vec![two]),
-    (FileKind::ArgTree { tree: 0 }, vec![tree]),
-    (
-      FileKind::Figure {
-        figure: pair,
-        i: 0,
-        j: 1,
-      },
-      vec![two],
-    ),
-    (
-      FileKind::Figure {
-        figure: Figure::Arg,
-        i: 0,
-        j: 1,
-      },
-      vec![two],
-    ),
-  ]
-}
-
-/// The labels of the trees of `run`.
-fn run_labels(run: &RunResult) -> Vec<&str> {
-  run.trees.iter().map(|t| t.label.as_str()).collect()
-}
-
-/// The files of `run` with `options`, each at its path with the kind of file it is.
-pub(crate) fn run_files(run: &RunResult, options: &OutputOptions) -> Vec<(FileKind, String)> {
-  let labels = run_labels(run);
-  file_kinds(labels.len(), options, run.built_arg().is_some())
-    .into_iter()
-    .map(|kind| (kind, kind.path(&labels, options)))
-    .collect()
-}
-
-/// The output files of the command line for its documentation: one entry per kind of file, in
-/// the order of `output_files`, then `parameters.json`, `log.txt`, and the session file. Paths
-/// hold the placeholders `<tree>` for the label of a tree and `<a>`, `<b>` for the labels of the
-/// trees of a pair; tree files have the extension `.nwk`.
-pub fn file_reference() -> Vec<FileReference> {
-  let options = OutputOptions::web(PAIR_PLACEHOLDERS.len());
-  let run_files = [
-    (PARAMETERS_FILE, "The options and the seed of the run"),
-    (LOG_FILE, "The log of the run"),
-    (
-      SESSION_FILE,
-      "With `--session`, `--example`, `--link`, or `--print-link`: the trees and settings that ran, \
-       which the web app opens and `--session` runs",
-    ),
-  ];
-  reference_kinds()
-    .into_iter()
-    .map(|(kind, label_sets)| FileReference {
-      paths: label_sets
-        .into_iter()
-        .map(|labels| kind.path(labels, &options))
-        .collect(),
-      description: kind.description(),
-    })
-    .chain(run_files.map(|(path, description)| FileReference {
-      paths: vec![path.to_owned()],
-      description,
-    }))
-    .collect()
-}
-
-/// An entry of `file_reference`: the paths of one kind of output file and what it holds.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct FileReference {
-  /// The paths of the file, with placeholders for the tree labels; a file whose name depends on
-  /// the number of trees has a path for two trees and one for more.
-  pub paths: Vec<String>,
-  /// What the file holds, and the runs and options that write it.
-  pub description: &'static str,
-}
-
-/// Every path that a run of the trees labeled `labels` can write with `options`, in the order of
-/// `output_files`, followed by `parameters.json`, `log.txt`, and the session file. For two trees
-/// the ARG files are listed, although a run writes them only when the ARG is built.
-fn output_paths(labels: &[String], options: &OutputOptions) -> Vec<String> {
-  let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
-  let mut paths: Vec<String> = file_kinds(labels.len(), options, labels.len() == ARG_TREE_COUNT)
-    .into_iter()
-    .map(|kind| kind.path(&labels, options))
-    .collect();
-  paths.extend([PARAMETERS_FILE, LOG_FILE, SESSION_FILE].map(str::to_owned));
-  paths
-}
-
-/// Longest file name of the file systems of the release targets, in bytes: 255 bytes in ext4,
-/// APFS, and NTFS (where it is 255 UTF-16 units, which UTF-8 bytes bound from above).
-pub const MAX_FILE_NAME_BYTES: usize = 255;
-
-/// Output file names that a file system cannot hold: names longer than `MAX_FILE_NAME_BYTES`,
-/// such as `tanglegram_<a>_<b>.svg` of two long labels, and files of different trees or kinds
-/// that would get the same name, ignoring case as the label check does: the resolved tree of
-/// `MCCs_a` from `MCCs_a.dat` and the MCCs of the pair (`a`, `resolved`) are both
-/// `MCCs_a_resolved.dat`. The command line would fail after the inference or overwrite one file
-/// with the other, and the ZIP archive of the web app cannot hold both. A clash needs a tree
-/// extension of the command line, such as `.dat`: the file set of the web app gives each kind of
-/// file its own prefix, suffix, extension, or folder. `labels` must have passed the checks of
-/// `analysis::parse_trees`, which reports repeated labels and pair names.
-pub fn check_output_paths(labels: &[String], options: &OutputOptions) -> Vec<ValidationError> {
-  let error = |message: String| ValidationError::at(Field::Trees, message);
-  let paths = output_paths(labels, options);
-  let mut errors = Vec::new();
-  let too_long: Vec<&str> = paths
-    .iter()
-    .flat_map(|p| p.split('/'))
-    .filter(|name| name.len() > MAX_FILE_NAME_BYTES)
-    .collect();
-  if let Some(longest) = too_long.iter().max_by_key(|name| name.len()) {
-    let (count, bytes) = (too_long.len(), longest.len());
-    errors.push(error(if count == 1 {
-      format!(
-        "the output file name {longest:?} has {bytes} bytes, more than the {MAX_FILE_NAME_BYTES} of a file name; \
-         shorten the tree labels"
-      )
-    } else {
-      format!(
-        "{count} output file names have more than the {MAX_FILE_NAME_BYTES} bytes of a file name, such as \
-         {longest:?} with {bytes} bytes; shorten the tree labels"
-      )
-    }));
-  }
-  let mut first: BTreeMap<String, &str> = BTreeMap::new();
-  for path in &paths {
-    match first.entry(analysis::label_key(path)) {
-      Entry::Vacant(e) => {
-        e.insert(path);
-      },
-      Entry::Occupied(e) => errors.push(error(if *e.get() == path {
-        format!("two output files are named {path:?}; rename a tree")
-      } else {
-        format!(
-          "the output files {:?} and {path:?} differ only in case; rename a tree",
-          e.get()
-        )
-      })),
-    }
-  }
-  errors
 }
 
 /// Path of a tree file: `<dir><label><suffix><ext>`, such as `ARG/ha_liberal_resolved.nwk`.

@@ -1,36 +1,5 @@
 //! Run options.
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Cooling {
-  Geometric,
-  Linear,
-  Acos,
-}
-
-/// How trees are resolved during and after MCC inference.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Resolution {
-  /// No resolution with MCCs: MCCs require identical topologies.
-  None,
-  /// Resolve during pair inference and with the inferred MCCs, unambiguous splits only.
-  Strict,
-  /// As `Strict`, also adding ambiguous splits (placement of other MCCs chosen arbitrarily).
-  Liberal,
-  /// As `Strict`, then resolve all trees so that their topologies match within every MCC,
-  /// earlier trees taking precedence (see `pipeline::match_topologies`).
-  Matched,
-}
-
-/// The method presets of TreeKnit.jl (see [`Options::treeknit_jl`]).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Method {
-  /// Pre-resolve, then one round of pair inference without resolving (default for K > 2).
-  BetterTrees,
-  /// Pre-resolve, resolve during pair inference; for K > 2 a final round without resolving
-  /// (default for K = 2).
-  BetterMccs,
-}
-
 #[derive(Clone, Debug)]
 pub struct Options {
   /// Cost of removing one MCC (enforcing one reassortment).
@@ -131,4 +100,35 @@ impl Options {
   pub fn temperatures(&self) -> Vec<f64> {
     crate::anneal::schedule(self.cooling, self.t_min, self.t_max, self.n_t)
   }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Cooling {
+  Geometric,
+  Linear,
+  Acos,
+}
+
+/// How trees are resolved during and after MCC inference.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Resolution {
+  /// No resolution with MCCs: MCCs require identical topologies.
+  None,
+  /// Resolve during pair inference and with the inferred MCCs, unambiguous splits only.
+  Strict,
+  /// As `Strict`, also adding ambiguous splits (placement of other MCCs chosen arbitrarily).
+  Liberal,
+  /// As `Strict`, then resolve all trees so that their topologies match within every MCC,
+  /// earlier trees taking precedence (see `pipeline::match_topologies`).
+  Matched,
+}
+
+/// The method presets of TreeKnit.jl (see [`Options::treeknit_jl`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Method {
+  /// Pre-resolve, then one round of pair inference without resolving (default for K > 2).
+  BetterTrees,
+  /// Pre-resolve, resolve during pair inference; for K > 2 a final round without resolving
+  /// (default for K = 2).
+  BetterMccs,
 }

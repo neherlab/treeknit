@@ -101,51 +101,6 @@ fn top_root(arg: &Arg) -> (RootCase, usize) {
   }
 }
 
-/// Parents and children of the ARG nodes, with the synthetic top root appended as the last node
-/// when the root case asks for it.
-struct Graph<'a> {
-  arg: &'a Arg,
-  /// Parent per segment.
-  parents: Vec<[Option<usize>; 2]>,
-  children: Vec<Vec<usize>>,
-}
-
-impl<'a> Graph<'a> {
-  fn new(arg: &'a Arg, root_case: RootCase) -> Graph<'a> {
-    let mut parents: Vec<[Option<usize>; 2]> = arg
-      .nodes
-      .iter()
-      .map(|n| {
-        n.anc.map(|a| match a {
-          Anc::Node(p) => Some(p),
-          Anc::Absent | Anc::Root => None,
-        })
-      })
-      .collect();
-    let mut children: Vec<Vec<usize>> = arg.nodes.iter().map(|n| n.children.clone()).collect();
-    if root_case == RootCase::Synthetic {
-      let top = arg.nodes.len();
-      let [r0, r1] = arg.roots;
-      parents[r0][0] = Some(top);
-      parents[r1][1] = Some(top);
-      parents.push([None, None]);
-      children.push(vec![r0, r1]);
-    }
-    Graph { arg, parents, children }
-  }
-
-  fn len(&self) -> usize {
-    self.parents.len()
-  }
-
-  /// Length of the branch from node `n` to its parent of segment `c`; the edges of the
-  /// synthetic top root have length 0.
-  fn length(&self, n: usize, c: usize) -> Option<f64> {
-    let synthetic = self.parents[n][c] == Some(self.arg.nodes.len());
-    self.arg.nodes.get(n).and_then(|a| a.tau[c]).filter(|_| !synthetic)
-  }
-}
-
 /// The nodes ordered parents before children (Kahn's algorithm over the distinct parents).
 fn topological_order(parents: &[[Option<usize>; 2]], children: &[Vec<usize>]) -> Vec<usize> {
   let distinct = |p: &[Option<usize>; 2]| match p {
@@ -293,6 +248,51 @@ fn edges(g: &Graph<'_>, chain: &[Option<(usize, usize)>], nodes: &[ArgNodeView])
     }
   }
   out
+}
+
+/// Parents and children of the ARG nodes, with the synthetic top root appended as the last node
+/// when the root case asks for it.
+struct Graph<'a> {
+  arg: &'a Arg,
+  /// Parent per segment.
+  parents: Vec<[Option<usize>; 2]>,
+  children: Vec<Vec<usize>>,
+}
+
+impl<'a> Graph<'a> {
+  fn new(arg: &'a Arg, root_case: RootCase) -> Graph<'a> {
+    let mut parents: Vec<[Option<usize>; 2]> = arg
+      .nodes
+      .iter()
+      .map(|n| {
+        n.anc.map(|a| match a {
+          Anc::Node(p) => Some(p),
+          Anc::Absent | Anc::Root => None,
+        })
+      })
+      .collect();
+    let mut children: Vec<Vec<usize>> = arg.nodes.iter().map(|n| n.children.clone()).collect();
+    if root_case == RootCase::Synthetic {
+      let top = arg.nodes.len();
+      let [r0, r1] = arg.roots;
+      parents[r0][0] = Some(top);
+      parents[r1][1] = Some(top);
+      parents.push([None, None]);
+      children.push(vec![r0, r1]);
+    }
+    Graph { arg, parents, children }
+  }
+
+  fn len(&self) -> usize {
+    self.parents.len()
+  }
+
+  /// Length of the branch from node `n` to its parent of segment `c`; the edges of the
+  /// synthetic top root have length 0.
+  fn length(&self, n: usize, c: usize) -> Option<f64> {
+    let synthetic = self.parents[n][c] == Some(self.arg.nodes.len());
+    self.arg.nodes.get(n).and_then(|a| a.tau[c]).filter(|_| !synthetic)
+  }
 }
 
 #[cfg(test)]

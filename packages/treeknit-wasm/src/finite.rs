@@ -12,33 +12,9 @@ pub(crate) fn check_finite<T: Serialize + ?Sized>(value: &T) -> Result<(), serde
   serde_path_to_error::serialize(value, FiniteCheck)
 }
 
-/// The error of [`check_finite`]: the first number that is not finite, or the message of a value
-/// whose `Serialize` implementation fails by itself.
-#[derive(Debug, thiserror::Error)]
-pub(crate) enum NonFinite {
-  #[error("non-finite number {0}")]
-  Number(f64),
-  #[error("{0}")]
-  Custom(String),
-}
-
-impl ser::Error for NonFinite {
-  fn custom<T: Display>(message: T) -> Self {
-    Self::Custom(message.to_string())
-  }
-}
-
 /// A serializer that writes nothing and fails at the first number that is not finite.
 #[derive(Clone, Copy)]
 struct FiniteCheck;
-
-fn finite(value: f64) -> Result<(), NonFinite> {
-  if value.is_finite() {
-    Ok(())
-  } else {
-    Err(NonFinite::Number(value))
-  }
-}
 
 impl ser::Serializer for FiniteCheck {
   type Ok = ();
@@ -270,6 +246,30 @@ impl ser::SerializeStructVariant for FiniteCheck {
 
   fn end(self) -> Result<(), NonFinite> {
     Ok(())
+  }
+}
+
+fn finite(value: f64) -> Result<(), NonFinite> {
+  if value.is_finite() {
+    Ok(())
+  } else {
+    Err(NonFinite::Number(value))
+  }
+}
+
+/// The error of [`check_finite`]: the first number that is not finite, or the message of a value
+/// whose `Serialize` implementation fails by itself.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum NonFinite {
+  #[error("non-finite number {0}")]
+  Number(f64),
+  #[error("{0}")]
+  Custom(String),
+}
+
+impl ser::Error for NonFinite {
+  fn custom<T: Display>(message: T) -> Self {
+    Self::Custom(message.to_string())
   }
 }
 

@@ -13,329 +13,6 @@
 use crate::bits::{self, Bits};
 use crate::tree::{NodeId, Tree};
 
-pub struct Graph {
-  /// Number of leaves.
-  pub(crate) n: usize,
-  /// `bit[i]`: position of leaf `i` in the leaf sets of the internal nodes. Leaves follow their
-  /// left-to-right order in the first tree, so that every clade of that tree, and most clades of
-  /// similar trees, cover a short range of words.
-  bit: Vec<usize>,
-  colors: Vec<Color>,
-}
-
-/// The internal nodes of one tree, indexed in preorder from the root at 0, and its leaves.
-struct Color {
-  /// Leaf set of each internal node.
-  clade: Clades,
-  nodes: Vec<Internal>,
-  /// `leaves[i]`: leaf `i`.
-  leaves: Vec<Leaf>,
-}
-
-/// An internal node of one tree.
-struct Internal {
-  parent: Option<usize>,
-  /// Internal children.
-  children: Vec<usize>,
-  /// Leaf children.
-  leaf_children: Vec<usize>,
-  tree_node: NodeId,
-}
-
-/// A leaf of one tree.
-#[derive(Clone, Copy)]
-struct Leaf {
-  /// Parent (internal index).
-  anc: usize,
-  tree_node: NodeId,
-}
-
-impl Graph {
-  /// Build from trees whose leaves have taxa `0..n` (the same set in every tree).
-  pub fn new(trees: &[&Tree], n: usize) -> Graph {
-    let mut bit = vec![usize::MAX; n];
-    for (pos, v) in trees[0].leaves().into_iter().enumerate() {
-      bit[trees[0].taxon(v)] = pos;
-    }
-    let colors = trees.iter().map(|t| Color::new(t, n, &bit)).collect();
-    Graph { n, bit, colors }
-  }
-
-  /// `conf` in the bit positions of the leaf sets.
-  fn mask(&self, conf: &Bits) -> Bits {
-    bits::from_iter(self.n, conf.ones().map(|i| self.bit[i]))
-  }
-
-  fn k(&self) -> usize {
-    self.colors.len()
-  }
-
-  /// First ancestor of `leaf` in color `k` that has at least two leaves of `mask` below it
-  /// (or the root).
-  #[inline]
-  fn climb(&self, k: usize, leaf: usize, mask: &Bits) -> usize {
-    let c = &self.colors[k];
-    let mut a = c.leaves[leaf].anc;
-    while c.clade.get(a).trivial_on(mask.as_slice()) {
-      match c.nodes[a].parent {
-        Some(p) => a = p,
-        None => break,
-      }
-    }
-    a
-  }
-
-  /// Are the clades of node `a1` of color `k1` and node `a2` of color `k2` equal on the leaves of
-  /// `mask`, or with `resolve`, is one inside the other and the larger node refinable?
-  fn compatible(&self, k1: usize, a1: usize, k2: usize, a2: usize, mask: &Bits, resolve: bool) -> bool {
-    let m = mask.as_slice();
-    let (c1, c2) = (self.colors[k1].clade.get(a1), self.colors[k2].clade.get(a2));
-    if c1.eq_on(c2, m) {
-      return true;
-    }
-    if !resolve {
-      return false;
-    }
-    (c1.subset_on(c2, m) && self.refinable(c1, k2, a2, m)) || (c2.subset_on(c1, m) && self.refinable(c2, k1, a1, m))
-  }
-
-  /// Can node `a` of color `k` be resolved to contain split `s`? True if every internal
-  /// child of `a` is either inside `s` or disjoint from it.
-  fn refinable(&self, s: Clade<'_>, k: usize, a: usize, mask: &[usize]) -> bool {
-    let color = &self.colors[k];
-    color.nodes[a].children.iter().all(|&ch| {
-      let child = color.clade.get(ch);
-      child.subset_on(s, mask) || child.disjoint_on(s, mask)
-    })
-  }
-
-  /// Number of (kept leaf, tree pair) for which the first non-trivial ancestors differ.
-  pub fn energy(&self, conf: &Bits, resolve: bool) -> usize {
-    if self.n == 1 {
-      return 0;
-    }
-    let k = self.k();
-    let mask = self.mask(conf);
-    let mut anc = vec![0; k];
-    let mut e = 0;
-    for i in conf.ones() {
-      for (kk, a) in anc.iter_mut().enumerate() {
-        *a = self.climb(kk, i, &mask);
-      }
-      for k1 in 0..k {
-        for k2 in k1 + 1..k {
-          if !self.compatible(k1, anc[k1], k2, anc[k2], &mask, resolve) {
-            e += 1;
-          }
-        }
-      }
-    }
-    e
-  }
-
-  /// Mean log-likelihood ratio of "shared" vs "not shared" for the branches implied by `conf`.
-  /// Missing branch lengths contribute 0.
-  pub fn likelihood(&self, conf: &Bits, resolve: bool, trees: &[&Tree], seq_lengths: &[f64]) -> f64 {
-    if self.n == 1 {
-      return 0.0;
-    }
-    let k = self.k();
-    let mask = self.mask(conf);
-    let (mut l, mut z) = (0.0_f64, 0.0_f64);
-    for i in 0..self.n {
-      if conf.contains(i) {
-        let anc: Vec<usize> = (0..k).map(|kk| self.climb(kk, i, &mask)).collect();
-        for k1 in 0..k {
-          for k2 in k1 + 1..k {
-            if self.compatible(k1, anc[k1], k2, anc[k2], &mask, resolve) {
-              let t1 = self.branch(k1, i, anc[k1], trees[k1]);
-              let t2 = self.branch(k2, i, anc[k2], trees[k2]);
-              l += branch_likelihood(t1, t2, seq_lengths[k1], seq_lengths[k2]);
-              z += 1.0;
-            }
-          }
-        }
-      } else {
-        for k1 in 0..k {
-          for k2 in 0..k {
-            let t1 = self.leaf_branch(k1, i, trees[k1]);
-            let t2 = self.leaf_branch(k2, i, trees[k2]);
-            l -= branch_likelihood(t1, t2, seq_lengths[k1], seq_lengths[k2]);
-            z += 1.0;
-          }
-        }
-      }
-    }
-    l / z.max(1.0)
-  }
-
-  fn branch(&self, k: usize, leaf: usize, a: usize, t: &Tree) -> Option<f64> {
-    let c = &self.colors[k];
-    t.divtime(c.leaves[leaf].tree_node, c.nodes[a].tree_node)
-  }
-
-  fn leaf_branch(&self, k: usize, leaf: usize, t: &Tree) -> Option<f64> {
-    let c = &self.colors[k];
-    let l = c.leaves[leaf];
-    t.divtime(l.tree_node, c.nodes[l.anc].tree_node)
-  }
-}
-
-impl Color {
-  /// The internal nodes of `t`, with leaf `i` at position `bit[i]` of the leaf sets.
-  fn new(t: &Tree, n: usize, bit: &[usize]) -> Color {
-    let mut nodes = vec![Internal {
-      parent: None,
-      children: vec![],
-      leaf_children: vec![],
-      tree_node: t.root,
-    }];
-    let mut leaves = vec![
-      Leaf {
-        anc: usize::MAX,
-        tree_node: usize::MAX,
-      };
-      n
-    ];
-    // The preorder of `Tree::preorder` below the root, each node with the internal index of its
-    // parent. A single-leaf tree gets an artificial root above the leaf.
-    let mut stack: Vec<(NodeId, usize)> = if t.is_leaf(t.root) {
-      vec![(t.root, 0)]
-    } else {
-      t.children(t.root).iter().rev().map(|&c| (c, 0)).collect()
-    };
-    while let Some((v, parent)) = stack.pop() {
-      if t.is_leaf(v) {
-        let taxon = t.taxon(v);
-        nodes[parent].leaf_children.push(taxon);
-        leaves[taxon] = Leaf {
-          anc: parent,
-          tree_node: v,
-        };
-      } else {
-        let index = nodes.len();
-        nodes[parent].children.push(index);
-        nodes.push(Internal {
-          parent: Some(parent),
-          children: vec![],
-          leaf_children: vec![],
-          tree_node: v,
-        });
-        stack.extend(t.children(v).iter().rev().map(|&c| (c, index)));
-      }
-    }
-    let clades = t.clades(n);
-    let clade = Clades::new(
-      nodes
-        .iter()
-        .map(|a| bits::from_iter(n, clades[a.tree_node].ones().map(|i| bit[i])))
-        .collect(),
-    );
-    Color { clade, nodes, leaves }
-  }
-}
-
-/// Leaf sets of the internal nodes of one tree, with the range of the non-zero words of each.
-#[derive(Default)]
-struct Clades {
-  sets: Vec<Bits>,
-  /// `lo[a]..hi[a]`: the words of set `a` outside which all words are 0.
-  lo: Vec<usize>,
-  hi: Vec<usize>,
-}
-
-impl Clades {
-  fn new(sets: Vec<Bits>) -> Self {
-    let (mut lo, mut hi) = (vec![], vec![]);
-    for s in &sets {
-      let w = s.as_slice();
-      let l = w.iter().position(|&x| x != 0).unwrap_or(0);
-      lo.push(l);
-      hi.push(w.iter().rposition(|&x| x != 0).map_or(l, |h| h + 1));
-    }
-    Clades { sets, lo, hi }
-  }
-
-  #[inline]
-  fn get(&self, a: usize) -> Clade<'_> {
-    Clade {
-      words: self.sets[a].as_slice(),
-      lo: self.lo[a],
-      hi: self.hi[a],
-    }
-  }
-}
-
-/// A leaf set whose words outside `lo..hi` are 0. The masks `m` of the methods are bit sets over
-/// all leaves.
-#[derive(Clone, Copy)]
-struct Clade<'a> {
-  words: &'a [usize],
-  lo: usize,
-  hi: usize,
-}
-
-impl Clade<'_> {
-  /// `|self ∩ m|`
-  #[inline]
-  fn count_on(self, m: &[usize]) -> u32 {
-    let r = self.lo..self.hi;
-    self.words[r.clone()]
-      .iter()
-      .zip(&m[r])
-      .map(|(x, z)| (x & z).count_ones())
-      .sum()
-  }
-
-  /// `|self ∩ m| < 2`
-  #[inline]
-  fn trivial_on(self, m: &[usize]) -> bool {
-    let r = self.lo..self.hi;
-    let mut n = 0;
-    for (x, z) in self.words[r.clone()].iter().zip(&m[r]) {
-      n += (x & z).count_ones();
-      if n > 1 {
-        return false;
-      }
-    }
-    true
-  }
-
-  /// `self ∩ m ⊆ other`
-  #[inline]
-  fn subset_on(self, other: Clade<'_>, m: &[usize]) -> bool {
-    let r = self.lo..self.hi;
-    self.words[r.clone()]
-      .iter()
-      .zip(&other.words[r.clone()])
-      .zip(&m[r])
-      .all(|((x, y), z)| x & !y & z == 0)
-  }
-
-  /// `self ∩ other ∩ m == ∅`
-  #[inline]
-  fn disjoint_on(self, other: Clade<'_>, m: &[usize]) -> bool {
-    let r = self.lo.max(other.lo)..self.hi.min(other.hi);
-    r.is_empty()
-      || self.words[r.clone()]
-        .iter()
-        .zip(&other.words[r.clone()])
-        .zip(&m[r])
-        .all(|((x, y), z)| x & y & z == 0)
-  }
-
-  /// `self ∩ m == other ∩ m`
-  #[inline]
-  fn eq_on(self, other: Clade<'_>, m: &[usize]) -> bool {
-    let r = self.lo.min(other.lo)..self.hi.max(other.hi);
-    self.words[r.clone()]
-      .iter()
-      .zip(&other.words[r.clone()])
-      .zip(&m[r])
-      .all(|((x, y), z)| (x ^ y) & z == 0)
-  }
-}
-
 /// Energy of a configuration maintained under single-leaf flips.
 ///
 /// Flipping leaf `j` can only change the terms of `j` itself and of kept leaves whose first
@@ -543,6 +220,329 @@ impl<'g> EnergyState<'g> {
     self.conf.toggle(j);
     self.mask.toggle(self.g.bit[j]);
     self.update_counts(j, add);
+  }
+}
+
+pub struct Graph {
+  /// Number of leaves.
+  pub(crate) n: usize,
+  /// `bit[i]`: position of leaf `i` in the leaf sets of the internal nodes. Leaves follow their
+  /// left-to-right order in the first tree, so that every clade of that tree, and most clades of
+  /// similar trees, cover a short range of words.
+  bit: Vec<usize>,
+  colors: Vec<Color>,
+}
+
+impl Graph {
+  /// Build from trees whose leaves have taxa `0..n` (the same set in every tree).
+  pub fn new(trees: &[&Tree], n: usize) -> Graph {
+    let mut bit = vec![usize::MAX; n];
+    for (pos, v) in trees[0].leaves().into_iter().enumerate() {
+      bit[trees[0].taxon(v)] = pos;
+    }
+    let colors = trees.iter().map(|t| Color::new(t, n, &bit)).collect();
+    Graph { n, bit, colors }
+  }
+
+  /// `conf` in the bit positions of the leaf sets.
+  fn mask(&self, conf: &Bits) -> Bits {
+    bits::from_iter(self.n, conf.ones().map(|i| self.bit[i]))
+  }
+
+  fn k(&self) -> usize {
+    self.colors.len()
+  }
+
+  /// First ancestor of `leaf` in color `k` that has at least two leaves of `mask` below it
+  /// (or the root).
+  #[inline]
+  fn climb(&self, k: usize, leaf: usize, mask: &Bits) -> usize {
+    let c = &self.colors[k];
+    let mut a = c.leaves[leaf].anc;
+    while c.clade.get(a).trivial_on(mask.as_slice()) {
+      match c.nodes[a].parent {
+        Some(p) => a = p,
+        None => break,
+      }
+    }
+    a
+  }
+
+  /// Are the clades of node `a1` of color `k1` and node `a2` of color `k2` equal on the leaves of
+  /// `mask`, or with `resolve`, is one inside the other and the larger node refinable?
+  fn compatible(&self, k1: usize, a1: usize, k2: usize, a2: usize, mask: &Bits, resolve: bool) -> bool {
+    let m = mask.as_slice();
+    let (c1, c2) = (self.colors[k1].clade.get(a1), self.colors[k2].clade.get(a2));
+    if c1.eq_on(c2, m) {
+      return true;
+    }
+    if !resolve {
+      return false;
+    }
+    (c1.subset_on(c2, m) && self.refinable(c1, k2, a2, m)) || (c2.subset_on(c1, m) && self.refinable(c2, k1, a1, m))
+  }
+
+  /// Can node `a` of color `k` be resolved to contain split `s`? True if every internal
+  /// child of `a` is either inside `s` or disjoint from it.
+  fn refinable(&self, s: Clade<'_>, k: usize, a: usize, mask: &[usize]) -> bool {
+    let color = &self.colors[k];
+    color.nodes[a].children.iter().all(|&ch| {
+      let child = color.clade.get(ch);
+      child.subset_on(s, mask) || child.disjoint_on(s, mask)
+    })
+  }
+
+  /// Number of (kept leaf, tree pair) for which the first non-trivial ancestors differ.
+  pub fn energy(&self, conf: &Bits, resolve: bool) -> usize {
+    if self.n == 1 {
+      return 0;
+    }
+    let k = self.k();
+    let mask = self.mask(conf);
+    let mut anc = vec![0; k];
+    let mut e = 0;
+    for i in conf.ones() {
+      for (kk, a) in anc.iter_mut().enumerate() {
+        *a = self.climb(kk, i, &mask);
+      }
+      for k1 in 0..k {
+        for k2 in k1 + 1..k {
+          if !self.compatible(k1, anc[k1], k2, anc[k2], &mask, resolve) {
+            e += 1;
+          }
+        }
+      }
+    }
+    e
+  }
+
+  /// Mean log-likelihood ratio of "shared" vs "not shared" for the branches implied by `conf`.
+  /// Missing branch lengths contribute 0.
+  pub fn likelihood(&self, conf: &Bits, resolve: bool, trees: &[&Tree], seq_lengths: &[f64]) -> f64 {
+    if self.n == 1 {
+      return 0.0;
+    }
+    let k = self.k();
+    let mask = self.mask(conf);
+    let (mut l, mut z) = (0.0_f64, 0.0_f64);
+    for i in 0..self.n {
+      if conf.contains(i) {
+        let anc: Vec<usize> = (0..k).map(|kk| self.climb(kk, i, &mask)).collect();
+        for k1 in 0..k {
+          for k2 in k1 + 1..k {
+            if self.compatible(k1, anc[k1], k2, anc[k2], &mask, resolve) {
+              let t1 = self.branch(k1, i, anc[k1], trees[k1]);
+              let t2 = self.branch(k2, i, anc[k2], trees[k2]);
+              l += branch_likelihood(t1, t2, seq_lengths[k1], seq_lengths[k2]);
+              z += 1.0;
+            }
+          }
+        }
+      } else {
+        for k1 in 0..k {
+          for k2 in 0..k {
+            let t1 = self.leaf_branch(k1, i, trees[k1]);
+            let t2 = self.leaf_branch(k2, i, trees[k2]);
+            l -= branch_likelihood(t1, t2, seq_lengths[k1], seq_lengths[k2]);
+            z += 1.0;
+          }
+        }
+      }
+    }
+    l / z.max(1.0)
+  }
+
+  fn branch(&self, k: usize, leaf: usize, a: usize, t: &Tree) -> Option<f64> {
+    let c = &self.colors[k];
+    t.divtime(c.leaves[leaf].tree_node, c.nodes[a].tree_node)
+  }
+
+  fn leaf_branch(&self, k: usize, leaf: usize, t: &Tree) -> Option<f64> {
+    let c = &self.colors[k];
+    let l = c.leaves[leaf];
+    t.divtime(l.tree_node, c.nodes[l.anc].tree_node)
+  }
+}
+
+/// The internal nodes of one tree, indexed in preorder from the root at 0, and its leaves.
+struct Color {
+  /// Leaf set of each internal node.
+  clade: Clades,
+  nodes: Vec<Internal>,
+  /// `leaves[i]`: leaf `i`.
+  leaves: Vec<Leaf>,
+}
+
+impl Color {
+  /// The internal nodes of `t`, with leaf `i` at position `bit[i]` of the leaf sets.
+  fn new(t: &Tree, n: usize, bit: &[usize]) -> Color {
+    let mut nodes = vec![Internal {
+      parent: None,
+      children: vec![],
+      leaf_children: vec![],
+      tree_node: t.root,
+    }];
+    let mut leaves = vec![
+      Leaf {
+        anc: usize::MAX,
+        tree_node: usize::MAX,
+      };
+      n
+    ];
+    // The preorder of `Tree::preorder` below the root, each node with the internal index of its
+    // parent. A single-leaf tree gets an artificial root above the leaf.
+    let mut stack: Vec<(NodeId, usize)> = if t.is_leaf(t.root) {
+      vec![(t.root, 0)]
+    } else {
+      t.children(t.root).iter().rev().map(|&c| (c, 0)).collect()
+    };
+    while let Some((v, parent)) = stack.pop() {
+      if t.is_leaf(v) {
+        let taxon = t.taxon(v);
+        nodes[parent].leaf_children.push(taxon);
+        leaves[taxon] = Leaf {
+          anc: parent,
+          tree_node: v,
+        };
+      } else {
+        let index = nodes.len();
+        nodes[parent].children.push(index);
+        nodes.push(Internal {
+          parent: Some(parent),
+          children: vec![],
+          leaf_children: vec![],
+          tree_node: v,
+        });
+        stack.extend(t.children(v).iter().rev().map(|&c| (c, index)));
+      }
+    }
+    let clades = t.clades(n);
+    let clade = Clades::new(
+      nodes
+        .iter()
+        .map(|a| bits::from_iter(n, clades[a.tree_node].ones().map(|i| bit[i])))
+        .collect(),
+    );
+    Color { clade, nodes, leaves }
+  }
+}
+
+/// An internal node of one tree.
+struct Internal {
+  parent: Option<usize>,
+  /// Internal children.
+  children: Vec<usize>,
+  /// Leaf children.
+  leaf_children: Vec<usize>,
+  tree_node: NodeId,
+}
+
+/// A leaf of one tree.
+#[derive(Clone, Copy)]
+struct Leaf {
+  /// Parent (internal index).
+  anc: usize,
+  tree_node: NodeId,
+}
+
+/// Leaf sets of the internal nodes of one tree, with the range of the non-zero words of each.
+#[derive(Default)]
+struct Clades {
+  sets: Vec<Bits>,
+  /// `lo[a]..hi[a]`: the words of set `a` outside which all words are 0.
+  lo: Vec<usize>,
+  hi: Vec<usize>,
+}
+
+impl Clades {
+  fn new(sets: Vec<Bits>) -> Self {
+    let (mut lo, mut hi) = (vec![], vec![]);
+    for s in &sets {
+      let w = s.as_slice();
+      let l = w.iter().position(|&x| x != 0).unwrap_or(0);
+      lo.push(l);
+      hi.push(w.iter().rposition(|&x| x != 0).map_or(l, |h| h + 1));
+    }
+    Clades { sets, lo, hi }
+  }
+
+  #[inline]
+  fn get(&self, a: usize) -> Clade<'_> {
+    Clade {
+      words: self.sets[a].as_slice(),
+      lo: self.lo[a],
+      hi: self.hi[a],
+    }
+  }
+}
+
+/// A leaf set whose words outside `lo..hi` are 0. The masks `m` of the methods are bit sets over
+/// all leaves.
+#[derive(Clone, Copy)]
+struct Clade<'a> {
+  words: &'a [usize],
+  lo: usize,
+  hi: usize,
+}
+
+impl Clade<'_> {
+  /// `|self ∩ m|`
+  #[inline]
+  fn count_on(self, m: &[usize]) -> u32 {
+    let r = self.lo..self.hi;
+    self.words[r.clone()]
+      .iter()
+      .zip(&m[r])
+      .map(|(x, z)| (x & z).count_ones())
+      .sum()
+  }
+
+  /// `|self ∩ m| < 2`
+  #[inline]
+  fn trivial_on(self, m: &[usize]) -> bool {
+    let r = self.lo..self.hi;
+    let mut n = 0;
+    for (x, z) in self.words[r.clone()].iter().zip(&m[r]) {
+      n += (x & z).count_ones();
+      if n > 1 {
+        return false;
+      }
+    }
+    true
+  }
+
+  /// `self ∩ m ⊆ other`
+  #[inline]
+  fn subset_on(self, other: Clade<'_>, m: &[usize]) -> bool {
+    let r = self.lo..self.hi;
+    self.words[r.clone()]
+      .iter()
+      .zip(&other.words[r.clone()])
+      .zip(&m[r])
+      .all(|((x, y), z)| x & !y & z == 0)
+  }
+
+  /// `self ∩ other ∩ m == ∅`
+  #[inline]
+  fn disjoint_on(self, other: Clade<'_>, m: &[usize]) -> bool {
+    let r = self.lo.max(other.lo)..self.hi.min(other.hi);
+    r.is_empty()
+      || self.words[r.clone()]
+        .iter()
+        .zip(&other.words[r.clone()])
+        .zip(&m[r])
+        .all(|((x, y), z)| x & y & z == 0)
+  }
+
+  /// `self ∩ m == other ∩ m`
+  #[inline]
+  fn eq_on(self, other: Clade<'_>, m: &[usize]) -> bool {
+    let r = self.lo.min(other.lo)..self.hi.max(other.hi);
+    self.words[r.clone()]
+      .iter()
+      .zip(&other.words[r.clone()])
+      .zip(&m[r])
+      .all(|((x, y), z)| (x ^ y) & z == 0)
   }
 }
 

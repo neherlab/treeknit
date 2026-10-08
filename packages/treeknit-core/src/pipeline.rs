@@ -46,72 +46,6 @@ const SPLITMIX_MUL_1: u64 = 0xBF58_476D_1CE4_E5B9;
 /// Second multiplier of the SplitMix64 output function.
 const SPLITMIX_MUL_2: u64 = 0x94D0_49BB_1331_11EB;
 
-/// MCCs of one pair of trees.
-#[derive(Clone, Debug)]
-pub struct PairResult {
-  pub i: usize,
-  pub j: usize,
-  /// MCCs over shared leaves, extended by attached private leaves; sorted.
-  pub mccs: Vec<Mcc>,
-  /// Leaves that are in exactly one tree of the pair, with their attachment.
-  pub attached: Vec<Attachment>,
-}
-
-impl PairResult {
-  /// MCCs restricted to the leaves that trees `i` and `j` of `trees` share; sorted. These are
-  /// the MCCs the run sorted the pair by, before the leaves of one tree only were attached.
-  /// After `Matched` resolution they hold the parts of every MCC that matching split, so they
-  /// can differ from the MCCs inferred for the pair. Empty when the pair shares fewer than two
-  /// leaves.
-  ///
-  /// # Panics
-  ///
-  /// If the trees `i` and `j` of the pair are not trees of `trees`, or have a leaf without a
-  /// taxon of `0..n`.
-  pub fn shared_mccs(&self, trees: &[Tree], n: usize) -> Vec<Mcc> {
-    assert!(
-      self.i < self.j && self.j < trees.len(),
-      "({}, {}) is not a pair i < j of the {} trees",
-      self.i,
-      self.j,
-      trees.len()
-    );
-    assert!(
-      trees[self.i].has_taxa_below(n) && trees[self.j].has_taxa_below(n),
-      "a tree of the pair has a leaf that is not one of the {n} taxa"
-    );
-    let Some(shared) = shared_leaves(&trees[self.i], &trees[self.j], n) else {
-      return Vec::new();
-    };
-    let restricted = self
-      .mccs
-      .iter()
-      .map(|m| m.iter().copied().filter(|&x| shared.contains(x)).collect::<Mcc>())
-      .filter(|m| !m.is_empty())
-      .collect();
-    sort_mccs(restricted)
-  }
-}
-
-/// Number of rounds of a run on `k` trees, and whether the last of them is the extra round
-/// without resolution.
-fn schedule(opts: &Options, k: usize) -> (usize, bool) {
-  let extra_round = opts.extra_unresolved_round(k);
-  (opts.rounds + extra_round as usize, extra_round)
-}
-
-/// Whether a round resolves the trees, and whether it adds only unambiguous splits with MCCs
-/// (all splits in liberal mode). `unresolved_round` is the extra round without resolution.
-fn round_mode(opts: &Options, unresolved_round: bool) -> (bool, bool) {
-  let resolve = opts.resolves() && !unresolved_round;
-  (resolve, opts.resolution != Resolution::Liberal && resolve)
-}
-
-/// Pairs of `k` trees in pipeline order (0,1), (0,2), …, (1,2), …
-fn pipeline_pairs(k: usize) -> Vec<(usize, usize)> {
-  (0..k).flat_map(|i| (i + 1..k).map(move |j| (i, j))).collect()
-}
-
 /// Run TreeKnit on `trees` (leaves must have taxa assigned from `taxa`).
 /// Trees are resolved and sorted in place. Pairs are returned in order (0,1), (0,2), …
 pub fn run(trees: &mut [Tree], taxa: &Taxa, opts: &Options, seed: u64) -> Vec<PairResult> {
@@ -208,36 +142,70 @@ pub fn run_observed(
   results
 }
 
-/// Leaves common to trees `a` and `b`, or `None` if they share fewer than two leaves.
-///
-/// This is the only check of the shared-leaf count: a pair without two shared leaves has no
-/// MCCs, and resolution and sorting leave its trees unchanged.
-fn shared_leaves(a: &Tree, b: &Tree, n: usize) -> Option<Bits> {
-  let shared = &a.leaf_set(n) & &b.leaf_set(n);
-  (shared.count_ones(..) >= 2).then_some(shared)
+/// MCCs of one pair of trees.
+#[derive(Clone, Debug)]
+pub struct PairResult {
+  pub i: usize,
+  pub j: usize,
+  /// MCCs over shared leaves, extended by attached private leaves; sorted.
+  pub mccs: Vec<Mcc>,
+  /// Leaves that are in exactly one tree of the pair, with their attachment.
+  pub attached: Vec<Attachment>,
 }
 
-/// Tree `t` restricted to the `shared` leaves of a pair (borrowed if no restriction is needed).
-/// `shared` comes from `shared_leaves`, so it holds at least two leaves of `t`.
-fn restricted_to_shared<'a>(t: &'a Tree, shared: &Bits, n: usize) -> Cow<'a, Tree> {
-  if t.leaf_set(n) == *shared {
-    Cow::Borrowed(t)
-  } else {
-    Cow::Owned(t.restricted(shared).expect("shared leaves are in both trees"))
+impl PairResult {
+  /// MCCs restricted to the leaves that trees `i` and `j` of `trees` share; sorted. These are
+  /// the MCCs the run sorted the pair by, before the leaves of one tree only were attached.
+  /// After `Matched` resolution they hold the parts of every MCC that matching split, so they
+  /// can differ from the MCCs inferred for the pair. Empty when the pair shares fewer than two
+  /// leaves.
+  ///
+  /// # Panics
+  ///
+  /// If the trees `i` and `j` of the pair are not trees of `trees`, or have a leaf without a
+  /// taxon of `0..n`.
+  pub fn shared_mccs(&self, trees: &[Tree], n: usize) -> Vec<Mcc> {
+    assert!(
+      self.i < self.j && self.j < trees.len(),
+      "({}, {}) is not a pair i < j of the {} trees",
+      self.i,
+      self.j,
+      trees.len()
+    );
+    assert!(
+      trees[self.i].has_taxa_below(n) && trees[self.j].has_taxa_below(n),
+      "a tree of the pair has a leaf that is not one of the {n} taxa"
+    );
+    let Some(shared) = shared_leaves(&trees[self.i], &trees[self.j], n) else {
+      return Vec::new();
+    };
+    let restricted = self
+      .mccs
+      .iter()
+      .map(|m| m.iter().copied().filter(|&x| shared.contains(x)).collect::<Mcc>())
+      .filter(|m| !m.is_empty())
+      .collect();
+    sort_mccs(restricted)
   }
 }
 
-/// Settings that all pairs of one round infer their MCCs with.
-struct Inference<'a> {
-  opts: &'a Options,
-  /// Number of taxa.
-  n: usize,
-  /// Seed of the run, mixed with the round and the pair into the seed of each pair.
-  seed: u64,
-  /// Round, 1-based.
-  round: usize,
-  /// Whether the round resolves the trees with the MCCs it infers.
-  resolve: bool,
+/// Number of rounds of a run on `k` trees, and whether the last of them is the extra round
+/// without resolution.
+fn schedule(opts: &Options, k: usize) -> (usize, bool) {
+  let extra_round = opts.extra_unresolved_round(k);
+  (opts.rounds + extra_round as usize, extra_round)
+}
+
+/// Whether a round resolves the trees, and whether it adds only unambiguous splits with MCCs
+/// (all splits in liberal mode). `unresolved_round` is the extra round without resolution.
+fn round_mode(opts: &Options, unresolved_round: bool) -> (bool, bool) {
+  let resolve = opts.resolves() && !unresolved_round;
+  (resolve, opts.resolution != Resolution::Liberal && resolve)
+}
+
+/// Pairs of `k` trees in pipeline order (0,1), (0,2), …, (1,2), …
+fn pipeline_pairs(k: usize) -> Vec<(usize, usize)> {
+  (0..k).flat_map(|i| (i + 1..k).map(move |j| (i, j))).collect()
 }
 
 /// Infer the MCCs of trees `i` and `j` on their shared leaves; none if they share fewer than two.
@@ -285,6 +253,19 @@ fn infer(trees: &[Tree], i: usize, j: usize, inference: &Inference<'_>, on_progr
   m
 }
 
+/// Settings that all pairs of one round infer their MCCs with.
+struct Inference<'a> {
+  opts: &'a Options,
+  /// Number of taxa.
+  n: usize,
+  /// Seed of the run, mixed with the round and the pair into the seed of each pair.
+  seed: u64,
+  /// Round, 1-based.
+  round: usize,
+  /// Whether the round resolves the trees with the MCCs it infers.
+  resolve: bool,
+}
+
 /// Per-pair seed, independent of execution order: the round and the tree indices, packed into one
 /// word and multiplied by [`SPLITMIX_GAMMA`], are mixed into the seed by the output function of
 /// SplitMix64 (Steele, Lea, and Flood 2014, "Fast splittable pseudorandom number generators").
@@ -317,6 +298,25 @@ fn resolve_pair(trees: &mut [Tree], i: usize, j: usize, mccs: &[Mcc], n: usize, 
   insert_all_on(&mut trees[i], &mut si, &shared, n);
   insert_all_on(&mut trees[j], &mut sj, &shared, n);
   si.len() + sj.len()
+}
+
+/// Leaves common to trees `a` and `b`, or `None` if they share fewer than two leaves.
+///
+/// This is the only check of the shared-leaf count: a pair without two shared leaves has no
+/// MCCs, and resolution and sorting leave its trees unchanged.
+fn shared_leaves(a: &Tree, b: &Tree, n: usize) -> Option<Bits> {
+  let shared = &a.leaf_set(n) & &b.leaf_set(n);
+  (shared.count_ones(..) >= 2).then_some(shared)
+}
+
+/// Tree `t` restricted to the `shared` leaves of a pair (borrowed if no restriction is needed).
+/// `shared` comes from `shared_leaves`, so it holds at least two leaves of `t`.
+fn restricted_to_shared<'a>(t: &'a Tree, shared: &Bits, n: usize) -> Cow<'a, Tree> {
+  if t.leaf_set(n) == *shared {
+    Cow::Borrowed(t)
+  } else {
+    Cow::Owned(t.restricted(shared).expect("shared leaves are in both trees"))
+  }
 }
 
 #[cfg(test)]

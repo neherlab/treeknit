@@ -2,11 +2,6 @@ use pest::Parser;
 use pest::iterators::Pairs;
 use pest_derive::Parser;
 
-#[derive(Parser)]
-#[grammar = "common.pest"]
-#[grammar = "nexus.pest"]
-pub(crate) struct NexusParser;
-
 pub(crate) fn parse(rule: Rule, input: &str) -> Result<Pairs<'_, Rule>, Box<pest::error::Error<Rule>>> {
   NexusParser::parse(rule, input).map_err(Box::new)
 }
@@ -14,6 +9,11 @@ pub(crate) fn parse(rule: Rule, input: &str) -> Result<Pairs<'_, Rule>, Box<pest
 pub(crate) fn matches(rule: Rule, input: &str) -> bool {
   NexusParser::parse(rule, input).is_ok()
 }
+
+#[derive(Parser)]
+#[grammar = "common.pest"]
+#[grammar = "nexus.pest"]
+pub(crate) struct NexusParser;
 
 pub(crate) const fn rule_name(rule: Rule) -> &'static str {
   match rule {

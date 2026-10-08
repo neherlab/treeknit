@@ -9,17 +9,6 @@
 use crate::bits::Bits;
 use crate::tree::{NodeId, Tree};
 
-pub type Mcc = Vec<usize>;
-
-/// Sort MCC members ascending and MCCs by (size, first member).
-pub fn sort_mccs(mut mccs: Vec<Mcc>) -> Vec<Mcc> {
-  for m in &mut mccs {
-    m.sort_unstable();
-  }
-  mccs.sort_by(|a, b| a.len().cmp(&b.len()).then(a[0].cmp(&b[0])));
-  mccs
-}
-
 /// Naive MCCs of `trees`, which must all have the same leaf set (taxa in `0..n_taxa`).
 pub fn naive_mccs(trees: &[&Tree], n_taxa: usize) -> Vec<Mcc> {
   let clades: Vec<Vec<Bits>> = trees.iter().map(|t| t.clades(n_taxa)).collect();
@@ -54,6 +43,17 @@ pub fn naive_mccs(trees: &[&Tree], n_taxa: usize) -> Vec<Mcc> {
   }
   sort_mccs(out)
 }
+
+/// Sort MCC members ascending and MCCs by (size, first member).
+pub fn sort_mccs(mut mccs: Vec<Mcc>) -> Vec<Mcc> {
+  for m in &mut mccs {
+    m.sort_unstable();
+  }
+  mccs.sort_by(|a, b| a.len().cmp(&b.len()).then(a[0].cmp(&b[0])));
+  mccs
+}
+
+pub type Mcc = Vec<usize>;
 
 /// Are the subtrees below `roots` (one node per tree) identical?
 /// `memo` caches tree-0 nodes already known to be coherent.

@@ -11,6 +11,36 @@ use crate::naive::Mcc;
 use crate::tree::{NodeId, Tree};
 use std::collections::{BTreeSet, HashMap};
 
+/// Reorder children of `t2` so that leaves of the same MCC appear in the same order as in `t1`.
+/// The order of `t1` is unchanged. Both trees must have the same leaves.
+pub fn sort_polytomies_by_mccs(t1: &Tree, t2: &mut Tree, mccs: &[Mcc], n_taxa: usize) {
+  let leaf_mcc = leaf_mcc_map(mccs, n_taxa);
+  let order = leaf_order_in_mccs(t1, &leaf_mcc, mccs.len());
+  let map = map_mccs(t2, &leaf_mcc);
+  // rank[n] = (rank in MCC, clade size); rank in MCC is +∞ if no leaf of the node's MCC is below.
+  let mut rank: Vec<(f64, usize)> = vec![(f64::INFINITY, 0); t2.nodes.len()];
+  for n in t2.postorder() {
+    if t2.is_leaf(n) {
+      let x = t2.taxon(n);
+      let r = leaf_mcc[x].map_or(f64::INFINITY, |m| order[m][&x] as f64);
+      rank[n] = (r, 1);
+      continue;
+    }
+    let mut ch: Vec<(NodeId, Option<f64>, usize)> = t2
+      .children(n)
+      .iter()
+      .map(|&c| (c, (map[c] == map[n]).then_some(rank[c].0), rank[c].1))
+      .collect();
+    insertion_sort_by(&mut ch, |a, b| match (a.1, b.1) {
+      (Some(x), Some(y)) => x < y,
+      _ => a.2 < b.2,
+    });
+    let r = ch.iter().filter_map(|c| c.1).fold(f64::INFINITY, f64::min);
+    rank[n] = (r, ch.iter().map(|c| c.2).sum());
+    t2.nodes[n].children = ch.into_iter().map(|c| c.0).collect();
+  }
+}
+
 /// `leaf_mcc[taxon] = index of the MCC containing taxon`, `None` if in no MCC.
 pub fn leaf_mcc_map(mccs: &[Mcc], n_taxa: usize) -> Vec<Option<usize>> {
   let mut v = vec![None; n_taxa];
@@ -88,36 +118,6 @@ fn insertion_sort_by<T>(v: &mut [T], lt: impl Fn(&T, &T) -> bool) {
       v.swap(j, j - 1);
       j -= 1;
     }
-  }
-}
-
-/// Reorder children of `t2` so that leaves of the same MCC appear in the same order as in `t1`.
-/// The order of `t1` is unchanged. Both trees must have the same leaves.
-pub fn sort_polytomies_by_mccs(t1: &Tree, t2: &mut Tree, mccs: &[Mcc], n_taxa: usize) {
-  let leaf_mcc = leaf_mcc_map(mccs, n_taxa);
-  let order = leaf_order_in_mccs(t1, &leaf_mcc, mccs.len());
-  let map = map_mccs(t2, &leaf_mcc);
-  // rank[n] = (rank in MCC, clade size); rank in MCC is +∞ if no leaf of the node's MCC is below.
-  let mut rank: Vec<(f64, usize)> = vec![(f64::INFINITY, 0); t2.nodes.len()];
-  for n in t2.postorder() {
-    if t2.is_leaf(n) {
-      let x = t2.taxon(n);
-      let r = leaf_mcc[x].map_or(f64::INFINITY, |m| order[m][&x] as f64);
-      rank[n] = (r, 1);
-      continue;
-    }
-    let mut ch: Vec<(NodeId, Option<f64>, usize)> = t2
-      .children(n)
-      .iter()
-      .map(|&c| (c, (map[c] == map[n]).then_some(rank[c].0), rank[c].1))
-      .collect();
-    insertion_sort_by(&mut ch, |a, b| match (a.1, b.1) {
-      (Some(x), Some(y)) => x < y,
-      _ => a.2 < b.2,
-    });
-    let r = ch.iter().filter_map(|c| c.1).fold(f64::INFINITY, f64::min);
-    rank[n] = (r, ch.iter().map(|c| c.2).sum());
-    t2.nodes[n].children = ch.into_iter().map(|c| c.0).collect();
   }
 }
 

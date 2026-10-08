@@ -103,6 +103,22 @@ fn at_byte(location: Option<Location>) -> String {
   location.map(|l| format!(" at byte {}", l.offset)).unwrap_or_default()
 }
 
+/// A parsed tree with the warnings of its text, in text order.
+#[derive(Clone, Debug)]
+pub struct Parsed {
+  pub tree: Tree,
+  pub warnings: Vec<ParseWarning>,
+}
+
+impl Parsed {
+  /// Log the warnings, as the command line does when it reads a tree.
+  pub fn log_warnings(&self) {
+    for w in &self.warnings {
+      w.log(&self.tree.label);
+    }
+  }
+}
+
 /// A problem in a Newick text that parsing works around.
 #[derive(Clone, Debug, PartialEq, Eq, strum::Display)]
 pub enum ParseWarning {
@@ -118,22 +134,6 @@ impl ParseWarning {
   /// Log the warning for the tree labeled `label`, as `<label>: <warning>`.
   pub fn log(&self, label: &str) {
     log::warn!("{label}: {self}");
-  }
-}
-
-/// A parsed tree with the warnings of its text, in text order.
-#[derive(Clone, Debug)]
-pub struct Parsed {
-  pub tree: Tree,
-  pub warnings: Vec<ParseWarning>,
-}
-
-impl Parsed {
-  /// Log the warnings, as the command line does when it reads a tree.
-  pub fn log_warnings(&self) {
-    for w in &self.warnings {
-      w.log(&self.tree.label);
-    }
   }
 }
 

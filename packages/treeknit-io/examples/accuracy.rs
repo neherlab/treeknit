@@ -15,72 +15,6 @@ use treeknit_core::{Options, Taxa, Tree};
 use treeknit_io::analysis::{self, ParsedTrees};
 use treeknit_io::newick;
 
-type Partition = Vec<Vec<String>>;
-
-#[derive(Parser)]
-#[command(about = "Accuracy of the MCCs on the simulated fixtures, and placement of dropped leaves")]
-struct Args {
-  /// Fraction of the leaves of each tree that the partial-overlap experiment drops
-  #[arg(default_value_t = 0.2)]
-  drop: f64,
-}
-
-/// Variation of information between two partitions of the same set, divided by ln(n).
-#[expect(
-  clippy::as_conversions,
-  reason = "leaf and run counts become f64 statistics; they stay far below 2^52, so the conversion is exact"
-)]
-fn scaled_vi(a: &Partition, b: &Partition) -> f64 {
-  let la: BTreeMap<&str, usize> = a
-    .iter()
-    .enumerate()
-    .flat_map(|(i, m)| m.iter().map(move |x| (x.as_str(), i)))
-    .collect();
-  let lb: BTreeMap<&str, usize> = b
-    .iter()
-    .enumerate()
-    .flat_map(|(i, m)| m.iter().map(move |x| (x.as_str(), i)))
-    .collect();
-  let n = la.len() as f64;
-  let mut joint: BTreeMap<(usize, usize), f64> = BTreeMap::new();
-  for (x, &i) in &la {
-    *joint.entry((i, lb[x])).or_default() += 1.0;
-  }
-  let entropy = |p: &Partition| -p.iter().map(|m| m.len() as f64 / n).map(|q| q * q.ln()).sum::<f64>();
-  let mi: f64 = joint
-    .iter()
-    .map(|(&(i, j), &c)| {
-      let joint_p = c / n;
-      joint_p * (joint_p / (a[i].len() as f64 / n * b[j].len() as f64 / n)).ln()
-    })
-    .sum();
-  (entropy(a) + entropy(b) - 2.0 * mi) / n.ln()
-}
-
-#[expect(
-  clippy::unwrap_used,
-  reason = "a developer report over the committed fixtures: a panic names the input that failed"
-)]
-fn load(f: &Value) -> (Vec<Tree>, Taxa) {
-  let ts: Vec<Tree> = f["trees"]
-    .as_array()
-    .unwrap()
-    .iter()
-    .enumerate()
-    .map(|(i, s)| newick::parse(s.as_str().unwrap(), &format!("t{i}")).unwrap())
-    .collect();
-  let ParsedTrees { trees, taxa } = analysis::number_leaves(ts);
-  (trees, taxa)
-}
-
-#[expect(
-  clippy::as_conversions,
-  reason = "leaf and run counts become f64 statistics; they stay far below 2^52, so the conversion is exact"
-)]
-fn mean(v: &[f64]) -> f64 {
-  v.iter().sum::<f64>() / v.len().max(1) as f64
-}
-
 #[expect(
   clippy::unwrap_used,
   reason = "a developer report over the committed fixtures: a panic names the input that failed"
@@ -243,4 +177,70 @@ fn main() {
       );
     }
   }
+}
+
+#[derive(Parser)]
+#[command(about = "Accuracy of the MCCs on the simulated fixtures, and placement of dropped leaves")]
+struct Args {
+  /// Fraction of the leaves of each tree that the partial-overlap experiment drops
+  #[arg(default_value_t = 0.2)]
+  drop: f64,
+}
+
+/// Variation of information between two partitions of the same set, divided by ln(n).
+#[expect(
+  clippy::as_conversions,
+  reason = "leaf and run counts become f64 statistics; they stay far below 2^52, so the conversion is exact"
+)]
+fn scaled_vi(a: &Partition, b: &Partition) -> f64 {
+  let la: BTreeMap<&str, usize> = a
+    .iter()
+    .enumerate()
+    .flat_map(|(i, m)| m.iter().map(move |x| (x.as_str(), i)))
+    .collect();
+  let lb: BTreeMap<&str, usize> = b
+    .iter()
+    .enumerate()
+    .flat_map(|(i, m)| m.iter().map(move |x| (x.as_str(), i)))
+    .collect();
+  let n = la.len() as f64;
+  let mut joint: BTreeMap<(usize, usize), f64> = BTreeMap::new();
+  for (x, &i) in &la {
+    *joint.entry((i, lb[x])).or_default() += 1.0;
+  }
+  let entropy = |p: &Partition| -p.iter().map(|m| m.len() as f64 / n).map(|q| q * q.ln()).sum::<f64>();
+  let mi: f64 = joint
+    .iter()
+    .map(|(&(i, j), &c)| {
+      let joint_p = c / n;
+      joint_p * (joint_p / (a[i].len() as f64 / n * b[j].len() as f64 / n)).ln()
+    })
+    .sum();
+  (entropy(a) + entropy(b) - 2.0 * mi) / n.ln()
+}
+
+type Partition = Vec<Vec<String>>;
+
+#[expect(
+  clippy::unwrap_used,
+  reason = "a developer report over the committed fixtures: a panic names the input that failed"
+)]
+fn load(f: &Value) -> (Vec<Tree>, Taxa) {
+  let ts: Vec<Tree> = f["trees"]
+    .as_array()
+    .unwrap()
+    .iter()
+    .enumerate()
+    .map(|(i, s)| newick::parse(s.as_str().unwrap(), &format!("t{i}")).unwrap())
+    .collect();
+  let ParsedTrees { trees, taxa } = analysis::number_leaves(ts);
+  (trees, taxa)
+}
+
+#[expect(
+  clippy::as_conversions,
+  reason = "leaf and run counts become f64 statistics; they stay far below 2^52, so the conversion is exact"
+)]
+fn mean(v: &[f64]) -> f64 {
+  v.iter().sum::<f64>() / v.len().max(1) as f64
 }

@@ -129,11 +129,6 @@ fn shown(run: &RunResult, pair: usize) -> AuspiceShown {
   }
 }
 
-/// The number of MCC `mcc` as its branch label shows it.
-fn mcc_number(mcc: usize) -> String {
-  (mcc + 1).to_string()
-}
-
 /// The indices of the largest MCCs, at most `MCC_SLOTS` of them, in the order of `MccInfo.rank`.
 /// The rank of an MCC in the result picks its color slot.
 fn largest_mccs(mccs: &[MccInfo]) -> Vec<usize> {
@@ -212,15 +207,6 @@ fn mcc_root(tree: &DrawTree, mcc: usize) -> Option<String> {
     .map(|n| n.name.clone())
 }
 
-/// What the nodes of one tree need besides the tree: the shown scale, the MCCs, the largest MCCs,
-/// and the leaves of the other tree of the pair.
-struct TreeContext<'a> {
-  scale: Scale,
-  mccs: &'a [MccInfo],
-  largest: &'a [usize],
-  other_leaves: &'a BTreeSet<&'a str>,
-}
-
 /// The nested Auspice tree of `tree`, built bottom-up so deep trees do not recurse.
 fn auspice_tree(tree: &DrawTree, context: &TreeContext) -> AuspiceNode {
   let value = |text: &str| Some(AuspiceValue { value: text.to_owned() });
@@ -269,6 +255,20 @@ fn auspice_tree(tree: &DrawTree, context: &TreeContext) -> AuspiceNode {
   }
   #[expect(clippy::expect_used, reason = "a drawn tree has a root at index 0")]
   built.swap_remove(0).expect("the root")
+}
+
+/// The number of MCC `mcc` as its branch label shows it.
+fn mcc_number(mcc: usize) -> String {
+  (mcc + 1).to_string()
+}
+
+/// What the nodes of one tree need besides the tree: the shown scale, the MCCs, the largest MCCs,
+/// and the leaves of the other tree of the pair.
+struct TreeContext<'a> {
+  scale: Scale,
+  mccs: &'a [MccInfo],
+  largest: &'a [usize],
+  other_leaves: &'a BTreeSet<&'a str>,
 }
 
 #[cfg(test)]

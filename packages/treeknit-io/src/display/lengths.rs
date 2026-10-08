@@ -62,17 +62,6 @@ pub(super) fn mean_lengths(run: &RunResult, i: usize, tree: &Tree) -> Vec<Option
     .collect()
 }
 
-/// What another tree shows of a split.
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Split {
-  /// The split has fewer than two leaves of its MCC, or all of them.
-  Uninformative,
-  /// The tree lacks the split: a polytomy holds it.
-  Absent,
-  /// The tree has the split, with its length; `None` when a node of it has no length.
-  Present(Option<f64>),
-}
-
 /// Another tree `k` of the run, prepared for comparisons with the drawn tree.
 struct Other {
   k: usize,
@@ -147,6 +136,17 @@ impl Other {
     }
     self.splits[m].get(&split).map_or(Split::Absent, |&l| Split::Present(l))
   }
+}
+
+/// What another tree shows of a split.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Split {
+  /// The split has fewer than two leaves of its MCC, or all of them.
+  Uninformative,
+  /// The tree lacks the split: a polytomy holds it.
+  Absent,
+  /// The tree has the split, with its length; `None` when a node of it has no length.
+  Present(Option<f64>),
 }
 
 /// `split` divides `mask`: it has at least two of its leaves, and not all of them.

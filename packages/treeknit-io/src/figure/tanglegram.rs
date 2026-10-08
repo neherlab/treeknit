@@ -59,6 +59,32 @@ pub(super) fn draw(view: &PairView, options: &FigureOptions) -> String {
   )
 }
 
+fn ribbons(svg: &mut Svg, view: &PairView, layout: &Layout, colors: &ThemeColors<String>) {
+  svg.open("g", &[("fill-opacity", num(RIBBON_OPACITY))]);
+  for ribbon in &view.shapes.ribbons {
+    let d = ribbon
+      .outline
+      .iter()
+      .enumerate()
+      .fold(Path::new(), |d, (i, c)| {
+        let c = layout.rows.bezier(layout.links, c);
+        if i == 0 { d.curve(&c) } else { d.curve_to(&c) }
+      })
+      .close();
+    svg.path(&d, &[("fill", colors.role(ColorRole::Mcc, Some(ribbon.slot)).clone())]);
+  }
+  svg.close("g");
+}
+
+fn links(svg: &mut Svg, view: &PairView, layout: &Layout, colors: &ThemeColors<String>) {
+  svg.open("g", &[("fill", "none".to_owned()), ("stroke-width", num(LINK_WIDTH))]);
+  for link in &view.shapes.links {
+    let d = Path::new().curve(&layout.rows.bezier(layout.links, &link.curve));
+    svg.path(&d, &[("stroke", colors.role(ColorRole::Mcc, Some(link.slot)).clone())]);
+  }
+  svg.close("g");
+}
+
 /// The columns and rows of a tanglegram in px.
 struct Layout {
   left: Column,
@@ -104,39 +130,6 @@ impl Layout {
       labels,
     }
   }
-}
-
-fn ribbons(svg: &mut Svg, view: &PairView, layout: &Layout, colors: &ThemeColors<String>) {
-  svg.open("g", &[("fill-opacity", num(RIBBON_OPACITY))]);
-  for ribbon in &view.shapes.ribbons {
-    let d = ribbon
-      .outline
-      .iter()
-      .enumerate()
-      .fold(Path::new(), |d, (i, c)| {
-        let c = layout.rows.bezier(layout.links, c);
-        if i == 0 { d.curve(&c) } else { d.curve_to(&c) }
-      })
-      .close();
-    svg.path(&d, &[("fill", colors.role(ColorRole::Mcc, Some(ribbon.slot)).clone())]);
-  }
-  svg.close("g");
-}
-
-fn links(svg: &mut Svg, view: &PairView, layout: &Layout, colors: &ThemeColors<String>) {
-  svg.open("g", &[("fill", "none".to_owned()), ("stroke-width", num(LINK_WIDTH))]);
-  for link in &view.shapes.links {
-    let d = Path::new().curve(&layout.rows.bezier(layout.links, &link.curve));
-    svg.path(&d, &[("stroke", colors.role(ColorRole::Mcc, Some(link.slot)).clone())]);
-  }
-  svg.close("g");
-}
-
-/// Which tree of the pair; its labels face the link zone.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Side {
-  Left,
-  Right,
 }
 
 /// One tree of a tanglegram, drawn into its column.
@@ -200,4 +193,11 @@ impl TreeDrawing<'_> {
     let labels = self.tree.leaves().map(|n| (n.name.as_str(), n.y));
     svg.labels(labels, self.rows, column, x, Some(anchor), &self.colors.ink);
   }
+}
+
+/// Which tree of the pair; its labels face the link zone.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Side {
+  Left,
+  Right,
 }

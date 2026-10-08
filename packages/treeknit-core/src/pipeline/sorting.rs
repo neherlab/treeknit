@@ -13,16 +13,23 @@ use crate::resolve::{resolve_with_mccs_quiet, warn_skipped};
 use crate::tree::Tree;
 use std::borrow::Cow;
 
-/// Whether the run on `k` trees sorts the polytomies of its output trees through strictly
-/// resolved copies: in its last round as resolution in that round (or `opts.sort_strict`), and
-/// never after `Matched` resolution, whose trees already agree within MCCs.
-pub fn sort_strictness(opts: &Options, k: usize) -> bool {
-  if opts.resolution == Resolution::Matched {
-    return false;
-  }
-  let (_, extra_round) = schedule(opts, k);
-  let (_, strict) = round_mode(opts, extra_round);
-  opts.sort_strict.unwrap_or(strict)
+/// Whether the run left trees `i` and `j` in the order of its sort of the pair `(i, j)`: the
+/// run sorted the pair, and no later sort changed either tree. The view of that pair then uses
+/// the run's trees as they are; other pairs sort copies with [`sort_for_pair`].
+///
+/// # Panics
+///
+/// Unless `i < j < trees.len()`.
+pub fn keeps_run_order(trees: &[Tree], opts: &Options, n: usize, i: usize, j: usize) -> bool {
+  assert!(
+    i < j && j < trees.len(),
+    "({i}, {j}) is not a pair i < j of the {} trees",
+    trees.len()
+  );
+  shared_leaves(&trees[i], &trees[j], n).is_some()
+    && [i, j]
+      .iter()
+      .all(|&t| last_sorting_pair(trees, opts, n, t).is_some_and(|last| last <= (i, j)))
 }
 
 /// The last pair whose sort in the run reordered tree `tree`, or `None` if no pair sorted it.
@@ -48,23 +55,16 @@ pub fn last_sorting_pair(trees: &[Tree], opts: &Options, n: usize, tree: usize) 
   })
 }
 
-/// Whether the run left trees `i` and `j` in the order of its sort of the pair `(i, j)`: the
-/// run sorted the pair, and no later sort changed either tree. The view of that pair then uses
-/// the run's trees as they are; other pairs sort copies with [`sort_for_pair`].
-///
-/// # Panics
-///
-/// Unless `i < j < trees.len()`.
-pub fn keeps_run_order(trees: &[Tree], opts: &Options, n: usize, i: usize, j: usize) -> bool {
-  assert!(
-    i < j && j < trees.len(),
-    "({i}, {j}) is not a pair i < j of the {} trees",
-    trees.len()
-  );
-  shared_leaves(&trees[i], &trees[j], n).is_some()
-    && [i, j]
-      .iter()
-      .all(|&t| last_sorting_pair(trees, opts, n, t).is_some_and(|last| last <= (i, j)))
+/// Whether the run on `k` trees sorts the polytomies of its output trees through strictly
+/// resolved copies: in its last round as resolution in that round (or `opts.sort_strict`), and
+/// never after `Matched` resolution, whose trees already agree within MCCs.
+pub fn sort_strictness(opts: &Options, k: usize) -> bool {
+  if opts.resolution == Resolution::Matched {
+    return false;
+  }
+  let (_, extra_round) = schedule(opts, k);
+  let (_, strict) = round_mode(opts, extra_round);
+  opts.sort_strict.unwrap_or(strict)
 }
 
 /// Sort `left` and `right` for display as a pair: ladderize `left`, then order the polytomies

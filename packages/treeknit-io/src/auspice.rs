@@ -4,11 +4,6 @@ use serde_json::{Map, Value, json};
 use treeknit_core::mcc_map::{leaf_mcc_map, map_mccs};
 use treeknit_core::{NodeId, PairResult, Taxa, Tree};
 
-fn key(a: &str, b: &str) -> String {
-  let (x, y) = if a <= b { (a, b) } else { (b, a) };
-  format!("mcc_{x}_{y}")
-}
-
 /// Auspice JSON text for tree `i` of `trees`, compact as TreeKnit.jl writes it.
 ///
 /// The nodes nest as deep as the tree, and `serde_json` serializes, copies, and drops a nested
@@ -61,6 +56,11 @@ pub fn auspice_json(i: usize, trees: &[Tree], pairs: &[PairResult], taxa: &Taxa)
   push_tree(&mut out, t, fields);
   out.push('}');
   out
+}
+
+fn key(a: &str, b: &str) -> String {
+  let (x, y) = if a <= b { (a, b) } else { (b, a) };
+  format!("mcc_{x}_{y}")
 }
 
 /// Append the subtree of `t` below its root as nested objects, each node with the members

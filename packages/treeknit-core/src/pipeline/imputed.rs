@@ -36,6 +36,24 @@ pub(crate) fn attach_pair(trees: &[Tree], i: usize, j: usize, mut mccs: Vec<Mcc>
   PairResult { i, j, mccs, attached }
 }
 
+/// Trees and MCCs from which to build the ARG of a pair (K = 2): the imputed trees,
+/// restricted to shared leaves plus unambiguously attached ones.
+pub fn arg_inputs(trees: &[Tree], pair: &PairResult, n: usize) -> (Tree, Tree, Vec<Mcc>) {
+  let imputed = imputed_trees(trees, std::slice::from_ref(pair), n);
+  let mut keep = &trees[pair.i].leaf_set(n) & &trees[pair.j].leaf_set(n);
+  for a in pair.attached.iter().filter(|a| !a.ambiguous) {
+    keep.extend(a.leaves.iter().copied());
+  }
+  let r = |t: &Tree| t.restricted(&keep).expect("no leaves for ARG");
+  let mccs: Vec<Mcc> = pair
+    .mccs
+    .iter()
+    .map(|m| m.iter().copied().filter(|&x| keep.contains(x)).collect::<Mcc>())
+    .filter(|m| !m.is_empty())
+    .collect();
+  (r(&imputed[pair.i]), r(&imputed[pair.j]), sort_mccs(mccs))
+}
+
 /// Copies of `trees` with every missing leaf placed, using for each tree `j` and each missing
 /// leaf the pair (i, j) whose MCC containing the leaf is largest (ties: lowest i).
 pub fn imputed_trees(trees: &[Tree], pairs: &[PairResult], n: usize) -> Vec<Tree> {
@@ -80,24 +98,6 @@ pub fn imputed_trees(trees: &[Tree], pairs: &[PairResult], n: usize) -> Vec<Tree
       t
     })
     .collect()
-}
-
-/// Trees and MCCs from which to build the ARG of a pair (K = 2): the imputed trees,
-/// restricted to shared leaves plus unambiguously attached ones.
-pub fn arg_inputs(trees: &[Tree], pair: &PairResult, n: usize) -> (Tree, Tree, Vec<Mcc>) {
-  let imputed = imputed_trees(trees, std::slice::from_ref(pair), n);
-  let mut keep = &trees[pair.i].leaf_set(n) & &trees[pair.j].leaf_set(n);
-  for a in pair.attached.iter().filter(|a| !a.ambiguous) {
-    keep.extend(a.leaves.iter().copied());
-  }
-  let r = |t: &Tree| t.restricted(&keep).expect("no leaves for ARG");
-  let mccs: Vec<Mcc> = pair
-    .mccs
-    .iter()
-    .map(|m| m.iter().copied().filter(|&x| keep.contains(x)).collect::<Mcc>())
-    .filter(|m| !m.is_empty())
-    .collect();
-  (r(&imputed[pair.i]), r(&imputed[pair.j]), sort_mccs(mccs))
 }
 
 #[cfg(test)]

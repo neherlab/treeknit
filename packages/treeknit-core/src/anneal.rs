@@ -48,8 +48,38 @@ pub fn schedule(cooling: Cooling, t_min: f64, t_max: f64, n_t: usize) -> Vec<f64
   }
 }
 
-/// Distinct configurations in the order they were first visited.
-type ConfSet = IndexSet<Bits>;
+/// Run `reps` annealing runs; return all distinct configurations of minimal free energy.
+/// Calls `on_step` with the completed fraction of all runs after each temperature.
+#[expect(
+  clippy::float_cmp,
+  reason = "free energies are compared for exact ties, so every configuration of minimal energy is kept"
+)]
+pub fn optimize(
+  g: &Graph,
+  gamma: f64,
+  trange: &[f64],
+  m: usize,
+  reps: usize,
+  resolve: bool,
+  rng: &mut impl Rng,
+  on_step: &dyn Fn(f64),
+) -> Vec<Bits> {
+  let mut chain = Chain { g, gamma, resolve, rng };
+  let mut best = ConfSet::default();
+  let mut fmin = f64::INFINITY;
+  let reps = reps.max(1);
+  let steps = reps * trange.len();
+  for rep in 0..reps {
+    let (b, f) = chain.anneal(trange, m, &|step| on_step(ratio(rep * trange.len() + step, steps)));
+    if f < fmin {
+      best = b;
+      fmin = f;
+    } else if f == fmin {
+      best.extend(b);
+    }
+  }
+  best.into_iter().collect()
+}
 
 struct Chain<'a, R: Rng> {
   g: &'a Graph,
@@ -121,38 +151,8 @@ impl<R: Rng> Chain<'_, R> {
   }
 }
 
-/// Run `reps` annealing runs; return all distinct configurations of minimal free energy.
-/// Calls `on_step` with the completed fraction of all runs after each temperature.
-#[expect(
-  clippy::float_cmp,
-  reason = "free energies are compared for exact ties, so every configuration of minimal energy is kept"
-)]
-pub fn optimize(
-  g: &Graph,
-  gamma: f64,
-  trange: &[f64],
-  m: usize,
-  reps: usize,
-  resolve: bool,
-  rng: &mut impl Rng,
-  on_step: &dyn Fn(f64),
-) -> Vec<Bits> {
-  let mut chain = Chain { g, gamma, resolve, rng };
-  let mut best = ConfSet::default();
-  let mut fmin = f64::INFINITY;
-  let reps = reps.max(1);
-  let steps = reps * trange.len();
-  for rep in 0..reps {
-    let (b, f) = chain.anneal(trange, m, &|step| on_step(ratio(rep * trange.len() + step, steps)));
-    if f < fmin {
-      best = b;
-      fmin = f;
-    } else if f == fmin {
-      best.extend(b);
-    }
-  }
-  best.into_iter().collect()
-}
+/// Distinct configurations in the order they were first visited.
+type ConfSet = IndexSet<Bits>;
 
 #[cfg(test)]
 mod tests {

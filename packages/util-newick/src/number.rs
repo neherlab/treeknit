@@ -1,6 +1,10 @@
 use crate::error::{NewickWriteError, WriteContext, write_error};
 use pretty_dtoa::{FmtFloatConfig, dtoa};
 
+pub(crate) fn format_shortest(value: f64) -> Result<String, NewickWriteError> {
+  format_number(value, NumberFormat::default())
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct NumberFormat {
   pub significant_digits: Option<u8>,
@@ -12,10 +16,6 @@ impl NumberFormat {
   pub fn format(&self, value: f64) -> Result<String, NewickWriteError> {
     format_number(value, *self)
   }
-}
-
-pub(crate) fn format_shortest(value: f64) -> Result<String, NewickWriteError> {
-  format_number(value, NumberFormat::default())
 }
 
 fn format_number(value: f64, format: NumberFormat) -> Result<String, NewickWriteError> {

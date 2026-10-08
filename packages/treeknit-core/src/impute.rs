@@ -20,22 +20,6 @@ use crate::tree::{NodeId, Tree};
 use ordered_float::OrderedFloat;
 use std::cmp::Reverse;
 
-/// A subtree of the source tree attached to an MCC of the pair.
-#[derive(Clone, Debug)]
-pub struct Attachment {
-  /// Index of the tree the subtree comes from.
-  pub source: usize,
-  /// Root of the subtree in the source tree.
-  pub node: NodeId,
-  /// Leaves of the subtree.
-  pub leaves: Vec<usize>,
-  /// Index into the pair's MCC list (before attached leaves were added).
-  pub mcc: usize,
-  /// Shared leaves of the MCC below the attachment point; the subtree is placed at their LCA.
-  pub anchor: Vec<usize>,
-  pub ambiguous: bool,
-}
-
 /// Attachments for the leaves of `t` (tree index `source`) that are not in `shared`.
 pub fn attach_private(t: &Tree, source: usize, shared: &Bits, mccs: &[Mcc], n_taxa: usize) -> Vec<Attachment> {
   let clades = t.clades(n_taxa);
@@ -120,6 +104,22 @@ pub fn graft_attachments(target: &mut Tree, trees: &[Tree], atts: &[&Attachment]
     target.nodes[root].branch_length = None;
     target.attach(q, root);
   }
+}
+
+/// A subtree of the source tree attached to an MCC of the pair.
+#[derive(Clone, Debug)]
+pub struct Attachment {
+  /// Index of the tree the subtree comes from.
+  pub source: usize,
+  /// Root of the subtree in the source tree.
+  pub node: NodeId,
+  /// Leaves of the subtree.
+  pub leaves: Vec<usize>,
+  /// Index into the pair's MCC list (before attached leaves were added).
+  pub mcc: usize,
+  /// Shared leaves of the MCC below the attachment point; the subtree is placed at their LCA.
+  pub anchor: Vec<usize>,
+  pub ambiguous: bool,
 }
 
 /// Copy the subtree of `src` below `n` into `dst` and return the root of the copy. Leaves keep

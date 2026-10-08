@@ -148,38 +148,6 @@ impl<R: Read> Iterator for NexusTrees<R> {
   }
 }
 
-#[derive(Default)]
-struct BlockState {
-  block: Option<Block>,
-  translate: BTreeMap<String, String>,
-  rooted: Option<bool>,
-  taxa: Option<Taxa>,
-  ntax: Option<usize>,
-}
-
-struct Block {
-  name: String,
-  kind: BlockKind,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum BlockKind {
-  Trees,
-  Taxa,
-  Other,
-}
-
-struct Taxa {
-  labels: Vec<String>,
-  known: BTreeSet<String>,
-}
-
-enum Header {
-  Found(usize),
-  Missing(NewickError),
-  NeedMore,
-}
-
 #[cfg_attr(
   dylint_lib = "custom",
   expect(
@@ -201,6 +169,12 @@ fn read_header(text: &str, at_end: bool, location: Location) -> Header {
     location,
     "The input does not start with a '#NEXUS' header",
   ))
+}
+
+enum Header {
+  Found(usize),
+  Missing(NewickError),
+  NeedMore,
 }
 
 #[cfg_attr(
@@ -492,6 +466,32 @@ impl CommandReader<'_> {
     }
     Ok(())
   }
+}
+
+#[derive(Default)]
+struct BlockState {
+  block: Option<Block>,
+  translate: BTreeMap<String, String>,
+  rooted: Option<bool>,
+  taxa: Option<Taxa>,
+  ntax: Option<usize>,
+}
+
+struct Block {
+  name: String,
+  kind: BlockKind,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BlockKind {
+  Trees,
+  Taxa,
+  Other,
+}
+
+struct Taxa {
+  labels: Vec<String>,
+  known: BTreeSet<String>,
 }
 
 fn tree_comment(

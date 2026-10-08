@@ -46,20 +46,6 @@ pub fn tree_labels(file_names: &[String], existing_labels: &[String]) -> Vec<Str
     .collect()
 }
 
-/// Key under which labels name the same output files: labels with equal keys are repeated
-/// labels, because the file systems of macOS and Windows ignore case. The key lowercases each
-/// character on its own, so that a letter has one key wherever it stands in the label (`Σ` and
-/// `σ` both give `σ`, while `str::to_lowercase` gives a final `ς`). Unicode normalization and
-/// full case folding are not applied (`kb/issues/M-label-check-misses-file-system-name-rules.md`).
-pub fn label_key(label: &str) -> String {
-  label.chars().flat_map(char::to_lowercase).collect()
-}
-
-/// File-name stem of the pair of trees labeled `a` and `b`, as in `MCCs_<a>_<b>.dat`.
-pub fn pair_stem(a: &str, b: &str) -> String {
-  format!("{a}_{b}")
-}
-
 /// Characters that Windows does not allow in file names, besides the path separators.
 const RESERVED_CHARS: [char; 7] = ['<', '>', ':', '"', '|', '?', '*'];
 
@@ -144,6 +130,20 @@ pub(crate) fn check_pair_stems(trees: &[TreeText], valid: &[bool]) -> Vec<Valida
     }
   }
   errors
+}
+
+/// Key under which labels name the same output files: labels with equal keys are repeated
+/// labels, because the file systems of macOS and Windows ignore case. The key lowercases each
+/// character on its own, so that a letter has one key wherever it stands in the label (`Σ` and
+/// `σ` both give `σ`, while `str::to_lowercase` gives a final `ς`). Unicode normalization and
+/// full case folding are not applied (`kb/issues/M-label-check-misses-file-system-name-rules.md`).
+pub fn label_key(label: &str) -> String {
+  label.chars().flat_map(char::to_lowercase).collect()
+}
+
+/// File-name stem of the pair of trees labeled `a` and `b`, as in `MCCs_<a>_<b>.dat`.
+pub fn pair_stem(a: &str, b: &str) -> String {
+  format!("{a}_{b}")
 }
 
 #[cfg(test)]

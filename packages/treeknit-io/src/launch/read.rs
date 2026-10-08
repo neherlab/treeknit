@@ -273,14 +273,6 @@ impl LaunchReader {
   }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum InputKind {
-  Example,
-  Trees,
-  Session,
-  Message,
-}
-
 /// The input kind of a key, `None` for a key that names no input.
 fn input_kind(key: &str) -> Option<InputKind> {
   match key {
@@ -290,6 +282,14 @@ fn input_kind(key: &str) -> Option<InputKind> {
     "from" => Some(InputKind::Message),
     _ => None,
   }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum InputKind {
+  Example,
+  Trees,
+  Session,
+  Message,
 }
 
 /// The setting of a key and, for a flag, the value it sets.

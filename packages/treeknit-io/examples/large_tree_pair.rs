@@ -28,22 +28,6 @@ const MIN_LEAVES: u32 = 3;
 /// memory. A million leaves is far beyond the trees TreeKnit is used on.
 const MAX_LEAVES: u32 = 1_000_000;
 
-#[derive(Debug, PartialEq, Parser)]
-#[command(about = "Write a pair of large random Newick trees that differ by subtree moves")]
-struct Args {
-  /// Number of leaves of each tree
-  #[arg(value_parser = clap::value_parser!(u32).range(i64::from(MIN_LEAVES)..=i64::from(MAX_LEAVES)))]
-  leaves: u32,
-  /// Directory of `tree_a.nwk` and `tree_b.nwk`
-  outdir: PathBuf,
-  /// Seed of the random numbers
-  #[arg(default_value_t = 1)]
-  seed: u64,
-  /// Number of subtree moves from tree A to tree B
-  #[arg(default_value_t = 10)]
-  moves: u32,
-}
-
 fn main() -> ExitCode {
   match write_pair(&Args::parse()) {
     Ok(()) => ExitCode::SUCCESS,
@@ -91,6 +75,22 @@ fn write_pair(args: &Args) -> Result<(), WritePairError> {
     }
   }
   Ok(())
+}
+
+#[derive(Debug, PartialEq, Parser)]
+#[command(about = "Write a pair of large random Newick trees that differ by subtree moves")]
+struct Args {
+  /// Number of leaves of each tree
+  #[arg(value_parser = clap::value_parser!(u32).range(i64::from(MIN_LEAVES)..=i64::from(MAX_LEAVES)))]
+  leaves: u32,
+  /// Directory of `tree_a.nwk` and `tree_b.nwk`
+  outdir: PathBuf,
+  /// Seed of the random numbers
+  #[arg(default_value_t = 1)]
+  seed: u64,
+  /// Number of subtree moves from tree A to tree B
+  #[arg(default_value_t = 10)]
+  moves: u32,
 }
 
 /// Why the tree pair cannot be written or read back.

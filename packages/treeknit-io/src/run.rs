@@ -7,6 +7,33 @@ use std::sync::OnceLock;
 use treeknit_core::arg::{Arg, ArgError, arg_from_trees};
 use treeknit_core::{Options, PairResult, Progress, Taxa, Tree};
 
+/// Run TreeKnit on `parsed` with `opts` and `seed`, calling `observe` with the progress of the
+/// run (see `treeknit_core::run_observed`), then impute the missing leaves of every tree and,
+/// for two trees, build the ARG. `opts` must have passed the settings checks of
+/// `analysis::check_settings` and `parsed` those of `analysis::parse_trees`, because the core
+/// panics on inputs that fail them.
+pub fn run(parsed: ParsedTrees, opts: &Options, seed: u64, observe: &dyn Fn(Progress)) -> RunResult {
+  let ParsedTrees { mut trees, taxa } = parsed;
+  let input_trees = trees.clone();
+  let pairs = treeknit_core::run_observed(&mut trees, &taxa, opts, seed, observe);
+  let imputed = treeknit_core::imputed_trees(&trees, &pairs, taxa.len());
+  let arg = match pairs.as_slice() {
+    [pair] if !pair.mccs.is_empty() => Some(build_arg(&trees, pair, &taxa)),
+    _ => None,
+  };
+  let pair_slots = pairs.iter().map(|_| OnceLock::new()).collect();
+  RunResult {
+    input_trees,
+    trees,
+    taxa,
+    pairs,
+    imputed,
+    arg,
+    opts: opts.clone(),
+    pair_slots,
+  }
+}
+
 /// The trees, MCCs, imputed trees, and ARG of one run, with the options it ran with. The fields
 /// are read-only outside this crate, because the display data keeps values derived from them
 /// (the color slots of each pair).
@@ -62,33 +89,6 @@ impl RunResult {
   )]
   pub fn built_arg(&self) -> Option<&Arg> {
     self.arg.as_ref().and_then(|a| a.as_ref().ok())
-  }
-}
-
-/// Run TreeKnit on `parsed` with `opts` and `seed`, calling `observe` with the progress of the
-/// run (see `treeknit_core::run_observed`), then impute the missing leaves of every tree and,
-/// for two trees, build the ARG. `opts` must have passed the settings checks of
-/// `analysis::check_settings` and `parsed` those of `analysis::parse_trees`, because the core
-/// panics on inputs that fail them.
-pub fn run(parsed: ParsedTrees, opts: &Options, seed: u64, observe: &dyn Fn(Progress)) -> RunResult {
-  let ParsedTrees { mut trees, taxa } = parsed;
-  let input_trees = trees.clone();
-  let pairs = treeknit_core::run_observed(&mut trees, &taxa, opts, seed, observe);
-  let imputed = treeknit_core::imputed_trees(&trees, &pairs, taxa.len());
-  let arg = match pairs.as_slice() {
-    [pair] if !pair.mccs.is_empty() => Some(build_arg(&trees, pair, &taxa)),
-    _ => None,
-  };
-  let pair_slots = pairs.iter().map(|_| OnceLock::new()).collect();
-  RunResult {
-    input_trees,
-    trees,
-    taxa,
-    pairs,
-    imputed,
-    arg,
-    opts: opts.clone(),
-    pair_slots,
   }
 }
 

@@ -15,19 +15,6 @@ use crate::tree::{NodeId, Tree};
 use rand::Rng;
 use rand::seq::SliceRandom;
 
-/// Parameters of pair inference (a subset of [`crate::Options`]).
-#[derive(Clone, Debug)]
-pub struct PairParams {
-  pub gamma: f64,
-  pub itmax: usize,
-  pub likelihood_sort: bool,
-  pub resolve: bool,
-  pub seq_lengths: [f64; 2],
-  pub n_mcmc: usize,
-  pub sa_rep: usize,
-  pub temperatures: Vec<f64>,
-}
-
 /// Infer MCCs of `t1` and `t2`, which must have the same leaf set. Taxa are in `0..n_taxa`.
 /// Calls `on_progress` with the completed fraction of the inference (0 to 1, never decreasing)
 /// after each temperature step of the annealing; it consumes no random numbers.
@@ -153,6 +140,19 @@ fn choose_conf(confs: Vec<Bits>, g: &Graph, trees: &[&Tree], p: &PairParams, rng
     }
   }
   confs.choose(rng).unwrap().clone()
+}
+
+/// Parameters of pair inference (a subset of [`crate::Options`]).
+#[derive(Clone, Debug)]
+pub struct PairParams {
+  pub gamma: f64,
+  pub itmax: usize,
+  pub likelihood_sort: bool,
+  pub resolve: bool,
+  pub seq_lengths: [f64; 2],
+  pub n_mcmc: usize,
+  pub sa_rep: usize,
+  pub temperatures: Vec<f64>,
 }
 
 /// The configurations whose likelihood `lk` is maximal. A NaN likelihood ranks below every

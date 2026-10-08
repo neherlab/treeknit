@@ -7,24 +7,6 @@ use crate::read::tree_text::read_tree_text;
 use std::io::Read;
 use std::str;
 
-pub fn newick_from_str(input: &str, options: &NewickReadOptions) -> Result<NewickTree, NewickError> {
-  if matches(Rule::trivia_only, input) {
-    return Err(no_tree());
-  }
-  read_tree_text(input, Location::START, options).map_err(|error| {
-    let mut trees = newick_trees(input.as_bytes(), options.clone());
-    match (trees.next(), trees.next()) {
-      (Some(Err(scan_error)), _) if scan_error.kind == NewickErrorKind::Incomplete => scan_error,
-      (Some(_), Some(_)) => NewickError::new(
-        NewickErrorKind::MultipleTrees,
-        trees.last_tree_start,
-        "The input contains more than one tree; read it tree by tree with newick_trees()",
-      ),
-      _ => error,
-    }
-  })
-}
-
 #[cfg_attr(
   dylint_lib = "custom",
   expect(
@@ -53,6 +35,24 @@ pub fn newick_from_reader(mut reader: impl Read, options: &NewickReadOptions) ->
       ))
     },
   }
+}
+
+pub fn newick_from_str(input: &str, options: &NewickReadOptions) -> Result<NewickTree, NewickError> {
+  if matches(Rule::trivia_only, input) {
+    return Err(no_tree());
+  }
+  read_tree_text(input, Location::START, options).map_err(|error| {
+    let mut trees = newick_trees(input.as_bytes(), options.clone());
+    match (trees.next(), trees.next()) {
+      (Some(Err(scan_error)), _) if scan_error.kind == NewickErrorKind::Incomplete => scan_error,
+      (Some(_), Some(_)) => NewickError::new(
+        NewickErrorKind::MultipleTrees,
+        trees.last_tree_start,
+        "The input contains more than one tree; read it tree by tree with newick_trees()",
+      ),
+      _ => error,
+    }
+  })
 }
 
 pub fn newick_trees<R: Read>(reader: R, options: NewickReadOptions) -> NewickTrees<R> {

@@ -5,18 +5,6 @@
 
 use fixedbitset::FixedBitSet;
 
-pub type Bits = FixedBitSet;
-
-#[inline]
-fn blocks<'a>(a: &'a Bits, b: &'a Bits, m: &'a Bits) -> impl Iterator<Item = (usize, usize, usize)> + 'a {
-  debug_assert!(a.len() == b.len() && a.len() == m.len());
-  a.as_slice()
-    .iter()
-    .zip(b.as_slice())
-    .zip(m.as_slice())
-    .map(|((x, y), z)| (*x, *y, *z))
-}
-
 /// `a ∩ m == b ∩ m`
 #[inline]
 pub fn eq_on(a: &Bits, b: &Bits, m: &Bits) -> bool {
@@ -34,6 +22,16 @@ pub fn subset_on(a: &Bits, b: &Bits, m: &Bits) -> bool {
 #[inline]
 pub fn disjoint_on(a: &Bits, b: &Bits, m: &Bits) -> bool {
   blocks(a, b, m).all(|(x, y, z)| x & y & z == 0)
+}
+
+#[inline]
+fn blocks<'a>(a: &'a Bits, b: &'a Bits, m: &'a Bits) -> impl Iterator<Item = (usize, usize, usize)> + 'a {
+  debug_assert!(a.len() == b.len() && a.len() == m.len());
+  a.as_slice()
+    .iter()
+    .zip(b.as_slice())
+    .zip(m.as_slice())
+    .map(|((x, y), z)| (*x, *y, *z))
 }
 
 /// `|a ∩ m| < 2`, i.e. `a` is a leaf or empty split on `m`.
@@ -60,3 +58,5 @@ pub fn full(n: usize) -> Bits {
   b.insert_range(..);
   b
 }
+
+pub type Bits = FixedBitSet;

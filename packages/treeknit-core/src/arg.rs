@@ -17,121 +17,6 @@ use crate::resolve::resolve_with_mccs;
 use crate::tree::{NodeId, Tree};
 use std::collections::HashMap;
 
-/// Parent of a node for one segment.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Anc {
-  /// The node does not carry this segment.
-  Absent,
-  /// The node is the root of this segment's tree.
-  Root,
-  Node(usize),
-}
-
-#[derive(Clone, Debug)]
-pub struct ArgNode {
-  pub label: String,
-  /// Parent per segment.
-  pub anc: [Anc; 2],
-  /// Length of the branch to the parent, per segment.
-  pub tau: [Option<f64>; 2],
-  pub children: Vec<usize>,
-  pub hybrid: bool,
-  pub is_leaf: bool,
-}
-
-#[derive(Clone, Debug)]
-pub struct Arg {
-  pub nodes: Vec<ArgNode>,
-  /// Root of each segment's tree.
-  pub roots: [usize; 2],
-  /// Tree node (by name) of each ARG node in the two trees.
-  pub tree_nodes: Vec<[Option<String>; 2]>,
-  /// The two trees the ARG was built from (liberally resolved, with shared singletons).
-  pub trees: [Tree; 2],
-}
-
-impl ArgNode {
-  pub fn has(&self, c: usize) -> bool {
-    self.anc[c] != Anc::Absent
-  }
-  pub fn is_shared(&self) -> bool {
-    self.has(0) && self.has(1)
-  }
-  pub fn is_root(&self, c: usize) -> bool {
-    self.anc[c] == Anc::Root
-  }
-}
-
-impl Arg {
-  pub fn n_hybrids(&self) -> usize {
-    self.nodes.iter().filter(|n| n.hybrid).count()
-  }
-
-  /// Segments carried by the edge from `a` to `n`.
-  pub fn edge_segments(&self, a: usize, n: usize) -> Vec<usize> {
-    (0..2).filter(|&c| self.nodes[n].anc[c] == Anc::Node(a)).collect()
-  }
-
-  /// The tree of segment `c` embedded in the ARG, as (node, parent) pairs reachable from its root.
-  #[cfg_attr(
-    all(dylint_lib = "custom", not(test)),
-    expect(
-      pub_unused_in_workspace,
-      reason = "the comparison with TreeKnit.jl in treeknit-io/tests/fixtures.rs checks the segment trees"
-    )
-  )]
-  pub fn segment_tree(&self, c: usize) -> Tree {
-    let mut t = Tree::new(format!("segment_{c}"));
-    let mut stack = vec![(self.roots[c], t.root)];
-    t.nodes[t.root].name = self.nodes[self.roots[c]].label.clone();
-    while let Some((a, tn)) = stack.pop() {
-      for &ch in &self.nodes[a].children {
-        if self.nodes[ch].anc[c] == Anc::Node(a) {
-          let x = t.add_node(self.nodes[ch].label.clone(), self.nodes[ch].tau[c]);
-          t.attach(tn, x);
-          stack.push((ch, x));
-        }
-      }
-    }
-    t
-  }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Kind {
-  NonShared,
-  Shared,
-  MccRoot,
-  SharedSingleton,
-}
-
-#[derive(Clone, Copy, Debug)]
-struct Status {
-  kind: Kind,
-  partner: Option<NodeId>,
-  partner_is_root: bool,
-  mcc: Option<usize>,
-}
-
-type StatusMap = HashMap<NodeId, Status>;
-
-/// Why the ARG of two trees cannot be built from their MCCs.
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-pub enum ArgError {
-  #[error("ARG construction failed: trees do not match within MCC {0}")]
-  MccMismatch(usize),
-  #[error("ARG construction failed: inconsistent shared nodes")]
-  InconsistentSharedNodes,
-  #[error("ARG construction failed: shared singletons could not be matched")]
-  UnmatchedSingletons,
-  #[error("ARG construction failed: MCC root without hybrid parent")]
-  MccRootWithoutHybridParent,
-  #[error("ARG construction failed: shared node {0} has different parents")]
-  SharedNodeParents(String),
-  #[error("ARG construction failed: unresolved shared singleton")]
-  UnresolvedSingleton,
-}
-
 /// Build the ARG of `t1` and `t2` (same leaf set, taxa in `0..n_taxa`) given their MCCs.
 pub fn arg_from_trees(t1: &Tree, t2: &Tree, mccs: &[Mcc], n_taxa: usize) -> Result<Arg, ArgError> {
   if t1.node(t1.root).branch_length.is_some() || t2.node(t2.root).branch_length.is_some() {
@@ -481,6 +366,41 @@ impl Builder {
   }
 }
 
+type StatusMap = HashMap<NodeId, Status>;
+
+#[derive(Clone, Copy, Debug)]
+struct Status {
+  kind: Kind,
+  partner: Option<NodeId>,
+  partner_is_root: bool,
+  mcc: Option<usize>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Kind {
+  NonShared,
+  Shared,
+  MccRoot,
+  SharedSingleton,
+}
+
+/// Why the ARG of two trees cannot be built from their MCCs.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum ArgError {
+  #[error("ARG construction failed: trees do not match within MCC {0}")]
+  MccMismatch(usize),
+  #[error("ARG construction failed: inconsistent shared nodes")]
+  InconsistentSharedNodes,
+  #[error("ARG construction failed: shared singletons could not be matched")]
+  UnmatchedSingletons,
+  #[error("ARG construction failed: MCC root without hybrid parent")]
+  MccRootWithoutHybridParent,
+  #[error("ARG construction failed: shared node {0} has different parents")]
+  SharedNodeParents(String),
+  #[error("ARG construction failed: unresolved shared singleton")]
+  UnresolvedSingleton,
+}
+
 /// Branch lengths: averages on fully shared branches, tree values on single-segment
 /// branches, and a reassortment placed halfway along the shorter branch above an MCC root.
 fn set_branch_lengths(arg: &mut Arg, lm1: &HashMap<NodeId, usize>, lm2: &HashMap<NodeId, usize>) {
@@ -533,6 +453,86 @@ fn set_branch_lengths(arg: &mut Arg, lm1: &HashMap<NodeId, usize>, lm2: &HashMap
     }
   }
   arg.tree_nodes.resize(arg.nodes.len(), [None, None]);
+}
+
+#[derive(Clone, Debug)]
+pub struct Arg {
+  pub nodes: Vec<ArgNode>,
+  /// Root of each segment's tree.
+  pub roots: [usize; 2],
+  /// Tree node (by name) of each ARG node in the two trees.
+  pub tree_nodes: Vec<[Option<String>; 2]>,
+  /// The two trees the ARG was built from (liberally resolved, with shared singletons).
+  pub trees: [Tree; 2],
+}
+
+impl Arg {
+  pub fn n_hybrids(&self) -> usize {
+    self.nodes.iter().filter(|n| n.hybrid).count()
+  }
+
+  /// Segments carried by the edge from `a` to `n`.
+  pub fn edge_segments(&self, a: usize, n: usize) -> Vec<usize> {
+    (0..2).filter(|&c| self.nodes[n].anc[c] == Anc::Node(a)).collect()
+  }
+
+  /// The tree of segment `c` embedded in the ARG, as (node, parent) pairs reachable from its root.
+  #[cfg_attr(
+    all(dylint_lib = "custom", not(test)),
+    expect(
+      pub_unused_in_workspace,
+      reason = "the comparison with TreeKnit.jl in treeknit-io/tests/fixtures.rs checks the segment trees"
+    )
+  )]
+  pub fn segment_tree(&self, c: usize) -> Tree {
+    let mut t = Tree::new(format!("segment_{c}"));
+    let mut stack = vec![(self.roots[c], t.root)];
+    t.nodes[t.root].name = self.nodes[self.roots[c]].label.clone();
+    while let Some((a, tn)) = stack.pop() {
+      for &ch in &self.nodes[a].children {
+        if self.nodes[ch].anc[c] == Anc::Node(a) {
+          let x = t.add_node(self.nodes[ch].label.clone(), self.nodes[ch].tau[c]);
+          t.attach(tn, x);
+          stack.push((ch, x));
+        }
+      }
+    }
+    t
+  }
+}
+
+#[derive(Clone, Debug)]
+pub struct ArgNode {
+  pub label: String,
+  /// Parent per segment.
+  pub anc: [Anc; 2],
+  /// Length of the branch to the parent, per segment.
+  pub tau: [Option<f64>; 2],
+  pub children: Vec<usize>,
+  pub hybrid: bool,
+  pub is_leaf: bool,
+}
+
+impl ArgNode {
+  pub fn has(&self, c: usize) -> bool {
+    self.anc[c] != Anc::Absent
+  }
+  pub fn is_shared(&self) -> bool {
+    self.has(0) && self.has(1)
+  }
+  pub fn is_root(&self, c: usize) -> bool {
+    self.anc[c] == Anc::Root
+  }
+}
+
+/// Parent of a node for one segment.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Anc {
+  /// The node does not carry this segment.
+  Absent,
+  /// The node is the root of this segment's tree.
+  Root,
+  Node(usize),
 }
 
 #[cfg(test)]

@@ -19,18 +19,6 @@
 /// of the last pair. It is below 1 so that a fraction of 1 always means that the run is done.
 pub const PAIRS_SHARE: f64 = 0.95;
 
-/// Part of a run that is in progress.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Phase {
-  /// Pair inference and resolution with MCCs, in rounds over all pairs.
-  Pairs,
-  /// Matching of topologies within MCCs (`Resolution::Matched`), after the last round. Its
-  /// duration is not known in advance, so the fraction does not change during it.
-  Matching,
-  /// The run is complete.
-  Done,
-}
-
 /// Progress of a run: the completed fraction of the work, and the round and pair in progress.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Progress {
@@ -93,6 +81,18 @@ impl Progress {
       pairs,
     }
   }
+}
+
+/// Part of a run that is in progress.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Phase {
+  /// Pair inference and resolution with MCCs, in rounds over all pairs.
+  Pairs,
+  /// Matching of topologies within MCCs (`Resolution::Matched`), after the last round. Its
+  /// duration is not known in advance, so the fraction does not change during it.
+  Matching,
+  /// The run is complete.
+  Done,
 }
 
 /// Completed fraction of `total` units of work after `done` units.

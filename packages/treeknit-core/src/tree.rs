@@ -14,58 +14,11 @@
 use crate::bits::Bits;
 use std::collections::HashMap;
 
-pub type NodeId = usize;
-
-#[derive(Clone, Debug)]
-pub struct Node {
-  pub name: String,
-  pub parent: Option<NodeId>,
-  pub children: Vec<NodeId>,
-  pub branch_length: Option<f64>,
-  /// Index of the leaf in the current taxon table (leaves only).
-  pub taxon: Option<usize>,
-}
-
 #[derive(Clone, Debug)]
 pub struct Tree {
   pub label: String,
   pub nodes: Vec<Node>,
   pub root: NodeId,
-}
-
-/// Sorted, unique leaf names. Taxon ids follow name order, so sorting ids sorts names.
-#[derive(Clone, Debug, Default)]
-pub struct Taxa {
-  pub names: Vec<String>,
-  pub index: HashMap<String, usize>,
-}
-
-impl Taxa {
-  pub fn new(mut names: Vec<String>) -> Self {
-    names.sort();
-    names.dedup();
-    let index = names.iter().enumerate().map(|(i, n)| (n.clone(), i)).collect();
-    Taxa { names, index }
-  }
-  pub fn from_trees(trees: &[Tree]) -> Self {
-    Taxa::new(trees.iter().flat_map(|t| t.leaf_names()).collect())
-  }
-  pub fn len(&self) -> usize {
-    self.names.len()
-  }
-  #[cfg_attr(
-    all(dylint_lib = "custom", not(test)),
-    expect(
-      pub_unused_in_workspace,
-      reason = "clippy::len_without_is_empty asks for it next to len"
-    )
-  )]
-  pub fn is_empty(&self) -> bool {
-    self.names.is_empty()
-  }
-  pub fn names_of(&self, ids: &[usize]) -> Vec<String> {
-    ids.iter().map(|&i| self.names[i].clone()).collect()
-  }
 }
 
 impl Tree {
@@ -450,6 +403,53 @@ impl Tree {
       })
   }
 }
+
+/// Sorted, unique leaf names. Taxon ids follow name order, so sorting ids sorts names.
+#[derive(Clone, Debug, Default)]
+pub struct Taxa {
+  pub names: Vec<String>,
+  pub index: HashMap<String, usize>,
+}
+
+impl Taxa {
+  pub fn new(mut names: Vec<String>) -> Self {
+    names.sort();
+    names.dedup();
+    let index = names.iter().enumerate().map(|(i, n)| (n.clone(), i)).collect();
+    Taxa { names, index }
+  }
+  pub fn from_trees(trees: &[Tree]) -> Self {
+    Taxa::new(trees.iter().flat_map(|t| t.leaf_names()).collect())
+  }
+  pub fn len(&self) -> usize {
+    self.names.len()
+  }
+  #[cfg_attr(
+    all(dylint_lib = "custom", not(test)),
+    expect(
+      pub_unused_in_workspace,
+      reason = "clippy::len_without_is_empty asks for it next to len"
+    )
+  )]
+  pub fn is_empty(&self) -> bool {
+    self.names.is_empty()
+  }
+  pub fn names_of(&self, ids: &[usize]) -> Vec<String> {
+    ids.iter().map(|&i| self.names[i].clone()).collect()
+  }
+}
+
+#[derive(Clone, Debug)]
+pub struct Node {
+  pub name: String,
+  pub parent: Option<NodeId>,
+  pub children: Vec<NodeId>,
+  pub branch_length: Option<f64>,
+  /// Index of the leaf in the current taxon table (leaves only).
+  pub taxon: Option<usize>,
+}
+
+pub type NodeId = usize;
 
 /// A leaf whose name the taxon table lacks, from [`Tree::assign_taxa`].
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]

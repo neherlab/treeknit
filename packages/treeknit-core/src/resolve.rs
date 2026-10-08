@@ -10,59 +10,6 @@ use crate::mcc_map::{leaf_mcc_map, map_mccs};
 use crate::naive::Mcc;
 use crate::tree::{NodeId, Tree};
 
-/// Outcome of [`insert_split`].
-#[derive(Debug, PartialEq, Eq)]
-pub enum Insert {
-  Added,
-  /// Already present, or trivial on the mask.
-  Present,
-  Incompatible,
-}
-
-/// Children of `lca(s)` whose clade (restricted to `mask`) intersects `s`, in order of
-/// first appearance when scanning leaves of `s` by taxon id. Returns the lca too.
-fn blca(t: &Tree, leaf_of: &[Option<NodeId>], s: &Bits, mask: &Bits) -> Option<(NodeId, Vec<NodeId>)> {
-  let leaves: Vec<NodeId> = s
-    .ones()
-    .filter(|&x| mask.contains(x))
-    .filter_map(|x| leaf_of[x])
-    .collect();
-  let r = t.lca_of(leaves.iter().copied())?;
-  let mut roots: Vec<NodeId> = Vec::new();
-  for &l in &leaves {
-    let mut a = l;
-    while a != r && t.parent(a) != Some(r) {
-      a = t.parent(a).unwrap();
-    }
-    if a != r && !roots.contains(&a) {
-      roots.push(a);
-    }
-  }
-  Some((r, roots))
-}
-
-/// Insert split `s` into `t`, considering only leaves in `mask`.
-///
-/// Subtrees containing no leaf of `mask` are never moved.
-pub fn insert_split(t: &mut Tree, s: &Bits, mask: &Bits, n_taxa: usize, name: &str) -> Insert {
-  if bits::trivial_on(s, mask) {
-    return Insert::Present;
-  }
-  let clades = t.clades(n_taxa);
-  let leaf_of = t.leaf_of(n_taxa);
-  let Some((r, roots)) = blca(t, &leaf_of, s, mask) else {
-    return Insert::Incompatible;
-  };
-  if roots.iter().any(|&c| !bits::subset_on(&clades[c], s, mask)) {
-    return Insert::Incompatible;
-  }
-  if bits::subset_on(&clades[r], s, mask) {
-    return Insert::Present; // `s` is the clade of `r`
-  }
-  t.insert_parent(&roots, name.to_owned(), Some(0.0));
-  Insert::Added
-}
-
 /// Resolve `trees` using each other's splits. A split of one tree is added to another only
 /// if it can be added to (or is already in) every other tree. Splits are compared on
 /// the leaves the trees have in common, so leaf sets may differ.
@@ -155,6 +102,31 @@ pub fn resolve_trees(trees: &mut [Tree], n_taxa: usize) -> Vec<Vec<Bits>> {
   out
 }
 
+/// Resolve `t1` and `t2` (same leaf set) using MCCs; returns the new splits of each. Logs a
+/// warning for each split skipped as incompatible.
+pub fn resolve_with_mccs(t1: &mut Tree, t2: &mut Tree, mccs: &[Mcc], n_taxa: usize, strict: bool) -> [Vec<Bits>; 2] {
+  let (new, skipped) = resolve_with_mccs_quiet(t1, t2, mccs, n_taxa, strict);
+  warn_skipped(t1, skipped[0]);
+  warn_skipped(t2, skipped[1]);
+  new
+}
+
+/// As [`resolve_with_mccs`], without logging: returns the new splits of each tree and the
+/// number of splits each tree skipped as incompatible.
+pub(crate) fn resolve_with_mccs_quiet(
+  t1: &mut Tree,
+  t2: &mut Tree,
+  mccs: &[Mcc],
+  n_taxa: usize,
+  strict: bool,
+) -> ([Vec<Bits>; 2], [usize; 2]) {
+  let mut s1 = mcc_splits(t1, t2, mccs, n_taxa, strict);
+  let mut s2 = mcc_splits(t2, t1, mccs, n_taxa, strict);
+  let k1 = insert_compatible(t1, &mut s1, &t1.leaf_set(n_taxa), n_taxa);
+  let k2 = insert_compatible(t2, &mut s2, &t2.leaf_set(n_taxa), n_taxa);
+  ([s1, s2], [k1, k2])
+}
+
 /// New splits of `tref` implied by the shared topology of `t` within each MCC.
 /// Both trees must have the same leaf set.
 fn mcc_splits(tref: &Tree, t: &Tree, mccs: &[Mcc], n_taxa: usize, strict: bool) -> Vec<Bits> {
@@ -243,31 +215,6 @@ fn strict_ok(
   true
 }
 
-/// Resolve `t1` and `t2` (same leaf set) using MCCs; returns the new splits of each. Logs a
-/// warning for each split skipped as incompatible.
-pub fn resolve_with_mccs(t1: &mut Tree, t2: &mut Tree, mccs: &[Mcc], n_taxa: usize, strict: bool) -> [Vec<Bits>; 2] {
-  let (new, skipped) = resolve_with_mccs_quiet(t1, t2, mccs, n_taxa, strict);
-  warn_skipped(t1, skipped[0]);
-  warn_skipped(t2, skipped[1]);
-  new
-}
-
-/// As [`resolve_with_mccs`], without logging: returns the new splits of each tree and the
-/// number of splits each tree skipped as incompatible.
-pub(crate) fn resolve_with_mccs_quiet(
-  t1: &mut Tree,
-  t2: &mut Tree,
-  mccs: &[Mcc],
-  n_taxa: usize,
-  strict: bool,
-) -> ([Vec<Bits>; 2], [usize; 2]) {
-  let mut s1 = mcc_splits(t1, t2, mccs, n_taxa, strict);
-  let mut s2 = mcc_splits(t2, t1, mccs, n_taxa, strict);
-  let k1 = insert_compatible(t1, &mut s1, &t1.leaf_set(n_taxa), n_taxa);
-  let k2 = insert_compatible(t2, &mut s2, &t2.leaf_set(n_taxa), n_taxa);
-  ([s1, s2], [k1, k2])
-}
-
 /// Insert `splits` into `t` considering only leaves in `mask`; keeps the inserted ones. Logs a
 /// warning for each split skipped as incompatible.
 pub fn insert_all_on(t: &mut Tree, splits: &mut Vec<Bits>, mask: &Bits, n_taxa: usize) {
@@ -294,6 +241,59 @@ fn insert_compatible(t: &mut Tree, splits: &mut Vec<Bits>, mask: &Bits, n_taxa: 
     },
   );
   skipped
+}
+
+/// Insert split `s` into `t`, considering only leaves in `mask`.
+///
+/// Subtrees containing no leaf of `mask` are never moved.
+pub fn insert_split(t: &mut Tree, s: &Bits, mask: &Bits, n_taxa: usize, name: &str) -> Insert {
+  if bits::trivial_on(s, mask) {
+    return Insert::Present;
+  }
+  let clades = t.clades(n_taxa);
+  let leaf_of = t.leaf_of(n_taxa);
+  let Some((r, roots)) = blca(t, &leaf_of, s, mask) else {
+    return Insert::Incompatible;
+  };
+  if roots.iter().any(|&c| !bits::subset_on(&clades[c], s, mask)) {
+    return Insert::Incompatible;
+  }
+  if bits::subset_on(&clades[r], s, mask) {
+    return Insert::Present; // `s` is the clade of `r`
+  }
+  t.insert_parent(&roots, name.to_owned(), Some(0.0));
+  Insert::Added
+}
+
+/// Outcome of [`insert_split`].
+#[derive(Debug, PartialEq, Eq)]
+pub enum Insert {
+  Added,
+  /// Already present, or trivial on the mask.
+  Present,
+  Incompatible,
+}
+
+/// Children of `lca(s)` whose clade (restricted to `mask`) intersects `s`, in order of
+/// first appearance when scanning leaves of `s` by taxon id. Returns the lca too.
+fn blca(t: &Tree, leaf_of: &[Option<NodeId>], s: &Bits, mask: &Bits) -> Option<(NodeId, Vec<NodeId>)> {
+  let leaves: Vec<NodeId> = s
+    .ones()
+    .filter(|&x| mask.contains(x))
+    .filter_map(|x| leaf_of[x])
+    .collect();
+  let r = t.lca_of(leaves.iter().copied())?;
+  let mut roots: Vec<NodeId> = Vec::new();
+  for &l in &leaves {
+    let mut a = l;
+    while a != r && t.parent(a) != Some(r) {
+      a = t.parent(a).unwrap();
+    }
+    if a != r && !roots.contains(&a) {
+      roots.push(a);
+    }
+  }
+  Some((r, roots))
 }
 
 /// Log one warning per split that `t` skipped as incompatible.

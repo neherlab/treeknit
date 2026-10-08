@@ -130,6 +130,23 @@ const SYMBOL_RIBBON_RISE: f64 = 4.0;
 /// fonts (about 0.7 em in Lato, Helvetica, and Arial), so capitals are centered on their row.
 const BASELINE_SHIFT_EM: f64 = 0.35;
 
+/// A figure document of `width` px on the color `ground`, high enough for `rows` rows of
+/// `row_height` px and the legend `entries`, with `title` above the drawing in `ink`. The figure
+/// ends with `Svg::finish_figure`.
+pub(super) fn figure(
+  title: &str,
+  rows: usize,
+  row_height: f64,
+  width: f64,
+  entries: &[LegendEntry],
+  [ground, ink]: [&str; 2],
+) -> Svg {
+  let height = figure_height(rows, row_height, entries, width);
+  let mut svg = Svg::new(width, height, title, ground);
+  svg.title(title, ink);
+  svg
+}
+
 /// An SVG document under construction, written with indentation.
 pub(super) struct Svg {
   writer: Writer<Vec<u8>>,
@@ -367,23 +384,6 @@ impl Svg {
   }
 }
 
-/// A figure document of `width` px on the color `ground`, high enough for `rows` rows of
-/// `row_height` px and the legend `entries`, with `title` above the drawing in `ink`. The figure
-/// ends with `Svg::finish_figure`.
-pub(super) fn figure(
-  title: &str,
-  rows: usize,
-  row_height: f64,
-  width: f64,
-  entries: &[LegendEntry],
-  [ground, ink]: [&str; 2],
-) -> Svg {
-  let height = figure_height(rows, row_height, entries, width);
-  let mut svg = Svg::new(width, height, title, ground);
-  svg.title(title, ink);
-  svg
-}
-
 /// The height of a figure whose drawing is `rows` rows of `row_height` px, with the legend
 /// `entries` wrapped at `width` px.
 fn figure_height(rows: usize, row_height: f64, entries: &[LegendEntry], width: f64) -> f64 {
@@ -391,14 +391,14 @@ fn figure_height(rows: usize, row_height: f64, entries: &[LegendEntry], width: f
   drawing_top() + coordinate(rows) * row_height + LEGEND_GAP + legend + MARGIN
 }
 
-/// The top of the drawing, below the title band.
-pub(super) fn drawing_top() -> f64 {
-  MARGIN + TITLE_BAND
-}
-
 /// The top of the legend under a drawing of `rows` rows of `row_height` px.
 fn legend_top(rows: usize, row_height: f64) -> f64 {
   drawing_top() + coordinate(rows) * row_height + LEGEND_GAP
+}
+
+/// The top of the drawing, below the title band.
+pub(super) fn drawing_top() -> f64 {
+  MARGIN + TITLE_BAND
 }
 
 /// The baseline of text centered on `y`.
@@ -411,29 +411,36 @@ pub(super) fn dash_array([dash, gap]: [f64; 2]) -> String {
   format!("{} {}", num(dash), num(gap))
 }
 
-/// The estimated width of `text` in px at the label font size.
-fn text_width(text: &str) -> f64 {
-  f64::from(advance(text)) * FONT_SIZE / 1000.0
-}
-
-/// The estimated advance of `text` in 1/1000 em.
-fn advance(text: &str) -> u32 {
-  text.chars().map(char_advance).fold(0, u32::saturating_add)
-}
-
-/// The estimated advance of `c` in 1/1000 em: from the Helvetica tables for ASCII and Latin
-/// letters, 0 for a character without width, and `OTHER_ADVANCE` otherwise.
-fn char_advance(c: char) -> u32 {
-  let at = |table: &[u32], first: u32| {
-    let i = usize::try_from(u32::from(c).checked_sub(first)?).ok()?;
-    table.get(i).copied()
-  };
-  if ZERO_WIDTH.iter().any(|&(low, high)| (low..=high).contains(&c)) {
-    return 0;
+/// The label column for leaf `names`: as wide as the longest label (shortened to the length of
+/// the drawing rules) and a gap on each side, at most `max_width` px. Labels that do not fit are
+/// shortened further. No column when `shown` is false, there are no names, or no label fits with
+/// one character of its name.
+pub(super) fn label_column<'a>(names: impl Iterator<Item = &'a str>, shown: bool, max_width: f64) -> LabelColumn {
+  if !shown {
+    return LabelColumn::NONE;
   }
-  at(&ASCII_ADVANCE, 0x20)
-    .or_else(|| at(&LATIN_ADVANCE, LATIN_FIRST))
-    .unwrap_or(OTHER_ADVANCE)
+  let names: Vec<&str> = names.filter(|n| !n.is_empty()).collect();
+  let Some(longest) = names.iter().map(|n| advance(&shorten(n, label_max_chars()))).max() else {
+    return LabelColumn::NONE;
+  };
+  let longest_px = em_px(longest);
+  let width = DRAWING_RULES.label_column_px(longest_px, max_width);
+  if width >= longest_px + 2.0 * LABEL_GAP {
+    return LabelColumn { width, room: longest };
+  }
+  // Only the figure shortens labels to fit a capped column, and it drops the column when not even
+  // the one-character form of a label fits.
+  let room = px_em(width - 2.0 * LABEL_GAP);
+  let narrowest = names
+    .iter()
+    .map(|n| advance(&shorten(n, shortest(n))))
+    .min()
+    .unwrap_or(u32::MAX);
+  if narrowest <= room {
+    LabelColumn { width, room }
+  } else {
+    LabelColumn::NONE
+  }
 }
 
 /// The label column of a drawing in px, and the room its labels have.
@@ -474,38 +481,6 @@ fn shortest(name: &str) -> usize {
   grapheme_count(name).min(2)
 }
 
-/// The label column for leaf `names`: as wide as the longest label (shortened to the length of
-/// the drawing rules) and a gap on each side, at most `max_width` px. Labels that do not fit are
-/// shortened further. No column when `shown` is false, there are no names, or no label fits with
-/// one character of its name.
-pub(super) fn label_column<'a>(names: impl Iterator<Item = &'a str>, shown: bool, max_width: f64) -> LabelColumn {
-  if !shown {
-    return LabelColumn::NONE;
-  }
-  let names: Vec<&str> = names.filter(|n| !n.is_empty()).collect();
-  let Some(longest) = names.iter().map(|n| advance(&shorten(n, label_max_chars()))).max() else {
-    return LabelColumn::NONE;
-  };
-  let longest_px = em_px(longest);
-  let width = DRAWING_RULES.label_column_px(longest_px, max_width);
-  if width >= longest_px + 2.0 * LABEL_GAP {
-    return LabelColumn { width, room: longest };
-  }
-  // Only the figure shortens labels to fit a capped column, and it drops the column when not even
-  // the one-character form of a label fits.
-  let room = px_em(width - 2.0 * LABEL_GAP);
-  let narrowest = names
-    .iter()
-    .map(|n| advance(&shorten(n, shortest(n))))
-    .min()
-    .unwrap_or(u32::MAX);
-  if narrowest <= room {
-    LabelColumn { width, room }
-  } else {
-    LabelColumn::NONE
-  }
-}
-
 /// `units` of 1/1000 em in px at the label font size.
 fn em_px(units: u32) -> f64 {
   f64::from(units) * FONT_SIZE / 1000.0
@@ -528,12 +503,52 @@ fn px_em(px: f64) -> u32 {
   }
 }
 
-/// `v` with at most two decimals and without trailing zeros, so that equal figures have equal
-/// text: `12`, `0.5`, `-3.25`.
-pub(super) fn num(v: f64) -> String {
-  let text = format!("{v:.2}");
-  let text = text.trim_end_matches('0').trim_end_matches('.');
-  if text == "-0" { "0".to_owned() } else { text.to_owned() }
+/// The pixel frame of a drawing: leaf rows of `row_height` px from `top`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) struct Rows {
+  pub(super) top: f64,
+  pub(super) row_height: f64,
+}
+
+impl Rows {
+  /// The y in px of the middle of row `y`.
+  pub(super) fn y(&self, y: f64) -> f64 {
+    self.top + (y + 0.5) * self.row_height
+  }
+
+  /// The point `p` in normalized units of `column`, in px.
+  pub(super) fn point(&self, column: Column, p: Point) -> Point {
+    [column.start + p[0] * (column.end - column.start), self.y(p[1])]
+  }
+
+  /// The Bézier `c` in normalized units of `column`, in px.
+  pub(super) fn bezier(&self, column: Column, c: &Bezier) -> Bezier {
+    Bezier {
+      from: self.point(column, c.from),
+      c1: self.point(column, c.c1),
+      c2: self.point(column, c.c2),
+      to: self.point(column, c.to),
+    }
+  }
+
+  /// The elbow `points` in normalized units of `column` as path data: down or up the parent's x,
+  /// then across to the node.
+  pub(super) fn elbow(&self, column: Column, points: &[Point; 3]) -> Path {
+    let [from, corner, to] = points.map(|p| self.point(column, p));
+    Path::new().move_to(from).v(corner[1]).h(to[0])
+  }
+
+  /// The part of the elbow `points` along the parent's x, as path data.
+  pub(super) fn elbow_stem(&self, column: Column, points: &[Point; 3]) -> Path {
+    let [from, corner, _] = points.map(|p| self.point(column, p));
+    Path::new().move_to(from).v(corner[1])
+  }
+
+  /// The part of the elbow `points` across to the node, as path data.
+  pub(super) fn elbow_across(&self, column: Column, points: &[Point; 3]) -> Path {
+    let [_, corner, to] = points.map(|p| self.point(column, p));
+    Path::new().move_to(corner).h(to[0])
+  }
 }
 
 /// SVG path data.
@@ -590,67 +605,20 @@ impl Path {
   }
 }
 
+/// `v` with at most two decimals and without trailing zeros, so that equal figures have equal
+/// text: `12`, `0.5`, `-3.25`.
+pub(super) fn num(v: f64) -> String {
+  let text = format!("{v:.2}");
+  let text = text.trim_end_matches('0').trim_end_matches('.');
+  if text == "-0" { "0".to_owned() } else { text.to_owned() }
+}
+
 /// A column of the figure in px: normalized x 0 maps to `start` and 1 to `end`, so a column with
 /// `end` left of `start` is mirrored.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct Column {
   pub(super) start: f64,
   pub(super) end: f64,
-}
-
-/// The pixel frame of a drawing: leaf rows of `row_height` px from `top`.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(super) struct Rows {
-  pub(super) top: f64,
-  pub(super) row_height: f64,
-}
-
-impl Rows {
-  /// The y in px of the middle of row `y`.
-  pub(super) fn y(&self, y: f64) -> f64 {
-    self.top + (y + 0.5) * self.row_height
-  }
-
-  /// The point `p` in normalized units of `column`, in px.
-  pub(super) fn point(&self, column: Column, p: Point) -> Point {
-    [column.start + p[0] * (column.end - column.start), self.y(p[1])]
-  }
-
-  /// The Bézier `c` in normalized units of `column`, in px.
-  pub(super) fn bezier(&self, column: Column, c: &Bezier) -> Bezier {
-    Bezier {
-      from: self.point(column, c.from),
-      c1: self.point(column, c.c1),
-      c2: self.point(column, c.c2),
-      to: self.point(column, c.to),
-    }
-  }
-
-  /// The elbow `points` in normalized units of `column` as path data: down or up the parent's x,
-  /// then across to the node.
-  pub(super) fn elbow(&self, column: Column, points: &[Point; 3]) -> Path {
-    let [from, corner, to] = points.map(|p| self.point(column, p));
-    Path::new().move_to(from).v(corner[1]).h(to[0])
-  }
-
-  /// The part of the elbow `points` along the parent's x, as path data.
-  pub(super) fn elbow_stem(&self, column: Column, points: &[Point; 3]) -> Path {
-    let [from, corner, _] = points.map(|p| self.point(column, p));
-    Path::new().move_to(from).v(corner[1])
-  }
-
-  /// The part of the elbow `points` across to the node, as path data.
-  pub(super) fn elbow_across(&self, column: Column, points: &[Point; 3]) -> Path {
-    let [_, corner, to] = points.map(|p| self.point(column, p));
-    Path::new().move_to(corner).h(to[0])
-  }
-}
-
-/// An entry of a legend: a symbol drawn from its parts, and a label.
-#[derive(Clone, Debug, PartialEq)]
-pub(super) struct LegendEntry {
-  pub(super) symbol: Vec<Symbol>,
-  pub(super) label: String,
 }
 
 /// The legend `items` of the display data in `colors`: an MCC in the first color slot, and the
@@ -690,21 +658,8 @@ pub(super) fn legend_entries(items: &[LegendItem], colors: &ThemeColors<String>,
     .collect()
 }
 
-/// A part of a legend symbol.
-#[derive(Clone, Debug, PartialEq)]
-pub(super) enum Symbol {
-  /// A horizontal line across the symbol.
-  Line {
-    color: String,
-    width: f64,
-    dash: Option<[f64; 2]>,
-  },
-  /// An S-curve across the symbol.
-  Curve { color: String, dash: Option<[f64; 2]> },
-  /// A ribbon across the symbol.
-  Ribbon { color: String },
-  /// A mark ring at the fraction `at` of the symbol width.
-  Ring { stroke: String, ground: String, at: f64 },
+fn legend_lines(entries: &[LegendEntry], width: f64) -> usize {
+  legend_places(entries, width).last().map_or(0, |(line, _)| line + 1)
 }
 
 /// The line and the x of each legend entry: entries flow left to right from the margin and wrap
@@ -725,12 +680,57 @@ fn legend_places(entries: &[LegendEntry], width: f64) -> Vec<(usize, f64)> {
   places
 }
 
-fn legend_lines(entries: &[LegendEntry], width: f64) -> usize {
-  legend_places(entries, width).last().map_or(0, |(line, _)| line + 1)
-}
-
 fn entry_width(entry: &LegendEntry) -> f64 {
   SYMBOL_WIDTH + SYMBOL_GAP + text_width(&entry.label)
+}
+
+/// The estimated width of `text` in px at the label font size.
+fn text_width(text: &str) -> f64 {
+  f64::from(advance(text)) * FONT_SIZE / 1000.0
+}
+
+/// The estimated advance of `text` in 1/1000 em.
+fn advance(text: &str) -> u32 {
+  text.chars().map(char_advance).fold(0, u32::saturating_add)
+}
+
+/// The estimated advance of `c` in 1/1000 em: from the Helvetica tables for ASCII and Latin
+/// letters, 0 for a character without width, and `OTHER_ADVANCE` otherwise.
+fn char_advance(c: char) -> u32 {
+  let at = |table: &[u32], first: u32| {
+    let i = usize::try_from(u32::from(c).checked_sub(first)?).ok()?;
+    table.get(i).copied()
+  };
+  if ZERO_WIDTH.iter().any(|&(low, high)| (low..=high).contains(&c)) {
+    return 0;
+  }
+  at(&ASCII_ADVANCE, 0x20)
+    .or_else(|| at(&LATIN_ADVANCE, LATIN_FIRST))
+    .unwrap_or(OTHER_ADVANCE)
+}
+
+/// An entry of a legend: a symbol drawn from its parts, and a label.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct LegendEntry {
+  pub(super) symbol: Vec<Symbol>,
+  pub(super) label: String,
+}
+
+/// A part of a legend symbol.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) enum Symbol {
+  /// A horizontal line across the symbol.
+  Line {
+    color: String,
+    width: f64,
+    dash: Option<[f64; 2]>,
+  },
+  /// An S-curve across the symbol.
+  Curve { color: String, dash: Option<[f64; 2]> },
+  /// A ribbon across the symbol.
+  Ribbon { color: String },
+  /// A mark ring at the fraction `at` of the symbol width.
+  Ring { stroke: String, ground: String, at: f64 },
 }
 
 fn start<'a>(name: &'a str, attributes: &'a [(&'a str, String)]) -> BytesStart<'a> {

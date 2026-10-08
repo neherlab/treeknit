@@ -33,18 +33,6 @@ const TEMPERATURES: [f64; 4] = [1.0, 0.3, 0.1, 0.05];
 /// Full energy computations per timing.
 const FULL_REPS: u32 = 200;
 
-#[derive(Parser)]
-#[command(about = "Time the full and the incremental energy of the split graph of two trees")]
-struct Args {
-  /// First tree, Newick
-  tree1: PathBuf,
-  /// Second tree, Newick
-  tree2: PathBuf,
-  /// Flips of the chain at each temperature
-  #[arg(default_value_t = 100_000)]
-  steps: u32,
-}
-
 fn main() -> ExitCode {
   match run(&Args::parse()) {
     Ok(()) => ExitCode::SUCCESS,
@@ -103,6 +91,18 @@ fn run(args: &Args) -> Result<(), Box<dyn Error>> {
     }
   }
   Ok(())
+}
+
+#[derive(Parser)]
+#[command(about = "Time the full and the incremental energy of the split graph of two trees")]
+struct Args {
+  /// First tree, Newick
+  tree1: PathBuf,
+  /// Second tree, Newick
+  tree2: PathBuf,
+  /// Flips of the chain at each temperature
+  #[arg(default_value_t = 100_000)]
+  steps: u32,
 }
 
 fn read_tree(path: &Path) -> Result<Tree, ReadTreeError> {

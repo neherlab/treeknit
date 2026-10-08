@@ -208,6 +208,21 @@ fn elbow(parent: Point, node: Point) -> [Point; 3] {
   [parent, [parent[0], node[1]], node]
 }
 
+/// The closed outline of the ribbon of `block`, clockwise from its top left: the S-curve along
+/// the top, the right side, the S-curve back along the bottom, and the left side. Each y range
+/// is extended by half a row.
+fn ribbon(block: &Block) -> Vec<Bezier> {
+  let span = |r: [f64; 2]| (r[0].min(r[1]) - HALF_ROW, r[0].max(r[1]) + HALF_ROW);
+  let (left_top, left_bottom) = span(block.left);
+  let (right_top, right_bottom) = span(block.right);
+  vec![
+    s_curve([0.0, left_top], [1.0, right_top]),
+    line([1.0, right_top], [1.0, right_bottom]),
+    s_curve([1.0, right_bottom], [0.0, left_bottom]),
+    line([0.0, left_bottom], [0.0, left_top]),
+  ]
+}
+
 /// The S-curve from `from` to `to`, with both control points at the middle x.
 pub(crate) fn s_curve(from: Point, to: Point) -> Bezier {
   let mid = f64::midpoint(from[0], to[0]);
@@ -228,21 +243,6 @@ fn line(from: Point, to: Point) -> Bezier {
     c2: at(2.0 / 3.0),
     to,
   }
-}
-
-/// The closed outline of the ribbon of `block`, clockwise from its top left: the S-curve along
-/// the top, the right side, the S-curve back along the bottom, and the left side. Each y range
-/// is extended by half a row.
-fn ribbon(block: &Block) -> Vec<Bezier> {
-  let span = |r: [f64; 2]| (r[0].min(r[1]) - HALF_ROW, r[0].max(r[1]) + HALF_ROW);
-  let (left_top, left_bottom) = span(block.left);
-  let (right_top, right_bottom) = span(block.right);
-  vec![
-    s_curve([0.0, left_top], [1.0, right_top]),
-    line([1.0, right_top], [1.0, right_bottom]),
-    s_curve([1.0, right_bottom], [0.0, left_bottom]),
-    line([0.0, left_bottom], [0.0, left_top]),
-  ]
 }
 
 #[cfg(test)]
