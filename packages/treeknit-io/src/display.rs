@@ -140,31 +140,6 @@ pub struct DrawingRules {
   pub dot_px: [f64; 2],
 }
 
-/// The palette color of a drawn shape by its role; `ThemeColors::role` gives the color.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "camelCase")]
-pub enum ColorRole {
-  /// The color slot of the shape's MCC; in a legend, the first slot.
-  Mcc,
-  /// A node without an MCC.
-  NoMcc,
-  /// An ARG edge of both segments.
-  Ink,
-  /// An added node.
-  InkMuted,
-  /// Reassortment.
-  Signal,
-  /// An ARG edge of segment A only.
-  SegmentA,
-  /// An ARG edge of segment B only.
-  SegmentB,
-}
-
-/// A point `[x, y]` in normalized units.
-#[cfg_attr(feature = "tsify", tsify::declare)]
-pub type Point = [f64; 2];
-
 /// Version of the trees of a pair: input, resolved, or imputed.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize, VariantArray)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
@@ -179,39 +154,6 @@ pub enum TreeVersion {
   Imputed,
 }
 
-/// Branch scale of a drawing.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize, VariantArray)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "lowercase")]
-pub enum Scale {
-  /// Divergence from the root, from the branch lengths.
-  #[default]
-  Div,
-  /// Cladogram: all leaves at the largest leaf depth.
-  Depth,
-}
-
-impl Scale {
-  /// The scale that a drawing shows for this requested scale: `depth` instead of `div` when a
-  /// drawn tree has no branch lengths (`flat`), because its divergence is 0 everywhere and `div`
-  /// would draw all its nodes at the root. A tree with some branch lengths keeps `div`. The
-  /// interactive views and the figures apply the same rule, so both show the same drawing.
-  pub(crate) fn shown(self, flat: bool) -> Scale {
-    match self {
-      Scale::Div if flat => Scale::Depth,
-      Scale::Div | Scale::Depth => self,
-    }
-  }
-
-  /// The x coordinate of a node on this scale: its divergence `x_div` or its depth `x_depth`.
-  pub(crate) fn x(self, x_div: f64, x_depth: f64) -> f64 {
-    match self {
-      Scale::Div => x_div,
-      Scale::Depth => x_depth,
-    }
-  }
-}
-
 /// A count of rows, steps, lines, or characters as a coordinate.
 #[expect(
   clippy::as_conversions,
@@ -219,6 +161,29 @@ impl Scale {
 )]
 pub(crate) fn coordinate(n: usize) -> f64 {
   n as f64
+}
+
+/// The tanglegram of one pair of trees in one version.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct PairView {
+  pub left: DrawTree,
+  pub right: DrawTree,
+  /// One link per leaf in both drawn trees that has an MCC of the pair, in the left display
+  /// order.
+  pub links: Vec<Link>,
+  /// Runs of consecutive links of one MCC, in the left display order.
+  pub blocks: Vec<Block>,
+  /// The MCCs of the pair; `DrawNode.mcc`, `Link.mcc`, and `Block.mcc` index this list.
+  pub mccs: Vec<MccInfo>,
+  /// The scale of `shapes`: the requested scale, or `depth` for `div` when a tree of the pair has
+  /// no branch lengths, because `div` would draw all the nodes of that tree at the root.
+  pub scale: Scale,
+  /// The shapes of the drawing for `scale`.
+  pub shapes: PairShapes,
+  /// The legend: an entry for each kind of shape that the drawing contains.
+  pub legend: Vec<LegendItem>,
 }
 
 /// A tree laid out for drawing, with the MCCs of one pair.
@@ -281,29 +246,6 @@ pub struct DrawNode {
   /// The branch above the node is a reassortment branch: the node is not the root, has an MCC,
   /// and its parent's MCC is a different one or none.
   pub mcc_break: bool,
-}
-
-/// The tanglegram of one pair of trees in one version.
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "camelCase")]
-pub struct PairView {
-  pub left: DrawTree,
-  pub right: DrawTree,
-  /// One link per leaf in both drawn trees that has an MCC of the pair, in the left display
-  /// order.
-  pub links: Vec<Link>,
-  /// Runs of consecutive links of one MCC, in the left display order.
-  pub blocks: Vec<Block>,
-  /// The MCCs of the pair; `DrawNode.mcc`, `Link.mcc`, and `Block.mcc` index this list.
-  pub mccs: Vec<MccInfo>,
-  /// The scale of `shapes`: the requested scale, or `depth` for `div` when a tree of the pair has
-  /// no branch lengths, because `div` would draw all the nodes of that tree at the root.
-  pub scale: Scale,
-  /// The shapes of the drawing for `scale`.
-  pub shapes: PairShapes,
-  /// The legend: an entry for each kind of shape that the drawing contains.
-  pub legend: Vec<LegendItem>,
 }
 
 /// The two copies of one leaf.
@@ -388,20 +330,6 @@ pub struct TreeShapes {
   pub leaders: Vec<Leader>,
 }
 
-/// The dotted line from a leaf tip to the label edge of its tree column, at x = 1, so that the
-/// labels align when the tips do not. A leaf at the label edge has a leader of length 0.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "camelCase")]
-pub struct Leader {
-  /// Index of the leaf.
-  pub node: usize,
-  /// The tip of the leaf.
-  pub from: Point,
-  /// The label edge, at the leaf's row.
-  pub to: Point,
-}
-
 /// The rectangular branch above a node: from (parent x, parent y) to (parent x, node y) to
 /// (node x, node y).
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
@@ -424,49 +352,6 @@ pub struct Elbow {
   /// The color of the branch: signal for a reassortment branch, else the color of `slot`, or "no
   /// MCC". The part across of an added node is ink-muted instead.
   pub color: ColorRole,
-}
-
-/// A point mark on a drawing.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "camelCase")]
-pub struct Mark {
-  pub kind: MarkKind,
-  /// Index of the node the mark belongs to.
-  pub node: usize,
-  /// MCC of the node in a tanglegram, its `DrawNode.mcc`; `None` for a node without an MCC and
-  /// on the ARG.
-  pub mcc: Option<usize>,
-  /// Color slot of `mcc`.
-  pub slot: Option<usize>,
-  pub at: Point,
-  /// The color of the ring: signal for reassortment and hybrid nodes, else the color of `slot`,
-  /// or "no MCC".
-  pub color: ColorRole,
-}
-
-/// Meaning of a mark.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "lowercase")]
-pub enum MarkKind {
-  /// Signal ring at the midpoint of a reassortment branch.
-  Reassortment,
-  /// Hollow circle at the tip of an imputed leaf.
-  Imputed,
-  /// Signal ring on a hybrid node of the ARG.
-  Hybrid,
-}
-
-/// A cubic Bézier segment.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "camelCase")]
-pub struct Bezier {
-  pub from: Point,
-  pub c1: Point,
-  pub c2: Point,
-  pub to: Point,
 }
 
 /// The S-curve of one link, with control points at x = 0.5.
@@ -599,6 +484,52 @@ pub struct ArgShapes {
   pub marks: Vec<Mark>,
   /// One leader per leaf, in node order.
   pub leaders: Vec<Leader>,
+}
+
+/// The dotted line from a leaf tip to the label edge of its tree column, at x = 1, so that the
+/// labels align when the tips do not. A leaf at the label edge has a leader of length 0.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct Leader {
+  /// Index of the leaf.
+  pub node: usize,
+  /// The tip of the leaf.
+  pub from: Point,
+  /// The label edge, at the leaf's row.
+  pub to: Point,
+}
+
+/// A point mark on a drawing.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct Mark {
+  pub kind: MarkKind,
+  /// Index of the node the mark belongs to.
+  pub node: usize,
+  /// MCC of the node in a tanglegram, its `DrawNode.mcc`; `None` for a node without an MCC and
+  /// on the ARG.
+  pub mcc: Option<usize>,
+  /// Color slot of `mcc`.
+  pub slot: Option<usize>,
+  pub at: Point,
+  /// The color of the ring: signal for reassortment and hybrid nodes, else the color of `slot`,
+  /// or "no MCC".
+  pub color: ColorRole,
+}
+
+/// Meaning of a mark.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "lowercase")]
+pub enum MarkKind {
+  /// Signal ring at the midpoint of a reassortment branch.
+  Reassortment,
+  /// Hollow circle at the tip of an imputed leaf.
+  Imputed,
+  /// Signal ring on a hybrid node of the ARG.
+  Hybrid,
 }
 
 /// The shape of one ARG edge.
@@ -900,6 +831,75 @@ pub struct AuspiceBranchLabels {
   #[serde(rename = "MCC")]
   pub mcc: String,
 }
+
+/// A cubic Bézier segment.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct Bezier {
+  pub from: Point,
+  pub c1: Point,
+  pub c2: Point,
+  pub to: Point,
+}
+
+/// Branch scale of a drawing.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize, VariantArray)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "lowercase")]
+pub enum Scale {
+  /// Divergence from the root, from the branch lengths.
+  #[default]
+  Div,
+  /// Cladogram: all leaves at the largest leaf depth.
+  Depth,
+}
+
+impl Scale {
+  /// The scale that a drawing shows for this requested scale: `depth` instead of `div` when a
+  /// drawn tree has no branch lengths (`flat`), because its divergence is 0 everywhere and `div`
+  /// would draw all its nodes at the root. A tree with some branch lengths keeps `div`. The
+  /// interactive views and the figures apply the same rule, so both show the same drawing.
+  pub(crate) fn shown(self, flat: bool) -> Scale {
+    match self {
+      Scale::Div if flat => Scale::Depth,
+      Scale::Div | Scale::Depth => self,
+    }
+  }
+
+  /// The x coordinate of a node on this scale: its divergence `x_div` or its depth `x_depth`.
+  pub(crate) fn x(self, x_div: f64, x_depth: f64) -> f64 {
+    match self {
+      Scale::Div => x_div,
+      Scale::Depth => x_depth,
+    }
+  }
+}
+
+/// The palette color of a drawn shape by its role; `ThemeColors::role` gives the color.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub enum ColorRole {
+  /// The color slot of the shape's MCC; in a legend, the first slot.
+  Mcc,
+  /// A node without an MCC.
+  NoMcc,
+  /// An ARG edge of both segments.
+  Ink,
+  /// An added node.
+  InkMuted,
+  /// Reassortment.
+  Signal,
+  /// An ARG edge of segment A only.
+  SegmentA,
+  /// An ARG edge of segment B only.
+  SegmentB,
+}
+
+/// A point `[x, y]` in normalized units.
+#[cfg_attr(feature = "tsify", tsify::declare)]
+pub type Point = [f64; 2];
 
 #[cfg(test)]
 mod tests {

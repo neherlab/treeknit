@@ -55,27 +55,329 @@ const ANALYSIS_HEADING: &str = "Analysis";
 /// Heading of the options that choose the output.
 const OUTPUT_HEADING: &str = "Output";
 
-/// The text of `--help-resolve`: the resolution modes, the final round, and pre-resolution
-/// with the words of the web app (`treeknit_io::schema`), then the former options.
-fn resolve_help() -> String {
-  let modes = schema::modes()
+#[ctor(unsafe)]
+fn init() {
+  global_init();
+}
+
+/// Install the color-eyre handler of errors and panics. Its colors are off when stderr is not a
+/// terminal or `NO_COLOR` is set, because color-eyre writes escape codes into pipes otherwise.
+fn global_init() {
+  let theme = if io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none() {
+    Theme::dark()
+  } else {
+    Theme::new()
+  };
+  #[expect(
+    clippy::expect_used,
+    reason = "runs once before main, when no other handler is installed"
+  )]
+  HookBuilder::default()
+    .display_env_section(false)
+    .theme(theme)
+    .panic_section(format!("Report this bug at {}/issues", env!("CARGO_PKG_REPOSITORY")))
+    .install()
+    .expect("the color-eyre handler installs once");
+}
+
+/// Run the command line. A mistake in the input prints its plain list with exit code 1; color-eyre
+/// renders any other error with its chain of causes.
+fn main() -> Result<ExitCode> {
+  match run() {
+    Ok(()) => Ok(ExitCode::SUCCESS),
+    Err(report) => match report.downcast_ref::<InputError>() {
+      #[cfg_attr(
+        dylint_lib = "custom",
+        expect(debug_remnants, reason = "the CLI reports input errors on stderr")
+      )]
+      Some(error) => {
+        eprintln!("Error: {error}");
+        Ok(ExitCode::FAILURE)
+      },
+      None => Err(report),
+    },
+  }
+}
+
+fn run() -> Result<()> {
+  let matches = Cli::command().get_matches();
+  let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+  if cli.help_resolve || cli.help_defaults {
+    return write_stdout(&format!("{}\n", resolve_help()));
+  }
+  if cli.help_markdown {
+    return write_stdout(&reference_markdown());
+  }
+  if cli.list_examples {
+    return write_stdout(&format!("{}\n", example_list()));
+  }
+  // The log stays in memory until the input passes validation, so that a run with invalid input
+  // leaves no results directory behind.
+  let log_file = LogFile::default();
+  setup_logging(&cli, &log_file)?;
+  if cli.threads > 0 {
+    rayon_threads(cli.threads)?;
+  }
+
+  log::info!("TreeKnit {}", env!("TREEKNIT_LONG_VERSION"));
+  let input = read_input(&cli, &http_get)?;
+  log::info!("results directory: {}", cli.outdir.display());
+  let output_options = OutputOptions {
+    extensions: input.extensions.clone(),
+    imputed: cli.impute,
+    auspice: cli.auspice_view,
+    figures: cli.plot,
+  };
+
+  let k = input.texts.len();
+  let settings = (!uses_former_options(&cli)).then(|| run_settings(&cli, &matches, &input));
+  let opts = match &settings {
+    Some((s, errors)) => match analysis::options(s, k, true) {
+      Ok(o) if errors.is_empty() => Ok(o),
+      result => Err(errors.iter().cloned().chain(result.err().unwrap_or_default()).collect()),
+    },
+    None => former_options_checked(&cli, k),
+  };
+  // A file that cannot be read stops the run with its read error, and the checks of the other
+  // trees still run.
+  let (parsed, opts) = match analysis::prepare(&input.texts, &output_options, opts) {
+    Ok(prepared) if input.read_errors.is_empty() => prepared,
+    result => fail(&input.with_read_errors(result.err().unwrap_or_default()), &input.source)?,
+  };
+  let settings = settings.map(|(s, _)| s);
+  let seed = settings.as_ref().map_or(cli.seed, |s| s.seed);
+  run::report_overlap(&parsed.trees, &parsed.taxa);
+  fs::create_dir_all(&cli.outdir).wrap_err_with(|| format!("creating {}", cli.outdir.display()))?;
+  let log_path = cli.outdir.join(output::LOG_FILE);
+  log_file
+    .open(&log_path)
+    .wrap_err_with(|| format!("writing {}", log_path.display()))?;
+  log_options(&opts, parsed.trees.len());
+  log::debug!("parameters: {opts:?}");
+  write_file(&cli.outdir, &output::parameters_file(&opts, seed))?;
+  let request = settings.map(|settings| AnalysisRequest {
+    trees: input.texts.clone(),
+    settings,
+  });
+  if let Some(r) = request.as_ref().filter(|_| input.session || cli.print_link) {
+    write_file(&cli.outdir, &output::session_file(r))?;
+  }
+
+  let start = Instant::now();
+  let result = run::run(parsed, &opts, seed, &|_| {});
+  log::info!(
+    "found {:?} MCCs (runtime {:.2}s)",
+    result.pairs().iter().map(|p| p.mccs.len()).collect::<Vec<_>>(),
+    start.elapsed().as_secs_f64()
+  );
+
+  log::info!("writing results in {}", cli.outdir.display());
+  for file in output::output_files(&result, &output_options)? {
+    write_file(&cli.outdir, &file)?;
+  }
+  if let Some(r) = request.as_ref().filter(|_| cli.print_link) {
+    match share_link(r, &input.addresses) {
+      Ok(link) => write_stdout(&format!("{link}\n"))?,
+      Err(length) => log::warn!(
+        "the link would have {length} characters, more than {}; share the session file {} instead",
+        launch::MAX_LINK_CHARS,
+        cli.outdir.join(output::SESSION_FILE).display()
+      ),
+    }
+  }
+  Ok(())
+}
+
+/// Write `text` to stdout, which carries the texts and the link that the user asks for. A closed
+/// pipe, such as `treeknit --help-markdown | head`, is an error instead of the panic of `print!`.
+fn write_stdout(text: &str) -> Result<()> {
+  io::stdout()
+    .lock()
+    .write_all(text.as_bytes())
+    .wrap_err("cannot write to stdout")
+}
+
+/// The settings of the run: the analysis options given on the command line applied to the
+/// settings of the input, with the error of `--seq-lengths`, which leaves the sequence lengths of
+/// the input. The log names each option that changes the settings of a session file, an example,
+/// or a link.
+fn run_settings(cli: &Cli, matches: &ArgMatches, input: &Input) -> (Settings, Vec<ValidationError>) {
+  let (patch, errors) = match options_patch(cli, matches, cli.seq_lengths.as_deref().map(parse_lengths)) {
+    (patch, Some(Err(e))) => (patch, vec![e]),
+    (patch, _) => (patch, Vec::new()),
+  };
+  if input.session {
+    for key in patch_keys(&patch) {
+      log::info!("--{key} changes the setting of the input");
+    }
+  }
+  (launch::apply(&input.base, &patch), errors)
+}
+
+/// The analysis options given on the command line as a patch of the settings, with the sequence
+/// lengths `lengths` when they parse; the parse result comes back. Each flag and its opposite
+/// override each other, so at most one is set.
+fn options_patch(
+  cli: &Cli,
+  matches: &ArgMatches,
+  lengths: Option<Result<Vec<f64>, ValidationError>>,
+) -> (SettingsPatch, Option<Result<Vec<f64>, ValidationError>>) {
+  let given = |id: &str| matches.value_source(id) == Some(ValueSource::CommandLine);
+  let pair = |on: bool, off: bool| {
+    if on {
+      Some(true)
+    } else if off {
+      Some(false)
+    } else {
+      None
+    }
+  };
+  let patch = SettingsPatch {
+    gamma: given("gamma").then_some(cli.gamma),
+    seq_lengths: lengths.clone().and_then(Result::ok),
+    n_mcmc_it: given("n_mcmc_it").then_some(cli.n_mcmc_it),
+    resolve: cli.resolve,
+    pre_resolve: pair(cli.pre_resolve, cli.no_pre_resolve),
+    rounds: cli.rounds,
+    final_round: pair(cli.final_round, cli.no_final_round),
+    likelihood: pair(cli.likelihood, cli.no_likelihood),
+    naive: pair(cli.naive, cli.no_naive),
+    seed: given("seed").then_some(cli.seed),
+  };
+  (patch, lengths)
+}
+
+/// The keys of the settings that `patch` sets, as the options that set them: `gamma`,
+/// `no-final-round`.
+fn patch_keys(patch: &SettingsPatch) -> Vec<&'static str> {
+  let flag = |value: Option<bool>, key: &'static str, opposite: &'static str, key_sets: bool| {
+    value.map(|v| if v == key_sets { key } else { opposite })
+  };
+  SETTING_KEYS
     .iter()
-    .map(|m| {
-      let name = wire_name(&m.mode);
-      let default = if m.mode == analysis::ResolveMode::default() {
-        "(default) "
-      } else {
-        ""
-      };
-      format!("  {name:<8} {default}{}", m.effect)
+    .filter_map(|s| {
+      let set = |v: bool| v.then_some(s.key);
+      match (s.setting, s.value) {
+        (schema::SettingName::Gamma, _) => set(patch.gamma.is_some()),
+        (schema::SettingName::SeqLengths, _) => set(patch.seq_lengths.is_some()),
+        (schema::SettingName::NMcmcIt, _) => set(patch.n_mcmc_it.is_some()),
+        (schema::SettingName::Resolve, _) => set(patch.resolve.is_some()),
+        (schema::SettingName::Rounds, _) => set(patch.rounds.is_some()),
+        (schema::SettingName::Seed, _) => set(patch.seed.is_some()),
+        (schema::SettingName::PreResolve, KeyValue::Flag { key_sets, opposite }) => {
+          flag(patch.pre_resolve, s.key, opposite, key_sets)
+        },
+        (schema::SettingName::FinalRound, KeyValue::Flag { key_sets, opposite }) => {
+          flag(patch.final_round, s.key, opposite, key_sets)
+        },
+        (schema::SettingName::Likelihood, KeyValue::Flag { key_sets, opposite }) => {
+          flag(patch.likelihood, s.key, opposite, key_sets)
+        },
+        (schema::SettingName::Naive, KeyValue::Flag { key_sets, opposite }) => {
+          flag(patch.naive, s.key, opposite, key_sets)
+        },
+        (
+          schema::SettingName::PreResolve
+          | schema::SettingName::FinalRound
+          | schema::SettingName::Likelihood
+          | schema::SettingName::Naive,
+          _,
+        ) => None,
+      }
     })
-    .collect::<Vec<_>>()
-    .join("\n");
-  format!(
-    "Resolution of the trees (--resolve):\n{modes}\n\nFinal round (--no-final-round skips it): {}\n\n--pre-resolve: {}\n\n{FORMER_OPTIONS_HELP}",
-    schema::FINAL_ROUND_HELP,
-    schema::PRE_RESOLVE_HELP,
-  )
+    .collect()
+}
+
+/// The link of the web app that runs `request` (`run` included), whose trees have `addresses`:
+/// the canonical link when every tree has an address, otherwise an inline session in the
+/// fragment; or the length of that link when it is longer than [`launch::MAX_LINK_CHARS`].
+fn share_link(request: &AnalysisRequest, addresses: &[Option<TreeAddress>]) -> Result<String, usize> {
+  if let Some(pairs) = launch::launch_pairs(request, addresses, &Settings::default(), true) {
+    return Ok(launch::web_link(&pairs, &[]));
+  }
+  let link = launch::web_link(
+    &[("run".to_owned(), String::new())],
+    &[("session".to_owned(), launch::inline_session(request))],
+  );
+  let length = link.chars().count();
+  if length > launch::MAX_LINK_CHARS {
+    Err(length)
+  } else {
+    Ok(link)
+  }
+}
+
+/// Write `file` at its path below `dir`, creating its parent directories.
+fn write_file(dir: &Path, file: &OutputFile) -> Result<()> {
+  let path = dir.join(&file.path);
+  if let Some(parent) = path.parent() {
+    fs::create_dir_all(parent).wrap_err_with(|| format!("creating {}", parent.display()))?;
+  }
+  fs::write(&path, &file.text).wrap_err_with(|| format!("writing {}", path.display()))
+}
+
+/// Stop with every validation error, one per line. For tree arguments, an error of a tree starts
+/// with its path or address, and with the line and column in the file when it has them. For a
+/// session file, an example, or a link, every error starts with its name and the field of the
+/// error, and an error in a tree's Newick text gives the line and column in that text.
+fn fail<T>(errors: &[ValidationError], source: &Source) -> Result<T> {
+  let lines: Vec<String> = errors
+    .iter()
+    .map(|e| match source {
+      Source::Trees(names) => {
+        let name = e.field.as_ref().and_then(Field::tree_index).and_then(|i| names.get(i));
+        match (name, e.line, e.column) {
+          (Some(n), Some(line), Some(column)) => format!("{n}:{line}:{column}: {e}"),
+          (Some(n), ..) => format!("{n}: {e}"),
+          (None, ..) => e.to_string(),
+        }
+      },
+      Source::Named(name) => match (&e.field, e.line, e.column) {
+        (Some(field), Some(line), Some(column)) => {
+          format!("{name}: {}: line {line}, column {column}: {e}", field.path())
+        },
+        (Some(field), ..) => format!("{name}: {}: {e}", field.path()),
+        (None, ..) => format!("{name}: {e}"),
+      },
+    })
+    .collect();
+  Err(InputError::Invalid(lines).into())
+}
+
+/// Sequence lengths of `--seq-lengths`: numbers separated by commas or whitespace, so the value of
+/// a link (`1701,1410`) works as well as `"1701 1410"`.
+fn parse_lengths(s: &str) -> Result<Vec<f64>, ValidationError> {
+  s.split(|c: char| c == ',' || c.is_whitespace())
+    .filter(|v| !v.is_empty())
+    .map(str::parse::<f64>)
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| {
+      ValidationError::at(
+        Field::Setting {
+          key: SettingKey::SeqLengths,
+        },
+        format!("--seq-lengths should look like 1500,2000, got {s:?}: {e}"),
+      )
+    })
+}
+
+fn log_options(o: &Options, k: usize) {
+  let extra = o.extra_unresolved_round(k);
+  log::info!(
+    "γ = {}, resolution: {}, pre-resolve: {}, {} round(s){}",
+    o.gamma,
+    wire_name(&analysis::ResolveMode::from(o.resolution)),
+    o.pre_resolve,
+    o.rounds,
+    if extra { " + final round without resolution" } else { "" }
+  );
+}
+
+fn rayon_threads(n: usize) -> Result<()> {
+  rayon::ThreadPoolBuilder::new()
+    .num_threads(n)
+    .build_global()
+    .wrap_err("configuring threads")
 }
 
 /// The command-line reference of `docs/user/cli.md`: the text of `--help` and of `--help-resolve`,
@@ -112,6 +414,29 @@ fn reference_markdown() -> String {
     help = help.trim_end(),
     resolve = resolve_help(),
     dir = output::RESULTS_DIR,
+  )
+}
+
+/// The text of `--help-resolve`: the resolution modes, the final round, and pre-resolution
+/// with the words of the web app (`treeknit_io::schema`), then the former options.
+fn resolve_help() -> String {
+  let modes = schema::modes()
+    .iter()
+    .map(|m| {
+      let name = wire_name(&m.mode);
+      let default = if m.mode == analysis::ResolveMode::default() {
+        "(default) "
+      } else {
+        ""
+      };
+      format!("  {name:<8} {default}{}", m.effect)
+    })
+    .collect::<Vec<_>>()
+    .join("\n");
+  format!(
+    "Resolution of the trees (--resolve):\n{modes}\n\nFinal round (--no-final-round skips it): {}\n\n--pre-resolve: {}\n\n{FORMER_OPTIONS_HELP}",
+    schema::FINAL_ROUND_HELP,
+    schema::PRE_RESOLVE_HELP,
   )
 }
 
@@ -320,148 +645,6 @@ struct Cli {
   resolve_all_rounds: bool,
 }
 
-#[ctor(unsafe)]
-fn init() {
-  global_init();
-}
-
-/// Install the color-eyre handler of errors and panics. Its colors are off when stderr is not a
-/// terminal or `NO_COLOR` is set, because color-eyre writes escape codes into pipes otherwise.
-fn global_init() {
-  let theme = if io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none() {
-    Theme::dark()
-  } else {
-    Theme::new()
-  };
-  #[expect(
-    clippy::expect_used,
-    reason = "runs once before main, when no other handler is installed"
-  )]
-  HookBuilder::default()
-    .display_env_section(false)
-    .theme(theme)
-    .panic_section(format!("Report this bug at {}/issues", env!("CARGO_PKG_REPOSITORY")))
-    .install()
-    .expect("the color-eyre handler installs once");
-}
-
-/// Run the command line. A mistake in the input prints its plain list with exit code 1; color-eyre
-/// renders any other error with its chain of causes.
-fn main() -> Result<ExitCode> {
-  match run() {
-    Ok(()) => Ok(ExitCode::SUCCESS),
-    Err(report) => match report.downcast_ref::<InputError>() {
-      #[cfg_attr(
-        dylint_lib = "custom",
-        expect(debug_remnants, reason = "the CLI reports input errors on stderr")
-      )]
-      Some(error) => {
-        eprintln!("Error: {error}");
-        Ok(ExitCode::FAILURE)
-      },
-      None => Err(report),
-    },
-  }
-}
-
-fn run() -> Result<()> {
-  let matches = Cli::command().get_matches();
-  let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
-  if cli.help_resolve || cli.help_defaults {
-    return write_stdout(&format!("{}\n", resolve_help()));
-  }
-  if cli.help_markdown {
-    return write_stdout(&reference_markdown());
-  }
-  if cli.list_examples {
-    return write_stdout(&format!("{}\n", example_list()));
-  }
-  // The log stays in memory until the input passes validation, so that a run with invalid input
-  // leaves no results directory behind.
-  let log_file = LogFile::default();
-  setup_logging(&cli, &log_file)?;
-  if cli.threads > 0 {
-    rayon_threads(cli.threads)?;
-  }
-
-  log::info!("TreeKnit {}", env!("TREEKNIT_LONG_VERSION"));
-  let input = read_input(&cli, &http_get)?;
-  log::info!("results directory: {}", cli.outdir.display());
-  let output_options = OutputOptions {
-    extensions: input.extensions.clone(),
-    imputed: cli.impute,
-    auspice: cli.auspice_view,
-    figures: cli.plot,
-  };
-
-  let k = input.texts.len();
-  let settings = (!uses_former_options(&cli)).then(|| run_settings(&cli, &matches, &input));
-  let opts = match &settings {
-    Some((s, errors)) => match analysis::options(s, k, true) {
-      Ok(o) if errors.is_empty() => Ok(o),
-      result => Err(errors.iter().cloned().chain(result.err().unwrap_or_default()).collect()),
-    },
-    None => former_options_checked(&cli, k),
-  };
-  // A file that cannot be read stops the run with its read error, and the checks of the other
-  // trees still run.
-  let (parsed, opts) = match analysis::prepare(&input.texts, &output_options, opts) {
-    Ok(prepared) if input.read_errors.is_empty() => prepared,
-    result => fail(&input.with_read_errors(result.err().unwrap_or_default()), &input.source)?,
-  };
-  let settings = settings.map(|(s, _)| s);
-  let seed = settings.as_ref().map_or(cli.seed, |s| s.seed);
-  run::report_overlap(&parsed.trees, &parsed.taxa);
-  fs::create_dir_all(&cli.outdir).wrap_err_with(|| format!("creating {}", cli.outdir.display()))?;
-  let log_path = cli.outdir.join(output::LOG_FILE);
-  log_file
-    .open(&log_path)
-    .wrap_err_with(|| format!("writing {}", log_path.display()))?;
-  log_options(&opts, parsed.trees.len());
-  log::debug!("parameters: {opts:?}");
-  write_file(&cli.outdir, &output::parameters_file(&opts, seed))?;
-  let request = settings.map(|settings| AnalysisRequest {
-    trees: input.texts.clone(),
-    settings,
-  });
-  if let Some(r) = request.as_ref().filter(|_| input.session || cli.print_link) {
-    write_file(&cli.outdir, &output::session_file(r))?;
-  }
-
-  let start = Instant::now();
-  let result = run::run(parsed, &opts, seed, &|_| {});
-  log::info!(
-    "found {:?} MCCs (runtime {:.2}s)",
-    result.pairs().iter().map(|p| p.mccs.len()).collect::<Vec<_>>(),
-    start.elapsed().as_secs_f64()
-  );
-
-  log::info!("writing results in {}", cli.outdir.display());
-  for file in output::output_files(&result, &output_options)? {
-    write_file(&cli.outdir, &file)?;
-  }
-  if let Some(r) = request.as_ref().filter(|_| cli.print_link) {
-    match share_link(r, &input.addresses) {
-      Ok(link) => write_stdout(&format!("{link}\n"))?,
-      Err(length) => log::warn!(
-        "the link would have {length} characters, more than {}; share the session file {} instead",
-        launch::MAX_LINK_CHARS,
-        cli.outdir.join(output::SESSION_FILE).display()
-      ),
-    }
-  }
-  Ok(())
-}
-
-/// Write `text` to stdout, which carries the texts and the link that the user asks for. A closed
-/// pipe, such as `treeknit --help-markdown | head`, is an error instead of the panic of `print!`.
-fn write_stdout(text: &str) -> Result<()> {
-  io::stdout()
-    .lock()
-    .write_all(text.as_bytes())
-    .wrap_err("cannot write to stdout")
-}
-
 /// A mistake in the input: the validation errors of the trees and settings, a link or example
 /// that names nothing to run, or a session file that cannot be read. `main` prints it as a plain
 /// list, while any other error is a failure that color-eyre renders with its chain of causes.
@@ -482,189 +665,6 @@ enum InputError {
   /// The session file of a link.
   #[error("{0}")]
   UnreadableLinkSession(#[source] ReadError),
-}
-
-/// The settings of the run: the analysis options given on the command line applied to the
-/// settings of the input, with the error of `--seq-lengths`, which leaves the sequence lengths of
-/// the input. The log names each option that changes the settings of a session file, an example,
-/// or a link.
-fn run_settings(cli: &Cli, matches: &ArgMatches, input: &Input) -> (Settings, Vec<ValidationError>) {
-  let (patch, errors) = match options_patch(cli, matches, cli.seq_lengths.as_deref().map(parse_lengths)) {
-    (patch, Some(Err(e))) => (patch, vec![e]),
-    (patch, _) => (patch, Vec::new()),
-  };
-  if input.session {
-    for key in patch_keys(&patch) {
-      log::info!("--{key} changes the setting of the input");
-    }
-  }
-  (launch::apply(&input.base, &patch), errors)
-}
-
-/// The analysis options given on the command line as a patch of the settings, with the sequence
-/// lengths `lengths` when they parse; the parse result comes back. Each flag and its opposite
-/// override each other, so at most one is set.
-fn options_patch(
-  cli: &Cli,
-  matches: &ArgMatches,
-  lengths: Option<Result<Vec<f64>, ValidationError>>,
-) -> (SettingsPatch, Option<Result<Vec<f64>, ValidationError>>) {
-  let given = |id: &str| matches.value_source(id) == Some(ValueSource::CommandLine);
-  let pair = |on: bool, off: bool| {
-    if on {
-      Some(true)
-    } else if off {
-      Some(false)
-    } else {
-      None
-    }
-  };
-  let patch = SettingsPatch {
-    gamma: given("gamma").then_some(cli.gamma),
-    seq_lengths: lengths.clone().and_then(Result::ok),
-    n_mcmc_it: given("n_mcmc_it").then_some(cli.n_mcmc_it),
-    resolve: cli.resolve,
-    pre_resolve: pair(cli.pre_resolve, cli.no_pre_resolve),
-    rounds: cli.rounds,
-    final_round: pair(cli.final_round, cli.no_final_round),
-    likelihood: pair(cli.likelihood, cli.no_likelihood),
-    naive: pair(cli.naive, cli.no_naive),
-    seed: given("seed").then_some(cli.seed),
-  };
-  (patch, lengths)
-}
-
-/// The keys of the settings that `patch` sets, as the options that set them: `gamma`,
-/// `no-final-round`.
-fn patch_keys(patch: &SettingsPatch) -> Vec<&'static str> {
-  let flag = |value: Option<bool>, key: &'static str, opposite: &'static str, key_sets: bool| {
-    value.map(|v| if v == key_sets { key } else { opposite })
-  };
-  SETTING_KEYS
-    .iter()
-    .filter_map(|s| {
-      let set = |v: bool| v.then_some(s.key);
-      match (s.setting, s.value) {
-        (schema::SettingName::Gamma, _) => set(patch.gamma.is_some()),
-        (schema::SettingName::SeqLengths, _) => set(patch.seq_lengths.is_some()),
-        (schema::SettingName::NMcmcIt, _) => set(patch.n_mcmc_it.is_some()),
-        (schema::SettingName::Resolve, _) => set(patch.resolve.is_some()),
-        (schema::SettingName::Rounds, _) => set(patch.rounds.is_some()),
-        (schema::SettingName::Seed, _) => set(patch.seed.is_some()),
-        (schema::SettingName::PreResolve, KeyValue::Flag { key_sets, opposite }) => {
-          flag(patch.pre_resolve, s.key, opposite, key_sets)
-        },
-        (schema::SettingName::FinalRound, KeyValue::Flag { key_sets, opposite }) => {
-          flag(patch.final_round, s.key, opposite, key_sets)
-        },
-        (schema::SettingName::Likelihood, KeyValue::Flag { key_sets, opposite }) => {
-          flag(patch.likelihood, s.key, opposite, key_sets)
-        },
-        (schema::SettingName::Naive, KeyValue::Flag { key_sets, opposite }) => {
-          flag(patch.naive, s.key, opposite, key_sets)
-        },
-        (
-          schema::SettingName::PreResolve
-          | schema::SettingName::FinalRound
-          | schema::SettingName::Likelihood
-          | schema::SettingName::Naive,
-          _,
-        ) => None,
-      }
-    })
-    .collect()
-}
-
-/// The link of the web app that runs `request` (`run` included), whose trees have `addresses`:
-/// the canonical link when every tree has an address, otherwise an inline session in the
-/// fragment; or the length of that link when it is longer than [`launch::MAX_LINK_CHARS`].
-fn share_link(request: &AnalysisRequest, addresses: &[Option<TreeAddress>]) -> Result<String, usize> {
-  if let Some(pairs) = launch::launch_pairs(request, addresses, &Settings::default(), true) {
-    return Ok(launch::web_link(&pairs, &[]));
-  }
-  let link = launch::web_link(
-    &[("run".to_owned(), String::new())],
-    &[("session".to_owned(), launch::inline_session(request))],
-  );
-  let length = link.chars().count();
-  if length > launch::MAX_LINK_CHARS {
-    Err(length)
-  } else {
-    Ok(link)
-  }
-}
-
-/// Write `file` at its path below `dir`, creating its parent directories.
-fn write_file(dir: &Path, file: &OutputFile) -> Result<()> {
-  let path = dir.join(&file.path);
-  if let Some(parent) = path.parent() {
-    fs::create_dir_all(parent).wrap_err_with(|| format!("creating {}", parent.display()))?;
-  }
-  fs::write(&path, &file.text).wrap_err_with(|| format!("writing {}", path.display()))
-}
-
-/// Stop with every validation error, one per line. For tree arguments, an error of a tree starts
-/// with its path or address, and with the line and column in the file when it has them. For a
-/// session file, an example, or a link, every error starts with its name and the field of the
-/// error, and an error in a tree's Newick text gives the line and column in that text.
-fn fail<T>(errors: &[ValidationError], source: &Source) -> Result<T> {
-  let lines: Vec<String> = errors
-    .iter()
-    .map(|e| match source {
-      Source::Trees(names) => {
-        let name = e.field.as_ref().and_then(Field::tree_index).and_then(|i| names.get(i));
-        match (name, e.line, e.column) {
-          (Some(n), Some(line), Some(column)) => format!("{n}:{line}:{column}: {e}"),
-          (Some(n), ..) => format!("{n}: {e}"),
-          (None, ..) => e.to_string(),
-        }
-      },
-      Source::Named(name) => match (&e.field, e.line, e.column) {
-        (Some(field), Some(line), Some(column)) => {
-          format!("{name}: {}: line {line}, column {column}: {e}", field.path())
-        },
-        (Some(field), ..) => format!("{name}: {}: {e}", field.path()),
-        (None, ..) => format!("{name}: {e}"),
-      },
-    })
-    .collect();
-  Err(InputError::Invalid(lines).into())
-}
-
-/// Sequence lengths of `--seq-lengths`: numbers separated by commas or whitespace, so the value of
-/// a link (`1701,1410`) works as well as `"1701 1410"`.
-fn parse_lengths(s: &str) -> Result<Vec<f64>, ValidationError> {
-  s.split(|c: char| c == ',' || c.is_whitespace())
-    .filter(|v| !v.is_empty())
-    .map(str::parse::<f64>)
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| {
-      ValidationError::at(
-        Field::Setting {
-          key: SettingKey::SeqLengths,
-        },
-        format!("--seq-lengths should look like 1500,2000, got {s:?}: {e}"),
-      )
-    })
-}
-
-fn log_options(o: &Options, k: usize) {
-  let extra = o.extra_unresolved_round(k);
-  log::info!(
-    "γ = {}, resolution: {}, pre-resolve: {}, {} round(s){}",
-    o.gamma,
-    wire_name(&analysis::ResolveMode::from(o.resolution)),
-    o.pre_resolve,
-    o.rounds,
-    if extra { " + final round without resolution" } else { "" }
-  );
-}
-
-fn rayon_threads(n: usize) -> Result<()> {
-  rayon::ThreadPoolBuilder::new()
-    .num_threads(n)
-    .build_global()
-    .wrap_err("configuring threads")
 }
 
 #[cfg(test)]

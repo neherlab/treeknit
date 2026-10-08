@@ -21,6 +21,96 @@ pub const MAX_ROUNDS: u64 = 0xFFFF_FFFE;
 /// for the reason of [`MAX_ROUNDS`].
 pub const MAX_MCMC_IT: u64 = 0xFFFF_FFFF;
 
+/// Core options of the settings for `k` trees, or every error of `check_settings`: the core
+/// panics on settings that fail it. `parallel` runs independent pairs on several threads; each
+/// surface states its choice, because browsers give WebAssembly no threads.
+pub fn options(s: &Settings, k: usize, parallel: bool) -> Result<Options, Vec<ValidationError>> {
+  let errors = check_settings(s, k);
+  if !errors.is_empty() {
+    return Err(errors);
+  }
+  let mut o = Options::for_trees(k);
+  if let Some(v) = &s.seq_lengths {
+    o.seq_lengths.clone_from(v);
+  }
+  o.gamma = s.gamma;
+  o.n_mcmc = count_usize(s.n_mcmc_it);
+  o.resolution = s.resolve.into();
+  o.pre_resolve = s.pre_resolve;
+  o.rounds = count_usize(s.rounds);
+  o.final_unresolved_round = s.final_round;
+  o.likelihood_sort = s.likelihood;
+  o.naive = s.naive;
+  o.parallel = parallel;
+  Ok(o)
+}
+
+/// Check the settings of a request with `k` trees.
+pub fn check_settings(s: &Settings, k: usize) -> Vec<ValidationError> {
+  let mut errors = Vec::new();
+  if !(s.gamma.is_finite() && s.gamma >= 0.0) {
+    errors.push(ValidationError::at(
+      Field::Setting { key: SettingKey::Gamma },
+      format!("gamma must be a non-negative number, got {}", s.gamma),
+    ));
+  }
+  if let Some(v) = &s.seq_lengths {
+    if v.len() != k {
+      errors.push(ValidationError::at(
+        Field::Setting {
+          key: SettingKey::SeqLengths,
+        },
+        format!("got {} sequence lengths for {k} trees", v.len()),
+      ));
+    }
+    for (i, x) in v.iter().enumerate() {
+      if !(x.is_finite() && *x > 0.0) {
+        errors.push(ValidationError::at(
+          Field::SeqLength { index: i },
+          format!("sequence length {} must be a positive number, got {x}", i + 1),
+        ));
+      }
+    }
+  }
+  if s.rounds == 0 {
+    errors.push(ValidationError::at(
+      Field::Setting {
+        key: SettingKey::Rounds,
+      },
+      "rounds must be at least 1",
+    ));
+  } else if s.rounds > MAX_ROUNDS {
+    errors.push(ValidationError::at(
+      Field::Setting {
+        key: SettingKey::Rounds,
+      },
+      format!("rounds must be at most {MAX_ROUNDS}, got {}", s.rounds),
+    ));
+  }
+  if s.n_mcmc_it == 0 {
+    errors.push(ValidationError::at(
+      Field::Setting {
+        key: SettingKey::NMcmcIt,
+      },
+      "MCMC steps per leaf must be at least 1",
+    ));
+  } else if s.n_mcmc_it > MAX_MCMC_IT {
+    errors.push(ValidationError::at(
+      Field::Setting {
+        key: SettingKey::NMcmcIt,
+      },
+      format!("MCMC steps per leaf must be at most {MAX_MCMC_IT}, got {}", s.n_mcmc_it),
+    ));
+  }
+  if s.seed > MAX_SEED {
+    errors.push(ValidationError::at(
+      Field::Setting { key: SettingKey::Seed },
+      format!("seed must be at most {MAX_SEED}, got {}", s.seed),
+    ));
+  }
+  errors
+}
+
 /// Settings of the command line; a missing field takes the command-line default.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
@@ -124,96 +214,6 @@ pub enum SettingKey {
   NMcmcIt,
   Rounds,
   Seed,
-}
-
-/// Check the settings of a request with `k` trees.
-pub fn check_settings(s: &Settings, k: usize) -> Vec<ValidationError> {
-  let mut errors = Vec::new();
-  if !(s.gamma.is_finite() && s.gamma >= 0.0) {
-    errors.push(ValidationError::at(
-      Field::Setting { key: SettingKey::Gamma },
-      format!("gamma must be a non-negative number, got {}", s.gamma),
-    ));
-  }
-  if let Some(v) = &s.seq_lengths {
-    if v.len() != k {
-      errors.push(ValidationError::at(
-        Field::Setting {
-          key: SettingKey::SeqLengths,
-        },
-        format!("got {} sequence lengths for {k} trees", v.len()),
-      ));
-    }
-    for (i, x) in v.iter().enumerate() {
-      if !(x.is_finite() && *x > 0.0) {
-        errors.push(ValidationError::at(
-          Field::SeqLength { index: i },
-          format!("sequence length {} must be a positive number, got {x}", i + 1),
-        ));
-      }
-    }
-  }
-  if s.rounds == 0 {
-    errors.push(ValidationError::at(
-      Field::Setting {
-        key: SettingKey::Rounds,
-      },
-      "rounds must be at least 1",
-    ));
-  } else if s.rounds > MAX_ROUNDS {
-    errors.push(ValidationError::at(
-      Field::Setting {
-        key: SettingKey::Rounds,
-      },
-      format!("rounds must be at most {MAX_ROUNDS}, got {}", s.rounds),
-    ));
-  }
-  if s.n_mcmc_it == 0 {
-    errors.push(ValidationError::at(
-      Field::Setting {
-        key: SettingKey::NMcmcIt,
-      },
-      "MCMC steps per leaf must be at least 1",
-    ));
-  } else if s.n_mcmc_it > MAX_MCMC_IT {
-    errors.push(ValidationError::at(
-      Field::Setting {
-        key: SettingKey::NMcmcIt,
-      },
-      format!("MCMC steps per leaf must be at most {MAX_MCMC_IT}, got {}", s.n_mcmc_it),
-    ));
-  }
-  if s.seed > MAX_SEED {
-    errors.push(ValidationError::at(
-      Field::Setting { key: SettingKey::Seed },
-      format!("seed must be at most {MAX_SEED}, got {}", s.seed),
-    ));
-  }
-  errors
-}
-
-/// Core options of the settings for `k` trees, or every error of `check_settings`: the core
-/// panics on settings that fail it. `parallel` runs independent pairs on several threads; each
-/// surface states its choice, because browsers give WebAssembly no threads.
-pub fn options(s: &Settings, k: usize, parallel: bool) -> Result<Options, Vec<ValidationError>> {
-  let errors = check_settings(s, k);
-  if !errors.is_empty() {
-    return Err(errors);
-  }
-  let mut o = Options::for_trees(k);
-  if let Some(v) = &s.seq_lengths {
-    o.seq_lengths.clone_from(v);
-  }
-  o.gamma = s.gamma;
-  o.n_mcmc = count_usize(s.n_mcmc_it);
-  o.resolution = s.resolve.into();
-  o.pre_resolve = s.pre_resolve;
-  o.rounds = count_usize(s.rounds);
-  o.final_unresolved_round = s.final_round;
-  o.likelihood_sort = s.likelihood;
-  o.naive = s.naive;
-  o.parallel = parallel;
-  Ok(o)
 }
 
 /// A count of the core as a setting.

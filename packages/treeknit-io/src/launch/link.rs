@@ -83,6 +83,21 @@ pub fn inline_session(request: &AnalysisRequest) -> String {
   format!("{INLINE_SESSION_PREFIX}{}", general_purpose::STANDARD.encode(bytes))
 }
 
+/// The link of the web app with the query `query` and the fragment `fragment`, each written by
+/// [`link_query`] and left out when empty.
+pub fn web_link(query: &[(String, String)], fragment: &[(String, String)]) -> String {
+  let mut link = web_app_url();
+  if !query.is_empty() {
+    link.push('?');
+    link.push_str(&link_query(query));
+  }
+  if !fragment.is_empty() {
+    link.push('#');
+    link.push_str(&link_query(fragment));
+  }
+  link
+}
+
 /// The query or fragment text of `pairs` (without `?` or `#`): pairs joined by `&`, a flag (an
 /// empty value) without `=`. Only what a reader would misread is percent-encoded: `%`, `&`, `#`,
 /// `+`, `=` in keys, spaces (`%20`), `"`, `<`, `>`, control characters, and non-ASCII characters;
@@ -103,13 +118,6 @@ pub fn link_query(pairs: &[(String, String)]) -> String {
     .join("&")
 }
 
-/// The key-value pairs of a query or fragment text, read as browsers read form data
-/// (`URLSearchParams`): pairs split at `&`, a key without `=` has an empty value, `+` is a space,
-/// and percent-encoded bytes are decoded as UTF-8.
-pub fn query_pairs(query: &str) -> Vec<(String, String)> {
-  form_urlencoded::parse(query.as_bytes()).into_owned().collect()
-}
-
 /// The key-value pairs of a link `url`: those of its query, then those of its fragment when the
 /// fragment holds a `=` (a fragment without one is an anchor, such as `#help-cite`).
 pub fn link_pairs(url: &str) -> Vec<(String, String)> {
@@ -122,19 +130,21 @@ pub fn link_pairs(url: &str) -> Vec<(String, String)> {
   pairs
 }
 
-/// The link of the web app with the query `query` and the fragment `fragment`, each written by
-/// [`link_query`] and left out when empty.
-pub fn web_link(query: &[(String, String)], fragment: &[(String, String)]) -> String {
-  let mut link = web_app_url();
-  if !query.is_empty() {
-    link.push('?');
-    link.push_str(&link_query(query));
+/// The key-value pairs of a query or fragment text, read as browsers read form data
+/// (`URLSearchParams`): pairs split at `&`, a key without `=` has an empty value, `+` is a space,
+/// and percent-encoded bytes are decoded as UTF-8.
+pub fn query_pairs(query: &str) -> Vec<(String, String)> {
+  form_urlencoded::parse(query.as_bytes()).into_owned().collect()
+}
+
+/// The limits of downloads and links, for the web app.
+pub fn link_limits() -> LinkLimits {
+  LinkLimits {
+    fetch_timeout_seconds: FETCH_TIMEOUT_SECONDS,
+    max_download_bytes: MAX_DOWNLOAD_BYTES,
+    max_link_chars: MAX_LINK_CHARS,
+    long_link_chars: LONG_LINK_CHARS,
   }
-  if !fragment.is_empty() {
-    link.push('#');
-    link.push_str(&link_query(fragment));
-  }
-  link
 }
 
 /// Address of the web app: the GitHub Pages site of the repository of the workspace, such as
@@ -148,72 +158,6 @@ fn web_app_url() -> String {
     Some((owner, repo)) => format!("https://{}.github.io/{repo}/", owner.to_ascii_lowercase()),
     None => format!("{repository}/"),
   }
-}
-
-/// The limits of downloads and links, for the web app.
-pub fn link_limits() -> LinkLimits {
-  LinkLimits {
-    fetch_timeout_seconds: FETCH_TIMEOUT_SECONDS,
-    max_download_bytes: MAX_DOWNLOAD_BYTES,
-    max_link_chars: MAX_LINK_CHARS,
-    long_link_chars: LONG_LINK_CHARS,
-  }
-}
-
-/// A key-value pair of a link, as the web app passes it; a flag has an empty value.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-pub struct LinkEntry {
-  pub key: String,
-  pub value: String,
-}
-
-impl LinkEntry {
-  /// The pairs of `entries`.
-  pub fn pairs(entries: &[LinkEntry]) -> Vec<(String, String)> {
-    entries.iter().map(|e| (e.key.clone(), e.value.clone())).collect()
-  }
-
-  /// The entries of `pairs`.
-  pub fn of_pairs(pairs: Vec<(String, String)>) -> Vec<LinkEntry> {
-    pairs.into_iter().map(|(key, value)| LinkEntry { key, value }).collect()
-  }
-}
-
-/// What the web app writes a link of: a request, where a link gets each of its trees again, and
-/// whether the link runs the analysis (see [`launch_pairs`]).
-#[derive(Clone, Debug, PartialEq, Deserialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct LinkSource {
-  pub request: AnalysisRequest,
-  /// One address per tree; `None` for a tree that a link cannot get again.
-  pub addresses: Vec<Option<TreeAddress>>,
-  pub run: bool,
-}
-
-/// The limits of downloads and links; see the constants of the same names.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "camelCase")]
-pub struct LinkLimits {
-  pub fetch_timeout_seconds: u32,
-  pub max_download_bytes: usize,
-  pub max_link_chars: usize,
-  pub long_link_chars: usize,
-}
-
-/// Where a link can get a tree of the workspace again.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(tag = "kind", rename_all = "camelCase")]
-pub enum TreeAddress {
-  /// The tree file `file` of the example `id`.
-  Example { id: String, file: String },
-  /// An `https:` URL as a link gave it.
-  Url { url: String },
-  /// A `data:` text of a link: the tree's own Newick text.
-  Data,
 }
 
 /// The id of the example whose trees `request` has in its order with its labels.
@@ -350,6 +294,62 @@ fn flag_pair(s: &SettingKey, value: bool, base: bool) -> Option<String> {
 /// `value` when it differs from `base`.
 fn changed<'a, T: PartialEq>(value: &'a T, base: &T) -> Option<&'a T> {
   (value != base).then_some(value)
+}
+
+/// A key-value pair of a link, as the web app passes it; a flag has an empty value.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+pub struct LinkEntry {
+  pub key: String,
+  pub value: String,
+}
+
+impl LinkEntry {
+  /// The pairs of `entries`.
+  pub fn pairs(entries: &[LinkEntry]) -> Vec<(String, String)> {
+    entries.iter().map(|e| (e.key.clone(), e.value.clone())).collect()
+  }
+
+  /// The entries of `pairs`.
+  pub fn of_pairs(pairs: Vec<(String, String)>) -> Vec<LinkEntry> {
+    pairs.into_iter().map(|(key, value)| LinkEntry { key, value }).collect()
+  }
+}
+
+/// What the web app writes a link of: a request, where a link gets each of its trees again, and
+/// whether the link runs the analysis (see [`launch_pairs`]).
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LinkSource {
+  pub request: AnalysisRequest,
+  /// One address per tree; `None` for a tree that a link cannot get again.
+  pub addresses: Vec<Option<TreeAddress>>,
+  pub run: bool,
+}
+
+/// The limits of downloads and links; see the constants of the same names.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct LinkLimits {
+  pub fetch_timeout_seconds: u32,
+  pub max_download_bytes: usize,
+  pub max_link_chars: usize,
+  pub long_link_chars: usize,
+}
+
+/// Where a link can get a tree of the workspace again.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum TreeAddress {
+  /// The tree file `file` of the example `id`.
+  Example { id: String, file: String },
+  /// An `https:` URL as a link gave it.
+  Url { url: String },
+  /// A `data:` text of a link: the tree's own Newick text.
+  Data,
 }
 
 #[cfg(test)]

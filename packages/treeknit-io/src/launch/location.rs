@@ -69,6 +69,28 @@ pub fn parse_location(value: &str) -> Result<LinkLocation, LocationError> {
   }
 }
 
+/// The host and the file name of an `https:` URL, as messages and tree rows name the place of a
+/// file: the host without the port, and the last path segment, percent-decoded (an invalid UTF-8
+/// sequence becomes U+FFFD), or an empty text without one. Labels of unlabeled trees come from the
+/// file name. Both are empty for a text that is not an `https:` URL.
+pub fn url_place(url: &str) -> UrlPlace {
+  let parts = UrlParts::of(url);
+  UrlPlace {
+    host: parts.as_ref().map(|p| p.host.to_owned()).unwrap_or_default(),
+    file_name: parts
+      .and_then(|p| p.path.rsplit('/').find(|s| !s.is_empty()))
+      .map(|segment| percent_decode_str(segment).decode_utf8_lossy().into_owned())
+      .unwrap_or_default(),
+  }
+}
+
+/// `url` with every character that a URI cannot hold percent-encoded (spaces, non-ASCII
+/// characters, `"`, `<`, `>`, ...), as browsers send it: links keep such characters readable,
+/// and an HTTP client needs them encoded.
+pub fn request_url(url: &str) -> String {
+  utf8_percent_encode(url, URI_SET).to_string()
+}
+
 /// The address that serves the file of `url` to other sites, which browsers require: a GitHub
 /// file page (`github.com/<owner>/<repo>/blob/<ref>/<path>` or `.../raw/...`) becomes its file
 /// on `raw.githubusercontent.com`, and a Zenodo file (`zenodo.org/records/<id>/files/<name>`)
@@ -93,28 +115,44 @@ pub(crate) fn fetch_url(url: &str) -> String {
   }
 }
 
-/// The host and the file name of an `https:` URL, as messages and tree rows name the place of a
-/// file: the host without the port, and the last path segment, percent-decoded (an invalid UTF-8
-/// sequence becomes U+FFFD), or an empty text without one. Labels of unlabeled trees come from the
-/// file name. Both are empty for a text that is not an `https:` URL.
-pub fn url_place(url: &str) -> UrlPlace {
-  let parts = UrlParts::of(url);
-  UrlPlace {
-    host: parts.as_ref().map(|p| p.host.to_owned()).unwrap_or_default(),
-    file_name: parts
-      .and_then(|p| p.path.rsplit('/').find(|s| !s.is_empty()))
-      .map(|segment| percent_decode_str(segment).decode_utf8_lossy().into_owned())
-      .unwrap_or_default(),
+/// Check an `https:` URL: it has a host and no user name or password.
+fn check_https(url: &str) -> Result<(), LocationError> {
+  let parts = UrlParts::of(url).ok_or_else(|| LocationError::NotHttps(url.to_owned()))?;
+  if parts.host.is_empty() {
+    return Err(LocationError::NoHost(url.to_owned()));
   }
+  if parts.has_user {
+    return Err(LocationError::UserInfo(url.to_owned()));
+  }
+  Ok(())
 }
 
-/// The place of a file at an `https:` URL ([`url_place`]).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "camelCase")]
-pub struct UrlPlace {
-  pub host: String,
-  pub file_name: String,
+/// The text of a `data:` location (RFC 2397): its data after the first `,`, decoded from base64
+/// when the media type ends with `;base64`, and percent-decoded otherwise, then decoded by
+/// [`decode_tree_bytes`].
+fn decode_data_url(value: &str) -> Result<String, LocationError> {
+  let (meta, data) = value
+    .get(5..)
+    .and_then(|rest| rest.split_once(','))
+    .ok_or(LocationError::DataWithoutComma)?;
+  let bytes = if meta.trim_end().to_ascii_lowercase().ends_with(";base64") {
+    decode_base64(data)?
+  } else {
+    percent_decode_str(data).collect()
+  };
+  Ok(decode_tree_bytes(&bytes)?)
+}
+
+/// Bytes of base64 text in the standard or the URL-safe alphabet, with or without padding. A
+/// space stands for `+`, which a reader of form data turns into a space.
+fn decode_base64(text: &str) -> Result<Vec<u8>, LocationError> {
+  let config = GeneralPurposeConfig::new().with_decode_padding_mode(DecodePaddingMode::Indifferent);
+  let text = text.replace(' ', "+");
+  let text = text.trim();
+  GeneralPurpose::new(&alphabet::STANDARD, config)
+    .decode(text)
+    .or_else(|_standard_error| GeneralPurpose::new(&alphabet::URL_SAFE, config).decode(text))
+    .map_err(LocationError::Base64)
 }
 
 /// The text of a tree or session file: gzip-compressed bytes (they start with [`GZIP_MAGIC`]) are
@@ -147,6 +185,33 @@ pub fn decode_tree_bytes(bytes: &[u8]) -> Result<String, DecodeError> {
     return Err(DecodeError::WebPage);
   }
   Ok(text)
+}
+
+/// The place of a file at an `https:` URL ([`url_place`]).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct UrlPlace {
+  pub host: String,
+  pub file_name: String,
+}
+
+/// Where a file of a link is.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum LinkLocation {
+  /// An `https:` URL as the link gives it, the address to read it from ([`fetch_url`]), and the
+  /// host and file name of its place ([`url_place`]).
+  Url {
+    url: String,
+    fetch: String,
+    host: String,
+    #[serde(rename = "fileName")]
+    file_name: String,
+  },
+  /// The decoded text of a `data:` location.
+  Data { text: String },
 }
 
 /// Why a value is not the location of a tree or session file, from [`parse_location`].
@@ -183,43 +248,6 @@ pub enum DecodeError {
   WebPage,
 }
 
-/// `url` with every character that a URI cannot hold percent-encoded (spaces, non-ASCII
-/// characters, `"`, `<`, `>`, ...), as browsers send it: links keep such characters readable,
-/// and an HTTP client needs them encoded.
-pub fn request_url(url: &str) -> String {
-  utf8_percent_encode(url, URI_SET).to_string()
-}
-
-/// Where a file of a link is.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(tag = "kind", rename_all = "camelCase")]
-pub enum LinkLocation {
-  /// An `https:` URL as the link gives it, the address to read it from ([`fetch_url`]), and the
-  /// host and file name of its place ([`url_place`]).
-  Url {
-    url: String,
-    fetch: String,
-    host: String,
-    #[serde(rename = "fileName")]
-    file_name: String,
-  },
-  /// The decoded text of a `data:` location.
-  Data { text: String },
-}
-
-/// Check an `https:` URL: it has a host and no user name or password.
-fn check_https(url: &str) -> Result<(), LocationError> {
-  let parts = UrlParts::of(url).ok_or_else(|| LocationError::NotHttps(url.to_owned()))?;
-  if parts.host.is_empty() {
-    return Err(LocationError::NoHost(url.to_owned()));
-  }
-  if parts.has_user {
-    return Err(LocationError::UserInfo(url.to_owned()));
-  }
-  Ok(())
-}
-
 /// The host and the path of an `https://` URL.
 struct UrlParts<'a> {
   host: &'a str,
@@ -243,34 +271,6 @@ impl<'a> UrlParts<'a> {
     let host = host_port.rsplit_once(':').map_or(host_port, |(h, _)| h);
     Some(UrlParts { host, has_user, path })
   }
-}
-
-/// The text of a `data:` location (RFC 2397): its data after the first `,`, decoded from base64
-/// when the media type ends with `;base64`, and percent-decoded otherwise, then decoded by
-/// [`decode_tree_bytes`].
-fn decode_data_url(value: &str) -> Result<String, LocationError> {
-  let (meta, data) = value
-    .get(5..)
-    .and_then(|rest| rest.split_once(','))
-    .ok_or(LocationError::DataWithoutComma)?;
-  let bytes = if meta.trim_end().to_ascii_lowercase().ends_with(";base64") {
-    decode_base64(data)?
-  } else {
-    percent_decode_str(data).collect()
-  };
-  Ok(decode_tree_bytes(&bytes)?)
-}
-
-/// Bytes of base64 text in the standard or the URL-safe alphabet, with or without padding. A
-/// space stands for `+`, which a reader of form data turns into a space.
-fn decode_base64(text: &str) -> Result<Vec<u8>, LocationError> {
-  let config = GeneralPurposeConfig::new().with_decode_padding_mode(DecodePaddingMode::Indifferent);
-  let text = text.replace(' ', "+");
-  let text = text.trim();
-  GeneralPurpose::new(&alphabet::STANDARD, config)
-    .decode(text)
-    .or_else(|_standard_error| GeneralPurpose::new(&alphabet::URL_SAFE, config).decode(text))
-    .map_err(LocationError::Base64)
 }
 
 #[cfg(test)]

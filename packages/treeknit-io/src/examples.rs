@@ -9,70 +9,6 @@ use serde::Serialize;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
-/// The menu group of an example.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "camelCase")]
-pub enum ExampleGroup {
-  Small,
-  Real,
-  Simulated,
-}
-
-impl ExampleGroup {
-  /// Title of the group in the Examples menu.
-  pub fn name(self) -> &'static str {
-    match self {
-      ExampleGroup::Small => "Small",
-      ExampleGroup::Real => "Real data",
-      ExampleGroup::Simulated => "Simulated (ARGTools)",
-    }
-  }
-}
-
-/// A built-in example.
-#[derive(Clone, Copy, Debug)]
-pub struct Example {
-  /// Stable id, as in `example=<id>`.
-  pub id: &'static str,
-  /// Display name.
-  pub name: &'static str,
-  pub group: ExampleGroup,
-  pub trees: &'static [ExampleTree],
-}
-
-/// A tree of an example: a file of the repository or an inline Newick text.
-#[derive(Clone, Copy, Debug)]
-pub struct ExampleTree {
-  /// File name of the tree, which gives its label: `ha.nwk` gives `ha`.
-  pub file: &'static str,
-  pub text: ExampleText,
-}
-
-/// Where the Newick text of an example tree is.
-#[derive(Clone, Copy, Debug)]
-pub enum ExampleText {
-  /// A file at a path relative to the repository root. With the cargo feature
-  /// `embedded-examples`, `text` holds its content.
-  File {
-    path: &'static str,
-    #[cfg(feature = "embedded-examples")]
-    text: &'static str,
-  },
-  /// A Newick text written here.
-  Inline(&'static str),
-}
-
-impl ExampleText {
-  /// The Newick text: inline, or embedded with the feature `embedded-examples`.
-  #[cfg(feature = "embedded-examples")]
-  pub fn newick(&self) -> &'static str {
-    match *self {
-      ExampleText::File { text, .. } | ExampleText::Inline(text) => text,
-    }
-  }
-}
-
 /// The example tree in the file `<parent><dir>/<file>` of the repository, embedded with the
 /// feature `embedded-examples`.
 macro_rules! tree_file {
@@ -159,6 +95,47 @@ pub fn example(id: &str) -> Option<&'static Example> {
   EXAMPLES.iter().find(|e| e.id == id)
 }
 
+/// Every example with its trees, in the order of `EXAMPLES`.
+pub fn example_infos() -> Vec<ExampleInfo> {
+  EXAMPLES
+    .iter()
+    .map(|e| ExampleInfo {
+      id: e.id.to_owned(),
+      name: e.name.to_owned(),
+      group: e.group,
+      group_name: e.group.name().to_owned(),
+      trees: e
+        .trees
+        .iter()
+        .zip(e.labels())
+        .map(|(t, label)| {
+          let (path, newick) = match t.text {
+            ExampleText::File { path, .. } => (Some(path.to_owned()), None),
+            ExampleText::Inline(text) => (None, Some(text.to_owned())),
+          };
+          ExampleTreeInfo {
+            file: t.file.to_owned(),
+            label,
+            path,
+            newick,
+          }
+        })
+        .collect(),
+    })
+    .collect()
+}
+
+/// A built-in example.
+#[derive(Clone, Copy, Debug)]
+pub struct Example {
+  /// Stable id, as in `example=<id>`.
+  pub id: &'static str,
+  /// Display name.
+  pub name: &'static str,
+  pub group: ExampleGroup,
+  pub trees: &'static [ExampleTree],
+}
+
 impl Example {
   /// The labels of the trees, as a link or the web app gives them to trees loaded from the
   /// example's files: `analysis::tree_labels` of the file names.
@@ -176,6 +153,38 @@ impl Example {
       .zip(self.labels())
       .map(|(t, label)| analysis::TreeText::new(label, t.text.newick()))
       .collect()
+  }
+}
+
+/// A tree of an example: a file of the repository or an inline Newick text.
+#[derive(Clone, Copy, Debug)]
+pub struct ExampleTree {
+  /// File name of the tree, which gives its label: `ha.nwk` gives `ha`.
+  pub file: &'static str,
+  pub text: ExampleText,
+}
+
+/// Where the Newick text of an example tree is.
+#[derive(Clone, Copy, Debug)]
+pub enum ExampleText {
+  /// A file at a path relative to the repository root. With the cargo feature
+  /// `embedded-examples`, `text` holds its content.
+  File {
+    path: &'static str,
+    #[cfg(feature = "embedded-examples")]
+    text: &'static str,
+  },
+  /// A Newick text written here.
+  Inline(&'static str),
+}
+
+impl ExampleText {
+  /// The Newick text: inline, or embedded with the feature `embedded-examples`.
+  #[cfg(feature = "embedded-examples")]
+  pub fn newick(&self) -> &'static str {
+    match *self {
+      ExampleText::File { text, .. } | ExampleText::Inline(text) => text,
+    }
   }
 }
 
@@ -207,34 +216,25 @@ pub struct ExampleTreeInfo {
   pub newick: Option<String>,
 }
 
-/// Every example with its trees, in the order of `EXAMPLES`.
-pub fn example_infos() -> Vec<ExampleInfo> {
-  EXAMPLES
-    .iter()
-    .map(|e| ExampleInfo {
-      id: e.id.to_owned(),
-      name: e.name.to_owned(),
-      group: e.group,
-      group_name: e.group.name().to_owned(),
-      trees: e
-        .trees
-        .iter()
-        .zip(e.labels())
-        .map(|(t, label)| {
-          let (path, newick) = match t.text {
-            ExampleText::File { path, .. } => (Some(path.to_owned()), None),
-            ExampleText::Inline(text) => (None, Some(text.to_owned())),
-          };
-          ExampleTreeInfo {
-            file: t.file.to_owned(),
-            label,
-            path,
-            newick,
-          }
-        })
-        .collect(),
-    })
-    .collect()
+/// The menu group of an example.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub enum ExampleGroup {
+  Small,
+  Real,
+  Simulated,
+}
+
+impl ExampleGroup {
+  /// Title of the group in the Examples menu.
+  pub fn name(self) -> &'static str {
+    match self {
+      ExampleGroup::Small => "Small",
+      ExampleGroup::Real => "Real data",
+      ExampleGroup::Simulated => "Simulated (ARGTools)",
+    }
+  }
 }
 
 #[cfg(test)]

@@ -25,78 +25,8 @@ use serde::Serialize;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
-/// Drawing colors of both themes: as `#rrggbb` text for CSS and SVG, and as RGBA for the canvas
-/// of the web app, which would otherwise parse the text back into numbers.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "camelCase")]
-pub struct Palette {
-  pub light: ThemeColors<String>,
-  pub dark: ThemeColors<String>,
-  pub light_rgba: ThemeColors<Rgba>,
-  pub dark_rgba: ThemeColors<Rgba>,
-}
-
-/// A color as red, green, blue, and alpha, each from 0 to 255.
-#[cfg_attr(feature = "tsify", tsify::declare)]
-pub type Rgba = [u8; 4];
-
 // The TypeScript type of `ThemeColors.mcc` spells out a tuple of `MCC_SLOTS` colors.
 const _: () = assert!(MCC_SLOTS == 8, "update the tsify type of `ThemeColors.mcc`");
-
-/// Drawing colors of one theme, each a `C`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "camelCase")]
-pub struct ThemeColors<C> {
-  /// The MCC color slots, `MCC_SLOTS` of them; `MccInfo.slot` indexes them.
-  #[cfg_attr(feature = "tsify", tsify(type = "[C, C, C, C, C, C, C, C]"))]
-  pub mcc: [C; MCC_SLOTS],
-  /// Branches of nodes without an MCC.
-  pub no_mcc: C,
-  pub ground: C,
-  pub ink: C,
-  pub ink_muted: C,
-  /// Reassortment, and nothing else.
-  pub signal: C,
-  pub focus: C,
-  /// Segment A (the first tree) of the ARG.
-  pub segment_a: C,
-  /// Segment B (the second tree) of the ARG.
-  pub segment_b: C,
-}
-
-impl<C> ThemeColors<C> {
-  /// The color of `role`; for `ColorRole::Mcc`, the color of `slot`, or "no MCC" without one.
-  /// A slot is below `MCC_SLOTS`, so a slot out of range is a broken invariant and panics instead
-  /// of taking the "no MCC" color.
-  pub fn role(&self, role: ColorRole, slot: Option<usize>) -> &C {
-    match role {
-      ColorRole::Mcc => slot.map_or(&self.no_mcc, |s| &self.mcc[s]),
-      ColorRole::NoMcc => &self.no_mcc,
-      ColorRole::Ink => &self.ink,
-      ColorRole::InkMuted => &self.ink_muted,
-      ColorRole::Signal => &self.signal,
-      ColorRole::SegmentA => &self.segment_a,
-      ColorRole::SegmentB => &self.segment_b,
-    }
-  }
-
-  /// The colors with `f` applied to each.
-  fn map<D>(&self, f: impl Fn(&C) -> D) -> ThemeColors<D> {
-    ThemeColors {
-      mcc: self.mcc.each_ref().map(&f),
-      no_mcc: f(&self.no_mcc),
-      ground: f(&self.ground),
-      ink: f(&self.ink),
-      ink_muted: f(&self.ink_muted),
-      signal: f(&self.signal),
-      focus: f(&self.focus),
-      segment_a: f(&self.segment_a),
-      segment_b: f(&self.segment_b),
-    }
-  }
-}
 
 /// The drawing colors of both themes.
 #[cfg_attr(
@@ -163,6 +93,76 @@ fn rgba(rgb: u32) -> Rgba {
   let [_, r, g, b] = rgb.to_be_bytes();
   [r, g, b, u8::MAX]
 }
+
+/// Drawing colors of both themes: as `#rrggbb` text for CSS and SVG, and as RGBA for the canvas
+/// of the web app, which would otherwise parse the text back into numbers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct Palette {
+  pub light: ThemeColors<String>,
+  pub dark: ThemeColors<String>,
+  pub light_rgba: ThemeColors<Rgba>,
+  pub dark_rgba: ThemeColors<Rgba>,
+}
+
+/// Drawing colors of one theme, each a `C`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct ThemeColors<C> {
+  /// The MCC color slots, `MCC_SLOTS` of them; `MccInfo.slot` indexes them.
+  #[cfg_attr(feature = "tsify", tsify(type = "[C, C, C, C, C, C, C, C]"))]
+  pub mcc: [C; MCC_SLOTS],
+  /// Branches of nodes without an MCC.
+  pub no_mcc: C,
+  pub ground: C,
+  pub ink: C,
+  pub ink_muted: C,
+  /// Reassortment, and nothing else.
+  pub signal: C,
+  pub focus: C,
+  /// Segment A (the first tree) of the ARG.
+  pub segment_a: C,
+  /// Segment B (the second tree) of the ARG.
+  pub segment_b: C,
+}
+
+impl<C> ThemeColors<C> {
+  /// The color of `role`; for `ColorRole::Mcc`, the color of `slot`, or "no MCC" without one.
+  /// A slot is below `MCC_SLOTS`, so a slot out of range is a broken invariant and panics instead
+  /// of taking the "no MCC" color.
+  pub fn role(&self, role: ColorRole, slot: Option<usize>) -> &C {
+    match role {
+      ColorRole::Mcc => slot.map_or(&self.no_mcc, |s| &self.mcc[s]),
+      ColorRole::NoMcc => &self.no_mcc,
+      ColorRole::Ink => &self.ink,
+      ColorRole::InkMuted => &self.ink_muted,
+      ColorRole::Signal => &self.signal,
+      ColorRole::SegmentA => &self.segment_a,
+      ColorRole::SegmentB => &self.segment_b,
+    }
+  }
+
+  /// The colors with `f` applied to each.
+  fn map<D>(&self, f: impl Fn(&C) -> D) -> ThemeColors<D> {
+    ThemeColors {
+      mcc: self.mcc.each_ref().map(&f),
+      no_mcc: f(&self.no_mcc),
+      ground: f(&self.ground),
+      ink: f(&self.ink),
+      ink_muted: f(&self.ink_muted),
+      signal: f(&self.signal),
+      focus: f(&self.focus),
+      segment_a: f(&self.segment_a),
+      segment_b: f(&self.segment_b),
+    }
+  }
+}
+
+/// A color as red, green, blue, and alpha, each from 0 to 255.
+#[cfg_attr(feature = "tsify", tsify::declare)]
+pub type Rgba = [u8; 4];
 
 #[cfg(test)]
 mod tests {

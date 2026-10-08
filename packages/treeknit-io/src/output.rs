@@ -40,6 +40,131 @@ const ARG_NEWICK: &str = "ARG/arg.nwk";
 const ARG_NODES: &str = "ARG/nodes.dat";
 const ARG_FIGURE: &str = "ARG/arg.svg";
 
+/// Results directory of `command_line`, next to the extracted `treeknit_results/`, so that the
+/// command keeps the files it reproduces and the two sets can be compared.
+pub const COMMAND_LINE_RESULTS_DIR: &str = "treeknit_results_cli";
+
+/// Every output file of `run` except `parameters.json` and `log.txt`, at its path in the results
+/// directory, with the bytes the command line writes: the MCCs as JSON and as lines, the
+/// resolved trees, the imputed trees and Auspice files when `options` asks for them, for two
+/// trees the ARG files, and the figures when `options` asks for them. File names follow the tree
+/// labels. The run of a request that passed `analysis::prepare` has every file it lists, so
+/// `FileError::Missing` marks a broken run.
+pub fn output_files(run: &RunResult, options: &OutputOptions) -> Result<Vec<OutputFile>, FileError> {
+  run_files(run, options)
+    .into_iter()
+    .map(|(kind, path)| {
+      let text = kind.text(run, &path)?;
+      Ok(OutputFile::new(path, text))
+    })
+    .collect()
+}
+
+/// The file set of a run of the web app for `request`, in order: the session file, the files of
+/// `output_files` with `OutputOptions::web`, the figures as `FigureFile`s, `parameters.json`, and
+/// `log.txt` of `records`. `command_line` writes the same files. `seed` is the seed of the run.
+pub fn web_files(
+  request: &AnalysisRequest,
+  run: &RunResult,
+  seed: u64,
+  records: &[Diagnostic],
+) -> Result<Vec<WebFile>, FileError> {
+  let mut files = vec![WebFile::Text(session_file(request))];
+  for (kind, path) in run_files(run, &OutputOptions::web(run.trees.len())) {
+    files.push(if let FileKind::Figure { figure, .. } = kind {
+      WebFile::Figure(FigureFile { path, figure })
+    } else {
+      let text = kind.text(run, &path)?;
+      WebFile::Text(OutputFile::new(path, text))
+    });
+  }
+  files.push(WebFile::Text(parameters_file(&run.opts, seed)));
+  files.push(WebFile::Text(log_file(records)));
+  Ok(files)
+}
+
+/// `parameters.json`: the core options of a run and its seed. The command line writes it before
+/// the inference, so it exists when a run fails.
+pub fn parameters_file(o: &Options, seed: u64) -> OutputFile {
+  OutputFile::new(PARAMETERS_FILE.to_owned(), format!("{:#}", params_json(o, seed)))
+}
+
+/// `log.txt` of the web app: one line `<time> [LEVEL] <message>` per record, the layout of the
+/// command-line log without its thread ID, because the browser runs on one thread.
+pub fn log_file(records: &[Diagnostic]) -> OutputFile {
+  let text = records.iter().fold(String::new(), |mut text, r| {
+    #[expect(clippy::expect_used, reason = "writing to a String does not fail")]
+    writeln!(text, "{} [{}] {}", r.time, r.level, r.message).expect("writing to a String");
+    text
+  });
+  OutputFile::new(LOG_FILE.to_owned(), text)
+}
+
+/// The session file of `request`, `treeknit_session.json`: its trees and settings as pretty
+/// JSON, which `analysis::read_session` reads back.
+pub fn session_file(request: &AnalysisRequest) -> OutputFile {
+  #[expect(
+    clippy::expect_used,
+    reason = "a request has string keys and serde_json writes a non-finite number as null"
+  )]
+  let json = serde_json::to_string_pretty(request).expect("a request serializes to JSON");
+  OutputFile::new(SESSION_FILE.to_owned(), format!("{json}\n"))
+}
+
+/// The command that writes the file set of the web app (`web_files`), run in the directory where
+/// its ZIP archive was extracted: the session file in `treeknit_results/`, the results directory
+/// `treeknit_results_cli/`, and the flags of `OutputOptions::web`.
+pub fn command_line() -> String {
+  let flags = OutputOptions::web(0).flags().join(" ");
+  format!("treeknit --session {RESULTS_DIR}/{SESSION_FILE} --outdir {COMMAND_LINE_RESULTS_DIR} {flags}")
+}
+
+/// The names of the result files, with the Auspice files of the trees labeled `labels`.
+pub fn result_names(labels: [&str; 2]) -> ResultNames {
+  ResultNames {
+    archive: format!("{RESULTS_DIR}.zip"),
+    archive_media_type: ARCHIVE_MEDIA_TYPE.to_owned(),
+    results_dir: RESULTS_DIR.to_owned(),
+    command_line_results_dir: COMMAND_LINE_RESULTS_DIR.to_owned(),
+    arg_newick: ARG_NEWICK.to_owned(),
+    auspice_files: labels.map(auspice_path),
+  }
+}
+
+/// The labels of the two trees of an ARG, segment A and then B; `None` for another number of
+/// trees.
+pub(crate) fn segment_labels(run: &RunResult) -> Option<[&str; 2]> {
+  match run.trees.as_slice() {
+    [a, b] => Some([a.label.as_str(), b.label.as_str()]),
+    _ => None,
+  }
+}
+
+/// The names of the result files that the web app downloads and its help texts name.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct ResultNames {
+  /// File name of the ZIP archive of `results_dir`.
+  pub archive: String,
+  pub archive_media_type: String,
+  pub results_dir: String,
+  /// Results directory of `command_line`.
+  pub command_line_results_dir: String,
+  /// Path of the ARG in extended Newick, written for two trees.
+  pub arg_newick: String,
+  /// Paths of the Auspice JSON files of the two trees of a pair.
+  pub auspice_files: [String; 2],
+}
+
+/// A file of the file set of the web app: a text, or a figure that is rendered when it is read,
+/// because a run of many large trees has figures of many megabytes that most sessions never read.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum WebFile {
+  Text(OutputFile),
+  Figure(FigureFile),
+}
+
 /// A result file with its text, at its path in the results directory of the command line.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
@@ -51,6 +176,24 @@ pub struct OutputFile {
   pub media_type: String,
   /// The bytes the command line writes, newline rule included.
   pub text: String,
+}
+
+impl OutputFile {
+  /// A file at `path` with the `media_type` of the path.
+  pub fn new(path: String, text: String) -> Self {
+    OutputFile {
+      media_type: media_type(&path).to_owned(),
+      path,
+      text,
+    }
+  }
+}
+
+/// A figure of a run at its path in the results directory.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FigureFile {
+  pub path: String,
+  pub figure: Figure,
 }
 
 /// An entry of the file list of a run, without its text.
@@ -71,6 +214,21 @@ pub struct FileEntry {
   pub figure: Option<Figure>,
 }
 
+impl FileEntry {
+  /// The entry of the file at `path`, with its `file_name` and the media type of the path.
+  pub fn new(path: String, size: Option<usize>, figure: Option<Figure>) -> Self {
+    let file_name = path.rsplit_once('/').map_or(path.as_str(), |(_, name)| name).to_owned();
+    let media_type = media_type(&path).to_owned();
+    FileEntry {
+      path,
+      file_name,
+      media_type,
+      size,
+      figure,
+    }
+  }
+}
+
 /// A figure of a run, by what it shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
@@ -80,21 +238,6 @@ pub enum Figure {
   Pair { pair: usize },
   /// The ARG of two trees.
   Arg,
-}
-
-/// A figure of a run at its path in the results directory.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct FigureFile {
-  pub path: String,
-  pub figure: Figure,
-}
-
-/// A file of the file set of the web app: a text, or a figure that is rendered when it is read,
-/// because a run of many large trees has figures of many megabytes that most sessions never read.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum WebFile {
-  Text(OutputFile),
-  Figure(FigureFile),
 }
 
 /// Which output files a run writes besides the MCCs and the resolved trees.
@@ -144,41 +287,6 @@ impl OutputOptions {
   }
 }
 
-impl FileEntry {
-  /// The entry of the file at `path`, with its `file_name` and the media type of the path.
-  pub fn new(path: String, size: Option<usize>, figure: Option<Figure>) -> Self {
-    let file_name = path.rsplit_once('/').map_or(path.as_str(), |(_, name)| name).to_owned();
-    let media_type = media_type(&path).to_owned();
-    FileEntry {
-      path,
-      file_name,
-      media_type,
-      size,
-      figure,
-    }
-  }
-}
-
-impl OutputFile {
-  /// A file at `path` with the `media_type` of the path.
-  pub fn new(path: String, text: String) -> Self {
-    OutputFile {
-      media_type: media_type(&path).to_owned(),
-      path,
-      text,
-    }
-  }
-}
-
-/// The media type of an output file at `path`, from its extension: JSON, SVG, or plain text.
-fn media_type(path: &str) -> &'static str {
-  match Path::new(path).extension().and_then(|e| e.to_str()) {
-    Some(e) if e.eq_ignore_ascii_case("json") => "application/json",
-    Some(e) if e.eq_ignore_ascii_case("svg") => "image/svg+xml",
-    _ => "text/plain",
-  }
-}
-
 /// A listed file of a run whose text cannot be made.
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum FileError {
@@ -190,120 +298,12 @@ pub enum FileError {
   Newick { path: String, error: newick::WriteError },
 }
 
-/// Every output file of `run` except `parameters.json` and `log.txt`, at its path in the results
-/// directory, with the bytes the command line writes: the MCCs as JSON and as lines, the
-/// resolved trees, the imputed trees and Auspice files when `options` asks for them, for two
-/// trees the ARG files, and the figures when `options` asks for them. File names follow the tree
-/// labels. The run of a request that passed `analysis::prepare` has every file it lists, so
-/// `FileError::Missing` marks a broken run.
-pub fn output_files(run: &RunResult, options: &OutputOptions) -> Result<Vec<OutputFile>, FileError> {
-  run_files(run, options)
-    .into_iter()
-    .map(|(kind, path)| {
-      let text = kind.text(run, &path)?;
-      Ok(OutputFile::new(path, text))
-    })
-    .collect()
-}
-
-/// The file set of a run of the web app for `request`, in order: the session file, the files of
-/// `output_files` with `OutputOptions::web`, the figures as `FigureFile`s, `parameters.json`, and
-/// `log.txt` of `records`. `command_line` writes the same files. `seed` is the seed of the run.
-pub fn web_files(
-  request: &AnalysisRequest,
-  run: &RunResult,
-  seed: u64,
-  records: &[Diagnostic],
-) -> Result<Vec<WebFile>, FileError> {
-  let mut files = vec![WebFile::Text(session_file(request))];
-  for (kind, path) in run_files(run, &OutputOptions::web(run.trees.len())) {
-    files.push(if let FileKind::Figure { figure, .. } = kind {
-      WebFile::Figure(FigureFile { path, figure })
-    } else {
-      let text = kind.text(run, &path)?;
-      WebFile::Text(OutputFile::new(path, text))
-    });
-  }
-  files.push(WebFile::Text(parameters_file(&run.opts, seed)));
-  files.push(WebFile::Text(log_file(records)));
-  Ok(files)
-}
-
-/// The labels of the two trees of an ARG, segment A and then B; `None` for another number of
-/// trees.
-pub(crate) fn segment_labels(run: &RunResult) -> Option<[&str; 2]> {
-  match run.trees.as_slice() {
-    [a, b] => Some([a.label.as_str(), b.label.as_str()]),
-    _ => None,
-  }
-}
-
-/// `parameters.json`: the core options of a run and its seed. The command line writes it before
-/// the inference, so it exists when a run fails.
-pub fn parameters_file(o: &Options, seed: u64) -> OutputFile {
-  OutputFile::new(PARAMETERS_FILE.to_owned(), format!("{:#}", params_json(o, seed)))
-}
-
-/// `log.txt` of the web app: one line `<time> [LEVEL] <message>` per record, the layout of the
-/// command-line log without its thread ID, because the browser runs on one thread.
-pub fn log_file(records: &[Diagnostic]) -> OutputFile {
-  let text = records.iter().fold(String::new(), |mut text, r| {
-    #[expect(clippy::expect_used, reason = "writing to a String does not fail")]
-    writeln!(text, "{} [{}] {}", r.time, r.level, r.message).expect("writing to a String");
-    text
-  });
-  OutputFile::new(LOG_FILE.to_owned(), text)
-}
-
-/// The session file of `request`, `treeknit_session.json`: its trees and settings as pretty
-/// JSON, which `analysis::read_session` reads back.
-pub fn session_file(request: &AnalysisRequest) -> OutputFile {
-  #[expect(
-    clippy::expect_used,
-    reason = "a request has string keys and serde_json writes a non-finite number as null"
-  )]
-  let json = serde_json::to_string_pretty(request).expect("a request serializes to JSON");
-  OutputFile::new(SESSION_FILE.to_owned(), format!("{json}\n"))
-}
-
-/// Results directory of `command_line`, next to the extracted `treeknit_results/`, so that the
-/// command keeps the files it reproduces and the two sets can be compared.
-pub const COMMAND_LINE_RESULTS_DIR: &str = "treeknit_results_cli";
-
-/// The command that writes the file set of the web app (`web_files`), run in the directory where
-/// its ZIP archive was extracted: the session file in `treeknit_results/`, the results directory
-/// `treeknit_results_cli/`, and the flags of `OutputOptions::web`.
-pub fn command_line() -> String {
-  let flags = OutputOptions::web(0).flags().join(" ");
-  format!("treeknit --session {RESULTS_DIR}/{SESSION_FILE} --outdir {COMMAND_LINE_RESULTS_DIR} {flags}")
-}
-
-/// The names of the result files that the web app downloads and its help texts name.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "camelCase")]
-pub struct ResultNames {
-  /// File name of the ZIP archive of `results_dir`.
-  pub archive: String,
-  pub archive_media_type: String,
-  pub results_dir: String,
-  /// Results directory of `command_line`.
-  pub command_line_results_dir: String,
-  /// Path of the ARG in extended Newick, written for two trees.
-  pub arg_newick: String,
-  /// Paths of the Auspice JSON files of the two trees of a pair.
-  pub auspice_files: [String; 2],
-}
-
-/// The names of the result files, with the Auspice files of the trees labeled `labels`.
-pub fn result_names(labels: [&str; 2]) -> ResultNames {
-  ResultNames {
-    archive: format!("{RESULTS_DIR}.zip"),
-    archive_media_type: ARCHIVE_MEDIA_TYPE.to_owned(),
-    results_dir: RESULTS_DIR.to_owned(),
-    command_line_results_dir: COMMAND_LINE_RESULTS_DIR.to_owned(),
-    arg_newick: ARG_NEWICK.to_owned(),
-    auspice_files: labels.map(auspice_path),
+/// The media type of an output file at `path`, from its extension: JSON, SVG, or plain text.
+fn media_type(path: &str) -> &'static str {
+  match Path::new(path).extension().and_then(|e| e.to_str()) {
+    Some(e) if e.eq_ignore_ascii_case("json") => "application/json",
+    Some(e) if e.eq_ignore_ascii_case("svg") => "image/svg+xml",
+    _ => "text/plain",
   }
 }
 

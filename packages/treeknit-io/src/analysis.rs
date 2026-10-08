@@ -24,6 +24,163 @@ use tsify::Tsify;
 /// Fewest leaves a pair of trees must share. With fewer, the pair has no MCCs to infer.
 pub const MIN_SHARED_LEAVES: usize = 2;
 
+/// Least number of trees of a run, because TreeKnit infers the MCCs of pairs of trees.
+pub const MIN_TREES: usize = 2;
+
+/// Number of trees of a run that builds an ARG: the ARG joins the two segments of one pair.
+pub const ARG_TREE_COUNT: usize = 2;
+
+/// Check the trees and the settings of `request` for a run of the web app: every error of
+/// `prepare`. An empty list means the request runs.
+pub fn validate(request: &AnalysisRequest) -> Vec<ValidationError> {
+  let k = request.trees.len();
+  let opts = options(&request.settings, k, false);
+  prepare(&request.trees, &OutputOptions::web(k), opts)
+    .err()
+    .unwrap_or_default()
+}
+
+/// The parsed trees and the options of a run that writes the files of `output`, or every error:
+/// those of `parse_trees`, then those of `output::check_output_paths` when the trees parse, then
+/// those of the options `opts` (see `options`). The command line, `validate`, and the session of
+/// the web app check a run with this function, so they report the same errors in one order.
+pub fn prepare(
+  trees: &[TreeText],
+  output: &OutputOptions,
+  opts: Result<Options, Vec<ValidationError>>,
+) -> Result<(ParsedTrees, Options), Vec<ValidationError>> {
+  let parsed = parse_trees(trees).and_then(|p| {
+    let errors = output::check_output_paths(&labels(trees), output);
+    if errors.is_empty() { Ok(p) } else { Err(errors) }
+  });
+  match (parsed, opts) {
+    (Ok(p), Ok(o)) => Ok((p, o)),
+    (parsed, opts) => {
+      let mut errors = parsed.err().unwrap_or_default();
+      errors.extend(opts.err().unwrap_or_default());
+      Err(errors)
+    },
+  }
+}
+
+/// The labels of `trees`, in their order.
+pub fn labels(trees: &[TreeText]) -> Vec<String> {
+  trees.iter().map(|t| t.label.clone()).collect()
+}
+
+/// Parse the trees of a request after checking their number, their labels, their Newick text,
+/// the output file names of their pairs, and the leaves each pair shares, or return every error
+/// those checks find.
+pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationError>> {
+  let mut errors = Vec::new();
+  if trees.len() < MIN_TREES {
+    errors.push(ValidationError::at(Field::Trees, "need at least two trees"));
+  }
+  let label_errors = check_labels(trees);
+  // A pair with an invalid or repeated label is left out of the pair-name check: its label
+  // error already covers it, and two equal labels would repeat it as equal pair names.
+  let valid: Vec<bool> = label_errors.iter().map(Option::is_none).collect();
+  errors.extend(label_errors.into_iter().flatten());
+  errors.extend(check_pair_stems(trees, &valid));
+  let mut parsed = Vec::with_capacity(trees.len());
+  for (i, t) in trees.iter().enumerate() {
+    match newick::parse_first(&t.newick, &t.label) {
+      Ok(p) => {
+        p.log_warnings();
+        parsed.push(p.tree);
+      },
+      Err(e) => {
+        for w in &e.warnings {
+          w.log(&t.label);
+        }
+        errors.push(parse_error(i, t, &e));
+      },
+    }
+  }
+  if parsed.len() < trees.len() {
+    return Err(errors);
+  }
+  let ParsedTrees { trees: parsed, taxa } = number_leaves(parsed);
+  errors.extend(
+    shared_leaf_counts(&parsed, taxa.len())
+      .into_iter()
+      .filter(|p| p.shared < MIN_SHARED_LEAVES)
+      .map(|p| {
+        ValidationError::at(
+          Field::Trees,
+          format!(
+            "trees {:?} and {:?} share fewer than {MIN_SHARED_LEAVES} leaves",
+            trees[p.i].label, trees[p.j].label
+          ),
+        )
+      }),
+  );
+  if errors.is_empty() {
+    Ok(ParsedTrees { trees: parsed, taxa })
+  } else {
+    Err(errors)
+  }
+}
+
+/// Number the leaves of `trees` with one taxon table built from all their leaves.
+pub fn number_leaves(mut trees: Vec<Tree>) -> ParsedTrees {
+  let taxa = Taxa::from_trees(&trees);
+  for t in &mut trees {
+    #[expect(
+      clippy::expect_used,
+      reason = "the table is built from these trees, so it holds every leaf"
+    )]
+    t.assign_taxa(&taxa)
+      .expect("the taxon table built from the trees holds every leaf of every tree");
+  }
+  ParsedTrees { trees, taxa }
+}
+
+/// The request of a session file (`treeknit_session.json`), or the error of its JSON structure:
+/// wrong types, missing required or unknown fields, and a seed above [`MAX_SEED`], which no
+/// JavaScript number holds exactly. The other rules of [`validate`] are not applied, so a session
+/// file with a broken tree or an out-of-range setting still loads and can be fixed.
+pub fn read_session(text: &str) -> Result<AnalysisRequest, Vec<ValidationError>> {
+  let request: AnalysisRequest =
+    serde_json::from_str(text).map_err(|e| vec![ValidationError::new(format!("not a TreeKnit session file: {e}"))])?;
+  let seed = request.settings.seed;
+  if seed > MAX_SEED {
+    return Err(vec![ValidationError::at(
+      Field::Setting { key: SettingKey::Seed },
+      format!(
+        "the seed {seed} of the session file is above {MAX_SEED}, the largest integer a JavaScript number holds exactly"
+      ),
+    )]);
+  }
+  Ok(request)
+}
+
+/// Shared leaf count of every pair of `trees`, in the pair order of `treeknit_core::run`:
+/// `(0,1), (0,2), ..., (1,2), ...`. The trees carry taxa from a table of `n_taxa` leaves.
+pub fn shared_leaf_counts(trees: &[Tree], n_taxa: usize) -> Vec<PairShared> {
+  let sets: Vec<_> = trees.iter().map(|t| t.leaf_set(n_taxa)).collect();
+  let mut counts = Vec::new();
+  for i in 0..sets.len() {
+    for j in i + 1..sets.len() {
+      counts.push(PairShared {
+        i,
+        j,
+        shared: sets[i].intersection_count(&sets[j]),
+      });
+    }
+  }
+  counts
+}
+
+fn parse_error(i: usize, t: &TreeText, e: &newick::ParseError) -> ValidationError {
+  ValidationError {
+    field: Some(Field::TreeNewick { index: i }),
+    message: format!("tree {:?}: {e}", t.label),
+    line: e.location.map(|l| l.line),
+    column: e.location.map(|l| l.column),
+  }
+}
+
 /// Trees to compare, and the settings of the analysis.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
@@ -158,163 +315,6 @@ pub struct PairShared {
   pub i: usize,
   pub j: usize,
   pub shared: usize,
-}
-
-/// Check the trees and the settings of `request` for a run of the web app: every error of
-/// `prepare`. An empty list means the request runs.
-pub fn validate(request: &AnalysisRequest) -> Vec<ValidationError> {
-  let k = request.trees.len();
-  let opts = options(&request.settings, k, false);
-  prepare(&request.trees, &OutputOptions::web(k), opts)
-    .err()
-    .unwrap_or_default()
-}
-
-/// The parsed trees and the options of a run that writes the files of `output`, or every error:
-/// those of `parse_trees`, then those of `output::check_output_paths` when the trees parse, then
-/// those of the options `opts` (see `options`). The command line, `validate`, and the session of
-/// the web app check a run with this function, so they report the same errors in one order.
-pub fn prepare(
-  trees: &[TreeText],
-  output: &OutputOptions,
-  opts: Result<Options, Vec<ValidationError>>,
-) -> Result<(ParsedTrees, Options), Vec<ValidationError>> {
-  let parsed = parse_trees(trees).and_then(|p| {
-    let errors = output::check_output_paths(&labels(trees), output);
-    if errors.is_empty() { Ok(p) } else { Err(errors) }
-  });
-  match (parsed, opts) {
-    (Ok(p), Ok(o)) => Ok((p, o)),
-    (parsed, opts) => {
-      let mut errors = parsed.err().unwrap_or_default();
-      errors.extend(opts.err().unwrap_or_default());
-      Err(errors)
-    },
-  }
-}
-
-/// The labels of `trees`, in their order.
-pub fn labels(trees: &[TreeText]) -> Vec<String> {
-  trees.iter().map(|t| t.label.clone()).collect()
-}
-
-/// Least number of trees of a run, because TreeKnit infers the MCCs of pairs of trees.
-pub const MIN_TREES: usize = 2;
-
-/// Number of trees of a run that builds an ARG: the ARG joins the two segments of one pair.
-pub const ARG_TREE_COUNT: usize = 2;
-
-/// Parse the trees of a request after checking their number, their labels, their Newick text,
-/// the output file names of their pairs, and the leaves each pair shares, or return every error
-/// those checks find.
-pub fn parse_trees(trees: &[TreeText]) -> Result<ParsedTrees, Vec<ValidationError>> {
-  let mut errors = Vec::new();
-  if trees.len() < MIN_TREES {
-    errors.push(ValidationError::at(Field::Trees, "need at least two trees"));
-  }
-  let label_errors = check_labels(trees);
-  // A pair with an invalid or repeated label is left out of the pair-name check: its label
-  // error already covers it, and two equal labels would repeat it as equal pair names.
-  let valid: Vec<bool> = label_errors.iter().map(Option::is_none).collect();
-  errors.extend(label_errors.into_iter().flatten());
-  errors.extend(check_pair_stems(trees, &valid));
-  let mut parsed = Vec::with_capacity(trees.len());
-  for (i, t) in trees.iter().enumerate() {
-    match newick::parse_first(&t.newick, &t.label) {
-      Ok(p) => {
-        p.log_warnings();
-        parsed.push(p.tree);
-      },
-      Err(e) => {
-        for w in &e.warnings {
-          w.log(&t.label);
-        }
-        errors.push(parse_error(i, t, &e));
-      },
-    }
-  }
-  if parsed.len() < trees.len() {
-    return Err(errors);
-  }
-  let ParsedTrees { trees: parsed, taxa } = number_leaves(parsed);
-  errors.extend(
-    shared_leaf_counts(&parsed, taxa.len())
-      .into_iter()
-      .filter(|p| p.shared < MIN_SHARED_LEAVES)
-      .map(|p| {
-        ValidationError::at(
-          Field::Trees,
-          format!(
-            "trees {:?} and {:?} share fewer than {MIN_SHARED_LEAVES} leaves",
-            trees[p.i].label, trees[p.j].label
-          ),
-        )
-      }),
-  );
-  if errors.is_empty() {
-    Ok(ParsedTrees { trees: parsed, taxa })
-  } else {
-    Err(errors)
-  }
-}
-
-/// Number the leaves of `trees` with one taxon table built from all their leaves.
-pub fn number_leaves(mut trees: Vec<Tree>) -> ParsedTrees {
-  let taxa = Taxa::from_trees(&trees);
-  for t in &mut trees {
-    #[expect(
-      clippy::expect_used,
-      reason = "the table is built from these trees, so it holds every leaf"
-    )]
-    t.assign_taxa(&taxa)
-      .expect("the taxon table built from the trees holds every leaf of every tree");
-  }
-  ParsedTrees { trees, taxa }
-}
-
-/// The request of a session file (`treeknit_session.json`), or the error of its JSON structure:
-/// wrong types, missing required or unknown fields, and a seed above [`MAX_SEED`], which no
-/// JavaScript number holds exactly. The other rules of [`validate`] are not applied, so a session
-/// file with a broken tree or an out-of-range setting still loads and can be fixed.
-pub fn read_session(text: &str) -> Result<AnalysisRequest, Vec<ValidationError>> {
-  let request: AnalysisRequest =
-    serde_json::from_str(text).map_err(|e| vec![ValidationError::new(format!("not a TreeKnit session file: {e}"))])?;
-  let seed = request.settings.seed;
-  if seed > MAX_SEED {
-    return Err(vec![ValidationError::at(
-      Field::Setting { key: SettingKey::Seed },
-      format!(
-        "the seed {seed} of the session file is above {MAX_SEED}, the largest integer a JavaScript number holds exactly"
-      ),
-    )]);
-  }
-  Ok(request)
-}
-
-/// Shared leaf count of every pair of `trees`, in the pair order of `treeknit_core::run`:
-/// `(0,1), (0,2), ..., (1,2), ...`. The trees carry taxa from a table of `n_taxa` leaves.
-pub fn shared_leaf_counts(trees: &[Tree], n_taxa: usize) -> Vec<PairShared> {
-  let sets: Vec<_> = trees.iter().map(|t| t.leaf_set(n_taxa)).collect();
-  let mut counts = Vec::new();
-  for i in 0..sets.len() {
-    for j in i + 1..sets.len() {
-      counts.push(PairShared {
-        i,
-        j,
-        shared: sets[i].intersection_count(&sets[j]),
-      });
-    }
-  }
-  counts
-}
-
-fn parse_error(i: usize, t: &TreeText, e: &newick::ParseError) -> ValidationError {
-  ValidationError {
-    field: Some(Field::TreeNewick { index: i }),
-    message: format!("tree {:?}: {e}", t.label),
-    line: e.location.map(|l| l.line),
-    column: e.location.map(|l| l.column),
-  }
 }
 
 #[cfg(test)]

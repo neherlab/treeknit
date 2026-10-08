@@ -113,6 +113,158 @@ pub const SETTING_KEYS: [SettingKey; 10] = [
   },
 ];
 
+/// The schema of the settings of a request with `k` trees and the settings `s`. Applicability
+/// follows `treeknit_core`: naive mode skips the pair inference, the only user of γ, the MCMC
+/// steps, the likelihood tie-break, and the random numbers; the sequence lengths also weigh the
+/// drawn lengths of splits that some trees lack, so they apply to every run; the final
+/// round runs only with strict or liberal resolution and more than two trees; and naive mode
+/// without resolution infers the same MCCs in every round. Bounds are those of
+/// `analysis::check_settings`.
+pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
+  let d = Settings::default();
+  let unless = |skip: Option<&str>| (skip.is_none(), skip.map(str::to_owned));
+  let naive = s.naive.then_some(NAIVE_REASON);
+  let number = |default, min, min_exclusive, max, step, integer, skip: Option<&str>, help: &str| {
+    let (applies, reason) = unless(skip);
+    NumberSetting {
+      default,
+      min,
+      min_exclusive,
+      max,
+      step,
+      integer,
+      applies,
+      reason,
+      help: help.to_owned(),
+    }
+  };
+  let toggle = |default, skip: Option<&str>, help: &str| {
+    let (applies, reason) = unless(skip);
+    ToggleSetting {
+      default,
+      applies,
+      reason,
+      help: help.to_owned(),
+    }
+  };
+  let final_round_skip = if !matches!(s.resolve, ResolveMode::Strict | ResolveMode::Liberal) {
+    Some("Only strict and liberal resolution run a final round.")
+  } else if k <= 2 {
+    Some("A final round runs only with more than two trees.")
+  } else {
+    None
+  };
+  let seed_skip = s.naive.then_some("Naive MCCs use no random numbers.");
+  let rounds_skip = (s.naive && s.resolve == ResolveMode::None)
+    .then_some("Without resolution, every round infers the same naive MCCs of the unchanged trees.");
+  SettingsSchema {
+    settings: SettingFields {
+      gamma: number(d.gamma, 0.0, false, None, None, false, naive, GAMMA_HELP),
+      seq_lengths: number(
+        default_seq_length(),
+        0.0,
+        true,
+        None,
+        None,
+        false,
+        None,
+        "Sequence length of each segment, in the order of the trees, used by the likelihood tie-break and by the drawn length of a split that some trees lack.",
+      ),
+      n_mcmc_it: number(
+        exact_u64(d.n_mcmc_it),
+        1.0,
+        false,
+        Some(exact_u64(MAX_MCMC_IT)),
+        Some(1.0),
+        true,
+        naive,
+        N_MCMC_IT_HELP,
+      ),
+      rounds: number(
+        exact_u64(d.rounds),
+        1.0,
+        false,
+        Some(exact_u64(MAX_ROUNDS)),
+        Some(1.0),
+        true,
+        rounds_skip,
+        ROUNDS_HELP,
+      ),
+      seed: number(
+        exact_u64(d.seed),
+        0.0,
+        false,
+        Some(exact_u64(MAX_SEED)),
+        Some(1.0),
+        true,
+        seed_skip,
+        SEED_HELP,
+      ),
+      pre_resolve: toggle(d.pre_resolve, None, PRE_RESOLVE_HELP),
+      final_round: toggle(d.final_round, final_round_skip, FINAL_ROUND_HELP),
+      likelihood: toggle(
+        d.likelihood,
+        naive,
+        "Break ties between equally good configurations with branch lengths.",
+      ),
+      naive: toggle(
+        d.naive,
+        None,
+        "Return naive MCCs (γ → ∞): the maximal clades whose subtrees are identical in both trees, without inference.",
+      ),
+    },
+    modes: modes(),
+    tree_order_help: TREE_ORDER_HELP.to_owned(),
+  }
+}
+
+/// The resolution modes with their names and effects, in the order the web app lists them; the
+/// default mode comes first.
+pub fn modes() -> Vec<ModeInfo> {
+  let mode = |mode, name: &str, effect: &str| ModeInfo {
+    mode,
+    name: name.to_owned(),
+    effect: effect.to_owned(),
+  };
+  vec![
+    mode(
+      ResolveMode::Matched,
+      "Matched",
+      "Resolve during inference and with the inferred MCCs, then resolve all trees so that their topologies match \
+       within every MCC; where splits of different trees conflict, earlier trees win, and MCCs that cannot be \
+       matched are split.",
+    ),
+    mode(
+      ResolveMode::Strict,
+      "Strict",
+      "Resolve during inference and with the inferred MCCs, adding unambiguous splits only.",
+    ),
+    mode(
+      ResolveMode::Liberal,
+      "Liberal",
+      "As strict, also adding ambiguous splits.",
+    ),
+    mode(
+      ResolveMode::None,
+      "None",
+      "Do not resolve with MCCs, so MCCs require identical topologies.",
+    ),
+  ]
+}
+
+/// The sequence length of a tree without one: the core default.
+fn default_seq_length() -> f64 {
+  Options::for_trees(1).seq_lengths.first().copied().unwrap_or(1.0)
+}
+
+#[expect(
+  clippy::as_conversions,
+  reason = "the integer settings are at most MAX_SEED = 2^53 - 1, which f64 holds exactly"
+)]
+fn exact_u64(n: u64) -> f64 {
+  n as f64
+}
+
 /// A setting as a key of links and a long flag of the command line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SettingKey {
@@ -246,158 +398,6 @@ pub struct ModeInfo {
   pub name: String,
   /// One-line effect of the mode on the trees.
   pub effect: String,
-}
-
-/// The resolution modes with their names and effects, in the order the web app lists them; the
-/// default mode comes first.
-pub fn modes() -> Vec<ModeInfo> {
-  let mode = |mode, name: &str, effect: &str| ModeInfo {
-    mode,
-    name: name.to_owned(),
-    effect: effect.to_owned(),
-  };
-  vec![
-    mode(
-      ResolveMode::Matched,
-      "Matched",
-      "Resolve during inference and with the inferred MCCs, then resolve all trees so that their topologies match \
-       within every MCC; where splits of different trees conflict, earlier trees win, and MCCs that cannot be \
-       matched are split.",
-    ),
-    mode(
-      ResolveMode::Strict,
-      "Strict",
-      "Resolve during inference and with the inferred MCCs, adding unambiguous splits only.",
-    ),
-    mode(
-      ResolveMode::Liberal,
-      "Liberal",
-      "As strict, also adding ambiguous splits.",
-    ),
-    mode(
-      ResolveMode::None,
-      "None",
-      "Do not resolve with MCCs, so MCCs require identical topologies.",
-    ),
-  ]
-}
-
-/// The schema of the settings of a request with `k` trees and the settings `s`. Applicability
-/// follows `treeknit_core`: naive mode skips the pair inference, the only user of γ, the MCMC
-/// steps, the likelihood tie-break, and the random numbers; the sequence lengths also weigh the
-/// drawn lengths of splits that some trees lack, so they apply to every run; the final
-/// round runs only with strict or liberal resolution and more than two trees; and naive mode
-/// without resolution infers the same MCCs in every round. Bounds are those of
-/// `analysis::check_settings`.
-pub fn settings_schema(k: usize, s: &Settings) -> SettingsSchema {
-  let d = Settings::default();
-  let unless = |skip: Option<&str>| (skip.is_none(), skip.map(str::to_owned));
-  let naive = s.naive.then_some(NAIVE_REASON);
-  let number = |default, min, min_exclusive, max, step, integer, skip: Option<&str>, help: &str| {
-    let (applies, reason) = unless(skip);
-    NumberSetting {
-      default,
-      min,
-      min_exclusive,
-      max,
-      step,
-      integer,
-      applies,
-      reason,
-      help: help.to_owned(),
-    }
-  };
-  let toggle = |default, skip: Option<&str>, help: &str| {
-    let (applies, reason) = unless(skip);
-    ToggleSetting {
-      default,
-      applies,
-      reason,
-      help: help.to_owned(),
-    }
-  };
-  let final_round_skip = if !matches!(s.resolve, ResolveMode::Strict | ResolveMode::Liberal) {
-    Some("Only strict and liberal resolution run a final round.")
-  } else if k <= 2 {
-    Some("A final round runs only with more than two trees.")
-  } else {
-    None
-  };
-  let seed_skip = s.naive.then_some("Naive MCCs use no random numbers.");
-  let rounds_skip = (s.naive && s.resolve == ResolveMode::None)
-    .then_some("Without resolution, every round infers the same naive MCCs of the unchanged trees.");
-  SettingsSchema {
-    settings: SettingFields {
-      gamma: number(d.gamma, 0.0, false, None, None, false, naive, GAMMA_HELP),
-      seq_lengths: number(
-        default_seq_length(),
-        0.0,
-        true,
-        None,
-        None,
-        false,
-        None,
-        "Sequence length of each segment, in the order of the trees, used by the likelihood tie-break and by the drawn length of a split that some trees lack.",
-      ),
-      n_mcmc_it: number(
-        exact_u64(d.n_mcmc_it),
-        1.0,
-        false,
-        Some(exact_u64(MAX_MCMC_IT)),
-        Some(1.0),
-        true,
-        naive,
-        N_MCMC_IT_HELP,
-      ),
-      rounds: number(
-        exact_u64(d.rounds),
-        1.0,
-        false,
-        Some(exact_u64(MAX_ROUNDS)),
-        Some(1.0),
-        true,
-        rounds_skip,
-        ROUNDS_HELP,
-      ),
-      seed: number(
-        exact_u64(d.seed),
-        0.0,
-        false,
-        Some(exact_u64(MAX_SEED)),
-        Some(1.0),
-        true,
-        seed_skip,
-        SEED_HELP,
-      ),
-      pre_resolve: toggle(d.pre_resolve, None, PRE_RESOLVE_HELP),
-      final_round: toggle(d.final_round, final_round_skip, FINAL_ROUND_HELP),
-      likelihood: toggle(
-        d.likelihood,
-        naive,
-        "Break ties between equally good configurations with branch lengths.",
-      ),
-      naive: toggle(
-        d.naive,
-        None,
-        "Return naive MCCs (γ → ∞): the maximal clades whose subtrees are identical in both trees, without inference.",
-      ),
-    },
-    modes: modes(),
-    tree_order_help: TREE_ORDER_HELP.to_owned(),
-  }
-}
-
-/// The sequence length of a tree without one: the core default.
-fn default_seq_length() -> f64 {
-  Options::for_trees(1).seq_lengths.first().copied().unwrap_or(1.0)
-}
-
-#[expect(
-  clippy::as_conversions,
-  reason = "the integer settings are at most MAX_SEED = 2^53 - 1, which f64 holds exactly"
-)]
-fn exact_u64(n: u64) -> f64 {
-  n as f64
 }
 
 #[cfg(test)]

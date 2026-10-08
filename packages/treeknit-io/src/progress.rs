@@ -5,19 +5,6 @@ use treeknit_core::progress;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
-/// Part of a run that is in progress.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "lowercase")]
-pub enum Phase {
-  /// Pair inference and resolution, in rounds over all pairs.
-  Pairs,
-  /// Topology matching of `matched` resolution; the fraction does not change during it.
-  Matching,
-  /// The run is complete.
-  Done,
-}
-
 /// Progress of a run: the completed fraction, and the round and pair in progress.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
@@ -38,16 +25,6 @@ pub struct Progress {
   pub pairs: usize,
 }
 
-impl From<progress::Phase> for Phase {
-  fn from(p: progress::Phase) -> Phase {
-    match p {
-      progress::Phase::Pairs => Phase::Pairs,
-      progress::Phase::Matching => Phase::Matching,
-      progress::Phase::Done => Phase::Done,
-    }
-  }
-}
-
 impl From<progress::Progress> for Progress {
   fn from(p: progress::Progress) -> Progress {
     // Destructured without `..`, so a new field of the core type stops the build here.
@@ -66,6 +43,29 @@ impl From<progress::Progress> for Progress {
       rounds,
       pair,
       pairs,
+    }
+  }
+}
+
+/// Part of a run that is in progress.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "lowercase")]
+pub enum Phase {
+  /// Pair inference and resolution, in rounds over all pairs.
+  Pairs,
+  /// Topology matching of `matched` resolution; the fraction does not change during it.
+  Matching,
+  /// The run is complete.
+  Done,
+}
+
+impl From<progress::Phase> for Phase {
+  fn from(p: progress::Phase) -> Phase {
+    match p {
+      progress::Phase::Pairs => Phase::Pairs,
+      progress::Phase::Matching => Phase::Matching,
+      progress::Phase::Done => Phase::Done,
     }
   }
 }

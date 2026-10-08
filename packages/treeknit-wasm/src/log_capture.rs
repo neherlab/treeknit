@@ -7,9 +7,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use treeknit_io::summary::{Diagnostic, Level};
 use wasm_bindgen::prelude::*;
 
-/// The logger of the module: it keeps records of level Debug and above in `RECORDS`.
-struct Capture;
-
 static CAPTURE: Capture = Capture;
 
 /// Whether `install` installed `CAPTURE`. A flag of its own, because the address of a zero-sized
@@ -34,21 +31,6 @@ extern "C" {
   pub(crate) fn console_error(message: &str);
 }
 
-impl Log for Capture {
-  fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-    metadata.level() <= log::Level::Debug
-  }
-
-  fn log(&self, record: &Record<'_>) {
-    if !self.enabled(record.metadata()) {
-      return;
-    }
-    RECORDS.with_borrow_mut(|r| r.push(diagnostic(record.level().into(), record.args().to_string())));
-  }
-
-  fn flush(&self) {}
-}
-
 /// Install the logger; a second call keeps the installed one. When another logger is installed,
 /// write the failure to the console instead: the module still works, and each run reports the
 /// failure as a diagnostic (see `unavailable`).
@@ -69,21 +51,41 @@ pub(crate) fn unavailable() -> Option<Diagnostic> {
   (!INSTALLED.load(Ordering::Relaxed)).then(|| diagnostic(Level::Warn, UNAVAILABLE.to_owned()))
 }
 
-/// The records since the last call, in the order they occurred; clears the buffer.
-pub(crate) fn take() -> Vec<Diagnostic> {
-  RECORDS.with_borrow_mut(std::mem::take)
+/// The guard of a new run; `None` while another run holds one, because a nested run would take
+/// the outer run's records and release the guard of the outer run when it ends.
+pub(crate) fn begin_run() -> Option<RunGuard> {
+  (!RUNNING.replace(true)).then(|| RunGuard(()))
+}
+
+/// Discard the records of an export: clear the buffer now and when the guard drops, so they never
+/// mix into the log of a run. During a run (see [`begin_run`]), keep the buffer instead.
+pub(crate) fn discard() -> Discard {
+  clear_outside_run();
+  Discard(())
+}
+
+/// The logger of the module: it keeps records of level Debug and above in `RECORDS`.
+struct Capture;
+
+impl Log for Capture {
+  fn enabled(&self, metadata: &Metadata<'_>) -> bool {
+    metadata.level() <= log::Level::Debug
+  }
+
+  fn log(&self, record: &Record<'_>) {
+    if !self.enabled(record.metadata()) {
+      return;
+    }
+    RECORDS.with_borrow_mut(|r| r.push(diagnostic(record.level().into(), record.args().to_string())));
+  }
+
+  fn flush(&self) {}
 }
 
 /// Guard of a run: while it lives, [`discard`] keeps the buffer, so the records of exports that a
 /// progress callback calls do not erase the records of the run.
 #[must_use = "the run's records are unprotected once the guard is dropped"]
 pub(crate) struct RunGuard(());
-
-/// The guard of a new run; `None` while another run holds one, because a nested run would take
-/// the outer run's records and release the guard of the outer run when it ends.
-pub(crate) fn begin_run() -> Option<RunGuard> {
-  (!RUNNING.replace(true)).then(|| RunGuard(()))
-}
 
 impl Drop for RunGuard {
   fn drop(&mut self) {
@@ -94,13 +96,6 @@ impl Drop for RunGuard {
 /// Guard of an export that is not a run; see [`discard`].
 #[must_use = "the records are discarded when the guard is dropped"]
 pub(crate) struct Discard(());
-
-/// Discard the records of an export: clear the buffer now and when the guard drops, so they never
-/// mix into the log of a run. During a run (see [`begin_run`]), keep the buffer instead.
-pub(crate) fn discard() -> Discard {
-  clear_outside_run();
-  Discard(())
-}
 
 impl Drop for Discard {
   fn drop(&mut self) {
@@ -113,6 +108,11 @@ fn clear_outside_run() {
   if !RUNNING.get() {
     take();
   }
+}
+
+/// The records since the last call, in the order they occurred; clears the buffer.
+pub(crate) fn take() -> Vec<Diagnostic> {
+  RECORDS.with_borrow_mut(std::mem::take)
 }
 
 /// A record of `level` with `message`, timed now.

@@ -14,6 +14,17 @@ use strum::VariantArray;
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
+/// Smallest figure width, in px: the two margins and one px between them, so that the drawing
+/// has a width.
+pub const MIN_FIGURE_WIDTH: f64 = 2.0 * DRAWING_RULES.margin_px + 1.0;
+/// Largest figure width, in px: a bound against mistyped values, a hundred times the default.
+pub const MAX_FIGURE_WIDTH: f64 = 100_000.0;
+/// Smallest row height, in px: the figures write coordinates with two decimals, so rows closer
+/// than 0.01 px would fall on one y; one px keeps every row apart.
+pub const MIN_ROW_HEIGHT: f64 = 1.0;
+/// Largest row height, in px: a bound against mistyped values, far above the 12 px of a label.
+pub const MAX_ROW_HEIGHT: f64 = 1_000.0;
+
 /// The SVG tanglegram of `view`, titled with the labels of its two trees, with a legend under
 /// the drawing; the errors of `check_figure_options` when `options` are invalid. The view must be
 /// laid out with `options.scale` by `display::pair_view`; the shapes have the scale `view.scale`.
@@ -31,51 +42,10 @@ pub fn arg_svg(view: &ArgView, options: &FigureOptions) -> Result<String, Vec<Va
   Ok(arg::draw(view, options))
 }
 
-/// Size and content of a figure; a missing field takes its default.
-#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
-pub struct FigureOptions {
-  /// Width in px.
-  pub width: f64,
-  /// Height of a leaf row in px.
-  pub row_height: f64,
-  /// Branch scale.
-  pub scale: Scale,
-  /// When leaf labels are drawn.
-  pub labels: LabelMode,
+pub(crate) fn checked(options: &FigureOptions) -> Result<(), Vec<ValidationError>> {
+  let errors = check_figure_options(options);
+  if errors.is_empty() { Ok(()) } else { Err(errors) }
 }
-
-impl Default for FigureOptions {
-  fn default() -> Self {
-    FigureOptions {
-      width: 1200.0,
-      row_height: 12.0,
-      scale: Scale::default(),
-      labels: LabelMode::default(),
-    }
-  }
-}
-
-/// An option of [`FigureOptions`] that [`check_figure_options`] reports, named as its field.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, VariantArray)]
-#[cfg_attr(feature = "tsify", derive(Tsify))]
-#[serde(rename_all = "camelCase")]
-pub enum FigureOptionKey {
-  Width,
-  RowHeight,
-}
-
-/// Smallest figure width, in px: the two margins and one px between them, so that the drawing
-/// has a width.
-pub const MIN_FIGURE_WIDTH: f64 = 2.0 * DRAWING_RULES.margin_px + 1.0;
-/// Largest figure width, in px: a bound against mistyped values, a hundred times the default.
-pub const MAX_FIGURE_WIDTH: f64 = 100_000.0;
-/// Smallest row height, in px: the figures write coordinates with two decimals, so rows closer
-/// than 0.01 px would fall on one y; one px keeps every row apart.
-pub const MIN_ROW_HEIGHT: f64 = 1.0;
-/// Largest row height, in px: a bound against mistyped values, far above the 12 px of a label.
-pub const MAX_ROW_HEIGHT: f64 = 1_000.0;
 
 /// Check `options`: the width and the row height must be finite numbers from `MIN_FIGURE_WIDTH`
 /// to `MAX_FIGURE_WIDTH` and from `MIN_ROW_HEIGHT` to `MAX_ROW_HEIGHT` px. Each error names its
@@ -112,11 +82,6 @@ pub fn check_figure_options(options: &FigureOptions) -> Vec<ValidationError> {
   .collect()
 }
 
-pub(crate) fn checked(options: &FigureOptions) -> Result<(), Vec<ValidationError>> {
-  let errors = check_figure_options(options);
-  if errors.is_empty() { Ok(()) } else { Err(errors) }
-}
-
 /// Leaf labels are drawn: always with `on`, never with `off`, and with `auto` from the row height
 /// of the drawing rules.
 fn labels_shown(options: &FigureOptions) -> bool {
@@ -125,6 +90,41 @@ fn labels_shown(options: &FigureOptions) -> bool {
     LabelMode::Off => false,
     LabelMode::Auto => DRAWING_RULES.auto_labels_shown(options.row_height),
   }
+}
+
+/// Size and content of a figure; a missing field takes its default.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct FigureOptions {
+  /// Width in px.
+  pub width: f64,
+  /// Height of a leaf row in px.
+  pub row_height: f64,
+  /// Branch scale.
+  pub scale: Scale,
+  /// When leaf labels are drawn.
+  pub labels: LabelMode,
+}
+
+impl Default for FigureOptions {
+  fn default() -> Self {
+    FigureOptions {
+      width: 1200.0,
+      row_height: 12.0,
+      scale: Scale::default(),
+      labels: LabelMode::default(),
+    }
+  }
+}
+
+/// An option of [`FigureOptions`] that [`check_figure_options`] reports, named as its field.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, VariantArray)]
+#[cfg_attr(feature = "tsify", derive(Tsify))]
+#[serde(rename_all = "camelCase")]
+pub enum FigureOptionKey {
+  Width,
+  RowHeight,
 }
 
 /// When leaf labels are drawn.

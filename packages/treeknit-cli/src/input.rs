@@ -14,133 +14,6 @@ use treeknit_io::examples;
 use treeknit_io::launch::{self, DecodeError, LaunchInput, LinkLocation, LocationError, TreeAddress};
 use treeknit_io::output::OutputOptions;
 
-/// Why the text of a file or location cannot be read.
-#[derive(Debug, thiserror::Error)]
-pub(crate) enum ReadError {
-  #[error("{0}")]
-  File(#[source] io::Error),
-  #[error("{0}")]
-  FileText(#[source] DecodeError),
-  #[error(transparent)]
-  Location(#[from] LocationError),
-  #[error("cannot read {url}: {source}")]
-  Download { url: String, source: DownloadError },
-  #[error("cannot read {url}: {source}")]
-  DownloadText { url: String, source: DecodeError },
-}
-
-/// Reads the bytes at an `https:` address, or the error with the reason.
-pub(crate) type Fetch<'a> = &'a dyn Fn(&str) -> Result<Vec<u8>, DownloadError>;
-
-/// The bytes at the `https:` address `url`, with the limits of the web app: an answer within
-/// [`launch::FETCH_TIMEOUT_SECONDS`] and at most [`launch::MAX_DOWNLOAD_BYTES`].
-pub(crate) fn http_get(url: &str) -> Result<Vec<u8>, DownloadError> {
-  let agent: ureq::Agent = ureq::Agent::config_builder()
-    .timeout_global(Some(Duration::from_secs(launch::FETCH_TIMEOUT_SECONDS.into())))
-    .build()
-    .into();
-  let limit = u64::try_from(launch::MAX_DOWNLOAD_BYTES).unwrap_or(u64::MAX);
-  agent
-    .get(launch::request_url(url))
-    .call()
-    .and_then(|mut response| response.body_mut().with_config().limit(limit).read_to_vec())
-    .map_err(DownloadError::from)
-}
-
-/// The reason of a failed download, in the words of the web app.
-#[derive(Debug, thiserror::Error)]
-pub(crate) enum DownloadError {
-  /// The server answered with this error status.
-  #[error("{}", status_text(*.0))]
-  Status(u16),
-  #[error("no answer within {} seconds", launch::FETCH_TIMEOUT_SECONDS)]
-  Timeout,
-  #[error("the file is larger than {} MiB", launch::MAX_DOWNLOAD_BYTES >> 20)]
-  TooLarge,
-  #[error(transparent)]
-  Other(ureq::Error),
-}
-
-impl From<ureq::Error> for DownloadError {
-  fn from(e: ureq::Error) -> Self {
-    match e {
-      ureq::Error::StatusCode(code) => Self::Status(code),
-      ureq::Error::Timeout(_) => Self::Timeout,
-      ureq::Error::BodyExceedsLimit(_) => Self::TooLarge,
-      other => Self::Other(other),
-    }
-  }
-}
-
-/// An HTTP status with its reason phrase, such as `404 Not Found`, or the bare code.
-fn status_text(code: u16) -> String {
-  let reason = ureq::http::StatusCode::from_u16(code)
-    .ok()
-    .and_then(|s| s.canonical_reason());
-  reason.map_or_else(|| format!("{code}"), |r| format!("{code} {r}"))
-}
-
-/// The trees of a run with what the command line needs to report on them, to name their output
-/// files, and to write their link.
-pub(crate) struct Input {
-  pub(crate) texts: Vec<TreeText>,
-  /// Where the trees and settings come from, for error messages.
-  pub(crate) source: Source,
-  /// Extension of each tree's output files.
-  pub(crate) extensions: Vec<String>,
-  /// The settings before the analysis options: the defaults, or the settings of the session file
-  /// or of the link.
-  pub(crate) base: Settings,
-  /// Where a link gets each tree again.
-  pub(crate) addresses: Vec<Option<TreeAddress>>,
-  /// The trees come with their labels and settings (a session file, an example, or a link), so the
-  /// results directory receives their session file.
-  pub(crate) session: bool,
-  /// The index and the error of each input file that cannot be read; its tree has an empty text.
-  pub(crate) read_errors: Vec<(usize, ValidationError)>,
-}
-
-impl Input {
-  /// The trees and settings of `request`, read from `source`, with the output names of the web app.
-  fn of_request(request: AnalysisRequest, source: Source, addresses: Vec<Option<TreeAddress>>) -> Self {
-    let k = request.trees.len();
-    Input {
-      texts: request.trees,
-      source,
-      extensions: OutputOptions::web(k).extensions,
-      base: request.settings,
-      addresses,
-      session: true,
-      read_errors: Vec::new(),
-    }
-  }
-
-  /// The read errors, then `errors` without the errors of the Newick text of the files that
-  /// cannot be read, which are about their empty text.
-  pub(crate) fn with_read_errors(&self, errors: Vec<ValidationError>) -> Vec<ValidationError> {
-    let unread: Vec<Field> = self
-      .read_errors
-      .iter()
-      .map(|(i, _)| Field::TreeNewick { index: *i })
-      .collect();
-    let mut all: Vec<ValidationError> = self.read_errors.iter().map(|(_, e)| e.clone()).collect();
-    all.extend(
-      errors
-        .into_iter()
-        .filter(|e| !e.field.as_ref().is_some_and(|f| unread.contains(f))),
-    );
-    all
-  }
-}
-
-/// Where the trees and the settings of a run come from.
-pub(crate) enum Source {
-  /// The name of each tree: its file path or its address; the settings come from the options.
-  Trees(Vec<String>),
-  /// The session file, example, or link that holds the trees and the settings, by name.
-  Named(String),
-}
-
 /// The input that the options of `cli` name, read with `fetch` from `https:` addresses.
 pub(crate) fn read_input(cli: &Cli, fetch: Fetch<'_>) -> Result<Input> {
   if let Some(id) = &cli.example {
@@ -192,15 +65,77 @@ fn tree_input(args: &[PathBuf], fetch: Fetch<'_>) -> Input {
   }
 }
 
+/// Labels of the tree arguments: the given labels; files without one by path, next to the given
+/// labels; locations without one by the file name of their address (`tree` for `data:`), next to
+/// all of those.
+fn tree_arg_labels(trees: &[TreeArg]) -> Vec<String> {
+  let given: Vec<String> = trees.iter().filter_map(|t| t.label.clone()).collect();
+  let files: Vec<PathBuf> = trees
+    .iter()
+    .filter_map(|t| match (&t.label, &t.tree) {
+      (None, TreeArgKind::File(path)) => Some(path.clone()),
+      _ => None,
+    })
+    .collect();
+  let file_labels = path_labels(&files, &given);
+  let names: Vec<String> = trees
+    .iter()
+    .filter_map(|t| match (&t.label, &t.tree) {
+      (None, TreeArgKind::Location(Ok(LinkLocation::Url { file_name, .. }))) => Some(file_name.clone()),
+      (None, TreeArgKind::Location(_)) => Some(String::new()),
+      _ => None,
+    })
+    .collect();
+  let taken: Vec<String> = given.iter().chain(&file_labels).cloned().collect();
+  let mut file_labels = file_labels.into_iter();
+  let mut location_labels = analysis::tree_labels(&names, &taken).into_iter();
+  trees
+    .iter()
+    .map(|t| match (&t.label, &t.tree) {
+      (Some(label), _) => label.clone(),
+      (None, TreeArgKind::File(_)) => file_labels.next().unwrap_or_default(),
+      (None, TreeArgKind::Location(_)) => location_labels.next().unwrap_or_default(),
+    })
+    .collect()
+}
+
+/// Labels of the command line for tree files: the file stem, or, when stems collide with each
+/// other or with the labels `taken`, the stem and the parent directory (`a/ha.nwk` and
+/// `b/ha.nwk` give `ha_a` and `ha_b`). Labels collide when their `analysis::label_key` is equal,
+/// as in the label check, so `a/HA.nwk` and `b/ha.nwk` also get the parent directory; the label
+/// check reports a collision that remains. The web app labels trees by file name only
+/// (`treeknit_io::analysis::tree_labels`), because it has no directories.
+fn path_labels(paths: &[PathBuf], taken: &[String]) -> Vec<String> {
+  let stem = |p: &Path| {
+    p.file_stem()
+      .map(|s| s.to_string_lossy().into_owned())
+      .unwrap_or_default()
+  };
+  let mut labels: Vec<String> = paths.iter().map(|p| stem(p)).collect();
+  let unique = |v: &[String]| {
+    let keys: Vec<String> = v.iter().chain(taken).map(|l| analysis::label_key(l)).collect();
+    keys.iter().collect::<BTreeSet<_>>().len() == keys.len()
+  };
+  if !unique(&labels) {
+    labels = paths
+      .iter()
+      .map(|p| {
+        let dir = p
+          .parent()
+          .and_then(|d| d.file_name())
+          .map(|d| d.to_string_lossy().into_owned())
+          .unwrap_or_default();
+        format!("{}_{dir}", stem(p))
+      })
+      .collect();
+  }
+  labels
+}
+
 /// A tree argument: a file or a location, with the label it gives.
 struct TreeArg {
   label: Option<String>,
   tree: TreeArgKind,
-}
-
-enum TreeArgKind {
-  File(PathBuf),
-  Location(Result<LinkLocation, LocationError>),
 }
 
 impl TreeArg {
@@ -268,76 +203,9 @@ impl TreeArg {
   }
 }
 
-/// Labels of the tree arguments: the given labels; files without one by path, next to the given
-/// labels; locations without one by the file name of their address (`tree` for `data:`), next to
-/// all of those.
-fn tree_arg_labels(trees: &[TreeArg]) -> Vec<String> {
-  let given: Vec<String> = trees.iter().filter_map(|t| t.label.clone()).collect();
-  let files: Vec<PathBuf> = trees
-    .iter()
-    .filter_map(|t| match (&t.label, &t.tree) {
-      (None, TreeArgKind::File(path)) => Some(path.clone()),
-      _ => None,
-    })
-    .collect();
-  let file_labels = path_labels(&files, &given);
-  let names: Vec<String> = trees
-    .iter()
-    .filter_map(|t| match (&t.label, &t.tree) {
-      (None, TreeArgKind::Location(Ok(LinkLocation::Url { file_name, .. }))) => Some(file_name.clone()),
-      (None, TreeArgKind::Location(_)) => Some(String::new()),
-      _ => None,
-    })
-    .collect();
-  let taken: Vec<String> = given.iter().chain(&file_labels).cloned().collect();
-  let mut file_labels = file_labels.into_iter();
-  let mut location_labels = analysis::tree_labels(&names, &taken).into_iter();
-  trees
-    .iter()
-    .map(|t| match (&t.label, &t.tree) {
-      (Some(label), _) => label.clone(),
-      (None, TreeArgKind::File(_)) => file_labels.next().unwrap_or_default(),
-      (None, TreeArgKind::Location(_)) => location_labels.next().unwrap_or_default(),
-    })
-    .collect()
-}
-
-/// Whether a tree argument is a location rather than a path: it starts with `https:`, `http:`
-/// (rejected with a reason), or `data:`.
-fn is_location(text: &str) -> bool {
-  let lower = text.get(..6).unwrap_or(text).to_ascii_lowercase();
-  ["https:", "http:", "data:"].iter().any(|s| lower.starts_with(s))
-}
-
-/// The validation error of the tree `index`, which cannot be read for `reason`.
-fn read_error(index: usize, reason: impl Display) -> ValidationError {
-  ValidationError::at(Field::Tree { index }, reason.to_string())
-}
-
-/// The text of the file at `path`, decompressed when it is gzip-compressed.
-fn read_file(path: &Path) -> Result<String, ReadError> {
-  let bytes = fs::read(path).map_err(ReadError::File)?;
-  launch::decode_tree_bytes(&bytes).map_err(ReadError::FileText)
-}
-
-/// The text at `location`: downloaded with `fetch` from its address, or the text of `data:`.
-fn read_location(location: &LinkLocation, fetch: Fetch<'_>) -> Result<String, ReadError> {
-  match location {
-    LinkLocation::Url {
-      url, fetch: address, ..
-    } => {
-      log::info!("reading {url}");
-      let bytes = fetch(address).map_err(|source| ReadError::Download {
-        url: url.clone(),
-        source,
-      })?;
-      launch::decode_tree_bytes(&bytes).map_err(|source| ReadError::DownloadText {
-        url: url.clone(),
-        source,
-      })
-    },
-    LinkLocation::Data { text } => Ok(text.clone()),
-  }
+enum TreeArgKind {
+  File(PathBuf),
+  Location(Result<LinkLocation, LocationError>),
 }
 
 /// The trees and settings of the session file at `path`, a file or a location. Its trees keep
@@ -361,35 +229,6 @@ fn session_input(path: &Path, fetch: Fetch<'_>) -> Result<Input> {
     Err(errors) => fail(&errors, &source)?,
   };
   Ok(Input::of_request(request, source, Vec::new()))
-}
-
-/// The trees of the example `id`, with the default settings.
-fn example_input(id: &str) -> Result<Input> {
-  let Some(example) = examples::example(id) else {
-    let parsed = launch::parse_launch(&[("example".to_owned(), id.to_owned())], &[]);
-    let message = parsed.errors.first().map_or("no such example", |e| e.message.as_str());
-    return Err(InputError::UnknownExample(message.to_owned()).into());
-  };
-  log::info!("example: {id}");
-  let request = AnalysisRequest {
-    trees: example.tree_texts(),
-    settings: Settings::default(),
-  };
-  let addresses = example
-    .trees
-    .iter()
-    .map(|t| {
-      Some(TreeAddress::Example {
-        id: id.to_owned(),
-        file: t.file.to_owned(),
-      })
-    })
-    .collect();
-  Ok(Input::of_request(
-    request,
-    Source::Named(format!("example {id}")),
-    addresses,
-  ))
 }
 
 /// The trees and settings of the link `url` of the web app. Its settings apply to the defaults
@@ -469,37 +308,33 @@ fn link_input(url: &str, fetch: Fetch<'_>) -> Result<Input> {
   Ok(input)
 }
 
-/// Labels of the command line for tree files: the file stem, or, when stems collide with each
-/// other or with the labels `taken`, the stem and the parent directory (`a/ha.nwk` and
-/// `b/ha.nwk` give `ha_a` and `ha_b`). Labels collide when their `analysis::label_key` is equal,
-/// as in the label check, so `a/HA.nwk` and `b/ha.nwk` also get the parent directory; the label
-/// check reports a collision that remains. The web app labels trees by file name only
-/// (`treeknit_io::analysis::tree_labels`), because it has no directories.
-fn path_labels(paths: &[PathBuf], taken: &[String]) -> Vec<String> {
-  let stem = |p: &Path| {
-    p.file_stem()
-      .map(|s| s.to_string_lossy().into_owned())
-      .unwrap_or_default()
+/// The trees of the example `id`, with the default settings.
+fn example_input(id: &str) -> Result<Input> {
+  let Some(example) = examples::example(id) else {
+    let parsed = launch::parse_launch(&[("example".to_owned(), id.to_owned())], &[]);
+    let message = parsed.errors.first().map_or("no such example", |e| e.message.as_str());
+    return Err(InputError::UnknownExample(message.to_owned()).into());
   };
-  let mut labels: Vec<String> = paths.iter().map(|p| stem(p)).collect();
-  let unique = |v: &[String]| {
-    let keys: Vec<String> = v.iter().chain(taken).map(|l| analysis::label_key(l)).collect();
-    keys.iter().collect::<BTreeSet<_>>().len() == keys.len()
+  log::info!("example: {id}");
+  let request = AnalysisRequest {
+    trees: example.tree_texts(),
+    settings: Settings::default(),
   };
-  if !unique(&labels) {
-    labels = paths
-      .iter()
-      .map(|p| {
-        let dir = p
-          .parent()
-          .and_then(|d| d.file_name())
-          .map(|d| d.to_string_lossy().into_owned())
-          .unwrap_or_default();
-        format!("{}_{dir}", stem(p))
+  let addresses = example
+    .trees
+    .iter()
+    .map(|t| {
+      Some(TreeAddress::Example {
+        id: id.to_owned(),
+        file: t.file.to_owned(),
       })
-      .collect();
-  }
-  labels
+    })
+    .collect();
+  Ok(Input::of_request(
+    request,
+    Source::Named(format!("example {id}")),
+    addresses,
+  ))
 }
 
 /// File extension of `path` with its dot, or empty without one: the output trees of an input
@@ -509,6 +344,171 @@ fn extension(path: &Path) -> String {
     .extension()
     .map(|e| format!(".{}", e.to_string_lossy()))
     .unwrap_or_default()
+}
+
+/// Whether a tree argument is a location rather than a path: it starts with `https:`, `http:`
+/// (rejected with a reason), or `data:`.
+fn is_location(text: &str) -> bool {
+  let lower = text.get(..6).unwrap_or(text).to_ascii_lowercase();
+  ["https:", "http:", "data:"].iter().any(|s| lower.starts_with(s))
+}
+
+/// The validation error of the tree `index`, which cannot be read for `reason`.
+fn read_error(index: usize, reason: impl Display) -> ValidationError {
+  ValidationError::at(Field::Tree { index }, reason.to_string())
+}
+
+/// The text of the file at `path`, decompressed when it is gzip-compressed.
+fn read_file(path: &Path) -> Result<String, ReadError> {
+  let bytes = fs::read(path).map_err(ReadError::File)?;
+  launch::decode_tree_bytes(&bytes).map_err(ReadError::FileText)
+}
+
+/// The text at `location`: downloaded with `fetch` from its address, or the text of `data:`.
+fn read_location(location: &LinkLocation, fetch: Fetch<'_>) -> Result<String, ReadError> {
+  match location {
+    LinkLocation::Url {
+      url, fetch: address, ..
+    } => {
+      log::info!("reading {url}");
+      let bytes = fetch(address).map_err(|source| ReadError::Download {
+        url: url.clone(),
+        source,
+      })?;
+      launch::decode_tree_bytes(&bytes).map_err(|source| ReadError::DownloadText {
+        url: url.clone(),
+        source,
+      })
+    },
+    LinkLocation::Data { text } => Ok(text.clone()),
+  }
+}
+
+/// The bytes at the `https:` address `url`, with the limits of the web app: an answer within
+/// [`launch::FETCH_TIMEOUT_SECONDS`] and at most [`launch::MAX_DOWNLOAD_BYTES`].
+pub(crate) fn http_get(url: &str) -> Result<Vec<u8>, DownloadError> {
+  let agent: ureq::Agent = ureq::Agent::config_builder()
+    .timeout_global(Some(Duration::from_secs(launch::FETCH_TIMEOUT_SECONDS.into())))
+    .build()
+    .into();
+  let limit = u64::try_from(launch::MAX_DOWNLOAD_BYTES).unwrap_or(u64::MAX);
+  agent
+    .get(launch::request_url(url))
+    .call()
+    .and_then(|mut response| response.body_mut().with_config().limit(limit).read_to_vec())
+    .map_err(DownloadError::from)
+}
+
+/// The trees of a run with what the command line needs to report on them, to name their output
+/// files, and to write their link.
+pub(crate) struct Input {
+  pub(crate) texts: Vec<TreeText>,
+  /// Where the trees and settings come from, for error messages.
+  pub(crate) source: Source,
+  /// Extension of each tree's output files.
+  pub(crate) extensions: Vec<String>,
+  /// The settings before the analysis options: the defaults, or the settings of the session file
+  /// or of the link.
+  pub(crate) base: Settings,
+  /// Where a link gets each tree again.
+  pub(crate) addresses: Vec<Option<TreeAddress>>,
+  /// The trees come with their labels and settings (a session file, an example, or a link), so the
+  /// results directory receives their session file.
+  pub(crate) session: bool,
+  /// The index and the error of each input file that cannot be read; its tree has an empty text.
+  pub(crate) read_errors: Vec<(usize, ValidationError)>,
+}
+
+impl Input {
+  /// The trees and settings of `request`, read from `source`, with the output names of the web app.
+  fn of_request(request: AnalysisRequest, source: Source, addresses: Vec<Option<TreeAddress>>) -> Self {
+    let k = request.trees.len();
+    Input {
+      texts: request.trees,
+      source,
+      extensions: OutputOptions::web(k).extensions,
+      base: request.settings,
+      addresses,
+      session: true,
+      read_errors: Vec::new(),
+    }
+  }
+
+  /// The read errors, then `errors` without the errors of the Newick text of the files that
+  /// cannot be read, which are about their empty text.
+  pub(crate) fn with_read_errors(&self, errors: Vec<ValidationError>) -> Vec<ValidationError> {
+    let unread: Vec<Field> = self
+      .read_errors
+      .iter()
+      .map(|(i, _)| Field::TreeNewick { index: *i })
+      .collect();
+    let mut all: Vec<ValidationError> = self.read_errors.iter().map(|(_, e)| e.clone()).collect();
+    all.extend(
+      errors
+        .into_iter()
+        .filter(|e| !e.field.as_ref().is_some_and(|f| unread.contains(f))),
+    );
+    all
+  }
+}
+
+/// Where the trees and the settings of a run come from.
+pub(crate) enum Source {
+  /// The name of each tree: its file path or its address; the settings come from the options.
+  Trees(Vec<String>),
+  /// The session file, example, or link that holds the trees and the settings, by name.
+  Named(String),
+}
+
+/// Why the text of a file or location cannot be read.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum ReadError {
+  #[error("{0}")]
+  File(#[source] io::Error),
+  #[error("{0}")]
+  FileText(#[source] DecodeError),
+  #[error(transparent)]
+  Location(#[from] LocationError),
+  #[error("cannot read {url}: {source}")]
+  Download { url: String, source: DownloadError },
+  #[error("cannot read {url}: {source}")]
+  DownloadText { url: String, source: DecodeError },
+}
+
+/// Reads the bytes at an `https:` address, or the error with the reason.
+pub(crate) type Fetch<'a> = &'a dyn Fn(&str) -> Result<Vec<u8>, DownloadError>;
+
+/// The reason of a failed download, in the words of the web app.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum DownloadError {
+  /// The server answered with this error status.
+  #[error("{}", status_text(*.0))]
+  Status(u16),
+  #[error("no answer within {} seconds", launch::FETCH_TIMEOUT_SECONDS)]
+  Timeout,
+  #[error("the file is larger than {} MiB", launch::MAX_DOWNLOAD_BYTES >> 20)]
+  TooLarge,
+  #[error(transparent)]
+  Other(ureq::Error),
+}
+
+impl From<ureq::Error> for DownloadError {
+  fn from(e: ureq::Error) -> Self {
+    match e {
+      ureq::Error::StatusCode(code) => Self::Status(code),
+      ureq::Error::Timeout(_) => Self::Timeout,
+      ureq::Error::BodyExceedsLimit(_) => Self::TooLarge,
+      other => Self::Other(other),
+    }
+  }
+}
+
+/// An HTTP status with its reason phrase, such as `404 Not Found`, or the bare code.
+fn status_text(code: u16) -> String {
+  let reason = ureq::http::StatusCode::from_u16(code)
+    .ok()
+    .and_then(|s| s.canonical_reason());
+  reason.map_or_else(|| format!("{code}"), |r| format!("{code} {r}"))
 }
 
 #[cfg(test)]
