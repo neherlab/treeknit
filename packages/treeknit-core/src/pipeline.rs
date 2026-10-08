@@ -400,17 +400,14 @@ fn shared_leaves(a: &Tree, b: &Tree, n: usize) -> Option<Bits> {
   (shared.count_ones(..) >= 2).then_some(shared)
 }
 
-/// Trees `a` and `b` restricted to their `shared` leaves (borrowed if no restriction is
-/// needed). `shared` comes from `shared_leaves`, so it holds at least two leaves.
-fn restrict_pair<'a>(a: &'a Tree, b: &'a Tree, shared: &Bits, n: usize) -> (Cow<'a, Tree>, Cow<'a, Tree>) {
-  let r = |t: &'a Tree| {
-    if t.leaf_set(n) == *shared {
-      Cow::Borrowed(t)
-    } else {
-      Cow::Owned(t.restricted(shared).expect("shared leaves are in both trees"))
-    }
-  };
-  (r(a), r(b))
+/// Tree `t` restricted to the `shared` leaves of a pair (borrowed if no restriction is needed).
+/// `shared` comes from `shared_leaves`, so it holds at least two leaves of `t`.
+fn restricted_to_shared<'a>(t: &'a Tree, shared: &Bits, n: usize) -> Cow<'a, Tree> {
+  if t.leaf_set(n) == *shared {
+    Cow::Borrowed(t)
+  } else {
+    Cow::Owned(t.restricted(shared).expect("shared leaves are in both trees"))
+  }
 }
 
 /// Settings that all pairs of one round infer their MCCs with.
@@ -449,7 +446,8 @@ fn infer(trees: &[Tree], i: usize, j: usize, inference: &Inference<'_>, on_progr
     trees[j].label,
     shared.count_ones(..)
   );
-  let (ti, tj) = restrict_pair(&trees[i], &trees[j], &shared, n);
+  let ti = restricted_to_shared(&trees[i], &shared, n);
+  let tj = restricted_to_shared(&trees[j], &shared, n);
   let m = if opts.naive {
     naive_mccs(&[&ti, &tj], n)
   } else {
@@ -485,7 +483,8 @@ fn resolve_pair(trees: &mut [Tree], i: usize, j: usize, mccs: &[Mcc], n: usize, 
   let Some(shared) = shared_leaves(&trees[i], &trees[j], n) else {
     return 0;
   };
-  let (ti, tj) = restrict_pair(&trees[i], &trees[j], &shared, n);
+  let ti = restricted_to_shared(&trees[i], &shared, n);
+  let tj = restricted_to_shared(&trees[j], &shared, n);
   let (mut ti, mut tj) = (ti.into_owned(), tj.into_owned());
   let [mut si, mut sj] = resolve_with_mccs(&mut ti, &mut tj, mccs, n, strict);
   log::debug!(
@@ -529,7 +528,8 @@ fn sort_two(
   if ladderize_left {
     left.ladderize();
   }
-  let (ti, tj) = restrict_pair(left, right, &shared, n);
+  let ti = restricted_to_shared(left, &shared, n);
+  let tj = restricted_to_shared(right, &shared, n);
   if strict {
     // Order leaves using liberally resolved copies, then apply that order.
     let (mut ti, mut tj) = (ti.into_owned(), tj.into_owned());
