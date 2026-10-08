@@ -199,7 +199,7 @@ impl Scale {
   pub(crate) fn shown(self, flat: bool) -> Scale {
     match self {
       Scale::Div if flat => Scale::Depth,
-      scale => scale,
+      Scale::Div | Scale::Depth => self,
     }
   }
 

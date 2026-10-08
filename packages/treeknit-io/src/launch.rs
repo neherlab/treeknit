@@ -1205,7 +1205,7 @@ fn setting_pairs(settings: &Settings, base: &Settings) -> Option<Vec<(String, St
 fn value_pair(s: &SettingKey, value: String) -> (String, String) {
   match s.value {
     KeyValue::Flag { .. } => (value, String::new()),
-    _ => (s.key.to_owned(), value),
+    KeyValue::Number | KeyValue::Numbers | KeyValue::Integer | KeyValue::Mode => (s.key.to_owned(), value),
   }
 }
 
@@ -1354,6 +1354,10 @@ mod tests {
     let parsed = parse("tree=https://example.org&tree=https://example.org/");
     let labels: Vec<String> = match parsed.launch.unwrap().input {
       LaunchInput::Trees { trees } => trees.into_iter().map(|t| t.label).collect(),
+      #[cfg_attr(
+        dylint_lib = "mordant",
+        expect(wildcard_over_own_enum, reason = "the test fails on every other variant")
+      )]
       other => panic!("expected trees, got {other:?}"),
     };
     assert_eq!(vec!["tree", "tree_2"], labels);
@@ -2033,6 +2037,10 @@ mod tests {
           LinkLocation::Data { text } => (TreeText::new(t.label, text), Some(TreeAddress::Data)),
         })
         .unzip(),
+      #[cfg_attr(
+        dylint_lib = "mordant",
+        expect(wildcard_over_own_enum, reason = "the test fails on every other variant")
+      )]
       other => panic!("a written link names an example or trees, got {other:?}"),
     };
     (AnalysisRequest { trees, settings }, addresses)

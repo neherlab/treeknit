@@ -104,6 +104,10 @@ mod tests {
       let leaf = tree.graph.children(tree.graph.root()).next().unwrap();
       match &tree.graph.node(leaf).comments()[0].comment {
         NewickComment::Plain(text) => text.len(),
+        #[cfg_attr(
+          dylint_lib = "mordant",
+          expect(wildcard_over_own_enum, reason = "the test fails on every other variant")
+        )]
         other => panic!("unexpected comment {other:?}"),
       }
     });

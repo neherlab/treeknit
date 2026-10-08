@@ -432,7 +432,7 @@ impl Builder {
     let mut lm = HashMap::new();
     let r = match x[&t.root].kind {
       Kind::NonShared => self.new_node(false),
-      _ => lmref[&x[&t.root].partner.unwrap()],
+      Kind::Shared | Kind::MccRoot | Kind::SharedSingleton => lmref[&x[&t.root].partner.unwrap()],
     };
     self.nodes[r].anc[1] = Anc::Root;
     lm.insert(t.root, r);
