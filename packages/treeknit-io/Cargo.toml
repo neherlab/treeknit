@@ -41,6 +41,10 @@ util-newick.workspace = true
 wasm-bindgen = { workspace = true, optional = true }
 zip.workspace = true
 
+[package.metadata.cargo-shear]
+# The tsify derive expands to `use wasm_bindgen::...` in this crate, which cargo-shear does not see.
+ignored = ["wasm-bindgen"]
+
 [dev-dependencies]
 approx.workspace = true
 clap.workspace = true

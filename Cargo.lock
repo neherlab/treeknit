@@ -1421,7 +1421,6 @@ dependencies = [
  "tikv-jemallocator",
  "treeknit-core",
  "treeknit-io",
- "treeknit-testing",
  "ureq",
 ]
 
