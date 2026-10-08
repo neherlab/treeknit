@@ -14,7 +14,15 @@ Compared with the Julia version:
 
 ## Usage
 
-Releases and nightly builds of `main` are on the [releases page](https://github.com/neherlab/treeknit/releases): the CLI for Linux, macOS, and Windows, with the changes of each release in `CHANGELOG.md`. The [web app](https://neherlab.github.io/treeknit/) runs the same analyses in the browser, and a link to it can name trees, settings, a run, and a view, such as [`?example=h3n2-2017&run&view=tanglegram`](https://neherlab.github.io/treeknit/?example=h3n2-2017&run&view=tanglegram); its help page lists the keys, which the analysis options of the command line share. To build the CLI from source:
+Each release publishes the CLI for Linux, macOS, and Windows on the [releases page](https://github.com/neherlab/treeknit/releases), with the changes of the release from `CHANGELOG.md`. The same binaries are available from these channels:
+
+- **pip**: `pip install treeknit`, or `pipx install treeknit`, or `uvx treeknit` to run it without installing it. Wheels exist for Linux on x86_64 and ARM64 (glibc 2.17 or newer, or musl), macOS 10.12 or newer on Intel and 11.0 or newer on Apple Silicon, and Windows on x86_64
+- **Conda**: `conda install -c bioconda treeknit`, on Linux and macOS
+- **Docker**: `docker run --rm --user="$(id -u):$(id -g)" --volume="$PWD:/data" --workdir=/data neherlab/treeknit treeknit ha.nwk na.nwk -o results`. The default image is based on Debian, `neherlab/treeknit:alpine` on Alpine, and `neherlab/treeknit:scratch` holds only the binary; tags such as `1.0.0-debian13` or `alpine3.24` select a version and a base
+
+The x86_64 builds need a Haswell (2013) or newer CPU, and the Linux ARM64 builds an ARMv8.2-A CPU.
+
+The [web app](https://neherlab.github.io/treeknit/) runs the same analyses in the browser and follows `main`. A link to it can name trees, settings, a run, and a view, such as [`?example=h3n2-2017&run&view=tanglegram`](https://neherlab.github.io/treeknit/?example=h3n2-2017&run&view=tanglegram); its help page lists the keys, which the analysis options of the command line share. To build the CLI from source:
 
 ```sh
 cargo build --release

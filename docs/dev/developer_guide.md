@@ -21,7 +21,7 @@ cd treeknit
 `./dev/docker/run <command>` runs a command in the container, and without a command it opens a shell. The first run builds the image, which takes a while; later runs reuse it until one of its build inputs changes. Notes:
 
 - The checkout is mounted at its host path, and the git metadata is mounted read-only. Commit on the host
-- Build output goes to `.build/container/`, the cargo home to `.cache/cargo/`, the Bun package cache to `.cache/bun/`
+- Build output goes to `.build/container/`, the cargo home to `.cache/cargo/`, the Bun package cache to `.cache/bun/`, the uv cache of the Python scripts to `.cache/uv/`
 - Commands run as your user, with all Linux capabilities dropped
 - On Apple Silicon and other arm64 hosts the image runs under x86_64 emulation, which is slower
 
@@ -109,6 +109,8 @@ The workspace `Cargo.toml` enables every Clippy lint group, `restriction` includ
 
 TypeScript is linted by oxlint with type information (`oxlint.config.ts`, which applies the base configuration `dev/lints/oxlint/config.ts`): the correctness, suspicious, and performance categories, a selection of stricter rules, the sonarjs, Tailwind CSS, and React effect plugins, the vendored anti-slop plugin (`dev/lints/oxlint-anti-slop/UPSTREAM.md`), and the project rules in `dev/lints/oxlint/`, each with its tests. Warnings fail the lint. knip reports unused files, exports, and dependencies, and configuration hints fail it.
 
+The Python scripts of `dev/` have no file extension and start with `#!/usr/bin/env -S uv run --script`, so uv runs each with the Python of the image and the dependencies that its inline metadata pins. `dev/python-files` lists them by this line. `just lint-py` checks them with ruff (`.config/ruff.toml`), and `just fmt-other` formats them.
+
 No recipe runs the tests of the oxlint rules. After a change to a rule, and after `just test-ts` has installed the packages, run the rule tests, the type check of the vendored plugin, and the type check of the project rules:
 
 ```bash
@@ -136,7 +138,7 @@ The project settings of the lints are in these files:
 - `justfile` variables: `dylint_rustflags` (the lint levels of the custom library), the check groups `checks_*` with `check_fast` and `check_full`, `lint_fast`, `lint_full`, `public_api_crates`, `dockerfiles`, and `react_pin_reason`
 - `dylint.toml`: the settings of the dylint libraries, such as the render sources of `no_comments`, the entry points of `forbidden-reach`, the error style of `proper_error_type`, and the helper macros of `prefer_error_macros`
 - `oxlint.config.ts`: a call of `projectConfig` from `dev/lints/oxlint/config.ts` with the package layout, the web scopes, the import and property restrictions, and the contracts package
-- `clippy.toml` (thresholds and banned types and functions), `oxfmt.config.ts`, `taplo.toml`, `.config/knip.json`, `.config/deny.toml`, `.config/hawk.toml`, `.config/jscpd.json`, and `.config/mordant-baseline.toml`
+- `clippy.toml` (thresholds and banned types and functions), `oxfmt.config.ts`, `taplo.toml`, `.config/ruff.toml`, `.config/knip.json`, `.config/deny.toml`, `.config/hawk.toml`, `.config/jscpd.json`, and `.config/mordant-baseline.toml`
 
 Rust comments are allowed in TreeKnit: `dylint_rustflags` turns off `no_comments` and `doc_comment_limit`, and also the builder and error-macro lints, because the project uses neither bon nor error helper macros. TypeScript comments are banned by the oxlint base configuration `dev/lints/oxlint/config.ts`, apart from tool directives.
 
@@ -170,7 +172,7 @@ CROSS_COMPILE=aarch64-apple-darwin ./dev/docker/run dev/cross/build --profile=di
 CROSS_COMPILE=aarch64-apple-darwin ./dev/docker/run dev/cross/check treeknit
 ```
 
-`dev/cross/build` builds into `.build/cross/<target>/` and copies the binary to `.out/`. `dev/cross/check` prints the libraries the binary needs and the oldest glibc or macOS it supports, and fails when a user system lacks one of the libraries or when an arm64 macOS binary has no code signature. `dev/cross/run` starts the binary: with QEMU for Linux aarch64, with Wine for Windows, and directly for Linux x86_64; macOS binaries cannot run in the images.
+`dev/cross/build` builds into `.build/cross/<target>/` and copies the binary to `.out/`. `dev/cross/check` prints the libraries the binary needs and the oldest glibc or macOS it supports, and fails when a user system lacks one of the libraries, when a glibc binary needs a glibc newer than 2.17, or when an arm64 macOS binary has no code signature. The wheels, the Bioconda recipe, and the release notes promise glibc 2.17, so the limit is named once, as `GLIBC_MAX` in `dev/cross/check`. `dev/cross/run` starts the binary: with QEMU for Linux aarch64, with Wine for Windows, and directly for Linux x86_64; macOS binaries cannot run in the images.
 
 | Target                                                    | Toolchain                                  | Binary                                                                                  |
 | --------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------- |
@@ -211,36 +213,111 @@ Every dependency release must be at least seven days old before the project adop
 - Cargo has the age check as an unstable feature until Rust 1.100. `just deps-update` and `just deps-upgrade` enable it for their resolution, and `just deps-age` fails on a lockfile entry younger than seven days
 - Tools in `.config/mise.toml`: `minimum_release_age` makes `just tools-outdated` list only newer releases that are at least seven days old. mise does not filter an exact version, so check the date of a version you type by hand
 - npm packages: `minimumReleaseAge` in `bunfig.toml` makes Bun refuse a release younger than seven days, and `exact` keeps the versions exact. `just deps-upgrade-ts <package>...` upgrades named packages in the catalog
-- The Dockerfiles in `dev/docker/` share one base image, which follows the same rule by hand
+- The development and cross Dockerfiles in `dev/docker/` share one base image, which follows the same rule by hand. The bases of the production images are pinned in `dev/docker/prod-bases.json`, which `dev/docker/prod-bases-update` writes with the same rule (see [Docker images](#docker-images))
+- Python scripts: each pins its dependencies in its inline metadata and sets `exclude-newer` to a date at least seven days in the past, so uv resolves only releases older than that date. `uv lock --script <script>` writes `<script>.lock` next to it, which pins every transitive dependency with its hashes; the scripts run with `--locked`
 - The toolchain archives of the cross images (`dev/docker/files/install-*`): each script names one release, and `dev/docker/files/fetch` verifies the download by its line in `dev/docker/files/checksums`. Check the release date before changing a release
 - mise itself: the image installs the version in `dev/docker/files/mise-version`, verified by its line in `dev/docker/files/checksums`. `min_version` in `.config/mise.toml` is the oldest mise that reads the configuration; raise it when the configuration needs a newer mise
-- After changing a tool in `.config/mise.toml`, `just tools-lock <tool>` locks only that tool. Locking calls the GitHub API, which allows 60 anonymous requests per hour. With `MISE_GITHUB_TOKEN` set, mise authenticates instead, on the host and in the container alike (`dev/docker/run` forwards it)
+- After changing the version of a tool in `.config/mise.toml`, `just tools-lock <tool>` locks only that tool. Locking calls the GitHub API, which allows 60 anonymous requests per hour. With `MISE_GITHUB_TOKEN` set, mise authenticates instead, on the host and in the container alike (`dev/docker/run` forwards it)
+- Adding a tool to `.config/mise.toml`: `locked = true` makes `mise install` fail for a tool without an entry in `.config/mise.lock`, and the image build runs `mise install`, so `./dev/docker/run just tools-lock` cannot lock a new tool. Lock it on the host first, with the mise version of `dev/docker/files/mise-version` (its release archive is verified by its line in `dev/docker/files/checksums`): `mise lock --platform linux-x64,linux-arm64,macos-x64,macos-arm64 <tool>`. Then `./dev/docker/run true` builds the image with the tool
 
 Rust dependencies are pinned exactly in the workspace `Cargo.toml`, JavaScript dependencies in the catalog of the root `package.json`. Upgrade the `wasm-bindgen` crate and the `wasm-bindgen` tool in `.config/mise.toml` together: the tool supports only the crate version it was released with. `.config/deny.toml` sets the license, source, and duplicate-version policy that `just deny` checks offline; `just audit` checks both dependency graphs against the security advisory databases.
 
 The dependency recipes run in the main checkout only.
 
-## Releases
+## Continuous integration and releases
 
-`.github/workflows/release.yml`, the only workflow, publishes two kinds of releases on the releases page. It runs no checks. A failed target leaves only its binary out of a nightly, and a release publishes only once every target builds. `dev/release-notes` writes the notes of both kinds: a table that links the web app, every binary with its size, the source commit, and the issue tracker, with footnotes on the glibc and musl builds, unsigned macOS executables, `chmod +x`, and the CPU requirement.
+Four workflows in `.github/workflows/` check every change and publish the releases. They run the same `just` recipes and scripts as a developer, in the same containers (`dev/docker/run`):
 
-- **Nightly**: every night at 03:40 UTC, when `main` has changed since the latest nightly, it builds the shipped CLI for every release target, one job per target in its cross image, and publishes the binaries as a prerelease tagged `<version>-nightly.<UTC time>+<commit>`. It also deploys the web app to GitHub Pages (`just build-web prod`). The site is public even though the repository is private; the build uses relative asset paths (Vite `base: "./"`), so it works under the `/treeknit/` path of Pages and at any other path
-- **Release**: a pushed tag `v<version>` builds the same binaries and publishes them as the latest release, with the section `## <version>` of `CHANGELOG.md` above the table in its notes. The tag must match the workspace version in `Cargo.toml`. When a target fails, the release publishes nothing; "Re-run failed jobs" builds the failed targets again and then publishes. The next nightly deploys the web app of `main`, which holds the release commit
+- `ci.yml`: the checks of pull requests and of `main`
+- `cli-build.yml`: builds the shipped CLI for every release target of `dev/cross/targets`, one job per target in its cross image, runs `dev/cross/check` on each binary, and uploads it as the artifact `treeknit-<target>`. A failed target fails the run
+- `cli-compat.yml`: tests the binaries of `cli-build.yml` where users run them (see [Compatibility tests](#compatibility-tests)) and writes the PyPI wheels
+- `release.yml`: the nightly deployment of the web app, and the release of a pushed version tag
 
-Every release stays on the releases page.
+`ci.yml` and `release.yml` call `cli-build.yml` and `cli-compat.yml`. The composite action `.github/actions/prepare` frees disk space on the runner, restores the cargo registry and the kache compiler cache, and pulls or builds the image of `dev/docker/run`. Every job that runs a container uses it.
+
+### Checks of pull requests and `main`
+
+`ci.yml` runs on every pull request, on every push to `main`, and by hand ("Run workflow"). The fast recipes run in parallel jobs:
+
+- `just check`: formatting, Clippy (native and WebAssembly), oxlint, TypeScript types
+- `just lint-shell`, `just lint-py`, `just lint-docker`, `just lint-workflows`
+- `just check-group tests` (`test-rs`, `test-wasm`) and `just test-ts`
+- `just generated-check`
+
+The slow checks (dylint, hawk, knip, cargo-deny, cargo-shear, `just build-web prod`) run in `dev/release` before every release, as part of `just check-all`.
+
+The release builds (`cli-build.yml`) and the compatibility tests (`cli-compat.yml`) run on every push to `main`, on manual runs, and on pull requests that change `.github/`, `.cargo/`, `dev/cross/`, `dev/docker/`, `dev/lib/`, `dev/pypi-wheels`, `.config/mise.*`, `rust-toolchain.toml`, `Cargo.toml`, or `Cargo.lock`. These binaries report `<version>-dev`. The Docker images of the compatibility tests build 20 images, half of them under QEMU, so they run only when a push or pull request changes `dev/docker/` or `.github/`, and on manual runs.
+
+### Compatibility tests
+
+`cli-compat.yml` runs these jobs on the binaries of the same run:
+
+- Linux distributions: `dev/cross/test-distros` with the x86_64 glibc and musl binaries (see [Linux distribution tests](#linux-distribution-tests))
+- macOS: on `macos-15-intel` (x86_64), `macos-15`, and `macos-latest` (arm64), `treeknit --version` and the simulated case of `test-distros`
+- Windows: the same on `windows-2022`
+- PyPI wheels: `dev/pypi-wheels` writes the wheels of the 7 binaries, uploaded as the artifact `pypi-wheels`. pip then picks and installs the wheel of its platform from them on `ubuntu-24.04`, `ubuntu-24.04-arm`, `macos-15-intel`, `macos-15`, and `windows-2022`, and in the Alpine image of Python, and each installed `treeknit` runs
+- Docker images: `dev/docker/prod-images --run` builds every image variant for both platforms and runs `treeknit --version` in each
+
+For a release, every installed or built binary must report the release version.
+
+### Nightly deployment of the web app
+
+Every night at 03:40 UTC, `release.yml` deploys the web app of `main` to GitHub Pages (`just build-web prod`) when the commit of the latest successful deployment differs from `main`; otherwise it does nothing. The build uses relative asset paths (Vite `base: "./"`), so it works under the `/treeknit/` path of Pages and at any other path. The CLI is published by releases only.
 
 ### Start a nightly by hand
 
-`just trigger-nightly` (host only, needs the GitHub CLI) starts a nightly on `main`. `--force` publishes even when `main` has not changed, and `--only cli` or `--only web` publishes only the CLI release or only the web app; a web-only run always deploys. The "Run workflow" button of the workflow on GitHub takes the same options.
+`just trigger-nightly` (host only, needs the GitHub CLI) starts a nightly on `main`, which deploys when `main` has changed. `--force` deploys an unchanged `main`. The "Run workflow" button of `release.yml` on GitHub takes the same option.
 
 ### Publish a release
 
 1. Describe the changes under `## Unreleased` in `CHANGELOG.md`
-2. Run `just release <version>` (host only, in the main checkout on `main`). `dev/release` checks that the version is the workspace version of `Cargo.toml` or newer, that `main` contains `origin/main`, that nothing but `CHANGELOG.md` is uncommitted, and that the tag is new; then it runs `just check-all`, sets the workspace version with `cargo set-version` (which also updates `Cargo.lock`), renames `## Unreleased` to `## <version>`, commits `chore: release <version>`, and tags `v<version>`
-3. Confirm the push: `dev/release` pushes `main` and the tag in one atomic push, and the tag starts the release build. Answering no leaves the commit and the tag local
+2. Update the pinned bases of the Docker images: `./dev/docker/run dev/docker/prod-bases-update`, and commit `dev/docker/prod-bases.json` when it changed
+3. Run `just release <version>` (host only, in the main checkout on `main`). `dev/release` checks that the version is the workspace version of `Cargo.toml` or newer, that `main` contains `origin/main`, that nothing but `CHANGELOG.md` is uncommitted, and that the tag is new; then it runs `just check-all`, sets the workspace version with `cargo set-version` (which also updates `Cargo.lock`), renames `## Unreleased` to `## <version>`, commits `chore: release <version>`, and tags `v<version>`
+4. Confirm the push: `dev/release` pushes `main` and the tag in one atomic push, and the tag starts `release.yml`. Answering no leaves the commit and the tag local
+5. Review the Bioconda pull request when Bioconda maintainers ask for changes
+
+The tag must match the workspace version in `Cargo.toml`. `release.yml` then runs these jobs:
+
+1. `cli-build.yml` with the release version, then `cli-compat.yml` with every test, the Docker images included
+2. `publish-release`, only when every build and test passed: the GitHub release of the tag, with the 7 binaries and the notes of `dev/release-notes`. A release of the tag can exist from an earlier attempt, such as a draft with some assets that a cancelled job left behind: then the job fails when an existing asset differs from the binary of this run, uploads the missing assets, and publishes the draft. A re-run never changes a published binary
+3. After the GitHub release, in parallel: `pypi` uploads the wheels that the compatibility tests installed, `docker` builds, runs, and pushes the images, and `bioconda` opens the pull request that updates the Bioconda recipe
+4. `verify-pypi` installs the release from PyPI on Linux and macOS, and `verify-docker` runs the image of the release on `linux/amd64` and `linux/arm64`; both retry while the new version is not yet served, and compare `treeknit --version`
+
+A failed job publishes nothing after it; "Re-run failed jobs" runs it again. The `pypi` job compares the files that PyPI already has with the wheels of the run and fails on a difference, because PyPI never accepts a changed file under the same name. The next nightly deploys the web app of `main`, which holds the release commit. Every release stays on the releases page.
+
+`dev/release-notes` writes the notes: the section `## <version>` of `CHANGELOG.md`, then a table of every way to get the release: the web app, every binary with its size, `pip`, `conda`, `docker pull`, the documentation (a row that appears once `DOCS_URL` in the script is set), the source commit, and the issue tracker. Footnotes cover the glibc and musl builds, unsigned macOS executables, the delay of Bioconda, `chmod +x`, and the CPU requirements.
+
+### Release channels
+
+Every channel ships the binaries of the GitHub release, which `dev/cross/` built and the compatibility tests ran; nothing is compiled a second time (`kb/decisions/channels-from-release-binaries.md`).
+
+- **PyPI** (`pip install treeknit`): `dev/pypi-wheels --version <version> <binaries-dir> <output-dir>` writes one wheel per binary, with the binary as the script `treeknit` and a platform tag that lets pip pick it: `manylinux_2_17` for the glibc builds (glibc 2.17 or newer, the limit of `dev/cross/check`), `musllinux_1_1` for the static musl builds (only musl systems such as Alpine install them), `macosx_10_12_x86_64`, `macosx_11_0_arm64`, and `win_amd64`. There is no source distribution: pip reports "no matching distribution" on other platforms. The wheels are byte-identical for the same binaries: the zip entry dates come from `SOURCE_DATE_EPOCH` (the commit time by default), which `dev/docker/run` forwards. The script runs in the container: `./dev/docker/run dev/pypi-wheels --version 1.0.0 .out tmp/pypi-wheels`. The release uploads the wheels with Trusted Publishing, so no PyPI token is stored
+- **Docker Hub** (`neherlab/treeknit`): `dev/docker/prod-images [--run] [--push]` (host only, needs Docker with buildx, QEMU for the other platform, `yq`, and `jq`) builds the images for `linux/amd64` and `linux/arm64` from the four Linux binaries in `.out/`: Debian with the glibc build and `bash`, `ca-certificates`, `curl`, `procps`, and `wget`, which workflow managers such as Nextflow need in task containers (`dev/docker/prod-debian.dockerfile`); Alpine and scratch with the static musl build (`prod-alpine`, `prod-scratch`). Each variant builds on every base of `dev/docker/prod-bases.json`: the 6 newest Alpine releases, the 3 newest Debian releases, and scratch. Tags, for version 1.0.0: `1.0.0-debian13`, `debian13`, `1-debian13`, `latest-debian13` for each base; the same with `debian` and `alpine` alone for the newest base of each distribution; and `1.0.0`, `1`, `latest` for the newest Debian. `--run` loads each platform and runs `treeknit --version` in every image; `--push` pushes the images of both platforms, after the runs with `--run`
+- **Bioconda** (`conda install -c bioconda treeknit`): the recipe `recipes/treeknit/meta.yaml` lives in `bioconda/bioconda-recipes` and installs the release binaries: the glibc builds on `linux-64` and `linux-aarch64`, the native builds on `osx-64` and `osx-arm64`. Bioconda has no Windows. `dev/bioconda-update --version <version> <binaries-dir>` clones that repository, sets the version, resets the build number, and sets the four sha256 values by the selector comments of the source lines; it leaves every other line as the Bioconda maintainers left it. It pushes the branch `bump/treeknit-<version>` to the fork `neherlab/bioconda-recipes` and opens the pull request, replacing an open one of the same branch. `--dry-run` stops after printing the diff, and `--recipe <file>` rewrites a local file instead. The first recipe is submitted by hand; until it is merged, the script prints a warning and opens nothing. The recipe turns off Bioconda's own version updates (`extra: autobump: enable: false`), which would update only some of the platform sha256 values of a recipe with one source per platform, so the release workflow is the only one that updates it. Bioconda maintainers review every update, so a Bioconda release can lag behind
+
+### Docker images
+
+`dev/docker/prod-bases.json` pins each base image of the production images to the digest of its Docker Hub tag, so the images of one release and a re-run use the same base. `./dev/docker/run dev/docker/prod-bases-update` rewrites it from the release lines of endoflife.date and the tags of Docker Hub, with the seven-day rule of the project:
+
+- a release line released less than seven days ago is skipped
+- when the tag of a line was pushed less than seven days ago, the line takes the newest dated tag of the same line that is at least seven days old: Debian keeps every build as `<codename>-YYYYMMDD`, such as `trixie-20260918`; Alpine has no dated tags, so an Alpine line keeps the digest that the file already has
+- a line without such a digest fails the run, with the date from which a re-run succeeds
+
+Run it before each release, so the images get the security fixes of their bases. The images of Debian 11, which is end-of-life, install their packages from `archive.debian.org` and the last security snapshot.
+
+### Accounts, secrets, and environments
+
+The workflows need these settings of the GitHub repository `neherlab/treeknit` and these external accounts:
+
+- `NEHERLAB_BOT_DOCKERHUB_USERNAME`, `NEHERLAB_BOT_DOCKERHUB_TOKEN` (`neherlab` organization secrets): Docker Hub login of the bot account. Runs other than pull requests push the builder images `neherlab/treeknit_builder` and their layer cache, so later runs pull them instead of building them; the compatibility tests log in to raise the pull limit; the `docker` job of a release pushes `neherlab/treeknit`, which needs write access of the bot account to that repository
+- `NEHERLAB_BOT_GITHUB_NAME`, `NEHERLAB_BOT_GITHUB_EMAIL` (organization secrets): the commit identity of the Bioconda update
+- Environment `github-pages`: the deployment of the web app
+- Environment `pypi`, limited to tags `v*`: the PyPI project `treeknit` trusts the workflow `release.yml` of this repository in this environment (Trusted Publishing), so the upload needs no token
+- Environment `bioconda`, limited to tags `v*`, with the secret `NEHERLAB_BOT_BIOCONDA_TOKEN`: a classic GitHub token with the scope `public_repo` of the account that owns the fork `neherlab/bioconda-recipes`. A fine-grained token cannot open pull requests in a repository of another owner. The environment keeps the token from every run except release tags
+- `GITHUB_TOKEN` (`github.token`): the GitHub release, and reading the deployments of GitHub Pages
 
 ### Version of a build
 
-`treeknit --version` reports `TREEKNIT_VERSION` from build time (`packages/treeknit-cli/build.rs`), which must be the workspace version or start with it followed by `-`: `1.0.0-dev` when unset, `1.0.0-nightly.20261005T034000Z+abc1234` for a nightly, `1.0.0` for a release.
+`treeknit --version` reports `TREEKNIT_VERSION` from build time (`packages/treeknit-cli/build.rs`), which must be the workspace version or start with it followed by `-`: `1.0.0-dev` when unset, as in the builds of `ci.yml`, and `1.0.0` for a release.
 
-The workflow jobs pull the container images from Docker Hub by the hash of their build inputs, and build them when the inputs changed. When the repository has access to the `neherlab` organization secrets `NEHERLAB_BOT_DOCKERHUB_USERNAME` and `NEHERLAB_BOT_DOCKERHUB_TOKEN`, the jobs push the images they build to `neherlab/treeknit_builder`, so later runs pull them instead of building them.
+The workflow jobs pull the container images from Docker Hub by the hash of their build inputs, and build them when the inputs changed. Runs other than pull requests push the images they build to `neherlab/treeknit_builder` (see [Accounts, secrets, and environments](#accounts-secrets-and-environments)).
