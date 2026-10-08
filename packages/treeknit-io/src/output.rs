@@ -734,15 +734,6 @@ pub fn log_file(records: &[Diagnostic]) -> OutputFile {
   OutputFile::new(LOG_FILE.to_owned(), text)
 }
 
-/// A ZIP archive of `files`, as `Archive` writes it.
-pub fn zip_archive(files: &[OutputFile]) -> Result<Vec<u8>, ArchiveError> {
-  let mut archive = Archive::with_capacity(files.iter().map(|f| f.text.len()).sum());
-  for f in files {
-    archive.add(&f.path, &f.text)?;
-  }
-  archive.finish()
-}
-
 /// Media type of the ZIP archive of the results.
 pub const ARCHIVE_MEDIA_TYPE: &str = "application/zip";
 
@@ -1669,5 +1660,14 @@ mod tests {
   fn file_entry_names_the_file_by_the_last_segment_of_its_path(#[case] path: &str, #[case] expected: &str) {
     let entry = FileEntry::new(path.to_owned(), Some(0), None);
     assert_eq!(expected, entry.file_name);
+  }
+
+  /// A ZIP archive of `files`, as `Archive` writes it.
+  fn zip_archive(files: &[OutputFile]) -> Result<Vec<u8>, ArchiveError> {
+    let mut archive = Archive::with_capacity(files.iter().map(|f| f.text.len()).sum());
+    for f in files {
+      archive.add(&f.path, &f.text)?;
+    }
+    archive.finish()
   }
 }

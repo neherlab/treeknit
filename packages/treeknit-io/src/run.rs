@@ -42,11 +42,6 @@ impl RunResult {
     &self.pairs
   }
 
-  /// The options of the run.
-  pub fn options(&self) -> &Options {
-    &self.opts
-  }
-
   /// Outcome of the ARG for the summary; `None` when no ARG was attempted.
   pub fn arg_outcome(&self) -> Option<ArgOutcome> {
     self.arg.as_ref().map(|a| match a {

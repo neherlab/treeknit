@@ -67,28 +67,19 @@ impl Arg {
     self.nodes.iter().filter(|n| n.hybrid).count()
   }
 
-  /// Distinct parents of node `n` with the segments (0-based) each carries.
-  pub fn parents(&self, n: usize) -> Vec<(Anc, Vec<usize>)> {
-    let mut out: Vec<(Anc, Vec<usize>)> = Vec::new();
-    for c in 0..2 {
-      let a = self.nodes[n].anc[c];
-      if a == Anc::Absent {
-        continue;
-      }
-      match out.iter_mut().find(|(x, _)| *x == a) {
-        Some((_, v)) => v.push(c),
-        None => out.push((a, vec![c])),
-      }
-    }
-    out
-  }
-
   /// Segments carried by the edge from `a` to `n`.
   pub fn edge_segments(&self, a: usize, n: usize) -> Vec<usize> {
     (0..2).filter(|&c| self.nodes[n].anc[c] == Anc::Node(a)).collect()
   }
 
   /// The tree of segment `c` embedded in the ARG, as (node, parent) pairs reachable from its root.
+  #[cfg_attr(
+    all(dylint_lib = "custom", not(test)),
+    expect(
+      pub_unused_in_workspace,
+      reason = "the comparison with TreeKnit.jl in treeknit-io/tests/fixtures.rs checks the segment trees"
+    )
+  )]
   pub fn segment_tree(&self, c: usize) -> Tree {
     let mut t = Tree::new(format!("segment_{c}"));
     let mut stack = vec![(self.roots[c], t.root)];
@@ -576,6 +567,7 @@ mod tests {
     let x = arg.nodes.iter().position(|n| n.label == "X").unwrap();
     let Anc::Node(h) = arg.nodes[x].anc[0] else { panic!() };
     assert!(arg.nodes[h].hybrid);
-    assert_eq!(arg.parents(h).len(), 2);
+    let [first, second] = arg.nodes[h].anc;
+    assert!(first != second && first != Anc::Absent && second != Anc::Absent);
   }
 }

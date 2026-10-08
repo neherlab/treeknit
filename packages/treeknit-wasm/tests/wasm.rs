@@ -14,7 +14,7 @@ mod tests {
   use treeknit_io::analysis::{self, AnalysisRequest, ParsedTrees, TreeText};
   use treeknit_io::display::{self, Scale, TreeVersion};
   use treeknit_io::figure::{self, FigureOptions, LabelMode};
-  use treeknit_io::output::{self, Figure, OutputFile};
+  use treeknit_io::output::{self, Archive, ArchiveError, Figure, OutputFile};
   use treeknit_io::run::{self, RunResult};
   use treeknit_wasm::Session;
   use tsify::{Ts, Tsify};
@@ -497,7 +497,7 @@ mod tests {
       })
       .collect();
     // Oracle: the archive of the listed texts; equal files give a byte-identical archive.
-    assert_eq!(output::zip_archive(&files).unwrap(), session.zip().unwrap());
+    assert_eq!(zip_archive(&files).unwrap(), session.zip().unwrap());
     assert!(
       files
         .iter()
@@ -623,7 +623,10 @@ mod tests {
     let native: Vec<OutputFile> = output::output_files(&r, &output::OutputOptions::web(2))
       .unwrap()
       .into_iter()
-      .chain([output::parameters_file(r.options(), request.settings.seed)])
+      .chain([output::parameters_file(
+        &analysis::options(&request.settings, request.trees.len(), false).unwrap(),
+        request.settings.seed,
+      )])
       .collect();
     let listed = plain_list(&session.files().unwrap());
     let files: Vec<OutputFile> = listed
@@ -638,7 +641,7 @@ mod tests {
         })
       })
       .collect();
-    assert_eq!(output::zip_archive(&files).unwrap(), bytes);
+    assert_eq!(zip_archive(&files).unwrap(), bytes);
     // The listing after the archive: the figures still have no size, because none was kept.
     let sizes: Vec<&Value> = listed
       .as_array()
@@ -1328,5 +1331,14 @@ mod tests {
       .collect();
     let ParsedTrees { trees, taxa } = analysis::parse_trees(&texts).unwrap();
     (trees, taxa)
+  }
+
+  /// A ZIP archive of `files`, as `Archive` writes it.
+  fn zip_archive(files: &[OutputFile]) -> Result<Vec<u8>, ArchiveError> {
+    let mut archive = Archive::with_capacity(files.iter().map(|f| f.text.len()).sum());
+    for f in files {
+      archive.add(&f.path, &f.text)?;
+    }
+    archive.finish()
   }
 }

@@ -53,6 +53,13 @@ impl Taxa {
   pub fn len(&self) -> usize {
     self.names.len()
   }
+  #[cfg_attr(
+    all(dylint_lib = "custom", not(test)),
+    expect(
+      pub_unused_in_workspace,
+      reason = "clippy::len_without_is_empty asks for it next to len"
+    )
+  )]
   pub fn is_empty(&self) -> bool {
     self.names.is_empty()
   }
@@ -427,7 +434,8 @@ impl Tree {
   }
 
   /// Check structural invariants: parent/child links agree and leaves have taxa.
-  pub fn check(&self) -> bool {
+  #[cfg(test)]
+  pub(crate) fn check(&self) -> bool {
     self.nodes[self.root].parent.is_none()
       && self.postorder().into_iter().all(|n| {
         self.children(n).iter().all(|&c| self.parent(c) == Some(n))

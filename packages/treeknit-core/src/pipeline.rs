@@ -37,11 +37,6 @@ pub struct PairResult {
 }
 
 impl PairResult {
-  /// Index in `mccs` of the MCC containing `leaf`.
-  pub fn mcc_of(&self, leaf: usize) -> Option<usize> {
-    self.mccs.iter().position(|m| m.binary_search(&leaf).is_ok())
-  }
-
   /// MCCs restricted to the leaves that trees `i` and `j` of `trees` share; sorted. These are
   /// the MCCs the run sorted the pair by, before the leaves of one tree only were attached.
   /// After `Matched` resolution they hold the parts of every MCC that matching split, so they
