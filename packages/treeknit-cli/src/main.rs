@@ -366,16 +366,13 @@ fn run() -> Result<()> {
   let matches = Cli::command().get_matches();
   let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
   if cli.help_resolve || cli.help_defaults {
-    println!("{}", resolve_help());
-    return Ok(());
+    return write_stdout(&format!("{}\n", resolve_help()));
   }
   if cli.help_markdown {
-    print!("{}", reference_markdown());
-    return Ok(());
+    return write_stdout(&reference_markdown());
   }
   if cli.list_examples {
-    println!("{}", example_list());
-    return Ok(());
+    return write_stdout(&format!("{}\n", example_list()));
   }
   // The log stays in memory until the input passes validation, so that a run with invalid input
   // leaves no results directory behind.
@@ -443,7 +440,7 @@ fn run() -> Result<()> {
   }
   if let Some(r) = request.as_ref().filter(|_| cli.print_link) {
     match share_link(r, &input.addresses) {
-      Ok(link) => println!("{link}"),
+      Ok(link) => write_stdout(&format!("{link}\n"))?,
       Err(length) => log::warn!(
         "the link would have {length} characters, more than {}; share the session file {} instead",
         launch::MAX_LINK_CHARS,
@@ -452,6 +449,15 @@ fn run() -> Result<()> {
     }
   }
   Ok(())
+}
+
+/// Write `text` to stdout, which carries the texts and the link that the user asks for. A closed
+/// pipe, such as `treeknit --help-markdown | head`, is an error instead of the panic of `print!`.
+fn write_stdout(text: &str) -> Result<()> {
+  io::stdout()
+    .lock()
+    .write_all(text.as_bytes())
+    .wrap_err("cannot write to stdout")
 }
 
 /// A mistake in the input: the validation errors of the trees and settings, a link or example
