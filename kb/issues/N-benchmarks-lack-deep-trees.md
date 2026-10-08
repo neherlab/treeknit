@@ -3,7 +3,7 @@
 The benchmark generator `examples/large_tree_pair.rs` writes a Kingman coalescent tree and a copy changed by subtree moves [packages/treeknit-io/examples/large_tree_pair.rs#L116-L229](../../packages/treeknit-io/examples/large_tree_pair.rs#L116-L229). The depth of a coalescent tree grows with the logarithm of the number of leaves, while influenza segment trees are ladder-like and much deeper. Costs that grow with depth therefore stay hidden in benchmarks:
 
 - Resolution and ARG construction walk to the root for every leaf of a split; on caterpillar trees of 2000 leaves the ARG step takes 48.9 s ([`M-resolution-and-arg-cubic-on-deep-trees.md`](M-resolution-and-arg-cubic-on-deep-trees.md))
-- Two core functions recurse once per level ([`H-core-recursion-overflows-stack-on-deep-trees.md`](H-core-recursion-overflows-stack-on-deep-trees.md))
+- Three functions recurse once per level ([`H-recursion-overflows-stack-on-deep-trees.md`](H-recursion-overflows-stack-on-deep-trees.md))
 - The incremental energy walks the ancestors of the flipped leaf ([`kb/reports/performance.md`](../reports/performance.md))
 
 The design options are in [`deep-trees.md`](../proposals/deep-trees.md).
