@@ -4,12 +4,6 @@ import * as z from "zod";
 
 const MIN_MEMBERS = 2;
 
-const zEnumNode = z.object({ enum: z.array(z.string()).min(MIN_MEMBERS) });
-
-const zTaggedNode = z.object({ discriminator: z.object({ mapping: z.record(z.string(), z.string()) }) });
-
-const zConstantsNode = z.object({ oneOf: z.array(z.object({ const: z.string() })).min(MIN_MEMBERS) });
-
 const zOptions = z.object({ enums: z.array(z.array(z.string())) });
 
 export const noContractEnumCopyRule = defineRule({
@@ -89,40 +83,6 @@ export const noContractEnumCopyRule = defineRule({
     };
   },
 });
-
-export function openApiEnums(document: string): string[][] {
-  const found: string[][] = [];
-
-  JSON.parse(document, (_key, value: unknown) => {
-    const values = enumValues(value);
-
-    if (values !== undefined) {
-      found.push(values);
-    }
-
-    return value;
-  });
-
-  return found;
-}
-
-function enumValues(value: unknown): string[] | undefined {
-  const direct = zEnumNode.safeParse(value);
-
-  if (direct.success) {
-    return direct.data.enum;
-  }
-
-  const tagged = zTaggedNode.safeParse(value);
-
-  if (tagged.success) {
-    return Object.keys(tagged.data.discriminator.mapping);
-  }
-
-  const constants = zConstantsNode.safeParse(value);
-
-  return constants.success ? constants.data.oneOf.map((branch) => branch.const) : undefined;
-}
 
 function stringLiteralType(type: ESTree.TSType): string | undefined {
   return type.type === "TSLiteralType" && type.literal.type === "Literal" && typeof type.literal.value === "string"
