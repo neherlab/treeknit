@@ -1,0 +1,7 @@
+# Ruff, the linter and formatter of the Python scripts in dev/ (just lint-py,
+# just fmt-other), which dev/python-files lists.
+line-length = 120
+target-version = "py314"
+
+[lint]
+select = ["B", "E", "F", "I", "N", "PTH", "RUF", "SIM", "UP", "W"]

@@ -114,7 +114,7 @@ link_cases := "packages/web/src/workspace/__tests__/__fixtures__/link_cases.json
 
 # Groups of the full gate (`just check-group <group>`). A check is a recipe name
 # with colon-separated arguments: `build-web:prod` runs `just build-web prod`.
-checks_format := "fmt-check-rs fmt-check-ts fmt-check-other lint-shell lint-docker lint-workflows deny shear"
+checks_format := "fmt-check-rs fmt-check-ts fmt-check-other lint-shell lint-py lint-docker lint-workflows deny shear"
 checks_clippy := "lint-rs lint-wasm"
 checks_dylint := "dylint"
 checks_tests := "test-rs test-wasm"
@@ -124,7 +124,7 @@ checks_hawk := "hawk"
 check_fast := "fmt-check-rs fmt-check-ts fmt-check-other lint-rs lint-wasm lint-ts typecheck"
 check_full := checks_format + " " + checks_clippy + " " + checks_dylint + " " + checks_tests + " " + checks_generated + " " + checks_typescript + " " + checks_hawk
 lint_fast := "lint-rs lint-wasm lint-ts"
-lint_full := "lint-rs lint-wasm lint-ts typecheck dylint hawk knip deny shear lint-shell lint-docker lint-workflows"
+lint_full := "lint-rs lint-wasm lint-ts typecheck dylint hawk knip deny shear lint-shell lint-py lint-docker lint-workflows"
 dockerfiles := "dev/docker/*.dockerfile"
 
 alias b := build
@@ -299,7 +299,7 @@ review-suppressions:
 lint: _js
     JS_READY=1 dev/run-checks --serial {{ lint_fast }}
 
-# Every lint: the fast lints, TypeScript types, the lint libraries, unused code and dependencies, dependency policy, and the shell, Dockerfile, and workflow lints, keep-going
+# Every lint: the fast lints, TypeScript types, the lint libraries, unused code and dependencies, dependency policy, and the shell, Python, Dockerfile, and workflow lints, keep-going
 [group("lint")]
 lint-all: _js
     JS_READY=1 dev/run-checks --serial {{ lint_full }}
@@ -398,6 +398,15 @@ shear:
 lint-shell:
     dev/shell-files | xargs -0r shellcheck --source-path=SCRIPTDIR
 
+# Python scripts in dev/ (ruff check and format check), keep-going
+[group("lint")]
+[script]
+lint-py:
+    status=0
+    dev/python-files | xargs -0r ruff check --quiet --config .config/ruff.toml || status=1
+    dev/python-files | xargs -0r ruff format --check --quiet --config .config/ruff.toml || status=1
+    exit "${status}"
+
 # Dockerfiles (hadolint)
 [group("lint")]
 lint-docker:
@@ -408,7 +417,7 @@ lint-docker:
 lint-workflows:
     actionlint
 
-# Format Rust, TypeScript, shell, TOML, and the justfile
+# Format Rust, TypeScript, shell, Python, TOML, and the justfile
 [group("format")]
 fmt: fmt-rs fmt-ts fmt-other
 
@@ -437,10 +446,11 @@ fmt-ts: _js
 fmt-check-ts: _js
     bun run --silent format:check
 
-# Format shell scripts (shfmt), TOML (taplo), and the justfile
+# Format shell scripts (shfmt), Python scripts (ruff), TOML (taplo), and the justfile
 [group("format")]
 fmt-other:
     dev/shell-files | xargs -0r shfmt --write
+    dev/python-files | xargs -0r ruff format --quiet --config .config/ruff.toml
     dev/toml-files | RUST_LOG=warn xargs -0r taplo fmt
     just --fmt
 

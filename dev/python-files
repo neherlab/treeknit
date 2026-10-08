@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+#
+# Usage: $0
+#
+# Print the tracked Python scripts of the repository outside vendored code,
+# NUL-separated, for ruff. The scripts have no file extension and run with
+# `uv run --script`, so they are selected by their shebang.
+#
+set -euo pipefail
+shopt -s inherit_errexit
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+git ls-files -z -- dev ':!:dev/lints' |
+  xargs -0 grep --null -lIE '^#!/usr/bin/env -S uv run' |
+  LC_ALL=C sort -z

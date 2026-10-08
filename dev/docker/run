@@ -25,6 +25,8 @@
 #                           anonymous API rate limit of `just tools-lock`
 #   TREEKNIT_VERSION        Version that the CLI reports, forwarded when set
 #                           (packages/treeknit-cli/build.rs)
+#   SOURCE_DATE_EPOCH       Time stamp of reproducible archives, forwarded when
+#                           set (dev/pypi-wheels)
 #
 # Examples:
 #   dev/docker/run just check
@@ -181,7 +183,7 @@ passthrough_env() {
       CARGO_PROFILE_* | CARGO_TERM_* | CARGO_BUILD_JOBS | CARGO_INCREMENTAL | NEXTEST_* | \
       RUST_LOG | RUST_LOG_STYLE | RUST_BACKTRACE | RUST_LIB_BACKTRACE | RAYON_NUM_THREADS | \
       KACHE_DISABLED | KACHE_LOG | KACHE_MAX_SIZE | MISE_GITHUB_TOKEN | TREEKNIT_VERSION | \
-      TREEKNIT_WEB_PORT | TREEKNIT_SERVE_PORT)
+      TREEKNIT_WEB_PORT | TREEKNIT_SERVE_PORT | SOURCE_DATE_EPOCH)
       run_flags+=(--env="${name}")
       ;;
     esac
@@ -189,13 +191,14 @@ passthrough_env() {
 }
 passthrough_env
 
-# The cargo home and the bun cache live under .cache of the checkout; build
-# output goes to .build/container, apart from host builds in .build/host. The
+# The cargo home and the bun and uv caches live under .cache of the checkout;
+# build output goes to .build/container, apart from host builds in .build/host.
+# uv runs the Python scripts of dev/ with the Python of the image. The
 # cargo home is mounted at one fixed path in every checkout, so the registry
 # source paths that compiled crates record, and that kache shares between
 # worktrees, exist in each of them. The dylint drivers, built once per lint
 # toolchain, are kept there too.
-mkdir -p "${root}/.cache/cargo/dylint_drivers" "${root}/.cache/bun" "${root}/.build/container"
+mkdir -p "${root}/.cache/cargo/dylint_drivers" "${root}/.cache/bun" "${root}/.cache/uv" "${root}/.build/container"
 run_flags+=(
   --env="HOME=/tmp/home"
   --env="MISE_TRUSTED_CONFIG_PATHS=${root}"
@@ -204,6 +207,8 @@ run_flags+=(
   --env="DYLINT_DRIVER_PATH=${root}/.cache/cargo/dylint_drivers"
   --env="TREEKNIT_BUILD_DIR=${root}/.build/container"
   --env="BUN_INSTALL_CACHE_DIR=${root}/.cache/bun"
+  --env="UV_CACHE_DIR=${root}/.cache/uv"
+  --env="UV_PYTHON_DOWNLOADS=never"
 )
 if [[ -n "${KACHE_STORE:-}" ]]; then
   mkdir -p "${KACHE_STORE}"
