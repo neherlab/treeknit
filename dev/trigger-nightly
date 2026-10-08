@@ -3,21 +3,18 @@
 # Usage: $0 [options]
 #
 # Start a nightly in GitHub Actions: .github/workflows/release.yml on main
-# builds the CLI, publishes the binaries as a prerelease on the releases page,
-# and deploys the web app to GitHub Pages. The "Run workflow" button of the
-# workflow on GitHub takes the same options. Runs on the host and needs the
-# GitHub CLI (gh), logged in or with GH_TOKEN set.
+# deploys the web app to GitHub Pages when main has changed since the latest
+# deployment. The "Run workflow" button of the workflow on GitHub takes the same
+# option. Runs on the host and needs the GitHub CLI (gh), logged in or with
+# GH_TOKEN set.
 #
 # Options:
-#   -h, --help                   Show this help
-#   -f, --force                  Publish even when main has not changed since the latest nightly
-#   -o, --only <cli|web|all>     Publish only the CLI release (cli), only the web app (web),
-#                                or both (all, the default). A web-only run always deploys
+#   -h, --help    Show this help
+#   -f, --force   Deploy even when main has not changed since the latest deployment
 #
 # Examples:
 #   $0
 #   $0 --force
-#   $0 --only web
 #
 set -euo pipefail
 trap "exit" INT
@@ -30,7 +27,6 @@ main() {
   }
 
   local force="false"
-  local only="all"
 
   # shfmt:off
   while (($# > 0)); do
@@ -43,14 +39,6 @@ main() {
       force="true"
       shift
       ;;
-    -o | --only)
-      if (($# < 2)); then
-        printf "Missing value of %s\n" "${1}" >&2
-        exit 1
-      fi
-      only="${2}"
-      shift 2
-      ;;
     *)
       printf "Unknown argument: %s\n" "${1}" >&2
       exit 1
@@ -58,14 +46,6 @@ main() {
     esac
   done
   # shfmt:on
-
-  case "${only}" in
-  cli | web | all) ;;
-  *)
-    printf "Invalid value of --only: '%s'. Expected cli, web, or all\n" "${only}" >&2
-    exit 1
-    ;;
-  esac
 
   command -v gh >/dev/null || {
     printf "Required command not found: gh\n" >&2
@@ -75,8 +55,8 @@ main() {
   local repo
   repo="$(git -C "${THIS_DIR}" remote get-url origin | sed 's|.*github\.com[:/]||; s|\.git$||')"
 
-  printf "Starting a nightly in %s (force: %s, only: %s)\n" "${repo}" "${force}" "${only}"
-  gh workflow run release.yml --repo="${repo}" --ref=main -f force="${force}" -f only="${only}"
+  printf "Starting a nightly in %s (force: %s)\n" "${repo}" "${force}"
+  gh workflow run release.yml --repo="${repo}" --ref=main -f force="${force}"
   printf "Started. Follow it at https://github.com/%s/actions/workflows/release.yml\n" "${repo}"
 }
 

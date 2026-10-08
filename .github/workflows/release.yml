@@ -1,30 +1,26 @@
 name: "Release"
 
-# Nightly: every night, when main has changed since the latest nightly, build
-# the CLI for every release target, publish the binaries that build as a
-# prerelease on the releases page, and deploy the web app to GitHub Pages.
-# dev/trigger-nightly and the "Run workflow" button start one by hand.
+# Nightly: every night, when main has changed since the latest deployment of
+# the web app, deploy the web app of main to GitHub Pages. dev/trigger-nightly
+# and the "Run workflow" button start one by hand; with "force", they deploy an
+# unchanged main.
 #
-# Release: a pushed version tag (dev/release) publishes the binaries of the tag
-# as a release, with the section of the version in CHANGELOG.md as its notes,
-# once every target builds.
+# Release: a pushed version tag (dev/release) builds the CLI for every release
+# target (cli-build.yml) and runs the compatibility tests (cli-compat.yml).
+# Once every build and test passes, it publishes the binaries as a GitHub
+# release, with the section of the version in CHANGELOG.md as its notes. Then
+# it publishes the same binaries to PyPI (as wheels), to Docker Hub (as
+# images), and opens the update pull request of the Bioconda recipe, and
+# finally installs the release from PyPI and Docker Hub and runs it.
 on:
   schedule:
     - cron: "40 3 * * *"
   workflow_dispatch:
     inputs:
       force:
-        description: "Publish even when main has not changed since the latest nightly"
+        description: "Deploy the web app even when main has not changed since the latest deployment"
         type: boolean
         default: false
-      only:
-        description: "What to publish: the CLI release (cli), the web app (web), or both (all)"
-        type: choice
-        options:
-          - "all"
-          - "cli"
-          - "web"
-        default: "all"
   push:
     tags:
       - "v*"
@@ -32,8 +28,10 @@ on:
 permissions:
   contents: read
 
+# A release run takes much longer than a nightly; in one shared group, the
+# next nightly would cancel a pending release run.
 concurrency:
-  group: release
+  group: release-${{ startsWith(github.ref, 'refs/tags/') && github.ref || 'nightly' }}
   cancel-in-progress: false
 
 defaults:
@@ -41,20 +39,21 @@ defaults:
     shell: bash -euo pipefail {0}
 
 env:
-  # With the Docker Hub token, dev/docker/run pushes the images it builds, so
-  # later runs pull them instead of building them again.
-  TREEKNIT_DOCKER_PUSH: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN != '' && '1' || '' }}
+  CARGO_INCREMENTAL: "0"
+  KACHE_STORE: ${{ github.workspace }}/.cache/kache
 
 jobs:
   version:
     name: "Version"
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      deployments: read
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
-      nightly: ${{ steps.version.outputs.nightly }}
-      cli: ${{ steps.version.outputs.cli }}
+      release: ${{ steps.version.outputs.release }}
       web: ${{ steps.version.outputs.web }}
     steps:
       - name: "Check out"
@@ -63,105 +62,68 @@ jobs:
           sparse-checkout: "Cargo.toml"
           sparse-checkout-cone-mode: false
 
-      # A nightly tag ends with the short source commit, so a latest nightly
-      # with the same commit means main is unchanged; nothing is published then.
-      # A release does not deploy the web app: the next nightly deploys main,
-      # which holds the release commit.
+      # A tag never deploys the web app: the next nightly deploys main, which
+      # holds the release commit. A nightly deploys when the commit of the
+      # latest successful deployment of GitHub Pages is not this commit.
       - name: "Resolve the version"
         id: version
         env:
           GH_TOKEN: ${{ github.token }}
           FORCE: ${{ inputs.force == true }}
-          ONLY: ${{ inputs.only || 'all' }}
         run: |
           crate_version="$(yq -p toml -o yaml '.workspace.package.version' Cargo.toml)"
+          tag=""
+          release=false
+          web=false
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            version="${GITHUB_REF_NAME#v}"
-            if [[ "${version}" != "${crate_version}" ]]; then
+            if [[ "${GITHUB_REF_NAME#v}" != "${crate_version}" ]]; then
               printf 'Tag %s does not match the workspace version %s in Cargo.toml\n' "${GITHUB_REF_NAME}" "${crate_version}" >&2
               exit 1
             fi
             tag="${GITHUB_REF_NAME}"
-            nightly=false
-            cli=true
-            web=false
+            release=true
           else
-            short_sha="${GITHUB_SHA:0:7}"
-            latest="$(gh release list --repo="${GITHUB_REPOSITORY}" --limit=100 --json=tagName \
-              --jq='[.[] | select(.tagName | contains("-nightly."))][0].tagName // ""')"
-            new="${FORCE}"
-            if [[ "${latest}" != *"+${short_sha}" ]]; then
-              new=true
-            fi
-            cli=false
-            if [[ "${ONLY}" != "web" && "${new}" == "true" ]]; then
-              cli=true
-            fi
-            web=false
-            if [[ "${ONLY}" == "web" || ("${ONLY}" == "all" && "${new}" == "true") ]]; then
+            deployed=""
+            while read -r id sha; do
+              if [[ "$(gh api "repos/${GITHUB_REPOSITORY}/deployments/${id}/statuses" --jq 'any(.[]; .state == "success")')" == "true" ]]; then
+                deployed="${sha}"
+                break
+              fi
+            done < <(gh api "repos/${GITHUB_REPOSITORY}/deployments?environment=github-pages&per_page=30" --jq '.[] | "\(.id) \(.sha)"')
+            printf 'Latest deployment of the web app: %s\n' "${deployed:-none}"
+            if [[ "${FORCE}" == "true" || "${deployed}" != "${GITHUB_SHA}" ]]; then
               web=true
             fi
-            version="${crate_version}-nightly.$(date -u '+%Y%m%dT%H%M%SZ')+${short_sha}"
-            tag="${version}"
-            nightly=true
           fi
-          printf 'Version: %s\nCLI release: %s\nWeb app: %s\n' "${version}" "${cli}" "${web}"
-          printf 'version=%s\ntag=%s\nnightly=%s\ncli=%s\nweb=%s\n' "${version}" "${tag}" "${nightly}" "${cli}" "${web}" >>"${GITHUB_OUTPUT}"
+          printf 'Version: %s\nRelease: %s\nWeb app: %s\n' "${crate_version}" "${release}" "${web}"
+          printf 'version=%s\ntag=%s\nrelease=%s\nweb=%s\n' "${crate_version}" "${tag}" "${release}" "${web}" >>"${GITHUB_OUTPUT}"
 
   build:
-    name: "Build (${{ matrix.target }})"
+    name: "Build CLI"
     needs: version
-    if: needs.version.outputs.cli == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    # A failed target leaves only its binary out of a nightly; a release needs
-    # every target.
-    continue-on-error: ${{ needs.version.outputs.nightly == 'true' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          - aarch64-apple-darwin
-          - aarch64-unknown-linux-gnu
-          - aarch64-unknown-linux-musl
-          - x86_64-apple-darwin
-          - x86_64-pc-windows-gnu
-          - x86_64-unknown-linux-gnu
-          - x86_64-unknown-linux-musl
-    env:
-      CROSS_COMPILE: ${{ matrix.target }}
-      TREEKNIT_VERSION: ${{ needs.version.outputs.version }}
-    steps:
-      - name: "Check out"
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    if: needs.version.outputs.release == 'true'
+    uses: ./.github/workflows/cli-build.yml
+    with:
+      source_ref: ${{ github.sha }}
+      version: ${{ needs.version.outputs.version }}
+    secrets: inherit
 
-      - name: "Log in to Docker Hub"
-        if: env.TREEKNIT_DOCKER_PUSH == '1'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
-          password: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN }}
-
-      - name: "Build"
-        run: dev/docker/run dev/cross/build --profile=dist treeknit
-
-      - name: "Upload"
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: treeknit-${{ matrix.target }}
-          path: .out/treeknit-${{ matrix.target }}*
-          # The action skips paths under a directory whose name starts with a dot, such as .out/.
-          include-hidden-files: true
-          if-no-files-found: error
-
-  publish:
-    name: "Publish the release"
+  compat:
+    name: "Test CLI compatibility"
     needs: [version, build]
-    # A release with a failed target publishes nothing; "Re-run failed jobs"
-    # builds the failed targets again and then publishes.
-    if: >-
-      ${{ !cancelled() && needs.version.outputs.cli == 'true'
-      && (needs.version.outputs.nightly == 'true' || needs.build.result == 'success') }}
+    if: needs.version.outputs.release == 'true'
+    uses: ./.github/workflows/cli-compat.yml
+    with:
+      wheel_version: ${{ needs.version.outputs.version }}
+      docker: true
+    secrets: inherit
+
+  # A failed build or test publishes nothing; "Re-run failed jobs" runs them
+  # again and then publishes.
+  publish-release:
+    name: "Publish the GitHub release"
+    needs: [version, build, compat]
+    if: needs.version.outputs.release == 'true' && needs.build.result == 'success' && needs.compat.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -181,25 +143,239 @@ jobs:
           merge-multiple: true
           path: ".out"
 
-      # A nightly is a prerelease, so "Latest" on the releases page stays on the
-      # newest release. The notes are written to a file first, so a failure
-      # stops the step before the release exists.
+      # A release of the tag can exist from an earlier attempt: published, or
+      # a draft with some assets that a cancelled job left behind. Then an
+      # asset with other content than the local file fails the job, missing
+      # assets are uploaded, and a draft is published, so a re-run never
+      # changes a published binary. The notes are written to a file first, so
+      # a failure stops the step before the release exists.
       - name: "Publish"
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.version.outputs.tag }}
-          NIGHTLY: ${{ needs.version.outputs.nightly }}
         run: |
-          notes_flags=()
-          flags=(--latest)
-          if [[ "${NIGHTLY}" == "true" ]]; then
-            notes_flags=(--nightly)
-            flags=(--prerelease)
+          assets=(.out/treeknit-*)
+          existing="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" --jq '.[] | select(.tag_name == env.TAG)' | jq -s '.[0] // empty')"
+          if [[ -z "${existing}" ]]; then
+            dev/release-notes --repo "${GITHUB_REPOSITORY}" --tag "${TAG}" --sha "${GITHUB_SHA}" "${assets[@]}" >"${RUNNER_TEMP}/notes.md"
+            gh release create "${TAG}" --repo="${GITHUB_REPOSITORY}" --target="${GITHUB_SHA}" --title="${TAG}" \
+              --notes-file="${RUNNER_TEMP}/notes.md" --latest "${assets[@]}"
+          else
+            missing=()
+            for asset in "${assets[@]}"; do
+              name="${asset##*/}"
+              digest="$(jq -r --arg name "${name}" '.assets[] | select(.name == $name) | .digest // "unknown"' <<<"${existing}")"
+              if [[ -z "${digest}" ]]; then
+                missing+=("${asset}")
+              elif [[ "${digest}" != "sha256:$(sha256sum "${asset}" | cut -d ' ' -f 1)" ]]; then
+                printf 'Release %s has the asset %s with digest %s, which differs from the binary of this run\n' "${TAG}" "${name}" "${digest}" >&2
+                exit 1
+              fi
+            done
+            if ((${#missing[@]} > 0)); then
+              printf 'Uploading the missing assets: %s\n' "${missing[*]##*/}"
+              gh release upload "${TAG}" --repo="${GITHUB_REPOSITORY}" "${missing[@]}"
+            fi
+            if [[ "$(jq -r '.draft' <<<"${existing}")" == "true" ]]; then
+              gh release edit "${TAG}" --repo="${GITHUB_REPOSITORY}" --draft=false --latest
+            fi
           fi
-          dev/release-notes --repo "${GITHUB_REPOSITORY}" --tag "${TAG}" --sha "${GITHUB_SHA}" "${notes_flags[@]}" \
-            .out/treeknit-* >"${RUNNER_TEMP}/notes.md"
-          gh release create "${TAG}" --repo="${GITHUB_REPOSITORY}" --target="${GITHUB_SHA}" --title="${TAG}" \
-            --notes-file="${RUNNER_TEMP}/notes.md" "${flags[@]}" .out/treeknit-*
+          if [[ "$(gh release view "${TAG}" --repo="${GITHUB_REPOSITORY}" --json=isDraft --jq='.isDraft')" != "false" ]]; then
+            printf 'Release %s is still a draft\n' "${TAG}" >&2
+            exit 1
+          fi
+
+  pypi:
+    name: "Publish to PyPI"
+    needs: [version, compat, publish-release]
+    runs-on: ubuntu-24.04
+    environment:
+      name: "pypi"
+      url: "https://pypi.org/project/treeknit/${{ needs.version.outputs.version }}/"
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: "Download the wheels"
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pypi-wheels
+          path: "wheels"
+
+      # PyPI never accepts a file name twice, and skip-existing skips a file
+      # that exists without comparing it, so a re-run checks the content here.
+      - name: "Compare with the files on PyPI"
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          status="$(curl --silent --show-error --output "${RUNNER_TEMP}/pypi.json" --write-out '%{http_code}' "https://pypi.org/pypi/treeknit/${VERSION}/json")"
+          case "${status}" in
+          404)
+            printf 'PyPI has no files of treeknit %s yet\n' "${VERSION}"
+            exit 0
+            ;;
+          200) ;;
+          *)
+            printf 'PyPI returned HTTP %s for treeknit %s\n' "${status}" "${VERSION}" >&2
+            exit 1
+            ;;
+          esac
+          for wheel in wheels/*.whl; do
+            name="${wheel##*/}"
+            published="$(jq -r --arg name "${name}" '.urls[] | select(.filename == $name) | .digests.sha256' "${RUNNER_TEMP}/pypi.json")"
+            if [[ -n "${published}" && "${published}" != "$(sha256sum "${wheel}" | cut -d ' ' -f 1)" ]]; then
+              printf 'PyPI has %s with sha256 %s, which differs from the wheel of this run\n' "${name}" "${published}" >&2
+              exit 1
+            fi
+          done
+
+      - name: "Publish"
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: "wheels/"
+          skip-existing: true
+
+  docker:
+    name: "Publish to Docker Hub"
+    needs: [version, compat, publish-release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: "Check out"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: "Log in to Docker Hub"
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
+          password: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN }}
+
+      - name: "Set up QEMU"
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+      - name: "Set up Docker Buildx"
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: "Download the Linux binaries"
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "treeknit-*-linux-*"
+          merge-multiple: true
+          path: ".out"
+
+      - name: "Build, run, and push the images"
+        run: dev/docker/prod-images --run --push
+
+  # The Bioconda recipe lives in bioconda/bioconda-recipes; this opens the pull
+  # request that updates its version and sha256 values. Bioconda maintainers
+  # review and merge it.
+  bioconda:
+    name: "Open the Bioconda update"
+    needs: [version, compat, publish-release]
+    runs-on: ubuntu-24.04
+    environment: "bioconda"
+    steps:
+      - name: "Check out"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: "dev/bioconda-update"
+          sparse-checkout-cone-mode: false
+
+      - name: "Download the Linux binaries"
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "treeknit-*-unknown-linux-gnu"
+          merge-multiple: true
+          path: ".out"
+
+      - name: "Download the macOS binaries"
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: "treeknit-*-apple-darwin"
+          merge-multiple: true
+          path: ".out"
+
+      - name: "Open the pull request"
+        env:
+          GH_TOKEN: ${{ secrets.NEHERLAB_BOT_BIOCONDA_TOKEN }}
+          GIT_AUTHOR_NAME: ${{ secrets.NEHERLAB_BOT_GITHUB_NAME }}
+          GIT_AUTHOR_EMAIL: ${{ secrets.NEHERLAB_BOT_GITHUB_EMAIL }}
+          GIT_COMMITTER_NAME: ${{ secrets.NEHERLAB_BOT_GITHUB_NAME }}
+          GIT_COMMITTER_EMAIL: ${{ secrets.NEHERLAB_BOT_GITHUB_EMAIL }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: dev/bioconda-update --version "${VERSION}" .out
+
+  # A new version can take a short time to appear on PyPI and Docker Hub, so the
+  # checks retry.
+  verify-pypi:
+    name: "Install from PyPI (${{ matrix.runner }})"
+    needs: [version, pypi]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - "ubuntu-24.04"
+          - "macos-15"
+    steps:
+      - name: "Set up Python"
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.x"
+
+      - name: "Install and run"
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          python -m venv venv
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if venv/bin/python -m pip install --quiet --no-cache-dir "treeknit==${VERSION}"; then
+              break
+            fi
+            if ((attempt == 10)); then
+              printf 'treeknit %s is not installable from PyPI\n' "${VERSION}" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+          version="$(venv/bin/treeknit --version)"
+          printf '%s\n' "${version}"
+          [[ "${version}" == "treeknit ${VERSION}" ]] || { printf 'Expected "treeknit %s"\n' "${VERSION}" >&2; exit 1; }
+
+  verify-docker:
+    name: "Run from Docker Hub (${{ matrix.platform }})"
+    needs: [version, docker]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: "ubuntu-24.04"
+            platform: "linux/amd64"
+          - runner: "ubuntu-24.04-arm"
+            platform: "linux/arm64"
+    steps:
+      - name: "Pull and run"
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          image="neherlab/treeknit:${VERSION}"
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if docker pull --quiet --platform="${PLATFORM}" "${image}"; then
+              break
+            fi
+            if ((attempt == 10)); then
+              printf '%s is not pullable from Docker Hub\n' "${image}" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+          version="$(docker run --rm --platform="${PLATFORM}" "${image}" treeknit --version)"
+          printf '%s\n' "${version}"
+          [[ "${version}" == "treeknit ${VERSION}" ]] || { printf 'Expected "treeknit %s"\n' "${VERSION}" >&2; exit 1; }
 
   deploy-web:
     name: "Deploy the web app"
@@ -218,12 +394,12 @@ jobs:
       - name: "Check out"
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: "Log in to Docker Hub"
-        if: env.TREEKNIT_DOCKER_PUSH == '1'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - name: "Prepare the build container"
+        uses: ./.github/actions/prepare
         with:
-          username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
-          password: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN }}
+          cache: "web"
+          dockerhub-username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN }}
 
       - name: "Build"
         run: dev/docker/run just build-web prod

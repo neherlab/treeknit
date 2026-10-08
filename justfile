@@ -215,7 +215,7 @@ example name *args:
 release version:
     dev/release "$@"
 
-# Start a nightly in GitHub Actions (host only, needs gh): just trigger-nightly [--force] [--only <cli|web|all>]
+# Start a nightly in GitHub Actions, which deploys the web app of main when it has changed (host only, needs gh): just trigger-nightly [--force]
 [group("release")]
 trigger-nightly *args:
     dev/trigger-nightly "$@"
