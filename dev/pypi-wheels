@@ -1,0 +1,198 @@
+#!/usr/bin/env -S uv run --locked --quiet --script
+# /// script
+# requires-python = ">=3.14"
+# dependencies = ["wheel==0.48.0"]
+#
+# [tool.uv]
+# exclude-newer = "2026-09-30T00:00:00Z"
+# ///
+"""Write one PyPI wheel per release binary of the CLI.
+
+Each wheel holds the prebuilt binary treeknit-<target> of dev/cross/build as the
+script `treeknit`, which pip installs into the bin directory (Scripts on
+Windows) of the environment. The platform tag of each wheel lets pip pick the
+binary of the user's system: the glibc build on glibc Linux systems, the static
+musl build on musl systems such as Alpine, and the native builds on macOS and
+Windows. There is no source distribution, so pip reports "no matching
+distribution" on other platforms.
+
+The wheels are reproducible: the same binaries give byte-identical wheels. Zip
+entry dates come from SOURCE_DATE_EPOCH, by default the time of the current
+commit. The package metadata comes from [workspace.package] of Cargo.toml.
+
+Runs in the build container (dev/docker/run), with the dependencies pinned
+above and in dev/pypi-wheels.lock. Prints nothing on success.
+
+Examples:
+  dev/docker/run dev/pypi-wheels --version 1.0.0 .out tmp/pypi-wheels
+"""
+
+import argparse
+import os
+import stat
+import subprocess
+import sys
+import tomllib
+from dataclasses import dataclass
+from pathlib import Path
+from typing import NoReturn
+from zipfile import ZIP_DEFLATED, ZipInfo
+
+from packaging.version import InvalidVersion, Version
+from wheel.wheelfile import WheelFile, get_zipinfo_datetime
+
+ROOT = Path(__file__).resolve().parent.parent
+NAME = "treeknit"
+
+
+@dataclass(frozen=True)
+class Platform:
+    """Release target of a binary and the platform tag of its wheel."""
+
+    target: str
+    tag: str
+    exe: str = ""
+
+
+# The manylinux_2_17 tags promise glibc 2.17, the limit that dev/cross/check
+# enforces on the -gnu binaries; the macOS tags are the deployment targets of
+# dev/docker/cross-darwin.dockerfile.
+PLATFORMS = (
+    Platform("x86_64-unknown-linux-gnu", "manylinux_2_17_x86_64.manylinux2014_x86_64"),
+    Platform("aarch64-unknown-linux-gnu", "manylinux_2_17_aarch64.manylinux2014_aarch64"),
+    Platform("x86_64-unknown-linux-musl", "musllinux_1_1_x86_64"),
+    Platform("aarch64-unknown-linux-musl", "musllinux_1_1_aarch64"),
+    Platform("x86_64-apple-darwin", "macosx_10_12_x86_64"),
+    Platform("aarch64-apple-darwin", "macosx_11_0_arm64"),
+    Platform("x86_64-pc-windows-gnu", "win_amd64", ".exe"),
+)
+
+# The CPU requirements follow the flags of dev/lib/dist-flags.sh, which wheel
+# tags cannot express.
+DESCRIPTION = """\
+# TreeKnit
+
+TreeKnit infers reassortment from segment trees: maximally compatible clades (MCCs) for every \
+pair of trees, trees with polytomies resolved using the other trees, and for two trees an \
+ancestral reassortment graph (ARG).
+
+This package installs the `treeknit` command-line program, the prebuilt binary of the \
+[GitHub release]({releases}/tag/v{version}). The [README]({repository}#readme) explains its use.
+
+Wheels exist for Linux on x86_64 and ARM64 (glibc 2.17 or newer, or musl), macOS 10.12 or newer \
+on Intel and 11.0 or newer on Apple Silicon, and Windows on x86_64. The x86_64 builds need a \
+Haswell (2013) or newer CPU, and the Linux ARM64 builds an ARMv8.2-A CPU.
+"""
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="dev/pypi-wheels",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--version", required=True, help="version of the wheels, as PyPI shows it (PEP 440)")
+    parser.add_argument("binaries", type=Path, help="directory of the binaries treeknit-<target>[.exe]")
+    parser.add_argument("output", type=Path, help="directory to write the wheels into")
+    args = parser.parse_args()
+
+    version = parse_version(args.version)
+    binaries = [args.binaries / f"{NAME}-{platform.target}{platform.exe}" for platform in PLATFORMS]
+    missing = [str(path) for path in binaries if not path.is_file()]
+    if missing:
+        fail("Missing binaries: " + ", ".join(missing))
+
+    if "SOURCE_DATE_EPOCH" not in os.environ:
+        os.environ["SOURCE_DATE_EPOCH"] = commit_time()
+    package = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]["package"]
+    license_text = (ROOT / "LICENSE").read_bytes()
+
+    args.output.mkdir(parents=True, exist_ok=True)
+    for platform, binary in zip(PLATFORMS, binaries, strict=True):
+        write_wheel(args.output, version, platform, binary.read_bytes(), package, license_text)
+
+
+def parse_version(text: str) -> str:
+    """Return the version in the normal form of PEP 440, which PyPI accepts."""
+    try:
+        version = Version(text)
+    except InvalidVersion:
+        fail(f"Invalid version '{text}': expected a PEP 440 version such as 1.0.0 or 1.0.0.dev0")
+    if version.local is not None:
+        fail(f"Invalid version '{text}': PyPI rejects local versions (+...)")
+    if str(version) != text:
+        fail(f"Version '{text}' is not in normal form: use '{version}'")
+    return text
+
+
+def commit_time() -> str:
+    """Return the commit time of HEAD in seconds since the epoch."""
+    result = subprocess.run(
+        ["git", "-C", str(ROOT), "log", "-1", "--format=%ct"], capture_output=True, text=True, check=False
+    )
+    if result.returncode != 0:
+        fail(f"Cannot read the commit time; set SOURCE_DATE_EPOCH: {result.stderr.strip()}")
+    return result.stdout.strip()
+
+
+def write_wheel(
+    output: Path, version: str, platform: Platform, binary: bytes, package: dict, license_text: bytes
+) -> None:
+    """Write the wheel of one platform. WheelFile adds RECORD on close."""
+    namever = f"{NAME}-{version}"
+    dist_info = f"{namever}.dist-info"
+    tags = [f"py3-none-{tag}" for tag in platform.tag.split(".")]
+    repository = package["repository"]
+    metadata = "".join(
+        [
+            "Metadata-Version: 2.4\n",
+            f"Name: {NAME}\n",
+            f"Version: {version}\n",
+            f"Summary: {package['description']}\n",
+            f"License-Expression: {package['license']}\n",
+            "License-File: LICENSE\n",
+            f"Project-URL: Repository, {repository}\n",
+            f"Project-URL: Releases, {repository}/releases\n",
+            "Description-Content-Type: text/markdown\n",
+            "\n",
+            DESCRIPTION.format(repository=repository, releases=f"{repository}/releases", version=version),
+        ]
+    )
+    wheel_metadata = "".join(
+        [
+            "Wheel-Version: 1.0\n",
+            "Generator: treeknit dev/pypi-wheels\n",
+            "Root-Is-Purelib: false\n",
+            *(f"Tag: {tag}\n" for tag in tags),
+        ]
+    )
+
+    path = output / f"{namever}-py3-none-{platform.tag}.whl"
+    with WheelFile(path, "w") as wheel:
+        wheel.writestr(zip_entry(f"{namever}.data/scripts/{NAME}{platform.exe}", 0o755), binary)
+        wheel.writestr(zip_entry(f"{dist_info}/METADATA", 0o644), metadata.encode())
+        wheel.writestr(zip_entry(f"{dist_info}/licenses/LICENSE", 0o644), license_text)
+        wheel.writestr(zip_entry(f"{dist_info}/WHEEL", 0o644), wheel_metadata.encode())
+
+
+def zip_entry(name: str, mode: int) -> ZipInfo:
+    """Return a zip entry of a regular file with the date of SOURCE_DATE_EPOCH, as WheelFile
+    dates RECORD, and with fixed compression and mode.
+
+    pip and uv make an installed script executable only when its entry has the
+    file type "regular file" and an executable mode.
+    """
+    info = ZipInfo(name, date_time=get_zipinfo_datetime())
+    info.compress_type = ZIP_DEFLATED
+    info.create_system = 3
+    info.external_attr = (stat.S_IFREG | mode) << 16
+    return info
+
+
+def fail(message: str) -> NoReturn:
+    print(message, file=sys.stderr)
+    sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
