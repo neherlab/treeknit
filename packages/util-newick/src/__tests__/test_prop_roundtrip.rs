@@ -117,6 +117,14 @@ mod tests {
       next_hybrid: u32,
     }
 
+    /// The node below an edge, as far as the fields of the edge depend on it.
+    #[derive(Clone, Copy)]
+    struct EdgeChild {
+      internal: bool,
+      labeled: bool,
+      hybrid: bool,
+    }
+
     impl Builder {
       fn new(dialect: NewickDialect) -> Self {
         Self {
@@ -140,7 +148,12 @@ mod tests {
           .collect();
         let mut graph = NewickGraph::new(with_comments(root_data, root_comments));
         let is_internal = !root.children.is_empty();
-        *graph.root_edge_mut() = self.edge_data(root_edge, is_internal, root.name.is_some(), false);
+        let root_child = EdgeChild {
+          internal: is_internal,
+          labeled: root.name.is_some(),
+          hybrid: false,
+        };
+        *graph.root_edge_mut() = self.edge_data(root_edge, root_child);
         self.add_children(&mut graph, 0, root);
         let hybrids: Vec<usize> = graph
           .nodes()
@@ -156,7 +169,12 @@ mod tests {
             .filter(|&node| !below[node] && !graph.children(node).any(|child| child == hybrid))
             .collect();
           if let Some(&parent) = candidates.get(parent_pick % candidates.len().max(1)) {
-            let mut data = self.edge_data(edge, false, true, true);
+            let hybrid_leaf = EdgeChild {
+              internal: false,
+              labeled: true,
+              hybrid: true,
+            };
+            let mut data = self.edge_data(edge, hybrid_leaf);
             data
               .occurrence_comments_mut()
               .extend(occurrence_comments(&edge.occurrence, true));
@@ -186,7 +204,12 @@ mod tests {
           let (data, comments) = self.node_data(child, true);
           let has_label = data.name().is_some() || data.hybrid().is_some();
           let is_hybrid = data.hybrid().is_some();
-          let mut edge = self.edge_data(edge, !child.children.is_empty(), has_label, is_hybrid);
+          let edge_child = EdgeChild {
+            internal: !child.children.is_empty(),
+            labeled: has_label,
+            hybrid: is_hybrid,
+          };
+          let mut edge = self.edge_data(edge, edge_child);
           let data = if is_hybrid {
             edge.occurrence_comments_mut().extend(comments);
             data
@@ -211,21 +234,15 @@ mod tests {
         (data, occurrence_comments(&node.comments, has_label))
       }
 
-      fn edge_data(
-        &self,
-        edge: &GenEdge,
-        child_internal: bool,
-        child_labeled: bool,
-        child_hybrid: bool,
-      ) -> NewickEdgeData {
+      fn edge_data(&self, edge: &GenEdge, child: EdgeChild) -> NewickEdgeData {
         let field_count = self.dialect.structure.field_count();
-        let mut data = NewickEdgeData::new().with_acceptor(edge.acceptor && child_hybrid);
+        let mut data = NewickEdgeData::new().with_acceptor(edge.acceptor && child.hybrid);
         data.set_branch_length(edge.length);
         match &edge.support {
           Some((values, true)) if field_count > 1 && !values.is_empty() => {
             data.set_support(vec![values[0]], SupportSource::Field);
           },
-          Some((values, false)) if child_internal && !child_labeled && !child_hybrid && !values.is_empty() => {
+          Some((values, false)) if child.internal && !child.labeled && !child.hybrid && !values.is_empty() => {
             data.set_support(values.clone(), SupportSource::Label);
           },
           Some(_) | None => {},

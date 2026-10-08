@@ -205,14 +205,15 @@ mod tests {
   use crate::display::{ArgEdgeShape, Bezier, EdgePath, Elbow, LinkCurve, Mark};
   use pretty_assertions::assert_eq;
 
-  fn elbow(color: ColorRole, mcc_break: bool, added: bool) -> Elbow {
+  /// An elbow of an existing node without an MCC break.
+  fn elbow(color: ColorRole) -> Elbow {
     Elbow {
       node: 1,
       points: [[0.0, 0.0]; 3],
       mcc: None,
       slot: None,
-      mcc_break,
-      added,
+      mcc_break: false,
+      added: false,
       color,
     }
   }
@@ -225,9 +226,15 @@ mod tests {
   fn pair_legend_has_an_entry_for_each_kind_of_shape_in_the_drawing() {
     let left = TreeShapes {
       elbows: vec![
-        elbow(ColorRole::Signal, true, false),
-        elbow(ColorRole::InkMuted, false, true),
-        elbow(ColorRole::NoMcc, false, false),
+        Elbow {
+          mcc_break: true,
+          ..elbow(ColorRole::Signal)
+        },
+        Elbow {
+          added: true,
+          ..elbow(ColorRole::InkMuted)
+        },
+        elbow(ColorRole::NoMcc),
       ],
       marks: vec![Mark {
         kind: MarkKind::Imputed,
@@ -275,7 +282,11 @@ mod tests {
     // A reassortment branch of an added node is drawn as a reassortment branch only.
     let shapes = PairShapes {
       left: TreeShapes {
-        elbows: vec![elbow(ColorRole::Signal, true, true)],
+        elbows: vec![Elbow {
+          mcc_break: true,
+          added: true,
+          ..elbow(ColorRole::Signal)
+        }],
         marks: Vec::new(),
         leaders: Vec::new(),
       },

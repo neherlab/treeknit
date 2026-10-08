@@ -219,10 +219,7 @@ mod tests {
     .into_iter()
     .map(|(name, value)| (name, value.to_lowercase()))
     .collect();
-    let tokens = css_tokens(match theme {
-      Theme::Light => "@theme static {",
-      Theme::Dark => ":root.dark {",
-    });
+    let tokens = css_tokens(theme);
     let actual: BTreeMap<&str, String> = expected.keys().map(|&name| (name, tokens[name].clone())).collect();
     assert_eq!(expected, actual);
   }
@@ -236,10 +233,7 @@ mod tests {
     // The web app writes the MCC tokens at start-up; the values in the CSS are the palette of
     // each theme, so the page draws with them before the palette arrives.
     let c = colors(theme);
-    let tokens = css_tokens(match theme {
-      Theme::Light => "@theme static {",
-      Theme::Dark => ":root.dark {",
-    });
+    let tokens = css_tokens(theme);
     let mut expected: Vec<String> = c.mcc.iter().map(|m| m.to_lowercase()).collect();
     expected.push(c.no_mcc.to_lowercase());
     let mut actual: Vec<String> = (0..MCC_SLOTS)
@@ -276,9 +270,13 @@ mod tests {
     assert_eq!(["4.54", "4.48"], actual);
   }
 
-  /// The `--color-<name>: <value>;` tokens of the CSS block that starts with `opening`, by name
-  /// without the `--color-` prefix, with lowercase values.
-  fn css_tokens(opening: &str) -> BTreeMap<String, String> {
+  /// The `--color-<name>: <value>;` tokens of the CSS block of `theme`, by name without the
+  /// `--color-` prefix, with lowercase values.
+  fn css_tokens(theme: Theme) -> BTreeMap<String, String> {
+    let opening = match theme {
+      Theme::Light => "@theme static {",
+      Theme::Dark => ":root.dark {",
+    };
     let (_, rest) = INDEX_CSS.split_once(opening).unwrap();
     let (block, _) = rest.split_once('}').unwrap();
     block
