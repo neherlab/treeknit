@@ -49,6 +49,9 @@ pub const MAX_TEXT_BYTES: usize = MAX_TEXT_MIB * 1024 * 1024;
 /// [`MAX_TEXT_BYTES`] in MiB.
 const MAX_TEXT_MIB: usize = 256;
 
+/// First two bytes of a gzip member (RFC 1952, section 2.3.1).
+const GZIP_MAGIC: [u8; 2] = [0x1f, 0x8b];
+
 /// Longest time that reading a file of a link may take, in seconds, so that a wrong address
 /// cannot hang the web app or the command line.
 pub const FETCH_TIMEOUT_SECONDS: u32 = 60;
@@ -218,12 +221,12 @@ pub struct UrlPlace {
   pub file_name: String,
 }
 
-/// The text of a tree or session file: gzip-compressed bytes (they start with `1f 8b`) are
+/// The text of a tree or session file: gzip-compressed bytes (they start with [`GZIP_MAGIC`]) are
 /// decompressed first, up to [`MAX_TEXT_BYTES`]; the text must be UTF-8, and a web page (a text
 /// that starts with `<!doctype html` or `<html`) is rejected, because a wrong address often
 /// serves one.
 pub fn decode_tree_bytes(bytes: &[u8]) -> Result<String, DecodeError> {
-  let bytes = if bytes.starts_with(&[0x1f, 0x8b]) {
+  let bytes = if bytes.starts_with(&GZIP_MAGIC) {
     let mut text = Vec::new();
     let limit = u64::try_from(MAX_TEXT_BYTES + 1).unwrap_or(u64::MAX);
     MultiGzDecoder::new(bytes)

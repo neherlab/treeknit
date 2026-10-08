@@ -25,6 +25,22 @@ use rand_xoshiro::Xoshiro256PlusPlus;
 use rayon::prelude::*;
 use std::borrow::Cow;
 
+/// Bit position of the round in the word that [`mix`] packs; the first tree index sits at
+/// [`TREE_SHIFT`] and the second at bit 0, so up to 2^20 trees give distinct words.
+const ROUND_SHIFT: u32 = 40;
+
+/// Bit position of the first tree index in the word that [`mix`] packs.
+const TREE_SHIFT: u32 = 20;
+
+/// The increment of SplitMix64: 2^64 divided by the golden ratio, rounded to an odd number.
+const SPLITMIX_GAMMA: u64 = 0x9E37_79B9_7F4A_7C15;
+
+/// First multiplier of the SplitMix64 output function.
+const SPLITMIX_MUL_1: u64 = 0xBF58_476D_1CE4_E5B9;
+
+/// Second multiplier of the SplitMix64 output function.
+const SPLITMIX_MUL_2: u64 = 0x94D0_49BB_1331_11EB;
+
 /// MCCs of one pair of trees.
 #[derive(Clone, Debug)]
 pub struct PairResult {
@@ -468,11 +484,14 @@ fn infer(trees: &[Tree], i: usize, j: usize, inference: &Inference<'_>, on_progr
   m
 }
 
-/// Per-pair seed, independent of execution order.
+/// Per-pair seed, independent of execution order: the round and the tree indices, packed into one
+/// word and multiplied by [`SPLITMIX_GAMMA`], are mixed into the seed by the output function of
+/// SplitMix64 (Steele, Lea, and Flood 2014, "Fast splittable pseudorandom number generators").
 fn mix(seed: u64, round: usize, i: usize, j: usize) -> u64 {
-  let mut z = seed ^ (((round as u64) << 40) | ((i as u64) << 20) | j as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
-  z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-  z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+  let pair = ((round as u64) << ROUND_SHIFT) | ((i as u64) << TREE_SHIFT) | j as u64;
+  let mut z = seed ^ pair.wrapping_mul(SPLITMIX_GAMMA);
+  z = (z ^ (z >> 30)).wrapping_mul(SPLITMIX_MUL_1);
+  z = (z ^ (z >> 27)).wrapping_mul(SPLITMIX_MUL_2);
   z ^ (z >> 31)
 }
 

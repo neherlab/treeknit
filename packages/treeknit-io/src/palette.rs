@@ -99,6 +99,13 @@ impl<C> ThemeColors<C> {
 }
 
 /// The drawing colors of both themes.
+#[cfg_attr(
+  dylint_lib = "trailofbits",
+  expect(
+    unnamed_constant,
+    reason = "the color table: each `0xrrggbb` literal is a color, and its position in the table names its role"
+  )
+)]
 pub fn palette() -> Palette {
   let light = theme(
     [
