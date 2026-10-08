@@ -6,6 +6,13 @@ use crate::run::{self, RunResult};
 use std::collections::BTreeSet;
 use treeknit_core::Tree;
 
+/// The two-tree example: X moved between the trees.
+pub(crate) const HA: &str = "((A,B),(C,(D,X)));";
+pub(crate) const NA: &str = "((A,(B,X)),(C,D));";
+/// The two-tree example with branch lengths, so that the scale `div` is shown.
+pub(crate) const HA_LENGTHS: &str = "((A:1,B:1):1,(C:1,(D:1,X:1):1):1);";
+pub(crate) const NA_LENGTHS: &str = "((A:1,(B:1,X:1):1):1,(C:1,D:1):1);";
+
 /// The run of the `(label, newick)` trees with the default settings.
 pub(crate) fn run_trees(trees: &[(&str, &str)]) -> RunResult {
   run_with(trees, &Settings::default())
