@@ -20,3 +20,10 @@ preserve-uniform-field-visibility = true
 package = "treeknit-cli"
 bin = "treeknit"
 reason = "the shipped treeknit CLI is the primary product entry point"
+
+[[override]]
+lint = "hawk::dead_public"
+crate = "treeknit_core"
+item = "tree::Taxa::is_empty"
+level = "expect"
+reason = "clippy::len_without_is_empty requires is_empty next to the public len"
