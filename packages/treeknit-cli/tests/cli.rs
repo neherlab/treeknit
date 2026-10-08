@@ -403,7 +403,9 @@ mod tests {
     // Oracle: the output directories that the command line wrote before its writers moved to
     // `treeknit_io`, without `log.txt` (its lines carry times): the `treeknit` binary of commit
     // 6db59a4, run in `tests/data/outputs/<case>` as `treeknit <inputs> <flags> -o expected`. The
-    // MCCs of the two-tree case are those of the TreeKnit.jl fixture `doc_mccs_1.json`.
+    // MCCs of the two-tree case are those of the TreeKnit.jl fixture `doc_mccs_1.json`. The
+    // `auspice_<label>.json` files hold the captured JSON values, keys in the same order, written
+    // compact as TreeKnit.jl writes them.
     let data = Path::new(env!("CARGO_MANIFEST_DIR"))
       .join("tests/data/outputs")
       .join(case);

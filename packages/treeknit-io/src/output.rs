@@ -294,7 +294,7 @@ impl FileKind {
       },
       FileKind::Resolved { tree } => newick(trees.get(tree))?,
       FileKind::Imputed { tree } => newick(imputed.get(tree))?,
-      FileKind::Auspice { tree } => format!("{:#}", auspice::auspice_json(tree, trees, pairs, taxa)),
+      FileKind::Auspice { tree } => auspice::auspice_json(tree, trees, pairs, taxa),
       FileKind::ArgNewick => format!("{}\n", arg::extended_newick(arg()?).map_err(newick_error)?),
       FileKind::ArgNodes => format!("{}\n", arg::node_table(arg()?)),
       FileKind::ArgTree { tree } => newick(arg()?.trees.get(tree))?,
