@@ -2,27 +2,26 @@
 #
 # Usage: $0 <version>
 #
-# Prepare a release and push it: check that CI passed on the commit, set the
-# workspace version, rename the '## Unreleased' section of CHANGELOG.md to
-# '## <version>', commit, tag '<version>', and push the commit and the tag
-# after a confirmation. The checks themselves run in CI
-# (.github/workflows/ci.yml), so the script runs nothing heavy. The pushed tag starts .github/workflows/release.yml, which
-# builds the CLI for every release target and tests the binaries on Linux,
-# macOS, and Windows. Once they pass, it publishes the binaries as a GitHub
-# release, with the section of the version in CHANGELOG.md as its notes, then
-# to PyPI (pip install treeknit) and Docker Hub (neherlab/treeknit), and opens
-# the pull request that updates the Bioconda recipe (conda install -c bioconda
-# treeknit), which Bioconda maintainers merge.
+# Prepare a release and push it: set the workspace version, rename the
+# '## Unreleased' section of CHANGELOG.md to '## <version>', commit, and push
+# the commit to main and to the branch release together, after a confirmation.
+# The push to release starts .github/workflows/release.yml, which runs the
+# checks, builds the CLI for every release target, and tests the binaries on
+# Linux, macOS, and Windows. Once they pass, it publishes the binaries as a
+# GitHub release, which creates the tag <version>, with the section of the
+# version in CHANGELOG.md as its notes, then to PyPI (pip install treeknit) and
+# Docker Hub (neherlab/treeknit), and opens the pull request that updates the
+# Bioconda recipe (conda install -c bioconda treeknit), which Bioconda
+# maintainers merge. The script itself runs nothing heavy.
 #
-# Runs on the host, in the main checkout on the branch main, and needs git,
-# yq, and the GitHub CLI (gh); Docker only when the version differs from the
-# workspace version, because cargo sets it in the build container. Push main
-# and wait for CI to pass first. Write the '## Unreleased' section of
-# CHANGELOG.md before; it may be the only uncommitted change.
+# Runs on the host, in the main checkout on the branch main, and needs git and
+# yq; Docker only when the version differs from the workspace version, because
+# cargo sets it in the build container. Write the '## Unreleased' section of
+# CHANGELOG.md first; it may be the only uncommitted change.
 #
 # Arguments:
 #   <version>   Version to release, MAJOR.MINOR.PATCH: the workspace version of
-#               Cargo.toml while it has no tag, or a newer one
+#               Cargo.toml while it is not released, or a newer one
 #
 # Options:
 #   -h, --help  Show this help
@@ -43,7 +42,7 @@ ask_yes_no() {
     case "${choice}" in
     y | Y) return 0 ;;
     n | N)
-      printf "Aborted. The release commit and tag stay local; remove them with: git tag -d %s && git reset --keep HEAD~1\n" "${2}"
+      printf "Aborted. The release commit stays local; remove it with: git reset --keep HEAD~1\n"
       exit 0
       ;;
     *) printf "Type 'y' or 'n'.\n" ;;
@@ -71,16 +70,15 @@ main() {
   fi
 
   local version="${1}"
-  local tag="${version}"
   pushd "${ROOT}" >/dev/null
 
   printf "Pre-check: version format... "
   [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "Invalid version '${version}': expected MAJOR.MINOR.PATCH"
   printf "✅\n"
 
-  printf "Pre-check: required tools (git, yq, gh)... "
+  printf "Pre-check: required tools (git, yq)... "
   local tool
-  for tool in git yq gh; do
+  for tool in git yq; do
     command -v "${tool}" >/dev/null || fail "Required command not found: ${tool}"
   done
   printf "✅\n"
@@ -104,25 +102,20 @@ main() {
   git merge-base --is-ancestor origin/main HEAD || fail "Local main is behind origin/main or has diverged from it. Pull first"
   printf "✅\n"
 
-  printf "Pre-check: CI passed on HEAD... "
-  local head repo ci
-  head="$(git rev-parse HEAD)"
-  repo="$(git remote get-url origin | sed 's|.*github\.com[:/]||; s|\.git$||')"
-  [[ "${head}" == "$(git rev-parse origin/main)" ]] ||
-    fail "HEAD is not on origin/main, so CI has not checked it. Push main, wait for CI, and retry"
-  ci="$(gh run list --repo="${repo}" --workflow=ci.yml --commit="${head}" --event=push --limit=1 \
-    --json=status,conclusion --jq='.[0] // {} | "\(.status // "not started") \(.conclusion // "")"')"
-  [[ "${ci}" == "completed success" ]] ||
-    fail "CI of ${head:0:7} is '${ci% }', not passed. Wait for https://github.com/${repo}/actions/workflows/ci.yml and retry"
+  # release.yml fails on a push to release that is not a fast-forward.
+  printf "Pre-check: main contains origin/release... "
+  if git rev-parse --quiet --verify refs/remotes/origin/release >/dev/null; then
+    git merge-base --is-ancestor origin/release HEAD || fail "origin/release is not an ancestor of main. Find out why before releasing"
+  fi
   printf "✅\n"
 
-  printf "Pre-check: tag %s exists neither locally nor on origin... " "${tag}"
-  ! git rev-parse --quiet --verify "refs/tags/${tag}" >/dev/null || fail "Tag ${tag} exists locally"
-  [[ -z "$(git ls-remote --tags origin "refs/tags/${tag}")" ]] || fail "Tag ${tag} exists on origin"
+  # The release of a version creates its tag.
+  printf "Pre-check: version %s is not released (no tag %s on origin)... " "${version}" "${version}"
+  [[ -z "$(git ls-remote --tags origin "refs/tags/${version}")" ]] || fail "Version ${version} is released: origin has the tag ${version}"
   printf "✅\n"
 
-  # The workspace version itself is releasable while it has no tag: the tag
-  # check above stops a second release of it.
+  # The workspace version itself is releasable while it has no tag: the check
+  # above stops a second release of it.
   printf "Pre-check: version is the workspace version or newer... "
   local current
   current="$(yq -p toml -o yaml '.workspace.package.version' Cargo.toml)"
@@ -151,17 +144,16 @@ main() {
   git --no-pager diff -- Cargo.toml Cargo.lock CHANGELOG.md
   printf "\n"
 
-  printf "Committing and tagging %s... " "${tag}"
+  printf "Committing... "
   git add Cargo.toml Cargo.lock CHANGELOG.md
   git commit --quiet -m "chore: release ${version}"
-  git tag "${tag}"
   printf "✅\n"
 
   printf "\nRelease %s is ready locally.\n" "${version}"
-  ask_yes_no "Push main and ${tag} to origin?" "${tag}"
-  git push --atomic --quiet origin main "${tag}"
-  printf "Pushed. GitHub Actions now builds and publishes %s: https://github.com/%s/actions/workflows/release.yml\n" \
-    "${tag}" "$(git remote get-url origin | sed 's|.*github\.com[:/]||; s|\.git$||')"
+  ask_yes_no "Push the release commit to main and release on origin?"
+  git push --atomic --quiet origin main main:release
+  printf "Pushed. GitHub Actions now checks, builds, and publishes %s: https://github.com/%s/actions/workflows/release.yml\n" \
+    "${version}" "$(git remote get-url origin | sed 's|.*github\.com[:/]||; s|\.git$||')"
   popd >/dev/null
 }
 

@@ -2,27 +2,28 @@
 
 This page is for maintainers: it describes the workflows that check every change, and how a release is published to every channel. [`developer_guide.md`](developer_guide.md) describes the development environment and the `just` recipes.
 
-Four workflows in `.github/workflows/` check every change and publish the releases. They run the same `just` recipes and scripts as a developer, in the same containers (`dev/docker/run`):
+Five workflows in `.github/workflows/` check every change and publish the releases. They run the same `just` recipes and scripts as a developer, in the same containers (`dev/docker/run`):
 
 - `ci.yml`: the checks of pull requests and of `main`
+- `checks.yml`: the fast recipes of the justfile, one job each (see [Checks of pull requests and `main`](#checks-of-pull-requests-and-main))
 - `cli-build.yml`: builds the shipped CLI for every release target of `dev/cross/targets`, one job per target in its cross image, runs `dev/cross/check` on each binary, and uploads it as the artifact `treeknit-<target>`. A failed target fails the run
 - `cli-compat.yml`: tests the binaries of `cli-build.yml` where users run them (see [Compatibility tests](#compatibility-tests)) and writes the PyPI wheels
-- `release.yml`: the nightly deployment of the web app, and the release of a pushed version tag
+- `release.yml`: the nightly deployment of the web app, and the release of each push to the branch `release`
 
-`ci.yml` and `release.yml` call `cli-build.yml` and `cli-compat.yml`. The composite action `.github/actions/prepare` frees disk space on the runner, restores the cargo registry and the kache compiler cache, and pulls or builds the image of `dev/docker/run`. Every job that runs a container uses it.
+`ci.yml` and `release.yml` call `checks.yml`, `cli-build.yml`, and `cli-compat.yml`. The composite action `.github/actions/prepare` frees disk space on the runner, restores the cargo registry and the kache compiler cache, and pulls or builds the image of `dev/docker/run`. Every job that runs a container uses it.
 
 ## Checks of pull requests and `main`
 
-`ci.yml` runs on every pull request, on every push to `main`, and by hand ("Run workflow"). The fast recipes run in parallel jobs:
+`ci.yml` runs on every pull request, on every push to `main`, and by hand ("Run workflow"). The fast recipes of `checks.yml` run in parallel jobs:
 
 - `just check`: formatting, Clippy (native and WebAssembly), oxlint, TypeScript types
 - `just lint-shell`, `just lint-py`, `just lint-docker`, `just lint-workflows`
 - `just check-group tests` (`test-rs`, `test-wasm`) and `just test-ts`
 - `just generated-check`
 
-The slow checks (dylint, hawk, knip, cargo-deny, cargo-shear, `just build-web prod`) run in no workflow; `just check-all` runs them locally. `dev/release` releases only a commit on which `ci.yml` passed.
+The slow checks (dylint, hawk, knip, cargo-deny, cargo-shear, `just build-web prod`) run in no workflow; `just check-all` runs them locally.
 
-The release builds (`cli-build.yml`) and the compatibility tests (`cli-compat.yml`) run on every push to `main`, on manual runs, and on pull requests that change `.github/`, `.cargo/`, `dev/cross/`, `dev/docker/`, `dev/lib/`, `dev/pypi-wheels`, `.config/mise.*`, `rust-toolchain.toml`, `Cargo.toml`, or `Cargo.lock`. These binaries report `<version>-dev`. The Docker images of the compatibility tests build 20 images, half of them under QEMU, so they run only when a push or pull request changes `dev/docker/` or `.github/`, and on manual runs.
+The release builds (`cli-build.yml`) and the compatibility tests (`cli-compat.yml`) run on every push to `main`, on manual runs, and on pull requests that change `.github/`, `.cargo/`, `dev/cross/`, `dev/docker/`, `dev/lib/`, `dev/pypi-wheels`, `.config/mise.*`, `rust-toolchain.toml`, `Cargo.toml`, or `Cargo.lock`. These binaries report `<version>-dev`. A push of the commit that the branch `release` points to runs nothing in `ci.yml`: `dev/release` pushes `main` and `release` together, and `release.yml` checks, builds, and tests that commit. The Docker images of the compatibility tests build 20 images, half of them under QEMU, so they run only when a push or pull request changes `dev/docker/` or `.github/`, and on manual runs.
 
 ## Compatibility tests
 
@@ -47,15 +48,15 @@ Every night at 03:40 UTC, `release.yml` deploys the web app of `main` to GitHub 
 ## Publish a release
 
 1. Describe the changes under `## Unreleased` in `CHANGELOG.md`
-2. Update the pinned bases of the Docker images: `./dev/docker/run dev/docker/prod-bases-update`, and commit `dev/docker/prod-bases.json` when it changed. Push `main` and wait until `ci.yml` passes on it; `CHANGELOG.md` may stay uncommitted
-3. Run `just release <version>` (host only, in the main checkout on `main`). `dev/release` checks that the version is the workspace version of `Cargo.toml` or newer, that `main` is pushed and `ci.yml` passed on it (with the GitHub CLI), that nothing but `CHANGELOG.md` is uncommitted, and that the tag is new. It runs nothing heavy: it sets a new workspace version with `cargo set-version` in the build container (which also updates `Cargo.lock`) only when the version changes, renames `## Unreleased` to `## <version>`, commits `chore: release <version>`, and tags `<version>`, without a `v` prefix
-4. Confirm the push: `dev/release` pushes `main` and the tag in one atomic push, and the tag starts `release.yml`. Answering no leaves the commit and the tag local
+2. Update the pinned bases of the Docker images: `./dev/docker/run dev/docker/prod-bases-update`, and commit `dev/docker/prod-bases.json` when it changed
+3. Run `just release <version>` (host only, in the main checkout on `main`). `dev/release` checks that the version is the workspace version of `Cargo.toml` or newer and not released yet (no tag `<version>` on origin), that `main` contains `origin/main` and `origin/release`, and that nothing but `CHANGELOG.md` is uncommitted. It runs nothing heavy: it sets a new workspace version with `cargo set-version` in the build container (which also updates `Cargo.lock`) only when the version changes, renames `## Unreleased` to `## <version>`, and commits `chore: release <version>`
+4. Confirm the push: `dev/release` pushes the commit to `main` and to the branch `release` in one atomic push, and the push to `release` starts `release.yml`. Answering no leaves the commit local
 5. Review the Bioconda pull request when Bioconda maintainers ask for changes
 
-The tag must match the workspace version in `Cargo.toml`. `release.yml` then runs these jobs:
+The version of a release is the workspace version in `Cargo.toml` of the commit on `release`. Each version is released from one commit only: a later push to `release` with a released version fails, and a re-run of the same commit continues the release. The ruleset of the repository allows only fast-forward pushes to `release` and no deletion. `release.yml` then runs these jobs:
 
-1. `cli-build.yml` with the release version, then `cli-compat.yml` with every test, the Docker images included
-2. `publish-release`, only when every build and test passed: the GitHub release of the tag, with the 7 binaries and the notes of `dev/release-notes`. A release of the tag can exist from an earlier attempt, such as a draft with some assets that a cancelled job left behind: then the job fails when an existing asset differs from the binary of this run, uploads the missing assets, and publishes the draft. A re-run never changes a published binary
+1. `checks.yml`, and `cli-build.yml` with the release version, then `cli-compat.yml` with every test, the Docker images included
+2. `publish-release`, only when every check, build, and test passed: the GitHub release of the version, with the 7 binaries and the notes of `dev/release-notes`. Creating the release creates the tag `<version>` on the released commit, without a `v` prefix, so only published versions have a tag. A release of the version can exist from an earlier attempt, such as a draft with some assets that a cancelled job left behind: then the job fails when an existing asset differs from the binary of this run, uploads the missing assets, and publishes the draft. A re-run never changes a published binary
 3. After the GitHub release, in parallel: `pypi` uploads the wheels that the compatibility tests installed, `docker` builds, runs, and pushes the images, then `docker-description` updates the page of the images on Docker Hub, and `bioconda` opens the pull request that updates the Bioconda recipe
 4. `verify-pypi` installs the release from PyPI on Linux and macOS, and `verify-docker` runs the image of the release on `linux/amd64` and `linux/arm64`; both retry while the new version is not yet served, and compare `treeknit --version`
 
@@ -88,7 +89,7 @@ The workflows need these settings of the GitHub repository `neherlab/treeknit` a
 - `NEHERLAB_BOT_DOCKERHUB_USERNAME`, `NEHERLAB_BOT_DOCKERHUB_TOKEN` (`neherlab` organization secrets): Docker Hub login of the bot account. Runs other than pull requests push the builder images `neherlab/treeknit_builder` and their layer cache, so later runs pull them instead of building them; the compatibility tests log in to raise the pull limit; the `docker` job of a release pushes `neherlab/treeknit`, which needs write access of the bot account to that repository; the `docker-description` job writes the page of that repository, which needs a token with the scope read/write/delete and the Admin permission of the bot account on the repository
 - `NEHERLAB_BOT_GITHUB_TOKEN`, `NEHERLAB_BOT_GITHUB_NAME`, `NEHERLAB_BOT_GITHUB_EMAIL` (organization secrets): the token and commit identity of the bot account, with which the `bioconda` job pushes to the fork `neherlab/bioconda-recipes` and opens the pull request in `bioconda/bioconda-recipes`. The token must be a classic token with the scope `repo` or `public_repo`: a fine-grained token cannot open pull requests in a repository of another owner
 - Environment `github-pages`: the deployment of the web app
-- Environment `pypi`, limited to tags of the form `<major>.<minor>.<patch>`: the PyPI project `treeknit` trusts the workflow `release.yml` of this repository in this environment (Trusted Publishing), so the upload needs no token
+- Environment `pypi`, limited to the branch `release`: the PyPI project `treeknit` trusts the workflow `release.yml` of this repository in this environment (Trusted Publishing), so the upload needs no token
 - `GITHUB_TOKEN` (`github.token`): the GitHub release, and reading the deployments of GitHub Pages
 
 ## Version of a build

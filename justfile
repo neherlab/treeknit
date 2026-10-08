@@ -214,7 +214,7 @@ run-cross mode target *args:
 example name *args:
     cargo run --locked --release --example {{ quote(name) }} -- "${@:2}"
 
-# Prepare a release and push it after confirmation: check that CI passed on HEAD, set the version, rename the Unreleased section of CHANGELOG.md to it, commit, and tag (host only, main checkout, needs gh): just release <version>
+# Prepare a release and push it after confirmation: set the version, rename the Unreleased section of CHANGELOG.md to it, commit, and push to main and the branch release, which starts the release workflow (host only, main checkout): just release <version>
 [group("release")]
 release version:
     dev/release "$@"

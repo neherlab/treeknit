@@ -5,10 +5,12 @@ name: "Release"
 # and the "Run workflow" button start one by hand; with "force", they deploy an
 # unchanged main.
 #
-# Release: a pushed version tag (dev/release) builds the CLI for every release
-# target (cli-build.yml) and runs the compatibility tests (cli-compat.yml).
-# Once every build and test passes, it publishes the binaries as a GitHub
-# release, with the section of the version in CHANGELOG.md as its notes. Then
+# Release: a push to the branch release (dev/release) runs the checks of
+# checks.yml, builds the CLI for every release target (cli-build.yml), and runs
+# the compatibility tests (cli-compat.yml) on that commit. Once every check,
+# build, and test passes, it publishes the binaries as a GitHub release of the
+# workspace version, which creates the tag <version> on that commit, with the
+# section of the version in CHANGELOG.md as its notes. Then
 # it publishes the same binaries to PyPI (as wheels), to Docker Hub (as
 # images, with the description of docs/channels/), and opens the update pull
 # request of the Bioconda recipe, and finally installs the release from PyPI
@@ -23,8 +25,8 @@ on:
         type: boolean
         default: false
   push:
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
+    branches:
+      - "release"
 
 permissions:
   contents: read
@@ -32,7 +34,7 @@ permissions:
 # A release run takes much longer than a nightly; in one shared group, the
 # next nightly would cancel a pending release run.
 concurrency:
-  group: release-${{ startsWith(github.ref, 'refs/tags/') && github.ref || 'nightly' }}
+  group: release-${{ github.ref == 'refs/heads/release' && 'release' || 'nightly' }}
   cancel-in-progress: false
 
 defaults:
@@ -46,7 +48,7 @@ env:
 jobs:
   version:
     name: "Version"
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -63,9 +65,12 @@ jobs:
           sparse-checkout: "Cargo.toml"
           sparse-checkout-cone-mode: false
 
-      # A tag never deploys the web app: the next nightly deploys main, which
-      # holds the release commit. A nightly deploys when the commit of the
-      # latest successful deployment of GitHub Pages is not this commit.
+      # A release never deploys the web app: the next nightly deploys main,
+      # which holds the release commit. A nightly deploys when the commit of
+      # the latest successful deployment of GitHub Pages is not this commit.
+      # A version is released from one commit only: a later push to release
+      # with the same version fails here, and a re-run of the same commit
+      # continues.
       - name: "Resolve the version"
         id: version
         env:
@@ -76,21 +81,27 @@ jobs:
           tag=""
           release=false
           web=false
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            if [[ "${GITHUB_REF_NAME}" != "${crate_version}" ]]; then
-              printf 'Tag %s does not match the workspace version %s in Cargo.toml\n' "${GITHUB_REF_NAME}" "${crate_version}" >&2
+          if [[ "${GITHUB_REF}" == "refs/heads/release" ]]; then
+            tagged="$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${crate_version}" \
+              --jq ".[] | select(.ref == \"refs/tags/${crate_version}\") | .object.sha")"
+            if [[ -n "${tagged}" && "${tagged}" != "${GITHUB_SHA}" ]]; then
+              printf 'Version %s is already released from commit %s. Set a new version with dev/release\n' "${crate_version}" "${tagged}" >&2
               exit 1
             fi
-            tag="${GITHUB_REF_NAME}"
+            tag="${crate_version}"
             release=true
           else
+            # An API failure fails the job instead of passing as "no deployment".
+            deployments="$(gh api "repos/${GITHUB_REPOSITORY}/deployments?environment=github-pages&per_page=30" --jq '.[] | "\(.id) \(.sha)"')"
             deployed=""
             while read -r id sha; do
-              if [[ "$(gh api "repos/${GITHUB_REPOSITORY}/deployments/${id}/statuses" --jq 'any(.[]; .state == "success")')" == "true" ]]; then
+              [[ -n "${id}" ]] || continue
+              succeeded="$(gh api "repos/${GITHUB_REPOSITORY}/deployments/${id}/statuses" --jq 'any(.[]; .state == "success")')"
+              if [[ "${succeeded}" == "true" ]]; then
                 deployed="${sha}"
                 break
               fi
-            done < <(gh api "repos/${GITHUB_REPOSITORY}/deployments?environment=github-pages&per_page=30" --jq '.[] | "\(.id) \(.sha)"')
+            done <<<"${deployments}"
             printf 'Latest deployment of the web app: %s\n' "${deployed:-none}"
             if [[ "${FORCE}" == "true" || "${deployed}" != "${GITHUB_SHA}" ]]; then
               web=true
@@ -98,6 +109,13 @@ jobs:
           fi
           printf 'Version: %s\nRelease: %s\nWeb app: %s\n' "${crate_version}" "${release}" "${web}"
           printf 'version=%s\ntag=%s\nrelease=%s\nweb=%s\n' "${crate_version}" "${tag}" "${release}" "${web}" >>"${GITHUB_OUTPUT}"
+
+  checks:
+    name: "Checks"
+    needs: version
+    if: needs.version.outputs.release == 'true'
+    uses: ./.github/workflows/checks.yml
+    secrets: inherit
 
   build:
     name: "Build CLI"
@@ -119,12 +137,14 @@ jobs:
       docker: true
     secrets: inherit
 
-  # A failed build or test publishes nothing; "Re-run failed jobs" runs them
-  # again and then publishes.
+  # A failed check, build, or test publishes nothing; "Re-run failed jobs" runs
+  # them again and then publishes.
   publish-release:
     name: "Publish the GitHub release"
-    needs: [version, build, compat]
-    if: needs.version.outputs.release == 'true' && needs.build.result == 'success' && needs.compat.result == 'success'
+    needs: [version, checks, build, compat]
+    if: >-
+      needs.version.outputs.release == 'true' && needs.checks.result == 'success'
+      && needs.build.result == 'success' && needs.compat.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: write

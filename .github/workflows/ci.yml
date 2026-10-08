@@ -1,13 +1,14 @@
 name: "CI"
 
-# Checks: the fast recipes of the justfile on every pull request and every push
-# to main. Builds: the release binaries of cli-build.yml and the compatibility
-# tests of cli-compat.yml, on every push to main, on manual runs, and on pull
-# requests that change the build or release machinery. The Docker images of
-# the compatibility tests take several minutes under QEMU, so they run only
-# when dev/docker/ or .github/ changes, and on manual runs. dev/release releases
-# only a commit on which this workflow passed. The slow checks (just check-all)
-# run in no workflow.
+# Checks: the fast recipes of the justfile (checks.yml) on every pull request
+# and every push to main. Builds: the release binaries of cli-build.yml and the
+# compatibility tests of cli-compat.yml, on every push to main, on manual runs,
+# and on pull requests that change the build or release machinery. The Docker
+# images of the compatibility tests take several minutes under QEMU, so they
+# run only when dev/docker/ or .github/ changes, and on manual runs. A push of
+# the commit that the branch release points to runs nothing: dev/release pushes
+# main and release together, and release.yml checks, builds, and tests that
+# commit.
 on:
   pull_request:
   push:
@@ -26,48 +27,19 @@ defaults:
   run:
     shell: bash -euo pipefail {0}
 
-env:
-  # Every run starts without incremental state, so incremental compiles only add
-  # overhead, and kache caches only compiles without it.
-  CARGO_INCREMENTAL: "0"
-  KACHE_STORE: ${{ github.workspace }}/.cache/kache
-  FORCE_COLOR: "1"
-
 jobs:
-  check:
-    name: "Check (${{ matrix.name }})"
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: "lint"
-            command: "just check"
-          - name: "config lints"
-            command: "dev/run-checks --serial lint-shell lint-py lint-docker lint-workflows"
-          - name: "tests"
-            command: "dev/run-checks --serial check-group:tests test-ts"
-          - name: "generated files"
-            command: "just generated-check"
-    steps:
-      - name: "Check out"
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: "Prepare the build container"
-        uses: ./.github/actions/prepare
-        with:
-          cache: ${{ matrix.name }}
-          dockerhub-username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
-          dockerhub-token: ${{ github.event_name != 'pull_request' && secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN || '' }}
-
-      - name: "Run ${{ matrix.name }}"
-        run: dev/docker/run ${{ matrix.command }}
+  checks:
+    name: "Checks"
+    needs: changes
+    if: needs.changes.outputs.release != 'true'
+    uses: ./.github/workflows/checks.yml
+    secrets: inherit
 
   changes:
     name: "Changed files"
     runs-on: ubuntu-24.04
     outputs:
+      release: ${{ steps.changes.outputs.release }}
       builds: ${{ steps.changes.outputs.builds }}
       docker: ${{ steps.changes.outputs.docker }}
       wheel_version: ${{ steps.changes.outputs.wheel_version }}
@@ -121,8 +93,20 @@ jobs:
             esac
           done <<<"${files}"
 
-          printf 'Builds: %s\nDocker images: %s\n' "${builds}" "${docker}"
-          printf 'builds=%s\ndocker=%s\nwheel_version=%s\n' "${builds}" "${docker}" "${crate_version}.dev0" >>"${GITHUB_OUTPUT}"
+          # dev/release pushes the release commit to main and release together,
+          # and release.yml checks, builds, and tests it.
+          release=false
+          if [[ "${EVENT}" == "push" ]]; then
+            release_sha="$(git ls-remote origin refs/heads/release | cut -f 1)"
+            if [[ "${release_sha}" == "${GITHUB_SHA}" ]]; then
+              release=true
+              builds=false
+              docker=false
+            fi
+          fi
+
+          printf 'Release commit: %s\nBuilds: %s\nDocker images: %s\n' "${release}" "${builds}" "${docker}"
+          printf 'release=%s\nbuilds=%s\ndocker=%s\nwheel_version=%s\n' "${release}" "${builds}" "${docker}" "${crate_version}.dev0" >>"${GITHUB_OUTPUT}"
 
   build:
     name: "Build CLI"
