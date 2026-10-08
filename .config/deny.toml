@@ -27,17 +27,12 @@ ignore = []
 confidence-threshold = 0.9
 allow = [
   "Apache-2.0",
-  "Apache-2.0 WITH LLVM-exception",
-  "BSD-2-Clause",
   "BSD-3-Clause",
-  "BSL-1.0",
   # The Mozilla root certificates of webpki-roots, which the HTTPS client of the command line
   # compiles in.
   "CDLA-Permissive-2.0",
   "ISC",
   "MIT",
-  "MIT-0",
-  "MPL-2.0",
   "Unicode-3.0",
   "Zlib",
 ]
@@ -51,7 +46,6 @@ multiple-versions = "deny"
 wildcards = "deny"
 allow-wildcard-paths = true
 skip = [
-  { crate = "windows-sys:<0.61", reason = "ring 0.17.14, the TLS backend of ureq, requires windows-sys 0.52" },
   { crate = "syn:<3", reason = "tsify-macros 0.5.8 and serde_derive_internals 0.29, its derive helpers, require syn 2; serde_derive and clap_derive at the pinned versions require syn 3" },
 ]
 # Rejected crates, and crates that only the listed crates may use directly. A crate that a
