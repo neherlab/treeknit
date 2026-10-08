@@ -4,8 +4,8 @@
 #
 # Print the notes of a release on the releases page: the section of the
 # version in CHANGELOG.md, followed by a table of every way to get the release:
-# the web app, every asset with its size, pip, conda, Docker, the
-# documentation, the source commit, and the issue tracker.
+# the web app, every asset with its size, pip, conda, Docker, the source
+# commit, and the issue tracker.
 # .github/workflows/release.yml publishes each release with these notes.
 #
 # Arguments:
@@ -33,10 +33,6 @@ ASSET_PREFIX="treeknit-"
 PYPI_PROJECT="treeknit"
 CONDA_PACKAGE="treeknit"
 DOCKER_IMAGE="neherlab/treeknit"
-
-# Address of the documentation. The table leaves out the Docs row while it is
-# empty.
-DOCS_URL=""
 
 # Rows of the CLI table, in display order: the platform label, then one
 # "target=text" entry per asset of the row. Trailing asterisks of the text
@@ -76,8 +72,8 @@ changelog_section() {
 }
 
 # Emit the download table: the web app, the CLI subtable, assets of no known
-# target, pip, conda, Docker, the documentation, the source code, the issue
-# tracker, and the footnotes of the marked entries. An asset of no known target is listed under "Other", so a new target
+# target, pip, conda, Docker, the source code, the issue tracker, and the
+# footnotes of the marked entries. An asset of no known target is listed under "Other", so a new target
 # appears even before its entry is added to CLI_ROWS.
 generate_download_table() {
   local repo="${1}"
@@ -114,7 +110,6 @@ generate_download_table() {
     "${CONDA_PACKAGE}" "${version}" "${CONDA_PACKAGE}"
   printf "<tr><td>🐋 <b>Docker</b></td><td><code>docker pull %s:%s</code> (<a href=\"https://hub.docker.com/r/%s/tags\">tags</a>)</td></tr>\n" \
     "${DOCKER_IMAGE}" "${version}" "${DOCKER_IMAGE}"
-  [[ -z "${DOCS_URL}" ]] || printf "<tr><td>📚 <b>Docs</b></td><td><a href=\"%s\">%s</a></td></tr>\n" "${DOCS_URL}" "${DOCS_URL#https://}"
 
   # The glibc version is the limit of dev/cross/check, and the CPU requirements
   # follow the flags of dev/lib/dist-flags.sh.

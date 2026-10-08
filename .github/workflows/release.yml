@@ -268,12 +268,13 @@ jobs:
 
   # The Bioconda recipe lives in bioconda/bioconda-recipes; this opens the pull
   # request that updates its version and sha256 values. Bioconda maintainers
-  # review and merge it.
+  # review and merge it. The bot token is a classic token, because a
+  # fine-grained token cannot open pull requests in a repository of another
+  # owner.
   bioconda:
     name: "Open the Bioconda update"
     needs: [version, compat, publish-release]
     runs-on: ubuntu-24.04
-    environment: "bioconda"
     steps:
       - name: "Check out"
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -297,7 +298,7 @@ jobs:
 
       - name: "Open the pull request"
         env:
-          GH_TOKEN: ${{ secrets.NEHERLAB_BOT_BIOCONDA_TOKEN }}
+          GH_TOKEN: ${{ secrets.NEHERLAB_BOT_GITHUB_TOKEN }}
           GIT_AUTHOR_NAME: ${{ secrets.NEHERLAB_BOT_GITHUB_NAME }}
           GIT_AUTHOR_EMAIL: ${{ secrets.NEHERLAB_BOT_GITHUB_EMAIL }}
           GIT_COMMITTER_NAME: ${{ secrets.NEHERLAB_BOT_GITHUB_NAME }}

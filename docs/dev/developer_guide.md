@@ -285,7 +285,7 @@ The tag must match the workspace version in `Cargo.toml`. `release.yml` then run
 
 A failed job publishes nothing after it; "Re-run failed jobs" runs it again. The `pypi` job compares the files that PyPI already has with the wheels of the run and fails on a difference, because PyPI never accepts a changed file under the same name. The next nightly deploys the web app of `main`, which holds the release commit. Every release stays on the releases page.
 
-`dev/release-notes` writes the notes: the section `## <version>` of `CHANGELOG.md`, then a table of every way to get the release: the web app, every binary with its size, `pip`, `conda`, `docker pull`, the documentation (a row that appears once `DOCS_URL` in the script is set), the source commit, and the issue tracker. Footnotes cover the glibc and musl builds, unsigned macOS executables, the delay of Bioconda, `chmod +x`, and the CPU requirements.
+`dev/release-notes` writes the notes: the section `## <version>` of `CHANGELOG.md`, then a table of every way to get the release: the web app, every binary with its size, `pip`, `conda`, `docker pull`, the source commit, and the issue tracker. Footnotes cover the glibc and musl builds, unsigned macOS executables, the delay of Bioconda, `chmod +x`, and the CPU requirements.
 
 ### Release channels
 
@@ -310,10 +310,9 @@ Run it before each release, so the images get the security fixes of their bases.
 The workflows need these settings of the GitHub repository `neherlab/treeknit` and these external accounts:
 
 - `NEHERLAB_BOT_DOCKERHUB_USERNAME`, `NEHERLAB_BOT_DOCKERHUB_TOKEN` (`neherlab` organization secrets): Docker Hub login of the bot account. Runs other than pull requests push the builder images `neherlab/treeknit_builder` and their layer cache, so later runs pull them instead of building them; the compatibility tests log in to raise the pull limit; the `docker` job of a release pushes `neherlab/treeknit`, which needs write access of the bot account to that repository
-- `NEHERLAB_BOT_GITHUB_NAME`, `NEHERLAB_BOT_GITHUB_EMAIL` (organization secrets): the commit identity of the Bioconda update
+- `NEHERLAB_BOT_GITHUB_TOKEN`, `NEHERLAB_BOT_GITHUB_NAME`, `NEHERLAB_BOT_GITHUB_EMAIL` (organization secrets): the token and commit identity of the bot account, with which the `bioconda` job pushes to the fork `neherlab/bioconda-recipes` and opens the pull request in `bioconda/bioconda-recipes`. The token must be a classic token with the scope `repo` or `public_repo`: a fine-grained token cannot open pull requests in a repository of another owner
 - Environment `github-pages`: the deployment of the web app
 - Environment `pypi`, limited to tags `v*`: the PyPI project `treeknit` trusts the workflow `release.yml` of this repository in this environment (Trusted Publishing), so the upload needs no token
-- Environment `bioconda`, limited to tags `v*`, with the secret `NEHERLAB_BOT_BIOCONDA_TOKEN`: a classic GitHub token with the scope `public_repo` of the account that owns the fork `neherlab/bioconda-recipes`. A fine-grained token cannot open pull requests in a repository of another owner. The environment keeps the token from every run except release tags
 - `GITHUB_TOKEN` (`github.token`): the GitHub release, and reading the deployments of GitHub Pages
 
 ### Version of a build
