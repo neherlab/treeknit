@@ -9,6 +9,7 @@ mod tests {
   use std::cell::{Cell, RefCell};
   use std::collections::BTreeSet;
   use std::rc::Rc;
+  use treeknit_core::impute::{attach_private, graft_attachments};
   use treeknit_core::{Options, Resolution, Taxa, Tree};
   use treeknit_io::analysis::{self, AnalysisRequest, ParsedTrees, TreeText};
   use treeknit_io::display::{self, Scale, TreeVersion};
@@ -1224,6 +1225,51 @@ mod tests {
           .js_value()
       )
     );
+  }
+
+  #[wasm_bindgen_test]
+  fn naive_mccs_of_identical_deep_trees_are_one_mcc() {
+    let c = caterpillar(DEEP);
+    let (ts, taxa) = parsed(&[&c, &c]);
+    let m = treeknit_core::naive_mccs(&[&ts[0], &ts[1]], taxa.len());
+    // Oracle: identical trees are one subtree that is identical in all trees.
+    let expected: Vec<Vec<usize>> = vec![(0..taxa.len()).collect()];
+    assert_eq!(expected, m);
+  }
+
+  #[wasm_bindgen_test]
+  fn imputation_grafts_a_deep_private_subtree() {
+    let private = caterpillar(DEEP).replace('L', "P");
+    let (ts, taxa) = parsed(&[&format!("((A,B),(C,{}));", private.trim_end_matches(';')), "((A,C),B);"]);
+    let shared = ts[1].leaf_set(taxa.len());
+    let mccs = vec![(0..taxa.len()).filter(|&x| shared.contains(x)).collect()];
+    let a = attach_private(&ts[0], 0, &shared, &mccs, taxa.len());
+    let mut t = ts[1].clone();
+    graft_attachments(&mut t, &ts, &a.iter().collect::<Vec<_>>(), taxa.len());
+    // Oracle: imputation adds every missing leaf to the target tree.
+    assert_eq!(taxa.len(), t.leaves().len());
+  }
+
+  #[wasm_bindgen_test]
+  fn auspice_json_writes_a_deep_tree() {
+    let c = caterpillar(DEEP);
+    let (ts, taxa) = parsed(&[&c, &c]);
+    let text = treeknit_io::auspice::auspice_json(0, &ts, &[], &taxa);
+    // Oracle: the caterpillar has DEEP - 1 internal nodes, one `children` member each.
+    assert_eq!(DEEP - 1, text.matches("\"children\"").count());
+  }
+
+  /// Depth of the trees that test the absence of recursion per tree level: above the depth at
+  /// which a recursion per level exhausted the WebAssembly stack in every recursive function.
+  const DEEP: usize = 12_000;
+
+  /// The Newick text of the caterpillar of the leaves `L0` to `L<n - 1>`, as in
+  /// `(L0,(L1,(L2,L3)));`.
+  fn caterpillar(n: usize) -> String {
+    let names: Vec<String> = (0..n).map(|i| format!("L{i}")).collect();
+    let (last, rest) = names.split_last().unwrap();
+    let inner: String = rest.iter().flat_map(|x| ["(", x.as_str(), ","]).collect();
+    format!("{inner}{last}{};", ")".repeat(rest.len()))
   }
 
   fn two_trees() -> Value {
