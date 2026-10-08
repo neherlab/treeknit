@@ -287,40 +287,6 @@ jobs:
       - name: "Build, run, and push the images"
         run: dev/docker/prod-images --run --push
 
-  # The page of neherlab/treeknit on Docker Hub: the channel summary shared with
-  # PyPI, then the usage and the tags of the images. A separate job, so that a
-  # failed update leaves the verification of the pushed images running. The
-  # update needs a token with the scope read/write/delete of a user with Admin
-  # permission on the repository.
-  docker-description:
-    name: "Update the Docker Hub description"
-    needs: [docker]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - name: "Check out"
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          sparse-checkout: |
-            Cargo.toml
-            docs/channels
-          sparse-checkout-cone-mode: false
-
-      - name: "Write the description"
-        id: description
-        run: |
-          cat docs/channels/summary.md docs/channels/docker.md > "${RUNNER_TEMP}/dockerhub.md"
-          printf 'short=%s\n' "$(yq -p toml -o yaml '.workspace.package.description' Cargo.toml)" >> "${GITHUB_OUTPUT}"
-
-      - name: "Update"
-        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
-        with:
-          username: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_USERNAME }}
-          password: ${{ secrets.NEHERLAB_BOT_DOCKERHUB_TOKEN }}
-          repository: "neherlab/treeknit"
-          short-description: ${{ steps.description.outputs.short }}
-          readme-filepath: ${{ runner.temp }}/dockerhub.md
-
   # The Bioconda recipe lives in bioconda/bioconda-recipes; this opens the pull
   # request that updates its version and sha256 values. Bioconda maintainers
   # review and merge it. The bot token is a classic token, because a
