@@ -12,6 +12,13 @@ pub enum NewickValue {
 }
 
 impl NewickValue {
+  #[cfg_attr(
+    dylint_lib = "custom",
+    expect(
+      result_defaulted,
+      reason = "None is the documented answer for text that is not a number"
+    )
+  )]
   pub fn as_f64(&self) -> Option<f64> {
     match self {
       Self::Number(number) => Some(*number),

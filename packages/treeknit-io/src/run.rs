@@ -53,6 +53,13 @@ impl RunResult {
   }
 
   /// The ARG, when it was built.
+  #[cfg_attr(
+    dylint_lib = "custom",
+    expect(
+      result_defaulted,
+      reason = "`RunResult::arg_outcome` reports why the ARG was not built"
+    )
+  )]
   pub fn built_arg(&self) -> Option<&Arg> {
     self.arg.as_ref().and_then(|a| a.as_ref().ok())
   }

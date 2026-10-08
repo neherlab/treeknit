@@ -25,6 +25,13 @@ pub fn newick_from_str(input: &str, options: &NewickReadOptions) -> Result<Newic
   })
 }
 
+#[cfg_attr(
+  dylint_lib = "custom",
+  expect(
+    result_defaulted,
+    reason = "the prefix up to `valid_up_to` is valid UTF-8, so the conversion cannot fail"
+  )
+)]
 pub fn newick_from_reader(mut reader: impl Read, options: &NewickReadOptions) -> Result<NewickTree, NewickError> {
   let mut bytes = Vec::new();
   reader.read_to_end(&mut bytes).map_err(|error| {
@@ -119,6 +126,13 @@ impl<R: Read> Iterator for NewickTrees<R> {
   }
 }
 
+#[cfg_attr(
+  dylint_lib = "custom",
+  expect(
+    result_defaulted,
+    reason = "a text that holds no complete tree yet scans as an empty prefix"
+  )
+)]
 fn scan_prefix(text: &str, at_end: bool, annotations: NewickAnnotations) -> usize {
   let rule = match (annotations.reserves_annotations(), at_end) {
     (true, false) => Rule::tree_scan,

@@ -408,6 +408,13 @@ impl TreeWriter<'_> {
   }
 }
 
+#[cfg_attr(
+  dylint_lib = "custom",
+  expect(
+    error_dropped_by_pattern,
+    reason = "a label that does not parse does not split back into the name and the tag"
+  )
+)]
 fn splits_back(name: &str, tag: &str) -> bool {
   let text = format!("{name}{tag}");
   let Ok(pairs) = parse(Rule::network_label_exact, &text) else {

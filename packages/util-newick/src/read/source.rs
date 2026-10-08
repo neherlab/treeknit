@@ -30,6 +30,13 @@ impl<R: Read> TextSource<R> {
     self.location
   }
 
+  #[cfg_attr(
+    dylint_lib = "custom",
+    expect(
+      result_defaulted,
+      reason = "the prefix up to `valid_up_to` is valid UTF-8, so the conversion cannot fail"
+    )
+  )]
   pub(crate) fn window(&self) -> Window<'_> {
     let available = self.buffer.get(self.start..).unwrap_or_default();
     match str::from_utf8(available) {

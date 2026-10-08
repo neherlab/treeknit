@@ -55,6 +55,13 @@ pub(crate) fn is_comment_rule(rule: Rule) -> bool {
 pub(crate) fn number_value(text: &str) -> NewickValue {
   match text.parse::<f64>() {
     Ok(number) if format_shortest(number).is_ok_and(|shortest| shortest == text) => NewickValue::Number(number),
+    #[cfg_attr(
+      dylint_lib = "custom",
+      expect(
+        error_dropped_by_pattern,
+        reason = "text that is not the shortest form of a number keeps its exact text"
+      )
+    )]
     Ok(_) | Err(_) => NewickValue::NumberText(text.to_owned()),
   }
 }
@@ -124,6 +131,13 @@ fn parse_hex_color(token: &Pair<'_, Rule>) -> Option<[u8; 3]> {
   for (channel, start) in color.iter_mut().zip([1, 3, 5]) {
     *channel = match text.get(start..start + 2).map(|hex| u8::from_str_radix(hex, 16)) {
       Some(Ok(value)) => value,
+      #[cfg_attr(
+        dylint_lib = "custom",
+        expect(
+          error_dropped_by_pattern,
+          reason = "a comment that is not a hex color is read as text"
+        )
+      )]
       Some(Err(_)) | None => return None,
     };
   }
@@ -181,12 +195,26 @@ fn nhx_scalar(text: &str, expected: NhxType) -> Option<NewickValue> {
 fn nhx_color(text: &str) -> Option<NewickValue> {
   let channels = match parse(Rule::nhx_color_exact, text) {
     Ok(pairs) => pairs.flatten().filter(|pair| pair.as_rule() == Rule::color_channel),
+    #[cfg_attr(
+      dylint_lib = "custom",
+      expect(
+        error_dropped_by_pattern,
+        reason = "a value that is not an NHX color is read as text"
+      )
+    )]
     Err(_) => return None,
   };
   let mut color = [0_u8; 3];
   for (slot, channel) in color.iter_mut().zip(channels) {
     *slot = match channel.as_str().parse::<u8>() {
       Ok(value) => value,
+      #[cfg_attr(
+        dylint_lib = "custom",
+        expect(
+          error_dropped_by_pattern,
+          reason = "a value that is not an NHX color is read as text"
+        )
+      )]
       Err(_) => return None,
     };
   }

@@ -180,6 +180,13 @@ enum Header {
   NeedMore,
 }
 
+#[cfg_attr(
+  dylint_lib = "custom",
+  expect(
+    error_dropped_by_pattern,
+    reason = "a text that does not parse as a header yet is incomplete or gets the missing-header error below"
+  )
+)]
 fn read_header(text: &str, at_end: bool, location: Location) -> Header {
   if let Ok(mut pairs) = parse(Rule::nexus_header, text)
     && let Some(header) = pairs.next()
@@ -196,6 +203,13 @@ fn read_header(text: &str, at_end: bool, location: Location) -> Header {
   ))
 }
 
+#[cfg_attr(
+  dylint_lib = "custom",
+  expect(
+    result_defaulted,
+    reason = "a text that holds no complete command yet scans as an empty prefix"
+  )
+)]
 fn scan_prefix(text: &str, at_end: bool) -> usize {
   let rule = if at_end {
     Rule::command_scan_final
@@ -377,6 +391,13 @@ impl CommandReader<'_> {
     Ok(())
   }
 
+  #[cfg_attr(
+    dylint_lib = "custom",
+    expect(
+      error_dropped_by_pattern,
+      reason = "ntax only checks the count of TaxLabels; a value that is not a number leaves that check out"
+    )
+  )]
   fn dimensions(&mut self, command: Pair<'_, Rule>) {
     let words: Vec<String> = command
       .into_inner()
@@ -427,6 +448,13 @@ impl CommandReader<'_> {
     Ok(NexusTree { name, tree, comments })
   }
 
+  #[cfg_attr(
+    dylint_lib = "custom",
+    expect(
+      result_defaulted,
+      reason = "a leaf name that is not a number is not an index into the taxa block"
+    )
+  )]
   fn resolve_leaf_names(
     &self,
     graph: &mut NewickGraph,

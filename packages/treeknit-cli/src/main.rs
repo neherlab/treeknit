@@ -718,8 +718,17 @@ impl TreeArg {
     }
   }
 
+  /// The address of the tree in a share link; none for a file, or for a location that cannot be
+  /// read, whose error `read` reports.
   fn address(&self) -> Option<TreeAddress> {
     match &self.tree {
+      #[cfg_attr(
+        dylint_lib = "custom",
+        expect(
+          error_dropped_by_pattern,
+          reason = "`TreeArg::read` reports the error of the location"
+        )
+      )]
       TreeArgKind::File(_) | TreeArgKind::Location(Err(_)) => None,
       TreeArgKind::Location(Ok(LinkLocation::Url { url, .. })) => Some(TreeAddress::Url { url: url.clone() }),
       TreeArgKind::Location(Ok(LinkLocation::Data { .. })) => Some(TreeAddress::Data),

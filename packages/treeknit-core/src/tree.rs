@@ -352,6 +352,13 @@ impl Tree {
   }
 
   /// First index i ≥ 1 of the label `prefix_i` such that no `prefix_j` with j ≥ i exists.
+  #[cfg_attr(
+    dylint_lib = "custom",
+    expect(
+      result_defaulted,
+      reason = "a label whose suffix is not a number has no index to avoid"
+    )
+  )]
   pub fn fresh_index(&self, prefix: &str) -> usize {
     let pre = format!("{prefix}_");
     self

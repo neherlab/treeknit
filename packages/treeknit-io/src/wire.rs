@@ -12,6 +12,13 @@ pub fn wire_name<T: Serialize>(value: &T) -> String {
 }
 
 /// The unit variant that serde reads from `text`, or `None` when no variant has that name.
+#[cfg_attr(
+  dylint_lib = "custom",
+  expect(
+    result_defaulted,
+    reason = "for a unit variant the only error is an unknown name, which the caller reports with the accepted names"
+  )
+)]
 pub(crate) fn from_wire_name<T: DeserializeOwned>(text: &str) -> Option<T> {
   serde_plain::from_str(text).ok()
 }

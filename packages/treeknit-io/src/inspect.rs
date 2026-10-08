@@ -142,6 +142,13 @@ pub fn overlap(trees: &[TreeText]) -> Overlap {
         indices.push(i);
         parsed.push(p.tree);
       },
+      #[cfg_attr(
+        dylint_lib = "custom",
+        expect(
+          error_dropped_by_pattern,
+          reason = "`inspect_tree` reports why each tree does not parse"
+        )
+      )]
       Err(_) => failed.push(i),
     }
   }

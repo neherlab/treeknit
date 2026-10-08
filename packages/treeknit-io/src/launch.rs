@@ -811,6 +811,13 @@ impl LaunchReader {
         self.too_new = true;
         self.error("v", "This link needs a newer version of TreeKnit".to_owned());
       },
+      #[cfg_attr(
+        dylint_lib = "custom",
+        expect(
+          error_dropped_by_pattern,
+          reason = "the message names the key and the value; the parse error of `str` adds nothing to it"
+        )
+      )]
       Err(_) => self.error("v", format!("v must be a whole number, got {value:?}")),
     }
   }
@@ -937,6 +944,13 @@ fn location_file_name(location: &LinkLocation) -> String {
   }
 }
 
+#[cfg_attr(
+  dylint_lib = "custom",
+  expect(
+    result_defaulted,
+    reason = "the message names the key and the value; the parse error of `str` adds nothing to it"
+  )
+)]
 fn parse_number(key: &str, value: &str) -> Result<f64, String> {
   value
     .trim()
@@ -946,6 +960,13 @@ fn parse_number(key: &str, value: &str) -> Result<f64, String> {
     .ok_or_else(|| format!("{key} must be a number, got {value:?}"))
 }
 
+#[cfg_attr(
+  dylint_lib = "custom",
+  expect(
+    result_defaulted,
+    reason = "the message names the key and the value; the parse error of `str` adds nothing to it"
+  )
+)]
 fn parse_numbers(key: &str, value: &str) -> Result<Vec<f64>, String> {
   value
     .split(',')
@@ -960,6 +981,13 @@ fn parse_integer(key: &str, value: &str) -> Result<u64, String> {
   match value.trim().parse::<u64>() {
     Ok(v) if v <= analysis::MAX_SEED => Ok(v),
     Ok(_) => Err(format!("{key} must be at most {}, got {value}", analysis::MAX_SEED)),
+    #[cfg_attr(
+      dylint_lib = "custom",
+      expect(
+        error_dropped_by_pattern,
+        reason = "the message names the key and the value; the parse error of `str` adds nothing to it"
+      )
+    )]
     Err(_) => Err(format!("{key} must be a whole number, got {value:?}")),
   }
 }

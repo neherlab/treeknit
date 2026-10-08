@@ -16,7 +16,21 @@ pub(crate) fn graphs_equal(left: &NewickGraph, right: &NewickGraph, ordered: boo
       let mut interner = Interner::default();
       interner.subgraph_id(left, ordered) == interner.subgraph_id(right, ordered)
     },
+    #[cfg_attr(
+      dylint_lib = "custom",
+      expect(
+        error_dropped_by_pattern,
+        reason = "equality needs only whether each graph is valid, not why it is invalid"
+      )
+    )]
     (Err(_), Err(_)) => fields_equal(left, right),
+    #[cfg_attr(
+      dylint_lib = "custom",
+      expect(
+        error_dropped_by_pattern,
+        reason = "equality needs only whether each graph is valid, not why it is invalid"
+      )
+    )]
     (Ok(()), Err(_)) | (Err(_), Ok(())) => false,
   }
 }
