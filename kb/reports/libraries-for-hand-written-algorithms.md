@@ -47,7 +47,7 @@ Evaluated on 2026-10-06. Versions are the newest releases on crates.io or npm on
 - **`phylo` 6.0.0**: an iterative parser with the same quoting rules and a writer; its documentation states that "`#H` hybrid nodes are out of scope"
 - **`newick` 0.12.0** (2026-08-04): LGPL-3.0-or-later, no quoted labels
 - **`bio` 4.2.1** (2026-10-05, MIT): `bio::io::newick` reads without quoted labels or comments and has no writer
-- **Decision**: `util-newick`, the only candidate that writes `#H` hybrid nodes together with `[&segments=...]` annotations and reads trees of any depth. It is not on crates.io, so the workspace holds a copy; a change to its reading or writing rules belongs in both copies
+- **Decision**: `util-newick`, the only candidate that writes `#H` hybrid nodes together with `[&segments=...]` annotations and reads trees of any depth. It is not on crates.io, so the workspace holds a copy
 
 ## Random numbers
 

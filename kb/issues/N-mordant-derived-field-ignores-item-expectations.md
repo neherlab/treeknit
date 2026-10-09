@@ -10,7 +10,7 @@ The lint collects the constructions of each struct during the crate and reports 
 
 ## Fix direction
 
-- Report through `emit_hir_then` with the `HirId` of the struct (`cx.tcx.local_def_id_to_hir_id` of its local `DefId`), so the level is read where the finding points, as the other mordant lints do for a match arm. treetime.rs carries the same library in `dev/lints/dylint-mordant`, so the change belongs in both copies
+- Report through `emit_hir_then` with the `HirId` of the struct (`cx.tcx.local_def_id_to_hir_id` of its local `DefId`), so the level is read where the finding points, as the other mordant lints do for a match arm. treetime.rs carries the same library in `dev/lints/dylint-mordant`
 - Then move the exception for `SettingKey` from the baseline to an `#[expect]` with its reason on the struct, and rewrite the baseline with `just dylint-baseline`
 
 ## Validation

@@ -16,7 +16,7 @@ Most of these modules hold types with derives of `serde` or `tsify`, and the two
 
 ## Fix direction
 
-- Reproduce on one of the modules above in the UI tests of the lint, find the case of `fn item_chunks` that fails, and delimit items that derive macros or `include!` produce. treetime.rs carries the same library, so the change belongs in both copies
+- Reproduce on one of the modules above in the UI tests of the lint, find the case of `fn item_chunks` that fails, and delimit items that derive macros or `include!` produce. treetime.rs carries the same library
 
 ## Validation
 
