@@ -60,10 +60,9 @@ fn init() {
   global_init();
 }
 
-/// Install the color-eyre handler of errors and panics. Its colors are off when stderr is not a
-/// terminal or `NO_COLOR` is set, because color-eyre writes escape codes into pipes otherwise.
+/// Install the color-eyre handler of errors and panics, with colors only when `stderr_has_colors`.
 fn global_init() {
-  let theme = if io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none() {
+  let theme = if stderr_has_colors() {
     Theme::dark()
   } else {
     Theme::new()
@@ -78,6 +77,13 @@ fn global_init() {
     .panic_section(format!("Report this bug at {}/issues", env!("CARGO_PKG_REPOSITORY")))
     .install()
     .expect("the color-eyre handler installs once");
+}
+
+/// Whether the error report and the log color their text: stderr is a terminal and `NO_COLOR` is
+/// not set. Neither color-eyre nor termcolor checks for a terminal, so both would write escape
+/// codes into pipes and files.
+fn stderr_has_colors() -> bool {
+  io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none()
 }
 
 /// Run the command line. A mistake in the input prints its plain list with exit code 1; color-eyre

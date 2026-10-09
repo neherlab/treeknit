@@ -321,4 +321,26 @@ mod tests {
     ];
     assert_eq!((Some(1), expected), (output.status.code(), lines));
   }
+
+  /// A terminal type that supports colors does not make the log color its lines in a pipe.
+  #[test]
+  fn log_on_a_pipe_has_no_escape_codes() {
+    let dir = tempdir().unwrap();
+    let paths = write_trees(dir.path(), &[("ha", HA), ("na", "((A,A),B);\n(C,D);")]);
+    let output = Command::new(env!("CARGO_BIN_EXE_treeknit"))
+      .args(&paths)
+      .arg("-o")
+      .arg(dir.path().join("out"))
+      .env("TERM", "xterm-256color")
+      .env_remove("NO_COLOR")
+      .output()
+      .unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("[WARN] na: more than one tree in file"), "{stderr}");
+    assert_eq!(
+      (Some(1), None),
+      (output.status.code(), stderr.find('\u{1b}')),
+      "{stderr}"
+    );
+  }
 }

@@ -1,6 +1,6 @@
 //! The log of a run: the terminal, and `log.txt` in the results directory.
 
-use crate::Cli;
+use crate::{Cli, stderr_has_colors};
 use eyre::Result;
 use simplelog::{ColorChoice, CombinedLogger, ConfigBuilder, LevelFilter, TermLogger, TerminalMode, WriteLogger};
 use std::fs;
@@ -8,7 +8,8 @@ use std::io::{self, Write};
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
 
-/// Configure the log: the terminal at the verbosity of `cli`, and `file` with debug records too.
+/// Configure the log: the terminal at the verbosity of `cli`, colored only when
+/// `stderr_has_colors`, and `file` with debug records too.
 pub(crate) fn setup_logging(cli: &Cli, file: &LogFile) -> Result<()> {
   let v = if cli.verbose && cli.verbosity_level == 0 {
     1
@@ -25,8 +26,13 @@ pub(crate) fn setup_logging(cli: &Cli, file: &LogFile) -> Result<()> {
     .set_time_format_rfc3339()
     .set_target_level(LevelFilter::Off)
     .build();
+  let colors = if stderr_has_colors() {
+    ColorChoice::Auto
+  } else {
+    ColorChoice::Never
+  };
   CombinedLogger::init(vec![
-    TermLogger::new(term_level, config.clone(), TerminalMode::Stderr, ColorChoice::Auto),
+    TermLogger::new(term_level, config.clone(), TerminalMode::Stderr, colors),
     WriteLogger::new(LevelFilter::Debug.max(term_level), config, file.writer()),
   ])?;
   Ok(())
