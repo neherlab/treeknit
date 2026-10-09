@@ -7,7 +7,7 @@ use serde::Serialize;
 
 impl DrawingRules {
   /// The width between the margins of a drawing `width_px` wide.
-  pub fn inner_width_px(&self, width_px: f64) -> f64 {
+  fn inner_width_px(&self, width_px: f64) -> f64 {
     (width_px - 2.0 * self.margin_px).max(0.0)
   }
 
@@ -89,18 +89,18 @@ impl DrawingRules {
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TanglegramColumns {
-  pub left: ColumnPx,
-  pub left_labels: ColumnPx,
-  pub links: ColumnPx,
-  pub right_labels: ColumnPx,
-  pub right: ColumnPx,
+  pub(crate) left: ColumnPx,
+  pub(crate) left_labels: ColumnPx,
+  pub(crate) links: ColumnPx,
+  pub(crate) right_labels: ColumnPx,
+  pub(crate) right: ColumnPx,
 }
 
 /// A column of a drawing, from its left edge `start` to its right edge `end`, in px.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub struct ColumnPx {
-  pub start: f64,
-  pub end: f64,
+  pub(crate) start: f64,
+  pub(crate) end: f64,
 }
 
 #[cfg(test)]

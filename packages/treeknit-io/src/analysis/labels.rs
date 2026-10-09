@@ -142,7 +142,7 @@ pub fn label_key(label: &str) -> String {
 }
 
 /// File-name stem of the pair of trees labeled `a` and `b`, as in `MCCs_<a>_<b>.dat`.
-pub fn pair_stem(a: &str, b: &str) -> String {
+pub(crate) fn pair_stem(a: &str, b: &str) -> String {
   format!("{a}_{b}")
 }
 

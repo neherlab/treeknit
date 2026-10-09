@@ -16,14 +16,14 @@ use tsify::Tsify;
 
 /// Smallest figure width, in px: the two margins and one px between them, so that the drawing
 /// has a width.
-pub const MIN_FIGURE_WIDTH: f64 = 2.0 * DRAWING_RULES.margin_px + 1.0;
+const MIN_FIGURE_WIDTH: f64 = 2.0 * DRAWING_RULES.margin_px + 1.0;
 /// Largest figure width, in px: a bound against mistyped values, a hundred times the default.
-pub const MAX_FIGURE_WIDTH: f64 = 100_000.0;
+const MAX_FIGURE_WIDTH: f64 = 100_000.0;
 /// Smallest row height, in px: the figures write coordinates with two decimals, so rows closer
 /// than 0.01 px would fall on one y; one px keeps every row apart.
-pub const MIN_ROW_HEIGHT: f64 = 1.0;
+const MIN_ROW_HEIGHT: f64 = 1.0;
 /// Largest row height, in px: a bound against mistyped values, far above the 12 px of a label.
-pub const MAX_ROW_HEIGHT: f64 = 1_000.0;
+const MAX_ROW_HEIGHT: f64 = 1_000.0;
 
 /// The SVG tanglegram of `view`, titled with the labels of its two trees, with a legend under
 /// the drawing; the errors of `check_figure_options` when `options` are invalid. The view must be
@@ -50,7 +50,7 @@ pub(crate) fn checked(options: &FigureOptions) -> Result<(), Vec<ValidationError
 /// Check `options`: the width and the row height must be finite numbers from `MIN_FIGURE_WIDTH`
 /// to `MAX_FIGURE_WIDTH` and from `MIN_ROW_HEIGHT` to `MAX_ROW_HEIGHT` px. Each error names its
 /// option as a [`FigureOptionKey`].
-pub fn check_figure_options(options: &FigureOptions) -> Vec<ValidationError> {
+fn check_figure_options(options: &FigureOptions) -> Vec<ValidationError> {
   let bounded = |key: FigureOptionKey, name: &str, value: f64, [min, max]: [f64; 2]| {
     let message = if !(value.is_finite() && value > 0.0) {
       format!("{name} must be a positive number, got {value}")

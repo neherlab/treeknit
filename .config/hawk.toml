@@ -27,3 +27,227 @@ crate = "treeknit_core"
 item = "tree::Taxa::is_empty"
 level = "expect"
 reason = "clippy::len_without_is_empty requires is_empty next to the public len"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "anneal"
+level = "expect"
+reason = "the library interface for SplitGraph.sa_opt of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "anneal::schedule"
+level = "expect"
+reason = "the library interface for SplitGraph.sa_opt of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "anneal::optimize"
+level = "expect"
+reason = "the library interface for SplitGraph.sa_opt of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "options::Options::temperatures"
+level = "expect"
+reason = "the library interface for runopt of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "pair::infer_pair"
+level = "expect"
+reason = "the library interface for runopt of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "pair::PairParams::gamma"
+level = "expect"
+reason = "the library interface for runopt of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "pair::PairParams::itmax"
+level = "expect"
+reason = "the library interface for runopt of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "pair::PairParams::likelihood_sort"
+level = "expect"
+reason = "the library interface for runopt of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "pair::PairParams::resolve"
+level = "expect"
+reason = "the library interface for runopt of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "pair::PairParams::seq_lengths"
+level = "expect"
+reason = "the library interface for runopt of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "pair::PairParams::n_mcmc"
+level = "expect"
+reason = "the library interface for runopt of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "pair::PairParams::sa_rep"
+level = "expect"
+reason = "the library interface for runopt of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "pair::PairParams::temperatures"
+level = "expect"
+reason = "the library interface for runopt of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "resolve::insert_all_on"
+level = "expect"
+reason = "the library interface for resolve! of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "resolve::insert_split"
+level = "expect"
+reason = "the library interface for resolve! of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "arg"
+level = "expect"
+reason = "the library interface for the SRG module of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "arg::extended_newick"
+level = "expect"
+reason = "the library interface for the SRG module of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "arg::node_table"
+level = "expect"
+reason = "the library interface for the SRG module of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "auspice"
+level = "expect"
+reason = "the library interface for write_auspice_json of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "auspice::auspice_json"
+level = "expect"
+reason = "the library interface for write_auspice_json of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "mccs"
+level = "expect"
+reason = "the library interface for write_mccs of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "mccs::to_json"
+level = "expect"
+reason = "the library interface for write_mccs of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "mccs::to_lines"
+level = "expect"
+reason = "the library interface for write_mccs of TreeKnit.jl (kb/feat/library-api.md)"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "impute::attach_private"
+level = "expect"
+reason = "the tests of treeknit-wasm use it; they build for wasm32 only, which hawk does not compile"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_core"
+item = "impute::graft_attachments"
+level = "expect"
+reason = "the tests of treeknit-wasm use it; they build for wasm32 only, which hawk does not compile"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "figure::tanglegram_svg"
+level = "expect"
+reason = "the tests of treeknit-wasm use it; they build for wasm32 only, which hawk does not compile"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "figure::arg_svg"
+level = "expect"
+reason = "the tests of treeknit-wasm use it; they build for wasm32 only, which hawk does not compile"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "output::OutputFile::new"
+level = "expect"
+reason = "the tests of treeknit-wasm use it; they build for wasm32 only, which hawk does not compile"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "figure::FigureOptions::width"
+level = "expect"
+reason = "the tests of treeknit-wasm use it; they build for wasm32 only, which hawk does not compile"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "figure::FigureOptions::row_height"
+level = "expect"
+reason = "the tests of treeknit-wasm use it; they build for wasm32 only, which hawk does not compile"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "figure::FigureOptions::scale"
+level = "expect"
+reason = "the tests of treeknit-wasm use it; they build for wasm32 only, which hawk does not compile"
+
+[[override]]
+lint = "hawk::unnecessary_public"
+crate = "treeknit_io"
+item = "figure::FigureOptions::labels"
+level = "expect"
+reason = "the tests of treeknit-wasm use it; they build for wasm32 only, which hawk does not compile"

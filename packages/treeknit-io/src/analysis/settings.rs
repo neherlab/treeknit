@@ -15,11 +15,11 @@ pub const MAX_SEED: u64 = (1 << 53) - 1;
 /// counts end at 2^32 - 1, and a run with more than two trees can add a final round on top of
 /// `rounds`. The command line applies the same bound, so that a request one surface accepts the
 /// other accepts too.
-pub const MAX_ROUNDS: u64 = 0xFFFF_FFFE;
+pub(crate) const MAX_ROUNDS: u64 = 0xFFFF_FFFE;
 
 /// Largest number of MCMC steps per leaf: 2^32 - 1, the largest count of 32-bit WebAssembly,
 /// for the reason of [`MAX_ROUNDS`].
-pub const MAX_MCMC_IT: u64 = 0xFFFF_FFFF;
+pub(crate) const MAX_MCMC_IT: u64 = 0xFFFF_FFFF;
 
 /// Core options of the settings for `k` trees, or every error of `check_settings`: the core
 /// panics on settings that fail it. `parallel` runs independent pairs on several threads; each
@@ -46,7 +46,7 @@ pub fn options(s: &Settings, k: usize, parallel: bool) -> Result<Options, Vec<Va
 }
 
 /// Check the settings of a request with `k` trees.
-pub fn check_settings(s: &Settings, k: usize) -> Vec<ValidationError> {
+pub(crate) fn check_settings(s: &Settings, k: usize) -> Vec<ValidationError> {
   let mut errors = Vec::new();
   if !(s.gamma.is_finite() && s.gamma >= 0.0) {
     errors.push(ValidationError::at(

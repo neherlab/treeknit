@@ -100,10 +100,10 @@ fn rgba(rgb: u32) -> Rgba {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct Palette {
-  pub light: ThemeColors<String>,
-  pub dark: ThemeColors<String>,
-  pub light_rgba: ThemeColors<Rgba>,
-  pub dark_rgba: ThemeColors<Rgba>,
+  pub(crate) light: ThemeColors<String>,
+  pub(crate) dark: ThemeColors<String>,
+  pub(crate) light_rgba: ThemeColors<Rgba>,
+  pub(crate) dark_rgba: ThemeColors<Rgba>,
 }
 
 /// Drawing colors of one theme, each a `C`.
@@ -113,26 +113,26 @@ pub struct Palette {
 pub struct ThemeColors<C> {
   /// The MCC color slots, `MCC_SLOTS` of them; `MccInfo.slot` indexes them.
   #[cfg_attr(feature = "tsify", tsify(type = "[C, C, C, C, C, C, C, C]"))]
-  pub mcc: [C; MCC_SLOTS],
+  pub(crate) mcc: [C; MCC_SLOTS],
   /// Branches of nodes without an MCC.
-  pub no_mcc: C,
-  pub ground: C,
-  pub ink: C,
-  pub ink_muted: C,
+  pub(crate) no_mcc: C,
+  pub(crate) ground: C,
+  pub(crate) ink: C,
+  pub(crate) ink_muted: C,
   /// Reassortment, and nothing else.
-  pub signal: C,
-  pub focus: C,
+  pub(crate) signal: C,
+  pub(crate) focus: C,
   /// Segment A (the first tree) of the ARG.
-  pub segment_a: C,
+  pub(crate) segment_a: C,
   /// Segment B (the second tree) of the ARG.
-  pub segment_b: C,
+  pub(crate) segment_b: C,
 }
 
 impl<C> ThemeColors<C> {
   /// The color of `role`; for `ColorRole::Mcc`, the color of `slot`, or "no MCC" without one.
   /// A slot is below `MCC_SLOTS`, so a slot out of range is a broken invariant and panics instead
   /// of taking the "no MCC" color.
-  pub fn role(&self, role: ColorRole, slot: Option<usize>) -> &C {
+  pub(crate) fn role(&self, role: ColorRole, slot: Option<usize>) -> &C {
     match role {
       ColorRole::Mcc => slot.map_or(&self.no_mcc, |s| &self.mcc[s]),
       ColorRole::NoMcc => &self.no_mcc,

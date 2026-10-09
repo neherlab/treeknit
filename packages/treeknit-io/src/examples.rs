@@ -181,7 +181,7 @@ pub enum ExampleText {
 impl ExampleText {
   /// The Newick text: inline, or embedded with the feature `embedded-examples`.
   #[cfg(feature = "embedded-examples")]
-  pub fn newick(&self) -> &'static str {
+  fn newick(&self) -> &'static str {
     match *self {
       ExampleText::File { text, .. } | ExampleText::Inline(text) => text,
     }
@@ -193,12 +193,12 @@ impl ExampleText {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ExampleInfo {
-  pub id: String,
-  pub name: String,
-  pub group: ExampleGroup,
+  id: String,
+  name: String,
+  group: ExampleGroup,
   /// Title of the group in the Examples menu.
-  pub group_name: String,
-  pub trees: Vec<ExampleTreeInfo>,
+  group_name: String,
+  trees: Vec<ExampleTreeInfo>,
 }
 
 /// A tree of an example as the web app lists it.
@@ -207,13 +207,13 @@ pub struct ExampleInfo {
 #[serde(rename_all = "camelCase")]
 pub struct ExampleTreeInfo {
   /// File name, such as `ha.nwk`.
-  pub file: String,
+  file: String,
   /// Label of the tree, as in a link.
-  pub label: String,
+  label: String,
   /// Path of the tree file relative to the repository root; `None` for an inline tree.
-  pub path: Option<String>,
+  path: Option<String>,
   /// The Newick text of an inline tree; `None` for a tree file.
-  pub newick: Option<String>,
+  newick: Option<String>,
 }
 
 /// The menu group of an example.

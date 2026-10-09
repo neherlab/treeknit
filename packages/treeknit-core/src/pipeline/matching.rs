@@ -24,7 +24,7 @@ use crate::tree::Tree;
 /// on which the two trees agree, i.e. additional reassortments are inferred there.
 ///
 /// Returns the number of splits added and the number of MCCs that had to be split.
-pub fn match_topologies(
+pub(crate) fn match_topologies(
   trees: &mut [Tree],
   pairs: &[(usize, usize)],
   mccs: &mut [Vec<Mcc>],

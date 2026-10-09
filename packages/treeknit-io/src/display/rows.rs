@@ -9,19 +9,19 @@ use tsify::Tsify;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct RowSpan {
-  pub first: usize,
-  pub last: usize,
+  pub(crate) first: usize,
+  pub(crate) last: usize,
 }
 
 impl RowSpan {
   /// The range of the one row `row`.
-  pub fn row(row: usize) -> Self {
+  pub(crate) fn row(row: usize) -> Self {
     Self { first: row, last: row }
   }
 
   /// The smallest range that covers `self` and `other`.
   #[must_use]
-  pub fn union(self, other: Self) -> Self {
+  pub(crate) fn union(self, other: Self) -> Self {
     Self {
       first: self.first.min(other.first),
       last: self.last.max(other.last),

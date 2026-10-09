@@ -27,7 +27,7 @@ pub use arg_view::arg_view;
 pub use auspice::auspice_view;
 pub use constellation::constellation;
 pub use legend::{LegendItem, LegendKind, LegendMark, Stroke};
-pub use names::shorten;
+pub(crate) use names::shorten;
 pub(crate) use names::{grapheme_count, mcc_name};
 pub use pair::pair_view;
 pub use rows::RowSpan;
@@ -40,7 +40,7 @@ use strum::VariantArray;
 use tsify::Tsify;
 
 /// Number of MCC color slots, the length of `ThemeColors.mcc` in `palette`.
-pub const MCC_SLOTS: usize = 8;
+pub(crate) const MCC_SLOTS: usize = 8;
 
 /// The drawing rules that depend on the drawn size, shared by the SVG figures and the
 /// interactive views.
@@ -96,48 +96,48 @@ pub(crate) fn label_max_chars() -> usize {
 #[serde(rename_all = "camelCase")]
 pub struct DrawingRules {
   /// In the label mode `auto`, leaf labels are drawn from this many px per row.
-  pub label_auto_min_row_px: u32,
+  pub(crate) label_auto_min_row_px: u32,
   /// From this many px per row, each link is an S-curve; below it, each block is a ribbon.
-  pub link_min_row_px: u32,
+  pub(crate) link_min_row_px: u32,
   /// A longer leaf label is shortened in the middle to this many characters (grapheme clusters);
   /// `DrawNode.short_name` and `ArgNodeView.short_label` hold the shortened labels.
-  pub label_max_chars: u32,
+  pub(crate) label_max_chars: u32,
   /// Font size of the leaf labels, in px.
-  pub label_font_px: f64,
+  pub(crate) label_font_px: f64,
   /// Width of a legend symbol, in px; a legend ring sits at a fraction of it (`LegendMark::Ring`).
-  pub legend_symbol_px: f64,
+  pub(crate) legend_symbol_px: f64,
   /// Space around a drawing, in px.
-  pub margin_px: f64,
+  pub(crate) margin_px: f64,
   /// Space on each side of a label column, between it and the tree and the link zone, in px.
-  pub label_gap_px: f64,
+  pub(crate) label_gap_px: f64,
   /// Share of the inner width that the link zone of a tanglegram takes, minus the label columns.
-  pub link_zone_share: f64,
+  pub(crate) link_zone_share: f64,
   /// Smallest share of the inner width that the link zone of a tanglegram takes.
-  pub link_zone_min_share: f64,
+  pub(crate) link_zone_min_share: f64,
   /// Largest share of half the inner width that each label column of a tanglegram takes.
-  pub tanglegram_label_column_max_share: f64,
+  pub(crate) tanglegram_label_column_max_share: f64,
   /// Largest share of the inner width that the label column of an ARG takes.
-  pub arg_label_column_max_share: f64,
+  pub(crate) arg_label_column_max_share: f64,
   /// Stroke width of a branch, in px.
-  pub branch_width_px: f64,
+  pub(crate) branch_width_px: f64,
   /// Stroke width of a reassortment branch, in px.
-  pub reassortment_width_px: f64,
+  pub(crate) reassortment_width_px: f64,
   /// Stroke width of a link, in px.
-  pub link_width_px: f64,
+  pub(crate) link_width_px: f64,
   /// Stroke width of a leader from a leaf tip to its label, in px.
-  pub leader_width_px: f64,
+  pub(crate) leader_width_px: f64,
   /// Opacity of a leader.
-  pub leader_opacity: f64,
+  pub(crate) leader_opacity: f64,
   /// Radius of a mark ring, in px.
-  pub mark_radius_px: f64,
+  pub(crate) mark_radius_px: f64,
   /// Stroke width of a mark ring, in px.
-  pub mark_line_px: f64,
+  pub(crate) mark_line_px: f64,
   /// Opacity of the fill of a ribbon.
-  pub ribbon_opacity: f64,
+  pub(crate) ribbon_opacity: f64,
   /// Dash and gap of a dashed line (reticulations), in px.
-  pub dash_px: [f64; 2],
+  pub(crate) dash_px: [f64; 2],
   /// Dash and gap of a dotted line (leaders), in px.
-  pub dot_px: [f64; 2],
+  pub(crate) dot_px: [f64; 2],
 }
 
 /// Version of the trees of a pair: input, resolved, or imputed.
@@ -168,22 +168,22 @@ pub(crate) fn coordinate(n: usize) -> f64 {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct PairView {
-  pub left: DrawTree,
-  pub right: DrawTree,
+  pub(crate) left: DrawTree,
+  pub(crate) right: DrawTree,
   /// One link per leaf in both drawn trees that has an MCC of the pair, in the left display
   /// order.
-  pub links: Vec<Link>,
+  pub(crate) links: Vec<Link>,
   /// Runs of consecutive links of one MCC, in the left display order.
-  pub blocks: Vec<Block>,
+  pub(crate) blocks: Vec<Block>,
   /// The MCCs of the pair; `DrawNode.mcc`, `Link.mcc`, and `Block.mcc` index this list.
-  pub mccs: Vec<MccInfo>,
+  pub(crate) mccs: Vec<MccInfo>,
   /// The scale of `shapes`: the requested scale, or `depth` for `div` when a tree of the pair has
   /// no branch lengths, because `div` would draw all the nodes of that tree at the root.
-  pub scale: Scale,
+  pub(crate) scale: Scale,
   /// The shapes of the drawing for `scale`.
-  pub shapes: PairShapes,
+  pub(crate) shapes: PairShapes,
   /// The legend: an entry for each kind of shape that the drawing contains.
-  pub legend: Vec<LegendItem>,
+  pub(crate) legend: Vec<LegendItem>,
 }
 
 /// A tree laid out for drawing, with the MCCs of one pair.
@@ -191,9 +191,9 @@ pub struct PairView {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct DrawTree {
-  pub label: String,
+  pub(crate) label: String,
   /// One node per tree node, indexed from 0 in preorder; node 0 is the root.
-  pub nodes: Vec<DrawNode>,
+  pub(crate) nodes: Vec<DrawNode>,
 }
 
 impl DrawTree {
@@ -208,44 +208,44 @@ impl DrawTree {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct DrawNode {
-  pub name: String,
+  pub(crate) name: String,
   /// `name` as a label shows it: shortened in the middle to `DRAWING_RULES.label_max_chars`
   /// characters (grapheme clusters) with an ellipsis.
-  pub short_name: String,
+  pub(crate) short_name: String,
   /// Index of the parent; `None` for the root.
-  pub parent: Option<usize>,
+  pub(crate) parent: Option<usize>,
   /// Indices of the children, in display order.
-  pub children: Vec<usize>,
+  pub(crate) children: Vec<usize>,
   /// Branch length as parsed; `None` when the tree gives none or the length is not finite.
-  pub branch_length: Option<f64>,
+  pub(crate) branch_length: Option<f64>,
   /// The mean length of the branch over the trees of the run, weighted by their sequence
   /// lengths, at which the drawing shows a split that some trees lack (see
   /// `lengths::mean_lengths`); `None` for a branch drawn at `branch_length`.
-  pub mean_length: Option<f64>,
+  pub(crate) mean_length: Option<f64>,
   /// Divergence from the root; a missing or negative length counts as 0. A branch with a
   /// `mean_length` adds that length instead of its own, so the nodes below it move with it.
-  pub x_div: f64,
+  pub(crate) x_div: f64,
   /// Cladogram position in branch steps: the height of the root minus the height of the node,
   /// where a height is the largest number of branches from a node down to a leaf. Every leaf is
   /// at the height of the root.
-  pub x_depth: f64,
+  pub(crate) x_depth: f64,
   /// Leaf rank 0 to n-1 in display order; an internal node sits at the midpoint of its first and
   /// last child.
-  pub y: f64,
-  pub leaf: bool,
+  pub(crate) y: f64,
+  pub(crate) leaf: bool,
   /// Number of leaves at or below the node: 1 for a leaf.
-  pub clade_size: usize,
+  pub(crate) clade_size: usize,
   /// The rows of the leaves at or below the node: the row of a leaf, for a leaf.
-  pub rows: RowSpan,
+  pub(crate) rows: RowSpan,
   /// An internal node that the parsed input tree lacks, added by resolution or imputation.
-  pub added: bool,
+  pub(crate) added: bool,
   /// A leaf that the input tree lacks, placed by imputation.
-  pub imputed: bool,
+  pub(crate) imputed: bool,
   /// Index of the node's MCC in `PairView.mccs`; `None` for a node without an MCC.
-  pub mcc: Option<usize>,
+  pub(crate) mcc: Option<usize>,
   /// The branch above the node is a reassortment branch: the node is not the root, has an MCC,
   /// and its parent's MCC is a different one or none.
-  pub mcc_break: bool,
+  pub(crate) mcc_break: bool,
 }
 
 /// The two copies of one leaf.
@@ -254,11 +254,11 @@ pub struct DrawNode {
 #[serde(rename_all = "camelCase")]
 pub struct Link {
   /// Node index of the leaf in the left tree.
-  pub left: usize,
+  left: usize,
   /// Node index of the leaf in the right tree.
-  pub right: usize,
+  right: usize,
   /// Index of the leaf's MCC in `PairView.mccs`.
-  pub mcc: usize,
+  mcc: usize,
 }
 
 /// A set of leaves of one MCC, consecutive in both trees.
@@ -267,12 +267,12 @@ pub struct Link {
 #[serde(rename_all = "camelCase")]
 pub struct Block {
   /// Index of the MCC in `PairView.mccs`.
-  pub mcc: usize,
+  mcc: usize,
   /// First and last leaf row of the block in the left tree.
-  pub left: [f64; 2],
+  left: [f64; 2],
   /// First and last leaf row of the block in the right tree, in left order: the first value
   /// belongs to the first leaf of the block in the left tree.
-  pub right: [f64; 2],
+  right: [f64; 2],
 }
 
 /// An MCC of a pair.
@@ -281,26 +281,26 @@ pub struct Block {
 #[serde(rename_all = "camelCase")]
 pub struct MccInfo {
   /// Index of the MCC in `PairView.mccs`, the order of `MCCs.json`.
-  pub index: usize,
+  pub(crate) index: usize,
   /// Number of leaves, attached leaves included.
-  pub size: usize,
+  pub(crate) size: usize,
   /// Leaf names.
-  pub leaves: Vec<String>,
+  pub(crate) leaves: Vec<String>,
   /// Names of the members that imputation attached (leaves in one tree of the pair only).
-  pub imputed_leaves: Vec<String>,
+  pub(crate) imputed_leaves: Vec<String>,
   /// Names of the attached members whose attachment is ambiguous: their attachment point is in
   /// no MCC, so they joined the MCC whose root is closest to it.
-  pub ambiguous_leaves: Vec<String>,
+  pub(crate) ambiguous_leaves: Vec<String>,
   /// Color slot, from 0 to `MCC_SLOTS` - 1, the same in every version of the pair.
-  pub slot: usize,
+  pub(crate) slot: usize,
   /// The name of the MCC: "MCC 1" for index 0.
-  pub name: String,
+  pub(crate) name: String,
   /// Rank of the MCC by size, largest first, then by index: 0 for the largest MCC. The color
   /// slots are given in this order.
-  pub rank: usize,
+  pub(crate) rank: usize,
   /// The rows of the leaves of the MCC in both drawn trees; `None` when neither drawn tree has a
   /// leaf of it.
-  pub rows: Option<RowSpan>,
+  pub(crate) rows: Option<RowSpan>,
 }
 
 /// The shapes of a tanglegram.
@@ -309,13 +309,13 @@ pub struct MccInfo {
 #[serde(rename_all = "camelCase")]
 pub struct PairShapes {
   /// Branches and marks of the left tree, x across the left tree column.
-  pub left: TreeShapes,
+  pub(crate) left: TreeShapes,
   /// Branches and marks of the right tree, x across the right tree column, unmirrored.
-  pub right: TreeShapes,
+  pub(crate) right: TreeShapes,
   /// One S-curve per link, x across the link zone: from (0, left y) to (1, right y).
-  pub links: Vec<LinkCurve>,
+  pub(crate) links: Vec<LinkCurve>,
   /// One outline per block, x across the link zone.
-  pub ribbons: Vec<Ribbon>,
+  pub(crate) ribbons: Vec<Ribbon>,
 }
 
 /// Branches and marks of one tree.
@@ -324,10 +324,10 @@ pub struct PairShapes {
 #[serde(rename_all = "camelCase")]
 pub struct TreeShapes {
   /// One elbow per non-root node.
-  pub elbows: Vec<Elbow>,
-  pub marks: Vec<Mark>,
+  pub(crate) elbows: Vec<Elbow>,
+  pub(crate) marks: Vec<Mark>,
   /// One leader per leaf, in node order.
-  pub leaders: Vec<Leader>,
+  pub(crate) leaders: Vec<Leader>,
 }
 
 /// The rectangular branch above a node: from (parent x, parent y) to (parent x, node y) to
@@ -337,21 +337,21 @@ pub struct TreeShapes {
 #[serde(rename_all = "camelCase")]
 pub struct Elbow {
   /// Index of the node below the branch.
-  pub node: usize,
-  pub points: [Point; 3],
+  pub(crate) node: usize,
+  pub(crate) points: [Point; 3],
   /// The node's MCC, its `DrawNode.mcc`.
-  pub mcc: Option<usize>,
+  pub(crate) mcc: Option<usize>,
   /// Color slot of the node's MCC; `None` for a node without an MCC.
-  pub slot: Option<usize>,
+  pub(crate) slot: Option<usize>,
   /// The branch is a reassortment branch.
-  pub mcc_break: bool,
+  pub(crate) mcc_break: bool,
   /// The node is `added`: the part across, from `points[1]` to `points[2]`, is its new branch
   /// and is drawn in ink-muted; the part along the parent's x joins it to its parent like a plain
   /// branch.
-  pub added: bool,
+  pub(crate) added: bool,
   /// The color of the branch: signal for a reassortment branch, else the color of `slot`, or "no
   /// MCC". The part across of an added node is ink-muted instead.
-  pub color: ColorRole,
+  pub(crate) color: ColorRole,
 }
 
 /// The S-curve of one link, with control points at x = 0.5.
@@ -360,12 +360,12 @@ pub struct Elbow {
 #[serde(rename_all = "camelCase")]
 pub struct LinkCurve {
   /// Index of the link in `PairView.links`.
-  pub link: usize,
+  pub(crate) link: usize,
   /// The link's MCC, its `Link.mcc`.
-  pub mcc: usize,
+  pub(crate) mcc: usize,
   /// Color slot of the link's MCC.
-  pub slot: usize,
-  pub curve: Bezier,
+  pub(crate) slot: usize,
+  pub(crate) curve: Bezier,
 }
 
 /// The ribbon of one block: its left and right y ranges, each extended by half a row, joined by
@@ -375,14 +375,14 @@ pub struct LinkCurve {
 #[serde(rename_all = "camelCase")]
 pub struct Ribbon {
   /// Index of the block in `PairView.blocks`.
-  pub block: usize,
+  pub(crate) block: usize,
   /// The block's MCC, its `Block.mcc`.
-  pub mcc: usize,
+  pub(crate) mcc: usize,
   /// Color slot of the block's MCC.
-  pub slot: usize,
+  pub(crate) slot: usize,
   /// Closed outline: each segment starts where the previous one ends, and the last ends where
   /// the first starts.
-  pub outline: Vec<Bezier>,
+  pub(crate) outline: Vec<Bezier>,
 }
 
 /// The ARG of two trees laid out for drawing, in one tree column. Segment 0 (A) is the first
@@ -392,24 +392,24 @@ pub struct Ribbon {
 #[serde(rename_all = "camelCase")]
 pub struct ArgView {
   /// The ARG nodes, with the synthetic `GlobalRoot` last when `root_case` is `synthetic`.
-  pub nodes: Vec<ArgNodeView>,
-  pub edges: Vec<ArgEdge>,
+  pub(crate) nodes: Vec<ArgNodeView>,
+  pub(crate) edges: Vec<ArgEdge>,
   /// Index of the top root.
-  pub root: usize,
+  pub(crate) root: usize,
   /// How the top root relates to the segment roots, as in `ARG/arg.nwk`.
-  pub root_case: RootCase,
+  pub(crate) root_case: RootCase,
   /// The scale of `shapes`: the requested scale, or `depth` for `div` when the ARG has no branch
   /// lengths, because `div` would draw all its nodes at the root. The ARG has branch lengths when
   /// one of its trees has them, because it takes the length of a branch from the other tree where
   /// one tree lacks it.
-  pub scale: Scale,
+  pub(crate) scale: Scale,
   /// The shapes of the drawing for `scale`.
-  pub shapes: ArgShapes,
+  pub(crate) shapes: ArgShapes,
   /// The legend: the two segments, both, and reassortment when the ARG has a hybrid node.
-  pub legend: Vec<LegendItem>,
+  pub(crate) legend: Vec<LegendItem>,
   /// The labels of the trees of segment A and segment B, which `ArgNodeView.segments` and
   /// `ArgEdge.segments` index.
-  pub segments: [String; 2],
+  pub(crate) segments: [String; 2],
 }
 
 /// A node of an `ArgView`.
@@ -417,33 +417,33 @@ pub struct ArgView {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ArgNodeView {
-  pub label: String,
+  pub(crate) label: String,
   /// `label` as a label shows it, shortened as `DrawNode.short_name`.
-  pub short_label: String,
+  pub(crate) short_label: String,
   /// Parent index per segment; `None` for the top root, where the node lacks the segment, and
   /// where it is the root of the segment without the synthetic `GlobalRoot` above it.
-  pub parents: [Option<usize>; 2],
+  pub(crate) parents: [Option<usize>; 2],
   /// Indices of the children, in display order.
-  pub children: Vec<usize>,
+  pub(crate) children: Vec<usize>,
   /// Length of the branch to the parent, per segment.
-  pub tau: [Option<f64>; 2],
+  pub(crate) tau: [Option<f64>; 2],
   /// The node has different parents in the two segments.
-  pub hybrid: bool,
-  pub leaf: bool,
+  pub(crate) hybrid: bool,
+  pub(crate) leaf: bool,
   /// The segments the node carries (0, 1, or both), ascending.
-  pub segments: Vec<usize>,
+  pub(crate) segments: Vec<usize>,
   /// Distance from the top root along the parent chain that leads to it; a missing or negative
   /// length counts as 0.
-  pub x_div: f64,
+  pub(crate) x_div: f64,
   /// Cladogram position in branch steps, as `DrawNode.x_depth`: the height of the top root minus
   /// the height of the node, where a height is the largest number of edges from a node down to a
   /// leaf over the children of both segments.
-  pub x_depth: f64,
+  pub(crate) x_depth: f64,
   /// Leaf rank in display order; an internal node sits at the midpoint of its children.
-  pub y: f64,
+  pub(crate) y: f64,
   /// The rows of the leaves at or below the node, below either parent of a hybrid node: the row
   /// of a leaf, for a leaf.
-  pub rows: RowSpan,
+  pub(crate) rows: RowSpan,
 }
 
 /// An edge of an `ArgView`, from parent to child.
@@ -451,13 +451,13 @@ pub struct ArgNodeView {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ArgEdge {
-  pub parent: usize,
-  pub child: usize,
+  pub(crate) parent: usize,
+  pub(crate) child: usize,
   /// The segments the edge carries, ascending.
-  pub segments: Vec<usize>,
+  pub(crate) segments: Vec<usize>,
   /// The child is a hybrid node and the edge is not on the child's chain to the top root, along
   /// which the node's x is measured. Each hybrid node has one reticulation edge.
-  pub reticulation: bool,
+  pub(crate) reticulation: bool,
 }
 
 /// The three top-root cases of the extended Newick writer.
@@ -479,11 +479,11 @@ pub enum RootCase {
 #[serde(rename_all = "camelCase")]
 pub struct ArgShapes {
   /// One shape per edge, in the order of `ArgView.edges`.
-  pub edges: Vec<ArgEdgeShape>,
+  pub(crate) edges: Vec<ArgEdgeShape>,
   /// Hybrid rings.
-  pub marks: Vec<Mark>,
+  pub(crate) marks: Vec<Mark>,
   /// One leader per leaf, in node order.
-  pub leaders: Vec<Leader>,
+  pub(crate) leaders: Vec<Leader>,
 }
 
 /// The dotted line from a leaf tip to the label edge of its tree column, at x = 1, so that the
@@ -493,11 +493,11 @@ pub struct ArgShapes {
 #[serde(rename_all = "camelCase")]
 pub struct Leader {
   /// Index of the leaf.
-  pub node: usize,
+  pub(crate) node: usize,
   /// The tip of the leaf.
-  pub from: Point,
+  pub(crate) from: Point,
   /// The label edge, at the leaf's row.
-  pub to: Point,
+  pub(crate) to: Point,
 }
 
 /// A point mark on a drawing.
@@ -505,18 +505,18 @@ pub struct Leader {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct Mark {
-  pub kind: MarkKind,
+  pub(crate) kind: MarkKind,
   /// Index of the node the mark belongs to.
-  pub node: usize,
+  pub(crate) node: usize,
   /// MCC of the node in a tanglegram, its `DrawNode.mcc`; `None` for a node without an MCC and
   /// on the ARG.
-  pub mcc: Option<usize>,
+  pub(crate) mcc: Option<usize>,
   /// Color slot of `mcc`.
-  pub slot: Option<usize>,
-  pub at: Point,
+  pub(crate) slot: Option<usize>,
+  pub(crate) at: Point,
   /// The color of the ring: signal for reassortment and hybrid nodes, else the color of `slot`,
   /// or "no MCC".
-  pub color: ColorRole,
+  pub(crate) color: ColorRole,
 }
 
 /// Meaning of a mark.
@@ -538,14 +538,14 @@ pub enum MarkKind {
 #[serde(rename_all = "camelCase")]
 pub struct ArgEdgeShape {
   /// Index of the edge in `ArgView.edges`.
-  pub edge: usize,
+  pub(crate) edge: usize,
   /// The segments of the edge, its `ArgEdge.segments`.
-  pub segments: Vec<usize>,
+  pub(crate) segments: Vec<usize>,
   /// The edge is a reticulation edge, its `ArgEdge.reticulation`; its path is a curve.
-  pub reticulation: bool,
-  pub path: EdgePath,
+  pub(crate) reticulation: bool,
+  pub(crate) path: EdgePath,
   /// The color of the edge: its segment, or ink for an edge of both segments.
-  pub color: ColorRole,
+  pub(crate) color: ColorRole,
 }
 
 /// Path of an ARG edge: an elbow, or a dashed S-curve for a reticulation edge.
@@ -568,14 +568,14 @@ pub struct ConstellationTable {
   /// order of its `_resolved` output file, then the leaves it lacks, in the order of the first
   /// tree that has them. The pair views can order the first tree differently, because they sort
   /// both trees of a pair for that pair.
-  pub leaves: Vec<String>,
+  leaves: Vec<String>,
   /// The title of each pair, in pipeline order, as `PairSummary.title`.
-  pub pair_titles: Vec<String>,
+  pair_titles: Vec<String>,
   /// `cells[leaf][pair]`; `None` when the leaf is in neither tree of the pair, or the pair has no
   /// MCCs (its trees share fewer than two leaves).
-  pub cells: Vec<Vec<Option<ConstellationCell>>>,
+  cells: Vec<Vec<Option<ConstellationCell>>>,
   /// The name of each MCC index of the cells, `mcc_names[cell.mcc]`, as `MccInfo.name`.
-  pub mcc_names: Vec<String>,
+  mcc_names: Vec<String>,
 }
 
 /// The MCC of one leaf in one pair.
@@ -584,11 +584,11 @@ pub struct ConstellationTable {
 #[serde(rename_all = "camelCase")]
 pub struct ConstellationCell {
   /// Index of the MCC in the pair's `PairView.mccs`.
-  pub mcc: usize,
+  mcc: usize,
   /// Number of leaves of the MCC.
-  pub size: usize,
+  size: usize,
   /// Color slot of the MCC.
-  pub slot: usize,
+  slot: usize,
 }
 
 /// The two trees of a pair as Auspice v2 datasets, for Auspice's tanglegram: `left` is the main
@@ -598,21 +598,21 @@ pub struct ConstellationCell {
 pub struct AuspicePair {
   /// The scale of the `div` of the nodes, as `PairView.scale`: `depth` for `div` when a tree of
   /// the pair has no branch lengths.
-  pub scale: Scale,
+  pub(crate) scale: Scale,
   /// The name of the `div` values on the axis and in the hover panel: "Divergence" for the shown
   /// scale `div`, "Depth" for `depth`.
-  pub axis_title: String,
+  pub(crate) axis_title: String,
   /// For each MCC, in the order of `MCCs.json`, the node where it starts in each tree.
-  pub mcc_roots: Vec<AuspiceMccRoot>,
+  pub(crate) mcc_roots: Vec<AuspiceMccRoot>,
   /// The key of the coloring and the filter by MCC in the datasets.
-  pub mcc_key: String,
+  pub(crate) mcc_key: String,
   /// For each MCC, in the order of `MCCs.json`, its value in the coloring and the filter of
   /// `mcc_key`: `MccInfo.name`.
-  pub mcc_values: Vec<String>,
+  pub(crate) mcc_values: Vec<String>,
   /// The trees that each choice of `AuspiceTrees` shows.
-  pub shown: AuspiceShown,
-  pub left: AuspiceDataset,
-  pub right: AuspiceDataset,
+  pub(crate) shown: AuspiceShown,
+  pub(crate) left: AuspiceDataset,
+  pub(crate) right: AuspiceDataset,
 }
 
 /// The trees of a pair that each choice of `AuspiceTrees` shows, main tree first; each field is
@@ -620,17 +620,17 @@ pub struct AuspicePair {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct AuspiceShown {
-  pub both: Vec<AuspiceShownTree>,
-  pub left: Vec<AuspiceShownTree>,
-  pub right: Vec<AuspiceShownTree>,
+  both: Vec<AuspiceShownTree>,
+  left: Vec<AuspiceShownTree>,
+  right: Vec<AuspiceShownTree>,
 }
 
 /// A tree that the Auspice view shows: its index among the trees of the run, and its label.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct AuspiceShownTree {
-  pub tree: usize,
-  pub label: String,
+  tree: usize,
+  label: String,
 }
 
 /// The node where an MCC starts in each tree of a pair: the node whose branch above is the
@@ -639,8 +639,8 @@ pub struct AuspiceShownTree {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct AuspiceMccRoot {
-  pub left: Option<String>,
-  pub right: Option<String>,
+  left: Option<String>,
+  right: Option<String>,
 }
 
 /// The trees of a pair that the Auspice view shows: both as a tanglegram, or one alone.
@@ -659,7 +659,7 @@ pub enum AuspiceTrees {
 impl AuspiceTrees {
   /// Whether the view shows the left tree (`true`) or the right tree (`false`) of the pair.
   #[must_use]
-  pub fn shows(self, left: bool) -> bool {
+  pub(crate) fn shows(self, left: bool) -> bool {
     match self {
       Self::Both => true,
       Self::Left => left,
@@ -672,9 +672,9 @@ impl AuspiceTrees {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct AuspiceDataset {
-  pub version: AuspiceSchema,
-  pub meta: AuspiceMeta,
-  pub tree: AuspiceNode,
+  version: AuspiceSchema,
+  meta: AuspiceMeta,
+  tree: AuspiceNode,
 }
 
 /// Version of the Auspice dataset schema.
@@ -689,14 +689,14 @@ pub enum AuspiceSchema {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct AuspiceMeta {
-  pub title: String,
-  pub panels: Vec<AuspicePanel>,
-  pub colorings: Vec<AuspiceColoring>,
+  title: String,
+  panels: Vec<AuspicePanel>,
+  colorings: Vec<AuspiceColoring>,
   /// Keys of the colorings that Auspice offers as filters.
-  pub filters: Vec<String>,
-  pub display_defaults: AuspiceDisplayDefaults,
+  filters: Vec<String>,
+  display_defaults: AuspiceDisplayDefaults,
   /// What the download panel of Auspice offers.
-  pub sharing: AuspiceSharing,
+  sharing: AuspiceSharing,
 }
 
 /// A panel of the Auspice view.
@@ -712,14 +712,14 @@ pub enum AuspicePanel {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct AuspiceColoring {
   /// Key of the node attribute.
-  pub key: String,
-  pub title: String,
+  key: String,
+  title: String,
   #[serde(rename = "type")]
-  pub kind: AuspiceColoringKind,
+  kind: AuspiceColoringKind,
   /// `[value, color]` per value, the color as `#rrggbb`.
   /// Absent for a continuous coloring, which Auspice colors with its own scale.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub scale: Option<Vec<(String, String)>>,
+  scale: Option<Vec<(String, String)>>,
 }
 
 /// Type of an Auspice coloring.
@@ -737,7 +737,7 @@ pub enum AuspiceColoringKind {
 pub struct AuspiceSharing {
   /// Offer the genetic diversity data (TSV); always `false`, because the datasets have no
   /// sequences, so they have no entropy to download.
-  pub entropy: bool,
+  entropy: bool,
 }
 
 /// The settings that Auspice starts with.
@@ -745,9 +745,9 @@ pub struct AuspiceSharing {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct AuspiceDisplayDefaults {
   /// Key of the coloring.
-  pub color_by: String,
+  color_by: String,
   /// Key of the branch label.
-  pub branch_label: String,
+  branch_label: String,
 }
 
 /// A node of an Auspice tree.
@@ -755,12 +755,12 @@ pub struct AuspiceDisplayDefaults {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct AuspiceNode {
   /// The node's `DrawNode.name`, unique within the tree.
-  pub name: String,
-  pub node_attrs: AuspiceNodeAttrs,
-  pub branch_attrs: AuspiceBranchAttrs,
+  name: String,
+  node_attrs: AuspiceNodeAttrs,
+  branch_attrs: AuspiceBranchAttrs,
   /// The children in display order; absent for a leaf.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub children: Option<Vec<AuspiceNode>>,
+  children: Option<Vec<AuspiceNode>>,
 }
 
 /// The attributes of an Auspice node.
@@ -769,49 +769,49 @@ pub struct AuspiceNode {
 pub struct AuspiceNodeAttrs {
   /// Position from the root: `DrawNode.x_div` for the scale `div`, `DrawNode.x_depth` for
   /// `depth`.
-  pub div: f64,
+  div: f64,
   /// The number of the node's MCC, its index in `MCCs.json` plus 1; absent for a node without
   /// an MCC.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub mcc: Option<AuspiceValue>,
+  mcc: Option<AuspiceValue>,
   /// The MCC's value of `mcc` when the MCC is one of the 8 largest of the pair, "Other" for
   /// another MCC; absent for a node without an MCC.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub largest_mcc: Option<AuspiceValue>,
+  largest_mcc: Option<AuspiceValue>,
   /// The number of leaves of the node's MCC; absent for a node without an MCC.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub mcc_size: Option<AuspiceNumber>,
+  mcc_size: Option<AuspiceNumber>,
   /// "Yes" when the branch above the node is a reassortment branch, "No" otherwise; absent for
   /// the root.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub reassortment: Option<AuspiceValue>,
+  reassortment: Option<AuspiceValue>,
   /// For a leaf: "Yes" when imputation placed it into the tree.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub imputed: Option<AuspiceValue>,
+  imputed: Option<AuspiceValue>,
   /// For an internal node: "Yes" when resolution or imputation added it.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub added: Option<AuspiceValue>,
+  added: Option<AuspiceValue>,
   /// For a leaf: "Yes" when the other tree of the pair lacks it.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub one_tree: Option<AuspiceValue>,
+  one_tree: Option<AuspiceValue>,
   /// For a leaf with an MCC: "Ambiguous" when its attachment to the MCC is ambiguous, otherwise
   /// "Unambiguous".
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub attachment: Option<AuspiceValue>,
+  attachment: Option<AuspiceValue>,
 }
 
 /// The value of a categorical node attribute.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct AuspiceValue {
-  pub value: String,
+  value: String,
 }
 
 /// The value of a continuous node attribute.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct AuspiceNumber {
-  pub value: usize,
+  value: usize,
 }
 
 /// The attributes of the branch above an Auspice node.
@@ -820,7 +820,7 @@ pub struct AuspiceNumber {
 pub struct AuspiceBranchAttrs {
   /// Absent for a branch without labels.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub labels: Option<AuspiceBranchLabels>,
+  labels: Option<AuspiceBranchLabels>,
 }
 
 /// The labels of an Auspice branch.
@@ -829,7 +829,7 @@ pub struct AuspiceBranchAttrs {
 pub struct AuspiceBranchLabels {
   /// The number of the MCC that starts at this branch, on a reassortment branch.
   #[serde(rename = "MCC")]
-  pub mcc: String,
+  mcc: String,
 }
 
 /// A cubic Bézier segment.
@@ -837,10 +837,10 @@ pub struct AuspiceBranchLabels {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct Bezier {
-  pub from: Point,
-  pub c1: Point,
-  pub c2: Point,
-  pub to: Point,
+  pub(crate) from: Point,
+  pub(crate) c1: Point,
+  pub(crate) c2: Point,
+  pub(crate) to: Point,
 }
 
 /// Branch scale of a drawing.
@@ -860,7 +860,7 @@ impl Scale {
   /// drawn tree has no branch lengths (`flat`), because its divergence is 0 everywhere and `div`
   /// would draw all its nodes at the root. A tree with some branch lengths keeps `div`. The
   /// interactive views and the figures apply the same rule, so both show the same drawing.
-  pub(crate) fn shown(self, flat: bool) -> Scale {
+  fn shown(self, flat: bool) -> Scale {
     match self {
       Scale::Div if flat => Scale::Depth,
       Scale::Div | Scale::Depth => self,
@@ -868,7 +868,7 @@ impl Scale {
   }
 
   /// The x coordinate of a node on this scale: its divergence `x_div` or its depth `x_depth`.
-  pub(crate) fn x(self, x_div: f64, x_depth: f64) -> f64 {
+  fn x(self, x_div: f64, x_depth: f64) -> f64 {
     match self {
       Scale::Div => x_div,
       Scale::Depth => x_depth,

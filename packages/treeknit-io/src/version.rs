@@ -11,13 +11,13 @@ use tsify::Tsify;
 #[serde(rename_all = "camelCase")]
 pub struct AppVersion {
   /// Version as the command line reports it, such as `0.5.0` or `0.5.0-dev`.
-  pub version: String,
+  version: String,
   /// URL of the source repository, from the workspace `repository` field.
-  pub repository: String,
+  repository: String,
   /// URL of the release page of the repository, where the command-line binaries are published.
-  pub releases: String,
+  releases: String,
   /// URL of the page of the repository that opens a new issue, where users report bugs.
-  pub new_issue: String,
+  new_issue: String,
 }
 
 impl AppVersion {

@@ -7,20 +7,20 @@ use fixedbitset::FixedBitSet;
 
 /// `a ∩ m == b ∩ m`
 #[inline]
-pub fn eq_on(a: &Bits, b: &Bits, m: &Bits) -> bool {
+pub(crate) fn eq_on(a: &Bits, b: &Bits, m: &Bits) -> bool {
   blocks(a, b, m).all(|(x, y, z)| (x ^ y) & z == 0)
 }
 
 /// `a ∩ m ⊆ b`
 #[inline]
-pub fn subset_on(a: &Bits, b: &Bits, m: &Bits) -> bool {
+pub(crate) fn subset_on(a: &Bits, b: &Bits, m: &Bits) -> bool {
   blocks(a, b, m).all(|(x, y, z)| x & !y & z == 0)
 }
 
 /// `a ∩ b ∩ m == ∅`; the oracle of the clade range methods of the split graph.
 #[cfg(test)]
 #[inline]
-pub fn disjoint_on(a: &Bits, b: &Bits, m: &Bits) -> bool {
+pub(crate) fn disjoint_on(a: &Bits, b: &Bits, m: &Bits) -> bool {
   blocks(a, b, m).all(|(x, y, z)| x & y & z == 0)
 }
 
@@ -36,7 +36,7 @@ fn blocks<'a>(a: &'a Bits, b: &'a Bits, m: &'a Bits) -> impl Iterator<Item = (us
 
 /// `|a ∩ m| < 2`, i.e. `a` is a leaf or empty split on `m`.
 #[inline]
-pub fn trivial_on(a: &Bits, m: &Bits) -> bool {
+pub(crate) fn trivial_on(a: &Bits, m: &Bits) -> bool {
   let mut n = 0_u32;
   for (x, z) in a.as_slice().iter().zip(m.as_slice()) {
     n += (x & z).count_ones();

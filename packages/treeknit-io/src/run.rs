@@ -70,7 +70,7 @@ impl RunResult {
   }
 
   /// Outcome of the ARG for the summary; `None` when no ARG was attempted.
-  pub fn arg_outcome(&self) -> Option<ArgOutcome> {
+  pub(crate) fn arg_outcome(&self) -> Option<ArgOutcome> {
     self.arg.as_ref().map(|a| match a {
       Ok(arg) => ArgOutcome::Built {
         reassortments: arg.n_hybrids(),
@@ -87,7 +87,7 @@ impl RunResult {
       reason = "`RunResult::arg_outcome` reports why the ARG was not built"
     )
   )]
-  pub fn built_arg(&self) -> Option<&Arg> {
+  pub(crate) fn built_arg(&self) -> Option<&Arg> {
     self.arg.as_ref().and_then(|a| a.as_ref().ok())
   }
 }

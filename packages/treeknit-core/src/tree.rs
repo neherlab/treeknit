@@ -72,7 +72,7 @@ impl Tree {
   pub fn postorder(&self) -> Vec<NodeId> {
     self.postorder_from(self.root)
   }
-  pub fn postorder_from(&self, r: NodeId) -> Vec<NodeId> {
+  pub(crate) fn postorder_from(&self, r: NodeId) -> Vec<NodeId> {
     let mut out = Vec::new();
     let mut stack = vec![(r, false)];
     while let Some((n, expanded)) = stack.pop() {
@@ -129,7 +129,7 @@ impl Tree {
   }
 
   /// `leaf_of[taxon] = node` for leaves of this tree.
-  pub fn leaf_of(&self, n_taxa: usize) -> Vec<Option<NodeId>> {
+  pub(crate) fn leaf_of(&self, n_taxa: usize) -> Vec<Option<NodeId>> {
     let mut v = vec![None; n_taxa];
     for n in self.leaves() {
       v[self.taxon(n)] = Some(n);
@@ -138,7 +138,7 @@ impl Tree {
   }
 
   /// Whether every leaf has a taxon of `0..n_taxa`.
-  pub fn has_taxa_below(&self, n_taxa: usize) -> bool {
+  pub(crate) fn has_taxa_below(&self, n_taxa: usize) -> bool {
     self
       .leaves()
       .into_iter()
@@ -172,7 +172,7 @@ impl Tree {
     c
   }
 
-  pub fn depth(&self, mut n: NodeId) -> usize {
+  pub(crate) fn depth(&self, mut n: NodeId) -> usize {
     let mut d = 0;
     while let Some(p) = self.parent(n) {
       n = p;
@@ -181,7 +181,7 @@ impl Tree {
     d
   }
 
-  pub fn lca(&self, a: NodeId, b: NodeId) -> NodeId {
+  pub(crate) fn lca(&self, a: NodeId, b: NodeId) -> NodeId {
     let (mut a, mut b) = (a, b);
     let (mut da, mut db) = (self.depth(a), self.depth(b));
     while da > db {
@@ -199,7 +199,7 @@ impl Tree {
     a
   }
 
-  pub fn lca_of(&self, nodes: impl IntoIterator<Item = NodeId>) -> Option<NodeId> {
+  pub(crate) fn lca_of(&self, nodes: impl IntoIterator<Item = NodeId>) -> Option<NodeId> {
     nodes.into_iter().reduce(|a, b| self.lca(a, b))
   }
 
@@ -259,7 +259,7 @@ impl Tree {
 
   /// Remove the subtree rooted at `n`; parents left without children are removed too.
   /// Unary nodes are spliced out afterwards.
-  pub fn prune(&mut self, n: NodeId) {
+  pub(crate) fn prune(&mut self, n: NodeId) {
     assert!(n != self.root, "cannot prune the root");
     let mut n = n;
     loop {
@@ -274,7 +274,7 @@ impl Tree {
   }
 
   /// Insert a new node `name` as parent of `nodes`, which must share a parent.
-  pub fn insert_parent(&mut self, nodes: &[NodeId], name: String, branch_length: Option<f64>) -> NodeId {
+  pub(crate) fn insert_parent(&mut self, nodes: &[NodeId], name: String, branch_length: Option<f64>) -> NodeId {
     let p = self.parent(nodes[0]).expect("insert_parent: node without parent");
     let s = self.add_node(name, branch_length);
     for &c in nodes {
@@ -312,7 +312,7 @@ impl Tree {
       reason = "a label whose suffix is not a number has no index to avoid"
     )
   )]
-  pub fn fresh_index(&self, prefix: &str) -> usize {
+  pub(crate) fn fresh_index(&self, prefix: &str) -> usize {
     let pre = format!("{prefix}_");
     self
       .postorder()
@@ -348,7 +348,7 @@ impl Tree {
 
   /// Copy without unreachable nodes; node ids are renumbered in preorder.
   #[must_use]
-  pub fn compacted(&self) -> Tree {
+  pub(crate) fn compacted(&self) -> Tree {
     let order = self.preorder();
     let mut map = vec![usize::MAX; self.nodes.len()];
     for (i, &n) in order.iter().enumerate() {
@@ -412,7 +412,7 @@ pub struct Taxa {
 }
 
 impl Taxa {
-  pub fn new(mut names: Vec<String>) -> Self {
+  fn new(mut names: Vec<String>) -> Self {
     names.sort();
     names.dedup();
     let index = names.iter().enumerate().map(|(i, n)| (n.clone(), i)).collect();
@@ -455,8 +455,8 @@ pub type NodeId = usize;
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[error("leaf {leaf} of tree {tree} is not in the taxon table")]
 pub struct UnknownLeaf {
-  pub leaf: String,
-  pub tree: String,
+  leaf: String,
+  tree: String,
 }
 
 #[cfg(test)]

@@ -10,7 +10,7 @@ use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, DateTime, System, ZipWriter};
 
 /// Media type of the ZIP archive of the results.
-pub const ARCHIVE_MEDIA_TYPE: &str = "application/zip";
+pub(crate) const ARCHIVE_MEDIA_TYPE: &str = "application/zip";
 
 /// A ZIP archive under construction, so that each file can be added while its text exists. Each
 /// file is under `treeknit_results/` at its path. Every entry is deflated, dated 1980-01-01 00:00

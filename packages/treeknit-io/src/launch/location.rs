@@ -16,7 +16,7 @@ use tsify::Tsify;
 /// Largest text that a compressed tree or session file may expand to. A wrong link must not
 /// exhaust the memory of the 32-bit WebAssembly module, and a Newick tree of 100,000 leaves is
 /// about 5 MB.
-pub const MAX_TEXT_BYTES: usize = MAX_TEXT_MIB * 1024 * 1024;
+const MAX_TEXT_BYTES: usize = MAX_TEXT_MIB * 1024 * 1024;
 
 /// [`MAX_TEXT_BYTES`] in MiB.
 const MAX_TEXT_MIB: usize = 256;
@@ -192,8 +192,8 @@ pub fn decode_tree_bytes(bytes: &[u8]) -> Result<String, DecodeError> {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct UrlPlace {
-  pub host: String,
-  pub file_name: String,
+  pub(crate) host: String,
+  pub(crate) file_name: String,
 }
 
 /// Where a file of a link is.

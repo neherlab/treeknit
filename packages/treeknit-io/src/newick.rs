@@ -80,12 +80,12 @@ pub fn write(t: &Tree) -> Result<String, WriteError> {
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[error("Newick parse error: {message}{}", at_byte(*.location))]
 pub struct ParseError {
-  pub message: String,
+  pub(crate) message: String,
   /// Where parsing stopped; `None` for errors of the whole tree, such as duplicate leaf names.
-  pub location: Option<Location>,
+  pub(crate) location: Option<Location>,
   /// The warnings that hold although the tree is rejected: `SeveralTrees` next to an error of the
   /// whole tree.
-  pub warnings: Vec<ParseWarning>,
+  pub(crate) warnings: Vec<ParseWarning>,
 }
 
 impl From<NewickError> for ParseError {
@@ -112,7 +112,7 @@ pub struct Parsed {
 
 impl Parsed {
   /// Log the warnings, as the command line does when it reads a tree.
-  pub fn log_warnings(&self) {
+  pub(crate) fn log_warnings(&self) {
     for w in &self.warnings {
       w.log(&self.tree.label);
     }
@@ -132,7 +132,7 @@ pub enum ParseWarning {
 
 impl ParseWarning {
   /// Log the warning for the tree labeled `label`, as `<label>: <warning>`.
-  pub fn log(&self, label: &str) {
+  pub(crate) fn log(&self, label: &str) {
     log::warn!("{label}: {self}");
   }
 }
@@ -141,7 +141,7 @@ impl ParseWarning {
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[error("Newick write error: {message}")]
 pub struct WriteError {
-  pub message: String,
+  message: String,
 }
 
 impl WriteError {

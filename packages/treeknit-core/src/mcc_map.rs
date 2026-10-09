@@ -123,7 +123,7 @@ fn insertion_sort_by<T>(v: &mut [T], lt: impl Fn(&T, &T) -> bool) {
 
 /// Reorder children of `t` by the minimum position of their leaves in `order` (by taxon).
 /// Taxa absent from `order` are placed last.
-pub fn sort_by_leaf_order(t: &mut Tree, order: &HashMap<usize, usize>) {
+pub(crate) fn sort_by_leaf_order(t: &mut Tree, order: &HashMap<usize, usize>) {
   let mut rank = vec![usize::MAX; t.nodes.len()];
   for n in t.postorder() {
     if t.is_leaf(n) {
@@ -137,7 +137,7 @@ pub fn sort_by_leaf_order(t: &mut Tree, order: &HashMap<usize, usize>) {
   }
 }
 
-pub fn leaf_order(t: &Tree) -> HashMap<usize, usize> {
+pub(crate) fn leaf_order(t: &Tree) -> HashMap<usize, usize> {
   t.leaves()
     .into_iter()
     .enumerate()

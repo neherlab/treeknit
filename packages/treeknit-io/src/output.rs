@@ -4,15 +4,17 @@ mod archive;
 mod figures;
 mod kinds;
 
-pub use archive::{ARCHIVE_MEDIA_TYPE, Archive, ArchiveError};
+pub use archive::{Archive, ArchiveError};
 pub use figures::{AuspiceFiles, FigureDownload, arg_figure, auspice_files, figure_text, pair_figure};
-pub use kinds::{FileReference, MAX_FILE_NAME_BYTES, auspice_path, check_output_paths, file_reference};
+pub use kinds::{FileReference, file_reference};
 
 use crate::analysis::AnalysisRequest;
 use crate::newick;
 use crate::run::RunResult;
 use crate::summary::Diagnostic;
+pub(crate) use archive::ARCHIVE_MEDIA_TYPE;
 use kinds::{FileKind, run_files};
+pub(crate) use kinds::{auspice_path, check_output_paths};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::fmt::Write as _;
@@ -30,7 +32,7 @@ pub const RESULTS_DIR: &str = "treeknit_results";
 pub const SESSION_FILE: &str = "treeknit_session.json";
 
 /// File name of the core options and the seed of a run.
-pub const PARAMETERS_FILE: &str = "parameters.json";
+pub(crate) const PARAMETERS_FILE: &str = "parameters.json";
 
 /// File name of the log of a run.
 pub const LOG_FILE: &str = "log.txt";
@@ -42,7 +44,7 @@ const ARG_FIGURE: &str = "ARG/arg.svg";
 
 /// Results directory of `command_line`, next to the extracted `treeknit_results/`, so that the
 /// command keeps the files it reproduces and the two sets can be compared.
-pub const COMMAND_LINE_RESULTS_DIR: &str = "treeknit_results_cli";
+const COMMAND_LINE_RESULTS_DIR: &str = "treeknit_results_cli";
 
 /// Every output file of `run` except `parameters.json` and `log.txt`, at its path in the results
 /// directory, with the bytes the command line writes: the MCCs as JSON and as lines, the
@@ -91,7 +93,7 @@ pub fn parameters_file(o: &Options, seed: u64) -> OutputFile {
 
 /// `log.txt` of the web app: one line `<time> [LEVEL] <message>` per record, the layout of the
 /// command-line log without its thread ID, because the browser runs on one thread.
-pub fn log_file(records: &[Diagnostic]) -> OutputFile {
+fn log_file(records: &[Diagnostic]) -> OutputFile {
   let text = records.iter().fold(String::new(), |mut text, r| {
     #[expect(clippy::expect_used, reason = "writing to a String does not fail")]
     writeln!(text, "{} [{}] {}", r.time, r.level, r.message).expect("writing to a String");
@@ -146,15 +148,15 @@ pub(crate) fn segment_labels(run: &RunResult) -> Option<[&str; 2]> {
 #[serde(rename_all = "camelCase")]
 pub struct ResultNames {
   /// File name of the ZIP archive of `results_dir`.
-  pub archive: String,
-  pub archive_media_type: String,
-  pub results_dir: String,
+  archive: String,
+  archive_media_type: String,
+  results_dir: String,
   /// Results directory of `command_line`.
-  pub command_line_results_dir: String,
+  command_line_results_dir: String,
   /// Path of the ARG in extended Newick, written for two trees.
-  pub arg_newick: String,
+  arg_newick: String,
   /// Paths of the Auspice JSON files of the two trees of a pair.
-  pub auspice_files: [String; 2],
+  auspice_files: [String; 2],
 }
 
 /// A file of the file set of the web app: a text, or a figure that is rendered when it is read,
@@ -270,7 +272,7 @@ impl OutputOptions {
   }
 
   /// The command-line flags that select the optional files of these options.
-  pub fn flags(&self) -> Vec<&'static str> {
+  fn flags(&self) -> Vec<&'static str> {
     [
       (self.imputed, "--impute"),
       (self.auspice, "--auspice-view"),

@@ -19,7 +19,7 @@ const ELLIPSIS: char = '\u{2026}';
 /// extended grapheme cluster of Unicode Standard Annex #29, what a reader sees as one character,
 /// so a cut keeps a combining mark with its letter and an emoji sequence whole. The figures,
 /// `DrawNode.short_name`, and `ArgNodeView.short_label` use this rule.
-pub fn shorten(name: &str, max: usize) -> String {
+pub(crate) fn shorten(name: &str, max: usize) -> String {
   let graphemes: Vec<&str> = name.graphemes(true).collect();
   if graphemes.len() <= max {
     return name.to_owned();

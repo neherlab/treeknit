@@ -11,15 +11,15 @@ use tsify::Tsify;
 #[serde(rename_all = "camelCase")]
 pub struct Summary {
   /// Pairs in pipeline order (0,1), (0,2), ..., (1,2), ...
-  pub pairs: Vec<PairSummary>,
+  pairs: Vec<PairSummary>,
   /// Outcome of the ARG; `None` for more than two trees.
-  pub arg: Option<ArgOutcome>,
+  arg: Option<ArgOutcome>,
   /// The run shows that the trees have no reassortment: for two trees, the ARG was built with
   /// no reassortment (one MCC whose ARG failed proves nothing); for more trees, every pair has
   /// one MCC.
-  pub no_reassortment: bool,
+  no_reassortment: bool,
   /// Warnings and errors of the run, in the order they occurred.
-  pub diagnostics: Vec<Diagnostic>,
+  diagnostics: Vec<Diagnostic>,
 }
 
 impl Summary {
@@ -61,21 +61,21 @@ impl Summary {
 #[serde(rename_all = "camelCase")]
 pub struct PairSummary {
   /// Index of the pair in pipeline order.
-  pub index: usize,
+  index: usize,
   /// Indices of the two trees, `i < j`.
-  pub trees: [usize; 2],
+  trees: [usize; 2],
   /// Labels of the two trees.
-  pub labels: [String; 2],
+  labels: [String; 2],
   /// The title of the pair, `pair_title` of the labels: "ha and na".
-  pub title: String,
+  title: String,
   /// Number of MCCs.
-  pub mcc_count: usize,
+  mcc_count: usize,
   /// The MCCs as leaf-name lists, as in `MCCs.json`.
-  pub mccs: Vec<Vec<String>>,
+  mccs: Vec<Vec<String>>,
   /// Number of leaves in one tree of the pair only, attached to an MCC of the pair.
-  pub imputed_count: usize,
+  imputed_count: usize,
   /// Number of these attached leaves whose attachment is ambiguous.
-  pub ambiguous_count: usize,
+  ambiguous_count: usize,
 }
 
 /// The title of the pair of the trees labeled `a` and `b`, as the views and the figures name it:

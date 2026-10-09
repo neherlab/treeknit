@@ -118,19 +118,19 @@ fn branch_lengths(t: &Tree) -> BranchLengths {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct TreeInspection {
-  pub label: String,
+  label: String,
   /// Number of leaves; 0 when the tree does not parse.
-  pub leaves: usize,
+  leaves: usize,
   /// Number of internal nodes, the root included.
-  pub internal_nodes: usize,
+  internal_nodes: usize,
   /// Number of internal nodes with more than two children.
-  pub polytomies: usize,
+  polytomies: usize,
   /// Which branches have a length.
-  pub branch_lengths: BranchLengths,
+  branch_lengths: BranchLengths,
   /// Warnings of the Newick parser, such as "more than one tree in file, using the first".
-  pub warnings: Vec<String>,
+  warnings: Vec<String>,
   /// Why the Newick text does not parse; `None` when it parses.
-  pub error: Option<TreeError>,
+  error: Option<TreeError>,
 }
 
 /// Presence of branch lengths in a tree.
@@ -151,11 +151,11 @@ pub enum BranchLengths {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct TreeError {
-  pub message: String,
+  message: String,
   /// 1-based line of the error; `None` for an error without a position.
-  pub line: Option<usize>,
+  line: Option<usize>,
   /// 1-based column of the error, in Unicode characters.
-  pub column: Option<usize>,
+  column: Option<usize>,
 }
 
 /// Leaf overlap of the input trees and of each pair, before a run.
@@ -164,13 +164,13 @@ pub struct TreeError {
 #[serde(rename_all = "camelCase")]
 pub struct Overlap {
   /// Number of distinct leaves over the trees that parse.
-  pub total_leaves: usize,
+  total_leaves: usize,
   /// The trees that parse, in input order.
-  pub trees: Vec<TreeOverlap>,
+  trees: Vec<TreeOverlap>,
   /// Pairs of trees that parse, in pipeline order (0,1), (0,2), ..., (1,2), ...
-  pub pairs: Vec<PairOverlap>,
+  pairs: Vec<PairOverlap>,
   /// Input indices of the trees that do not parse.
-  pub failed: Vec<usize>,
+  failed: Vec<usize>,
 }
 
 /// Leaves of one tree against all leaves.
@@ -179,12 +179,12 @@ pub struct Overlap {
 #[serde(rename_all = "camelCase")]
 pub struct TreeOverlap {
   /// Input index of the tree.
-  pub index: usize,
-  pub label: String,
+  index: usize,
+  label: String,
   /// Number of leaves of the tree.
-  pub leaves: usize,
+  leaves: usize,
   /// Number of leaves that other trees have and this tree lacks.
-  pub missing: usize,
+  missing: usize,
 }
 
 /// Leaves shared by the trees `i` and `j` (input indices, `i < j`).
@@ -192,13 +192,13 @@ pub struct TreeOverlap {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct PairOverlap {
-  pub i: usize,
-  pub j: usize,
+  i: usize,
+  j: usize,
   /// Number of shared leaves.
-  pub shared: usize,
+  shared: usize,
   /// The pair shares fewer than `analysis::MIN_SHARED_LEAVES` leaves, so the request does not
   /// validate.
-  pub blocked: bool,
+  blocked: bool,
 }
 
 #[cfg(test)]

@@ -11,11 +11,11 @@ use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::borrow::Cow;
 
 /// Space around the drawing, in px.
-pub(super) const MARGIN: f64 = DRAWING_RULES.margin_px;
+const MARGIN: f64 = DRAWING_RULES.margin_px;
 /// Space on each side of a label column, in px.
 pub(super) const LABEL_GAP: f64 = DRAWING_RULES.label_gap_px;
 /// Font size of the leaf labels and the legend, in px.
-pub(super) const FONT_SIZE: f64 = DRAWING_RULES.label_font_px;
+const FONT_SIZE: f64 = DRAWING_RULES.label_font_px;
 /// Font size of the title, in px.
 const TITLE_SIZE: f64 = 16.0;
 /// Height of the title band above the drawing, in px.
@@ -114,8 +114,8 @@ pub(super) const REASSORTMENT_WIDTH: f64 = DRAWING_RULES.reassortment_width_px;
 pub(super) const LINK_WIDTH: f64 = DRAWING_RULES.link_width_px;
 const LEADER_WIDTH: f64 = DRAWING_RULES.leader_width_px;
 const LEADER_OPACITY: f64 = DRAWING_RULES.leader_opacity;
-pub(super) const MARK_RADIUS: f64 = DRAWING_RULES.mark_radius_px;
-pub(super) const MARK_WIDTH: f64 = DRAWING_RULES.mark_line_px;
+const MARK_RADIUS: f64 = DRAWING_RULES.mark_radius_px;
+const MARK_WIDTH: f64 = DRAWING_RULES.mark_line_px;
 pub(super) const RIBBON_OPACITY: f64 = DRAWING_RULES.ribbon_opacity;
 /// Dash patterns: dashed branches and reticulations, dotted leaders.
 pub(super) const DASH: [f64; 2] = DRAWING_RULES.dash_px;
@@ -217,12 +217,12 @@ impl Svg {
   }
 
   /// An element without content.
-  pub(super) fn empty(&mut self, name: &str, attributes: &[(&str, String)]) {
+  fn empty(&mut self, name: &str, attributes: &[(&str, String)]) {
     self.write(Event::Empty(start(name, attributes)));
   }
 
   /// An element with text content.
-  pub(super) fn text(&mut self, name: &str, attributes: &[(&str, String)], text: &str) {
+  fn text(&mut self, name: &str, attributes: &[(&str, String)], text: &str) {
     self.open(name, attributes);
     self.write(Event::Text(BytesText::new(&xml_chars(text))));
     self.close(name);
@@ -402,7 +402,7 @@ pub(super) fn drawing_top() -> f64 {
 }
 
 /// The baseline of text centered on `y`.
-pub(super) fn baseline(y: f64) -> f64 {
+fn baseline(y: f64) -> f64 {
   y + BASELINE_SHIFT_EM * FONT_SIZE
 }
 
@@ -512,7 +512,7 @@ pub(super) struct Rows {
 
 impl Rows {
   /// The y in px of the middle of row `y`.
-  pub(super) fn y(&self, y: f64) -> f64 {
+  fn y(&self, y: f64) -> f64 {
     self.top + (y + 0.5) * self.row_height
   }
 
@@ -560,17 +560,17 @@ impl Path {
     Path::default()
   }
 
-  pub(super) fn move_to(self, p: Point) -> Path {
+  fn move_to(self, p: Point) -> Path {
     self.push(&format!("M{} {}", num(p[0]), num(p[1])))
   }
 
   /// A vertical line to `y`.
-  pub(super) fn v(self, y: f64) -> Path {
+  fn v(self, y: f64) -> Path {
     self.push(&format!("V{}", num(y)))
   }
 
   /// A horizontal line to `x`.
-  pub(super) fn h(self, x: f64) -> Path {
+  fn h(self, x: f64) -> Path {
     self.push(&format!("H{}", num(x)))
   }
 
@@ -712,8 +712,8 @@ fn char_advance(c: char) -> u32 {
 /// An entry of a legend: a symbol drawn from its parts, and a label.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct LegendEntry {
-  pub(super) symbol: Vec<Symbol>,
-  pub(super) label: String,
+  symbol: Vec<Symbol>,
+  label: String,
 }
 
 /// A part of a legend symbol.

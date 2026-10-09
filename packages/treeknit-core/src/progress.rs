@@ -17,7 +17,7 @@
 
 /// Share of a run's fraction that pair inference and resolution cover: the fraction at the end
 /// of the last pair. It is below 1 so that a fraction of 1 always means that the run is done.
-pub const PAIRS_SHARE: f64 = 0.95;
+pub(crate) const PAIRS_SHARE: f64 = 0.95;
 
 /// Progress of a run: the completed fraction of the work, and the round and pair in progress.
 #[derive(Clone, Copy, Debug, PartialEq)]

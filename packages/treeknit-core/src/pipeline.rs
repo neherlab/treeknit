@@ -12,7 +12,7 @@ mod matching;
 mod sorting;
 
 pub use imputed::{arg_inputs, imputed_trees};
-pub use matching::{match_topologies, unmatched_mccs};
+pub use matching::unmatched_mccs;
 pub use sorting::{keeps_run_order, last_sorting_pair, sort_for_pair, sort_strictness};
 
 use crate::bits::Bits;
@@ -24,6 +24,7 @@ use crate::progress::Progress;
 use crate::resolve::{insert_all_on, resolve_trees, resolve_with_mccs};
 use crate::tree::{Taxa, Tree};
 use imputed::attach_pair;
+pub(crate) use matching::match_topologies;
 use rand::SeedableRng;
 use rand_xoshiro::Xoshiro256PlusPlus;
 use rayon::prelude::*;

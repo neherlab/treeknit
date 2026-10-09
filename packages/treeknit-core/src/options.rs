@@ -87,7 +87,7 @@ impl Options {
   }
 
   /// Resolve during pair inference.
-  pub fn resolves(&self) -> bool {
+  pub(crate) fn resolves(&self) -> bool {
     self.resolution != Resolution::None
   }
 

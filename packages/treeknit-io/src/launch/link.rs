@@ -18,14 +18,14 @@ use std::io::Write;
 use tsify::Tsify;
 
 /// Start of an inline session: a gzip-compressed session file in base64, as a `data:` location.
-pub const INLINE_SESSION_PREFIX: &str = "data:application/gzip;base64,";
+const INLINE_SESSION_PREFIX: &str = "data:application/gzip;base64,";
 
 /// Longest link to write: Chrome's address bar shows at most 32 kB of a URL.
 pub const MAX_LINK_CHARS: usize = 32_000;
 
 /// Link length above which chat apps (Slack allows 4,000 characters per message), link
 /// shorteners (Bitly allows 2,048), and QR codes may break a link.
-pub const LONG_LINK_CHARS: usize = 2_000;
+const LONG_LINK_CHARS: usize = 2_000;
 
 /// The characters of a value of [`link_query`] that a reader of form data would misread.
 const VALUE_SET: &AsciiSet = &CONTROLS
@@ -300,8 +300,8 @@ fn changed<'a, T: PartialEq>(value: &'a T, base: &T) -> Option<&'a T> {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 pub struct LinkEntry {
-  pub key: String,
-  pub value: String,
+  key: String,
+  value: String,
 }
 
 impl LinkEntry {
@@ -333,10 +333,10 @@ pub struct LinkSource {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct LinkLimits {
-  pub fetch_timeout_seconds: u32,
-  pub max_download_bytes: usize,
-  pub max_link_chars: usize,
-  pub long_link_chars: usize,
+  fetch_timeout_seconds: u32,
+  max_download_bytes: usize,
+  max_link_chars: usize,
+  long_link_chars: usize,
 }
 
 /// Where a link can get a tree of the workspace again.

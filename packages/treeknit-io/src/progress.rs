@@ -10,19 +10,19 @@ use tsify::Tsify;
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct Progress {
-  pub phase: Phase,
+  phase: Phase,
   /// Completed fraction of the run, from 0 to 1, never decreasing during a run.
-  pub fraction: f64,
+  fraction: f64,
   /// Round in progress, 1-based, in the phase `pairs`; the number of rounds in `matching` and
   /// `done`.
-  pub round: usize,
+  round: usize,
   /// Number of rounds, including the final round without resolution.
-  pub rounds: usize,
+  rounds: usize,
   /// Pair in progress, 1-based, in pipeline order, in the phase `pairs`; the number of pairs in
   /// `matching` and `done`.
-  pub pair: usize,
+  pair: usize,
   /// Number of pairs.
-  pub pairs: usize,
+  pairs: usize,
 }
 
 impl From<progress::Progress> for Progress {

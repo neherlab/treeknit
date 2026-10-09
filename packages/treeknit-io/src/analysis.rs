@@ -8,21 +8,25 @@
 mod labels;
 mod settings;
 
-pub use labels::{label_key, pair_stem, tree_labels};
-pub use settings::{MAX_MCMC_IT, MAX_ROUNDS, MAX_SEED, ResolveMode, SettingKey, Settings, check_settings, options};
+pub use labels::{label_key, tree_labels};
+pub use settings::{MAX_SEED, ResolveMode, SettingKey, Settings, options};
 
 use crate::figure::FigureOptionKey;
 use crate::newick;
 use crate::output::{self, OutputOptions};
 use crate::wire::wire_name;
+pub(crate) use labels::pair_stem;
 use labels::{check_labels, check_pair_stems};
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+pub(crate) use settings::check_settings;
+pub(crate) use settings::{MAX_MCMC_IT, MAX_ROUNDS};
 use treeknit_core::{Options, Taxa, Tree};
 #[cfg(feature = "tsify")]
 use tsify::Tsify;
 
 /// Fewest leaves a pair of trees must share. With fewer, the pair has no MCCs to infer.
-pub const MIN_SHARED_LEAVES: usize = 2;
+pub(crate) const MIN_SHARED_LEAVES: usize = 2;
 
 /// Least number of trees of a run, because TreeKnit infers the MCCs of pairs of trees.
 pub const MIN_TREES: usize = 2;
@@ -64,7 +68,7 @@ pub fn prepare(
 }
 
 /// The labels of `trees`, in their order.
-pub fn labels(trees: &[TreeText]) -> Vec<String> {
+pub(crate) fn labels(trees: &[TreeText]) -> Vec<String> {
   trees.iter().map(|t| t.label.clone()).collect()
 }
 
@@ -157,7 +161,7 @@ pub fn read_session(text: &str) -> Result<AnalysisRequest, Vec<ValidationError>>
 
 /// Shared leaf count of every pair of `trees`, in the pair order of `treeknit_core::run`:
 /// `(0,1), (0,2), ..., (1,2), ...`. The trees carry taxa from a table of `n_taxa` leaves.
-pub fn shared_leaf_counts(trees: &[Tree], n_taxa: usize) -> Vec<PairShared> {
+pub(crate) fn shared_leaf_counts(trees: &[Tree], n_taxa: usize) -> Vec<PairShared> {
   let sets: Vec<_> = trees.iter().map(|t| t.leaf_set(n_taxa)).collect();
   let mut counts = Vec::new();
   for i in 0..sets.len() {
@@ -196,8 +200,8 @@ pub struct AnalysisRequest {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(deny_unknown_fields)]
 pub struct TreeText {
-  pub label: String,
-  pub newick: String,
+  pub(crate) label: String,
+  pub(crate) newick: String,
 }
 
 impl TreeText {
@@ -312,9 +316,9 @@ pub struct ParsedTrees {
 /// Shared leaf count of the trees `i` and `j`, with `i < j`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PairShared {
-  pub i: usize,
-  pub j: usize,
-  pub shared: usize,
+  pub(crate) i: usize,
+  pub(crate) j: usize,
+  pub(crate) shared: usize,
 }
 
 #[cfg(test)]

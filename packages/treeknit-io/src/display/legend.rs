@@ -127,11 +127,11 @@ fn item(kind: LegendKind, marks: Vec<LegendMark>) -> LegendItem {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct LegendItem {
-  pub kind: LegendKind,
+  pub(crate) kind: LegendKind,
   /// `kind.label()`, and for a segment the label of its tree after it.
-  pub label: String,
+  pub(crate) label: String,
   /// The parts of the symbol, drawn in order.
-  pub marks: Vec<LegendMark>,
+  pub(crate) marks: Vec<LegendMark>,
 }
 
 /// What a legend entry stands for.

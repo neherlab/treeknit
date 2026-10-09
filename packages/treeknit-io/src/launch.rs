@@ -19,12 +19,12 @@ mod location;
 mod read;
 
 pub use link::{
-  INLINE_SESSION_PREFIX, LONG_LINK_CHARS, LinkEntry, LinkLimits, LinkSource, MAX_LINK_CHARS, TreeAddress,
-  inline_session, launch_pairs, link_limits, link_pairs, link_query, query_pairs, web_link,
+  LinkEntry, LinkLimits, LinkSource, MAX_LINK_CHARS, TreeAddress, inline_session, launch_pairs, link_limits,
+  link_pairs, link_query, query_pairs, web_link,
 };
 pub use location::{
-  DecodeError, FETCH_TIMEOUT_SECONDS, LinkLocation, LocationError, MAX_DOWNLOAD_BYTES, MAX_TEXT_BYTES, UrlPlace,
-  decode_tree_bytes, parse_location, request_url, url_place,
+  DecodeError, FETCH_TIMEOUT_SECONDS, LinkLocation, LocationError, MAX_DOWNLOAD_BYTES, UrlPlace, decode_tree_bytes,
+  parse_location, request_url, url_place,
 };
 pub use read::parse_launch;
 
@@ -37,7 +37,7 @@ use tsify::Tsify;
 
 /// The version of the link format that this build reads and writes. A link without `v` is
 /// version 1, now and after later versions, so that published links keep their meaning.
-pub const FORMAT_VERSION: u64 = 1;
+pub(crate) const FORMAT_VERSION: u64 = 1;
 
 /// The label and the location of a tree token `[<label>=]<location>`: the text before the first
 /// `=` is a label when it is not empty and holds no `:`, `/`, or `\`, which a label cannot hold
@@ -240,12 +240,12 @@ pub struct IgnoredKey {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchKeyInfo {
-  pub key: String,
+  key: String,
   /// For a flag, the key that sets the other value.
-  pub opposite: Option<String>,
+  opposite: Option<String>,
   /// The form of the value, such as `<number>`; `None` for a key without a value.
-  pub value: Option<String>,
-  pub description: String,
+  value: Option<String>,
+  description: String,
 }
 
 #[cfg(test)]

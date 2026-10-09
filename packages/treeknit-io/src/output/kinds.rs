@@ -108,7 +108,7 @@ pub struct FileReference {
 
 /// Longest file name of the file systems of the release targets, in bytes: 255 bytes in ext4,
 /// APFS, and NTFS (where it is 255 UTF-16 units, which UTF-8 bytes bound from above).
-pub const MAX_FILE_NAME_BYTES: usize = 255;
+const MAX_FILE_NAME_BYTES: usize = 255;
 
 /// Output file names that a file system cannot hold: names longer than `MAX_FILE_NAME_BYTES`,
 /// such as `tanglegram_<a>_<b>.svg` of two long labels, and files of different trees or kinds
@@ -119,7 +119,7 @@ pub const MAX_FILE_NAME_BYTES: usize = 255;
 /// extension of the command line, such as `.dat`: the file set of the web app gives each kind of
 /// file its own prefix, suffix, extension, or folder. `labels` must have passed the checks of
 /// `analysis::parse_trees`, which reports repeated labels and pair names.
-pub fn check_output_paths(labels: &[String], options: &OutputOptions) -> Vec<ValidationError> {
+pub(crate) fn check_output_paths(labels: &[String], options: &OutputOptions) -> Vec<ValidationError> {
   let error = |message: String| ValidationError::at(Field::Trees, message);
   let paths = output_paths(labels, options);
   let mut errors = Vec::new();
@@ -361,7 +361,7 @@ fn mccs_lines_path(k: usize, a: &str, b: &str) -> String {
 }
 
 /// Path of the Auspice JSON file of the tree labeled `label`.
-pub fn auspice_path(label: &str) -> String {
+pub(crate) fn auspice_path(label: &str) -> String {
   format!("auspice_{label}.json")
 }
 

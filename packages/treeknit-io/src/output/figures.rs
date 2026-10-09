@@ -137,9 +137,9 @@ pub struct FigureDownload {
   /// its version and options; otherwise its stem with the version, the shown scale, and every
   /// option that differs from the default, such as `tanglegram_ha_na_imputed_depth_w800.svg`, so
   /// that a figure of other options never takes the name of the listed one.
-  pub file_name: String,
+  file_name: String,
   /// The SVG text.
-  pub text: String,
+  text: String,
 }
 
 /// The downloads of the Auspice view: the name of its SVG figure and the datasets of the shown
@@ -151,11 +151,11 @@ pub struct AuspiceFiles {
   /// File name of the SVG figure without `.svg`, which Auspice's figure download appends:
   /// `auspice_<a>_<b>` for both trees, with the tree label appended for one tree, and with the
   /// version and the shown scale appended unless they are `resolved` and `div`.
-  pub svg_prefix: String,
+  svg_prefix: String,
   /// One Auspice v2 dataset per shown tree, as pretty-printed JSON named `<stem>_<label>.json`.
   /// The names differ from the listed `auspice_<label>.json` files of the command line, which
   /// hold other fields.
-  pub json: Vec<OutputFile>,
+  json: Vec<OutputFile>,
 }
 
 #[cfg(test)]

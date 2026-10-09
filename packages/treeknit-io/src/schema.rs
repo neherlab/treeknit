@@ -20,7 +20,7 @@ pub const ROUNDS_HELP: &str = "Rounds of pair inference.";
 pub const SEED_HELP: &str = "Seed of the random number generator, so that a run can be repeated.";
 
 /// Help on the order of the trees.
-pub const TREE_ORDER_HELP: &str = "With matched resolution, splits of earlier trees win conflicts.";
+const TREE_ORDER_HELP: &str = "With matched resolution, splits of earlier trees win conflicts.";
 
 /// Help on the final round without resolution (`--no-final-round` skips it).
 pub const FINAL_ROUND_HELP: &str = "With strict or liberal resolution and more than two trees, re-infer the MCCs without \
@@ -323,11 +323,11 @@ pub enum KeyValue {
 #[serde(rename_all = "camelCase")]
 pub struct SettingsSchema {
   /// One entry per setting, named as the field of `Settings`.
-  pub settings: SettingFields,
+  settings: SettingFields,
   /// The resolution modes, in the order the web app lists them.
-  pub modes: Vec<ModeInfo>,
+  modes: Vec<ModeInfo>,
   /// Help on why the order of the trees matters.
-  pub tree_order_help: String,
+  tree_order_help: String,
 }
 
 /// The schema of each field of `Settings`, except `resolve`, which `SettingsSchema.modes`
@@ -336,16 +336,16 @@ pub struct SettingsSchema {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct SettingFields {
-  pub gamma: NumberSetting,
+  gamma: NumberSetting,
   /// One sequence length per tree; `default` is the length a newly added tree gets.
-  pub seq_lengths: NumberSetting,
-  pub n_mcmc_it: NumberSetting,
-  pub rounds: NumberSetting,
-  pub seed: NumberSetting,
-  pub pre_resolve: ToggleSetting,
-  pub final_round: ToggleSetting,
-  pub likelihood: ToggleSetting,
-  pub naive: ToggleSetting,
+  seq_lengths: NumberSetting,
+  n_mcmc_it: NumberSetting,
+  rounds: NumberSetting,
+  seed: NumberSetting,
+  pre_resolve: ToggleSetting,
+  final_round: ToggleSetting,
+  likelihood: ToggleSetting,
+  naive: ToggleSetting,
 }
 
 /// A numeric setting.
@@ -353,25 +353,25 @@ pub struct SettingFields {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct NumberSetting {
-  pub default: f64,
+  default: f64,
   /// Smallest accepted value, or, with `min_exclusive`, the bound that values must exceed.
-  pub min: f64,
+  min: f64,
   /// Values must be greater than `min`, not equal to it.
-  pub min_exclusive: bool,
+  min_exclusive: bool,
   /// Largest accepted value; `None` without an upper bound.
-  pub max: Option<f64>,
+  max: Option<f64>,
   /// Step of the input control, or none for any value, as `step="any"` of an HTML number input.
   /// A step also restricts the valid values to `min + n * step`, so real-valued settings have
   /// none.
-  pub step: Option<f64>,
+  step: Option<f64>,
   /// Only whole numbers are accepted, such as a count or a seed.
-  pub integer: bool,
+  integer: bool,
   /// The setting changes the result of a run with the current settings.
-  pub applies: bool,
+  applies: bool,
   /// Why the setting does not apply; `None` when it applies.
-  pub reason: Option<String>,
+  reason: Option<String>,
   /// One-sentence help text.
-  pub help: String,
+  help: String,
 }
 
 /// An on-off setting.
@@ -379,13 +379,13 @@ pub struct NumberSetting {
 #[cfg_attr(feature = "tsify", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct ToggleSetting {
-  pub default: bool,
+  default: bool,
   /// The setting changes the result of a run with the current settings.
-  pub applies: bool,
+  applies: bool,
   /// Why the setting does not apply; `None` when it applies.
-  pub reason: Option<String>,
+  reason: Option<String>,
   /// One-sentence help text.
-  pub help: String,
+  help: String,
 }
 
 /// A resolution mode with its display name and its effect.
