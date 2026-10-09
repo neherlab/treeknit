@@ -693,7 +693,7 @@ The ARG file `ARG/arg.nwk` is written by `fn extended_newick()` in [packages/tre
 - **Drawing**: `plot()` draws the base tree through the primary parent `ARGNode_4` and one blue diagonal line from `ARGNode_8`
   - **Overlap**: the hybrid node label overlaps the tip label `X`
 - **Zero-length hybrid edge** (observed): a variant where the hybrid node has length 0 to its primary parent reads and draws correctly, because ape never collapses zero-length edges
-  - **TreeKnit**: such edges can occur in TreeKnit ARGs, where reassortment edges get `min(b1, b2) / 2` (`fn set_branch_lengths()` in [packages/treeknit-core/src/arg.rs#L492-L539](../../packages/treeknit-core/src/arg.rs#L492-L539))
+  - **TreeKnit**: such edges can occur in TreeKnit ARGs, where reassortment edges get `min(b1, b2) / 2` (`fn set_branch_lengths()` in [packages/treeknit-core/src/arg.rs#L404-L456](../../packages/treeknit-core/src/arg.rs#L404-L456))
 - **Unshared roots**: TreeKnit then writes `GlobalRoot[&segments={0,1}]:0.0` (derived from the writer), which ape reads as a root label with a root edge of 0
 - **Failure case**: an ARG without reassortment would fail in `read.evonet()` ("vector size cannot be infinite"), so a TreeKnit run with a single MCC must be read with `read.tree()` (derived from the observed failure)
 

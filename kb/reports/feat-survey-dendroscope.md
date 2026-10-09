@@ -537,7 +537,7 @@ The Advanced Algorithms menu computes the following for two trees or networks ([
 
 ### TreeKnit files
 
-TreeKnit writes the following files ([packages/treeknit-io/src/output.rs#L206-L264](../../packages/treeknit-io/src/output.rs#L206-L264)):
+TreeKnit writes the following files ([packages/treeknit-io/src/output/kinds.rs#L177-L212](../../packages/treeknit-io/src/output/kinds.rs#L177-L212)):
 
 - **Resolved trees**: `<label>_resolved.<ext>`
 - **ARG**: the ARG in extended Newick (`ARG/arg.nwk`), the ARG node table, and the ARG segment trees
@@ -552,11 +552,11 @@ In the ARG every branch carries `[&segments={0,1}]`, and the annotation comes **
 - **ARG wrapped in NEXUS loads** (observed): the same string inside a NEXUS trees block opens, because the NEXUS tokenizer removes the brackets. The result:
   - **Segments lost**: no annotation survives, so Dendroscope cannot tell which segment a branch carries
   - **Reassortment branch lengths lost**: both edges into each hybrid node get length 0, and the phylogram places the hybrid node at its rightmost parent plus half a mean edge length
-    - TreeKnit's reassortment times, set from the matching branches of the two trees ([packages/treeknit-core/src/arg.rs#L492-L539](../../packages/treeknit-core/src/arg.rs#L492-L539)), are not shown
+    - TreeKnit's reassortment times, set from the matching branches of the two trees ([packages/treeknit-core/src/arg.rs#L404-L456](../../packages/treeknit-core/src/arg.rs#L404-L456)), are not shown
   - **Zero-length hybrid edges are harmless**: Dendroscope has no zero-length collapse, so a hybrid edge of length 0 draws normally (observed with `R1#H1:0.0`)
 - **Hybrid labels**: TreeKnit hybrid occurrences carry the same label on both occurrences, so the merged node keeps one label (derived from the merge rule)
 - **Resolved trees in a tanglegram**: resolved trees are plain Newick and load. Two derived risks:
-  - **Internal labels get connectors**: resolution inserts nodes named `RESOLVED_<n>`, numbered in each tree on its own ([packages/treeknit-core/src/resolve.rs#L140-L142](../../packages/treeknit-core/src/resolve.rs#L140-L142)). Equal names in the two trees would be connected even when the clades differ
+  - **Internal labels get connectors**: resolution inserts nodes named `RESOLVED_<n>`, numbered in each tree on its own ([packages/treeknit-core/src/resolve.rs#L87-L89](../../packages/treeknit-core/src/resolve.rs#L87-L89)). Equal names in the two trees would be connected even when the clades differ
   - **Internal label dialog**: in the GUI, any internal label in the first tree opens the dialog about node labels and support values
 - **MCCs**: Dendroscope has no input for clade groups or colours. A command script with `find` and `set color` per MCC is the only way to colour them
 - **TreeKnit's own reticulation semantics**: Dendroscope's hybridization networks label each reticulate edge with the input tree it comes from (`[1]` or `[2]`)

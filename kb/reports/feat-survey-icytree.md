@@ -310,7 +310,7 @@ Each entry gives the input, the effect, and the evidence. Observed entries were 
 
 TreeKnit's documentation recommends opening its extended Newick ARG in IcyTree ([TreeKnit.jl visualization](https://pierrebarrat.github.io/TreeKnit.jl/visualization/)). Issue #53 was reported with that output.
 
-- **Zero-length hybrid edges are possible** (derived): in this port, a reassortment node's edges get `min(b1, b2) / 2` and `b - min(b1, b2) / 2`, where `b1` and `b2` are the lengths of the matching branches in the two trees (`fn set_branch_lengths()` in [packages/treeknit-core/src/arg.rs#L492-L539](../../packages/treeknit-core/src/arg.rs#L492-L539)). When one of them is 0, for example after resolution inserts a split of length 0, the ARG contains a zero-length hybrid edge, which IcyTree's default collapse breaks as described under "Defects"
+- **Zero-length hybrid edges are possible** (derived): in this port, a reassortment node's edges get `min(b1, b2) / 2` and `b - min(b1, b2) / 2`, where `b1` and `b2` are the lengths of the matching branches in the two trees (`fn set_branch_lengths()` in [packages/treeknit-core/src/arg.rs#L404-L456](../../packages/treeknit-core/src/arg.rs#L404-L456)). When one of them is 0, for example after resolution inserts a split of length 0, the ARG contains a zero-length hybrid edge, which IcyTree's default collapse breaks as described under "Defects"
 - **Attributes**: the `[&segments={0,1}]` annotations are vectors, so IcyTree cannot colour by them (array values are invisible) but shows them in the hover table
 
 ## Ideas from the issue tracker and history

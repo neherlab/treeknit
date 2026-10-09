@@ -4,17 +4,17 @@ The section "Deliberate differences from TreeKnit.jl" of `docs/user/treeknit-jl.
 
 ## Error handling
 
-- **Incompatible split in the MCC resolution**: TreeKnit.jl calls `resolve!` with `conflict = :fail` and stops the run. The port skips the split with the warning "skipping split incompatible with tree <label>" ([resolve.rs#L300-L305](../../packages/treeknit-core/src/resolve.rs#L300-L305))
+- **Incompatible split in the MCC resolution**: TreeKnit.jl calls `resolve!` with `conflict = :fail` and stops the run. The port skips the split with the warning "skipping split incompatible with tree <label>" ([resolve.rs#L299-L304](../../packages/treeknit-core/src/resolve.rs#L299-L304))
 - **Failed ARG construction**: TreeKnit.jl stops the command. The port logs the error, writes no ARG, and exits with 0 ([run.rs#L83-L93](../../packages/treeknit-io/src/run.rs#L128-L138))
-- **`--verbosity-level -1`**: TreeKnit.jl still shows warnings. The port turns the terminal output off, warnings included ([main.rs#L618-L623](../../packages/treeknit-cli/src/main.rs#L663-L668))
+- **`--verbosity-level -1`**: TreeKnit.jl still shows warnings. The port turns the terminal output off, warnings included ([logging.rs#L18-L23](../../packages/treeknit-cli/src/logging.rs#L18-L23))
 
 ## Inference
 
-- **MCMC steps per temperature**: TreeKnit.jl computes `M = Int(ceil(length(ot1.lleaves) * oa.nMCMC / length(oa.Trange)))` as an unbounded `Int64` (`src/main.jl`). The port bounds the steps at 2^32 - 1, the largest `usize` of 32-bit WebAssembly, so the command line and the web app run the same steps; a pair reaches the bound only with more than 2^32 - 1 leaves times steps per leaf per temperature ([pair.rs#L85-L95](../../packages/treeknit-core/src/pair.rs#L85-L95))
+- **MCMC steps per temperature**: TreeKnit.jl computes `M = Int(ceil(length(ot1.lleaves) * oa.nMCMC / length(oa.Trange)))` as an unbounded `Int64` (`src/main.jl`). The port bounds the steps at 2^32 - 1, the largest `usize` of 32-bit WebAssembly, so the command line and the web app run the same steps; a pair reaches the bound only with more than 2^32 - 1 leaves times steps per leaf per temperature ([pair.rs#L85-L95](../../packages/treeknit-core/src/pair.rs#L72-L82))
 
 ## Command line
 
-- **`--rounds 1` with the former method options**: TreeKnit.jl applies `--rounds` only when the value is not 1, so `--better-MCCs --rounds 1` keeps two rounds for more than two trees. The port applies the value 1 ([main.rs#L534-L536](../../packages/treeknit-cli/src/main.rs#L578-L580)). `docs/user/treeknit-jl.md` says that the former options reproduce the TreeKnit.jl results
+- **`--rounds 1` with the former method options**: TreeKnit.jl applies `--rounds` only when the value is not 1, so `--better-MCCs --rounds 1` keeps two rounds for more than two trees. The port applies the value 1 ([main.rs#L534-L536](../../packages/treeknit-cli/src/input.rs#L429-L431)). `docs/user/treeknit-jl.md` says that the former options reproduce the TreeKnit.jl results
 - **`--gamma`, `--n-mcmc-it`, `--no-likelihood`, `--seq-lengths`, `--parallel`**: the TreeKnit.jl command line passes these values to `OptArgs(K; ...)`, which reads none of them (and reads the sequence lengths under the misspelled key `seq_lenghts`), so every TreeKnit.jl run uses γ = 2, 50 steps per leaf, the likelihood test, and sequence lengths 1 (`kb/feat/v0/documented-vs-actual.md`). The port applies the values. `docs/user/treeknit-jl.md` states that the former options reproduce the TreeKnit.jl results only when these options keep their defaults; the `--help-resolve` text omits this condition
 - **`--help-defaults`**: TreeKnit.jl explains the method presets. The port prints the `--help-resolve` text
 - **Extension of output trees**: TreeKnit.jl uses the extension of the first input file for all output trees. The port uses the extension of each input file
@@ -31,7 +31,7 @@ The section "Deliberate differences from TreeKnit.jl" of `docs/user/treeknit-jl.
 
 - **`parameters.json`**: the field names and the field set differ (see `kb/feat/formats.md`)
 - **`log.txt`**: the line format differs
-- **ARG branch lengths**: TreeKnit.jl adds `eps()` to each length that it sets, so zero lengths appear as `2.220446049250313e-16`; the port adds nothing ([arg.rs#L490-L542](../../packages/treeknit-core/src/arg.rs#L490-L542))
+- **ARG branch lengths**: TreeKnit.jl adds `eps()` to each length that it sets, so zero lengths appear as `2.220446049250313e-16`; the port adds nothing ([arg.rs#L404-L456](../../packages/treeknit-core/src/arg.rs#L404-L456))
 - **`nodes.dat`**: the port ends the file with a newline and writes the lines in ARG node order
 
 > [!IMPORTANT]

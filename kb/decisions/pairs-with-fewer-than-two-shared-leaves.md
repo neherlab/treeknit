@@ -4,8 +4,8 @@ TreeKnit.jl requires every tree to have the same leaves. The port accepts trees 
 
 ## Decision
 
-- **A request is invalid on both surfaces.** The shared tree checks of `treeknit_io::analysis` report every pair with fewer than two shared leaves as `trees "<a>" and "<b>" share fewer than 2 leaves` on the field `trees` [[src](../../packages/treeknit-io/src/analysis.rs#L217-L268)]. The command line stops with exit code 1 before it writes `parameters.json`, with the resolution modes and with the former options. The web app shows the error before a run, and `Session.run` throws a `ValidationError`
-- **The core skips the pair.** `treeknit_core::run` called directly (a library user, a test) skips such a pair with the warning "trees <a> and <b> share fewer than two leaves: skipped": inference returns no MCCs, and resolution, sorting, and matching leave the pair's trees unchanged [[src](../../packages/treeknit-core/src/pipeline.rs#L441-L484)]. `attach_pair` attaches nothing to a pair without MCCs, so imputation places no leaf through it
+- **A request is invalid on both surfaces.** The shared tree checks of `treeknit_io::analysis` report every pair with fewer than two shared leaves as `trees "<a>" and "<b>" share fewer than 2 leaves` on the field `trees` [[src](../../packages/treeknit-io/src/analysis.rs#L275-L314)]. The command line stops with exit code 1 before it writes `parameters.json`, with the resolution modes and with the former options. The web app shows the error before a run, and `Session.run` throws a `ValidationError`
+- **The core skips the pair.** `treeknit_core::run` called directly (a library user, a test) skips such a pair with the warning "trees <a> and <b> share fewer than two leaves: skipped": inference returns no MCCs, and resolution, sorting, and matching leave the pair's trees unchanged [[src](../../packages/treeknit-core/src/pipeline.rs#L227-L286)]. `attach_pair` attaches nothing to a pair without MCCs, so imputation places no leaf through it
 
 ## Rationale
 
@@ -17,4 +17,4 @@ TreeKnit.jl requires every tree to have the same leaves. The port accepts trees 
 
 - **Core**: `pair_without_shared_leaves_is_skipped` and `pair_with_one_shared_leaf_is_skipped` in `packages/treeknit-core/src/pipeline.rs`, in all four resolution modes
 - **Validation**: `pairs_sharing_fewer_than_two_leaves_are_rejected` in `packages/treeknit-io/src/analysis.rs`
-- **Command line**: `pairs_sharing_fewer_than_two_leaves_exit_with_their_message` in `packages/treeknit-cli/tests/cli.rs`, on the `--resolve` path and on a former-options path
+- **Command line**: `pairs_sharing_fewer_than_two_leaves_exit_with_their_message` in `packages/treeknit-cli/tests/cli/errors.rs`, on the `--resolve` path and on a former-options path

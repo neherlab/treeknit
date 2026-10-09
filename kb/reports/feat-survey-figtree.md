@@ -631,7 +631,7 @@ Each entry gives the input, the effect, and the evidence.
 
 ## Interaction with TreeKnit output
 
-This port writes all trees as Newick text ([packages/treeknit-io/src/output.rs#L276-L289](../../packages/treeknit-io/src/output.rs#L276-L289)) and writes no NEXUS file.
+This port writes all trees as Newick text ([packages/treeknit-io/src/output/kinds.rs#L271-L284](../../packages/treeknit-io/src/output/kinds.rs#L271-L284)) and writes no NEXUS file.
 
 ### ARG file
 

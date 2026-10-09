@@ -1,6 +1,6 @@
 # Label check misses file-system name rules beyond case
 
-A tree label is the file-name stem of the tree's output files, so `fn check_labels` in `packages/treeknit-io/src/analysis.rs` rejects labels that cannot name a file, or that name the same file as another label, on a release target. Labels name the same file when their `fn label_key` is equal: each character lowercased on its own. The command line (`fn path_labels` in `packages/treeknit-cli/src/main.rs`) and the web app (`fn tree_labels`) use the same key. File systems apply rules that this key and the check do not cover:
+A tree label is the file-name stem of the tree's output files, so `fn check_labels` in `packages/treeknit-io/src/analysis/labels.rs` rejects labels that cannot name a file, or that name the same file as another label, on a release target. Labels name the same file when their `fn label_key` is equal: each character lowercased on its own. The command line (`fn path_labels` in `packages/treeknit-cli/src/main.rs`) and the web app (`fn tree_labels`) use the same key. File systems apply rules that this key and the check do not cover:
 
 - **Unicode normalization**: APFS on macOS treats the composed `é` (U+00E9) and the decomposed `e` + U+0301 as one name. The two labels pass the check, and the output files of the second tree replace those of the first
 - **Case folding beyond lowercase**: NTFS compares names with its upper-case table, and Unicode case folding maps some characters that lowercasing keeps apart, such as the final sigma `ς` and `σ`, or `ſ` and `s`

@@ -683,7 +683,7 @@ Timings come from one run in the trial container on a shared machine. They show 
 
 ## Interaction with TreeKnit output
 
-The shapes below come from `extended_newick` in [packages/treeknit-io/src/arg.rs#L14-L64](../../packages/treeknit-io/src/arg.rs#L14-L64), `auspice_json` in [packages/treeknit-io/src/auspice.rs#L18-L60](../../packages/treeknit-io/src/auspice.rs#L18-L60), and the CLI test outputs in [packages/treeknit-cli/tests/data/outputs/two/expected/](../../packages/treeknit-cli/tests/data/outputs/two/expected/). TreeKnit writes its tree files as Newick text, also when the input extension is `.tree` or `.nex` ([packages/treeknit-io/src/newick.rs#L347-L392](../../packages/treeknit-io/src/newick.rs#L347-L392)).
+The shapes below come from `extended_newick` in [packages/treeknit-io/src/arg.rs#L14-L64](../../packages/treeknit-io/src/arg.rs#L14-L64), `auspice_json` in [packages/treeknit-io/src/auspice.rs#L13-L55](../../packages/treeknit-io/src/auspice.rs#L13-L55), and the CLI test outputs in [packages/treeknit-cli/tests/data/outputs/two/expected/](../../packages/treeknit-cli/tests/data/outputs/two/expected/). TreeKnit writes its tree files as Newick text, also when the input extension is `.tree` or `.nex` ([packages/treeknit-io/src/auspice.rs#L7-L59](../../packages/treeknit-io/src/auspice.rs#L7-L59)).
 
 - **Resolved trees** (observed): `ha_resolved.nwk` and `na_resolved.nwk` load with `load_newick` and keep the internal names `NODE_1`, `NODE_2`, ... as `traits['label']`
   - `plot_tanglegram` draws the pair, but `untangle_trees` leaves two crossings (see "Untangling")

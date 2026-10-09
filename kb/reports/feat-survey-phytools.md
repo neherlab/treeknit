@@ -507,7 +507,7 @@ Each entry gives the input, the effect, and the evidence. Observed entries were 
 
 ## Interaction with TreeKnit output
 
-TreeKnit writes three kinds of output ([packages/treeknit-io/src/arg.rs#L12-L86](../../packages/treeknit-io/src/arg.rs#L12-L86), [packages/treeknit-io/src/mccs.rs#L58-L60](../../packages/treeknit-io/src/mccs.rs#L58-L60), [packages/treeknit-io/src/output.rs#L206-L240](../../packages/treeknit-io/src/output.rs#L206-L240)):
+TreeKnit writes three kinds of output ([packages/treeknit-io/src/arg.rs#L12-L86](../../packages/treeknit-io/src/arg.rs#L12-L86), [packages/treeknit-io/src/mccs.rs#L39-L42](../../packages/treeknit-io/src/mccs.rs#L39-L42), [packages/treeknit-io/src/output/kinds.rs#L177-L212](../../packages/treeknit-io/src/output/kinds.rs#L177-L212)):
 
 - **Resolved trees**: Newick with internal labels and zero-length branches
 - **ARG**: extended Newick with `label#Hi` hybrid nodes and `[&segments={0,1}]` on every branch

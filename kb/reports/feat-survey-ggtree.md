@@ -548,7 +548,7 @@ Observed with the output of `treeknit --auspice-view --plot` on `fixtures/sim/si
   - **`read.beast.newick()`** fails on the same two missing lengths (see "Defects")
   - **Reticulations** can be added by hand as dashed `geom_taxalink()` curves after the missing lengths are set to 0 (see "Networks and reticulations")
 - **Auspice JSON** (`auspice_<tree>.json`): `read.nextstrain.json()` fails (see "Defects")
-  - **Cause**: MCC values are strings, and nodes outside every MCC carry the string `"null"` (`fn auspice_json()` in [packages/treeknit-io/src/auspice.rs#L44](../../packages/treeknit-io/src/auspice.rs#L44))
+  - **Cause**: MCC values are strings, and nodes outside every MCC carry the string `"null"` (`fn auspice_json()` in [packages/treeknit-io/src/auspice.rs#L39](../../packages/treeknit-io/src/auspice.rs#L39))
 
 ## Ideas from the issue tracker and history
 

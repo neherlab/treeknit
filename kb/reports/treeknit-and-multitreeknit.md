@@ -233,7 +233,7 @@ The study recommends 1 round with pre-resolution and a final round without resol
 
 ## Relation to this port
 
-- **Pipeline**: the port runs the multi-tree pipeline in `pub fn run_observed()` [[src](../../packages/treeknit-core/src/pipeline.rs#L189)], with independent pairs in parallel and seeded runs
+- **Pipeline**: the port runs the multi-tree pipeline in `pub fn run_observed()` [[src](../../packages/treeknit-core/src/pipeline.rs#L68)], with independent pairs in parallel and seeded runs
 - **Default resolution**: `matched` resolves all trees so that, for every pair and every MCC, the two trees restricted to the MCC's leaves have the same topology. When splits from different trees conflict inside a shared region, the MCC is replaced by the maximal clades on which its two trees agree [[doc](../../docs/user/usage.md#resolving-trees)]. This satisfies the topological compatibility condition by construction. The TreeKnit.jl presets remain available as former options with their original meaning (see [section "Former options" of `docs/user/treeknit-jl.md`](../../docs/user/treeknit-jl.md#former-options))
 - **Triplet consistency**: no mode enforces it, and the port does not report violations. [`N-cross-pair-mcc-consistency-unreported.md`](../issues/N-cross-pair-mcc-consistency-unreported.md) records the open decision. The check it proposes is the partition test that MTKTools uses for its metric
   - **Measured violations**: the MCCs of the port violate the condition on the simulated fixtures in every resolution mode, and on the four-segment H3N2 data in both settings measured (see [`cross-pair-mcc-consistency.md`](../proposals/cross-pair-mcc-consistency.md#measured-inconsistency))

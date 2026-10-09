@@ -471,7 +471,7 @@ TreeKnit writes its ARG as extended Newick with `#H` hybrid nodes and `[&segment
 - **Times are needed**: tskit needs node times, while TreeKnit stores branch lengths
   - Times must be derived from root-to-node distances
   - Every zero-length branch must be lengthened first, because tskit rejects a parent at the same time as its child (observed)
-  - This port's `fn set_branch_lengths()` gives a reassortment node edges of `min(b1, b2) / 2`, which is 0 when one of the matching branches has length 0 ([packages/treeknit-core/src/arg.rs#L490-L540](../../packages/treeknit-core/src/arg.rs#L490-L540))
+  - This port's `fn set_branch_lengths()` gives a reassortment node edges of `min(b1, b2) / 2`, which is 0 when one of the matching branches has length 0 ([packages/treeknit-core/src/arg.rs#L490-L540](../../packages/treeknit-core/src/splitgraph.rs#L252-L254))
 - **Segment roots**: when the two segment trees have different roots, TreeKnit adds a `GlobalRoot` with a zero-length branch
   - In a tree sequence each segment interval can keep its own root, so this artificial node is not needed
 - **MCC colouring**: there is no attribute mapping

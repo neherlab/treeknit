@@ -6,18 +6,21 @@ The workspace enables the Clippy `restriction` group, plus `unwrap_used`, `expec
 
 ## Locations
 
-| Module                                 | Lints in the baseline                                                 |
-| -------------------------------------- | --------------------------------------------------------------------- |
-| `packages/treeknit-core/src/anneal.rs`     | `as_conversions`                                                      |
-| `packages/treeknit-core/src/arg.rs`        | `disallowed_types`, `iter_over_hash_type`, `unwrap_used`              |
-| `packages/treeknit-core/src/impute.rs`     | `expect_used`, `unwrap_used`                                          |
-| `packages/treeknit-core/src/mcc_map.rs`    | `as_conversions`, `disallowed_types`, `unwrap_used`                   |
-| `packages/treeknit-core/src/naive.rs`      | `expect_used`, `unwrap_used`                                          |
-| `packages/treeknit-core/src/pair.rs`       | `unwrap_used`                                                         |
-| `packages/treeknit-core/src/pipeline.rs`   | `as_conversions`, `disallowed_types`, `expect_used`, `unwrap_used`    |
-| `packages/treeknit-core/src/resolve.rs`    | `unwrap_used`                                                         |
-| `packages/treeknit-core/src/splitgraph.rs` | `as_conversions`, `expect_used`, `unwrap_used`                        |
-| `packages/treeknit-core/src/tree.rs`       | `disallowed_types`, `expect_used`, `unwrap_used`                      |
+| Module                                            | Lints in the baseline                                    |
+| ------------------------------------------------- | -------------------------------------------------------- |
+| `packages/treeknit-core/src/anneal.rs`            | `as_conversions`                                         |
+| `packages/treeknit-core/src/arg.rs`               | `disallowed_types`, `iter_over_hash_type`, `unwrap_used` |
+| `packages/treeknit-core/src/impute.rs`            | `expect_used`, `unwrap_used`                             |
+| `packages/treeknit-core/src/mcc_map.rs`           | `as_conversions`, `disallowed_types`, `unwrap_used`      |
+| `packages/treeknit-core/src/naive.rs`             | `expect_used`, `unwrap_used`                             |
+| `packages/treeknit-core/src/pair.rs`              | `unwrap_used`                                            |
+| `packages/treeknit-core/src/pipeline.rs`          | `as_conversions`, `expect_used`                          |
+| `packages/treeknit-core/src/pipeline/imputed.rs`  | `expect_used`, `unwrap_used`                             |
+| `packages/treeknit-core/src/pipeline/matching.rs` | `disallowed_types`, `expect_used`                        |
+| `packages/treeknit-core/src/pipeline/sorting.rs`  | `expect_used`                                            |
+| `packages/treeknit-core/src/resolve.rs`           | `unwrap_used`                                            |
+| `packages/treeknit-core/src/splitgraph.rs`        | `as_conversions`, `expect_used`, `unwrap_used`           |
+| `packages/treeknit-core/src/tree.rs`              | `disallowed_types`, `expect_used`, `unwrap_used`         |
 
 `just review-suppressions` lists the attributes.
 

@@ -4,7 +4,7 @@ Naive MCCs are the maximal subtrees that are identical in all trees. The port fi
 
 ## Problem
 
-- **Algorithm**: `pub fn naive_mccs()` and `fn is_coherent()` [packages/treeknit-core/src/naive.rs#L24-L117](../../packages/treeknit-core/src/naive.rs#L24-L117). From each unvisited leaf, the climb moves to the parent while the parent clades are equal in all trees and `is_coherent` confirms that the subtrees below are identical. `is_coherent` walks the matched children depth-first with an explicit stack and caches positive answers in a memo keyed by the node of the first tree only
+- **Algorithm**: `pub fn naive_mccs()` and `fn is_coherent()` [packages/treeknit-core/src/naive.rs#L58-L111](../../packages/treeknit-core/src/naive.rs#L58-L111). From each unvisited leaf, the climb moves to the parent while the parent clades are equal in all trees and `is_coherent` confirms that the subtrees below are identical. `is_coherent` walks the matched children depth-first with an explicit stack and caches positive answers in a memo keyed by the node of the first tree only
 - **Origin**: TreeKnit.jl `naive_mccs` and `is_coherent_clade` [[src](https://github.com/PierreBarrat/TreeKnit.jl/blob/dbbc89ac691fed0949a622eedbae103787b89320/src/mcc_base.jl#L13-L149)] use the same climb without a memo
 - **Defect**: the memo returns `true` for a node of the first tree that was matched earlier with a different node of another tree, before the child counts are compared. With a unary node in one tree, MCCs overlap and inference panics ([`H-naive-mccs-overlap-with-unary-nodes.md`](../issues/H-naive-mccs-overlap-with-unary-nodes.md))
 

@@ -1,14 +1,14 @@
 # Ancestral reassortment graph: parity checklist
 
-Counterpart: [`v0/arg.md`](v0/arg.md). `treeknit_core::arg` builds the ARG of two trees [[src](../../packages/treeknit-core/src/arg.rs#L140-L170)], and `treeknit_io::arg` writes it [[src](../../packages/treeknit-io/src/arg.rs#L19-L62)].
+Counterpart: [`v0/arg.md`](v0/arg.md). `treeknit_core::arg` builds the ARG of two trees [[src](../../packages/treeknit-core/src/arg.rs#L25-L55)], and `treeknit_io::arg` writes it [[src](../../packages/treeknit-io/src/arg.rs#L19-L62)].
 
 - [x] **Two segments only**: as in TreeKnit.jl. The command line and the web app build the ARG only for two trees
 
 ## Data model
 
-- [x] **`ArgNode`**: one parent per segment, as `Absent`, `Root`, or `Node(index)`, the branch length per segment, the children, the label, and the hybrid flag [[src](../../packages/treeknit-core/src/arg.rs#L20-L40)]. A leaf flag is new. The segments of a node follow from its parents, so there is no color field
-- [x] **`Arg`**: a vector of nodes, the root of each segment, the tree node labels of each ARG node, and the two trees the ARG was built from [[src](../../packages/treeknit-core/src/arg.rs#L42-L51)]. TreeKnit.jl keeps dictionaries keyed by label
-- [/] **Node queries**: `has`, `is_shared`, `is_root`, `Arg::parents`, `Arg::edge_segments` [[src](../../packages/treeknit-core/src/arg.rs#L53-L88)]. There is no counterpart of `is_global_root`, `is_partial_root`, `degree`, or `share_color`
+- [x] **`ArgNode`**: one parent per segment, as `Absent`, `Root`, or `Node(index)`, the branch length per segment, the children, the label, and the hybrid flag [[src](../../packages/treeknit-core/src/arg.rs#L504-L514)]. A leaf flag is new. The segments of a node follow from its parents, so there is no color field
+- [x] **`Arg`**: a vector of nodes, the root of each segment, the tree node labels of each ARG node, and the two trees the ARG was built from [[src](../../packages/treeknit-core/src/arg.rs#L458-L467)]. TreeKnit.jl keeps dictionaries keyed by label
+- [/] **Node queries**: `has`, `is_shared`, `is_root`, `Arg::parents`, `Arg::edge_segments` [[src](../../packages/treeknit-core/src/arg.rs#L474-L477)]. There is no counterpart of `is_global_root`, `is_partial_root`, `degree`, or `share_color`
 - [ ] **`check(n)` and `show`**: no node check and no display beyond the derived `Debug`
 
 ## Construction
@@ -18,10 +18,10 @@ Counterpart: [`v0/arg.md`](v0/arg.md). `treeknit_core::arg` builds the ARG of tw
 - [x] **Root length check**: the warning "root of an input tree has a branch length; ARG branch lengths may be off"
 - [x] **Copies**: the inputs do not change
 - [x] **Liberal resolution** with the MCCs
-- [x] **Node status**: MCC root, shared, shared singleton, or not shared, with the partner node in the other tree [[src](../../packages/treeknit-core/src/arg.rs#L172-L275)]
-- [x] **Shared singletons**: inserted into the other tree as `Singleton_<n>`, from the tree with the shorter branch below, or from tree 1 when a length is missing [[src](../../packages/treeknit-core/src/arg.rs#L277-L369)]. The names use a counter; TreeKnit.jl uses random characters. This differs on purpose ([`docs/user/treeknit-jl.md`](../../docs/user/treeknit-jl.md#deliberate-differences-from-treeknitjl))
-- [x] **ARG from tree 1**: a hybrid node above each MCC root whose partner is not the root of tree 2 [[src](../../packages/treeknit-core/src/arg.rs#L403-L429)]
-- [x] **Tree 2 added**: shared nodes get a second parent, MCC roots connect through their hybrid node, other nodes are new [[src](../../packages/treeknit-core/src/arg.rs#L431-L487)]
+- [x] **Node status**: MCC root, shared, shared singleton, or not shared, with the partner node in the other tree [[src](../../packages/treeknit-core/src/arg.rs#L57-L160)]
+- [x] **Shared singletons**: inserted into the other tree as `Singleton_<n>`, from the tree with the shorter branch below, or from tree 1 when a length is missing [[src](../../packages/treeknit-core/src/arg.rs#L162-L254)]. The names use a counter; TreeKnit.jl uses random characters. This differs on purpose ([`docs/user/treeknit-jl.md`](../../docs/user/treeknit-jl.md#deliberate-differences-from-treeknitjl))
+- [x] **ARG from tree 1**: a hybrid node above each MCC root whose partner is not the root of tree 2 [[src](../../packages/treeknit-core/src/arg.rs#L288-L314)]
+- [x] **Tree 2 added**: shared nodes get a second parent, MCC roots connect through their hybrid node, other nodes are new [[src](../../packages/treeknit-core/src/arg.rs#L316-L407)]
 - [x] **Node labels**: `ARGNode_<n>` from a counter; TreeKnit.jl uses random characters. This differs on purpose
 - [/] **Label maps**: `Arg::tree_nodes` gives the labels in tree 1 and tree 2 of each ARG node, with none for hybrid nodes, like `rlm`. The tree-to-ARG maps `lm1` and `lm2` stay internal
 - [x] **Hybrid count**: `Arg::n_hybrids` is the number of reassortments. Fixture comparison: `n_hybrids` of every two-tree case
@@ -30,7 +30,7 @@ Counterpart: [`v0/arg.md`](v0/arg.md). `treeknit_core::arg` builds the ARG of tw
 
 ## Branch lengths
 
-`fn set_branch_lengths` [[src](../../packages/treeknit-core/src/arg.rs#L490-L542)]:
+`fn set_branch_lengths` [[src](../../packages/treeknit-core/src/arg.rs#L404-L456)]:
 
 - [x] **Node in one tree only**: the length from that tree
 - [x] **Fully shared node**: the mean of the two lengths, with the TreeKnit.jl rules for a missing length at a root and elsewhere
@@ -52,7 +52,7 @@ Counterpart: [`v0/arg.md`](v0/arg.md). `treeknit_core::arg` builds the ARG of tw
 
 ## Trees from an ARG
 
-- [x] **Segment tree**: `Arg::segment_tree(c)` extracts the tree of one segment, with hybrid nodes as internal nodes with one child [[src](../../packages/treeknit-core/src/arg.rs#L94-L109)]. Fixture comparison: the splits of both segment trees after removal of those nodes, on every two-tree case including the simulated ARGs `test_srg_*`
+- [x] **Segment tree**: `Arg::segment_tree(c)` extracts the tree of one segment, with hybrid nodes as internal nodes with one child [[src](../../packages/treeknit-core/src/arg.rs#L487-L501)]. Fixture comparison: the splits of both segment trees after removal of those nodes, on every two-tree case including the simulated ARGs `test_srg_*`
 
 ## Functions that fail in TreeKnit.jl
 

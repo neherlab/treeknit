@@ -9,7 +9,7 @@ t0.nwk: (((A,B),(C,D)),E);
 t1.nwk: ((((A,B)),(C,D)),E);
 ```
 
-- `treeknit t0.nwk t1.nwk` panics: "index out of bounds: the len is 1 but the index is 18446744073709551615" at [splitgraph.rs#L258](../../packages/treeknit-core/src/splitgraph.rs#L258)
+- `treeknit t0.nwk t1.nwk` panics: "index out of bounds: the len is 1 but the index is 18446744073709551615" at [splitgraph.rs#L258](../../packages/treeknit-core/src/splitgraph.rs#L468)
 - `treeknit t0.nwk t1.nwk --naive` writes the MCCs `[A, B]` and `[A, B, C, D, E]`
 - TreeKnit.jl 0.5.8 `naive_mccs(t0, t1)` gives `[E]`, `[A, B]`, `[C, D]`
 

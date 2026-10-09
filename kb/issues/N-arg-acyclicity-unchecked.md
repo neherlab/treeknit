@@ -4,8 +4,8 @@ An ARG is a valid genealogy only if it has no directed cycle, so that its nodes 
 
 ## Locations
 
-- `pub fn arg_from_trees()` [packages/treeknit-core/src/arg.rs#L141-L170](../../packages/treeknit-core/src/arg.rs#L141-L170): builds the ARG and checks shared nodes, not cycles
-- `fn topological_order()` [packages/treeknit-io/src/display/arg_view.rs#L141-L160](../../packages/treeknit-io/src/display/arg_view.rs#L141-L160): Kahn's algorithm for the ARG drawing; a node on a cycle never enters the order, and the caller [packages/treeknit-io/src/display/arg_view.rs#L22-L29](../../packages/treeknit-io/src/display/arg_view.rs#L22-L29) does not check its length
+- `pub fn arg_from_trees()` [packages/treeknit-core/src/arg.rs#L20-L50](../../packages/treeknit-core/src/arg.rs#L20-L50): builds the ARG and checks shared nodes, not cycles
+- `fn topological_order()` [packages/treeknit-io/src/display/arg_view.rs#L104-L123](../../packages/treeknit-io/src/display/arg_view.rs#L104-L123): Kahn's algorithm for the ARG drawing; a node on a cycle never enters the order, and the caller [packages/treeknit-io/src/display/arg_view.rs#L104-L123](../../packages/treeknit-io/src/display/arg_view.rs#L104-L123) does not check its length
 
 > [!IMPORTANT]
 > **Investigation required.** No cyclic ARG has been observed. A property test over random tree pairs with every resolution mode, with and without leaves missing from one tree, would show whether the later steps can produce one.

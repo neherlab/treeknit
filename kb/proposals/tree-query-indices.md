@@ -6,7 +6,7 @@ Resolution and ARG construction answer two questions many times: "which node is 
 
 ### The LCA walk
 
-`pub fn Tree.lca()` [packages/treeknit-core/src/tree.rs#L235-L251](../../packages/treeknit-core/src/tree.rs#L235-L251) computes the depth of both nodes by walking to the root, then climbs both nodes until they meet. `pub fn Tree.lca_of()` [packages/treeknit-core/src/tree.rs#L253-L255](../../packages/treeknit-core/src/tree.rs#L253-L255) folds `lca` over all nodes of a set. The cost of one `lca_of` call is
+`pub fn Tree.lca()` [packages/treeknit-core/src/tree.rs#L17-L22](../../packages/treeknit-core/src/tree.rs#L17-L22) computes the depth of both nodes by walking to the root, then climbs both nodes until they meet. `pub fn Tree.lca_of()` [packages/treeknit-core/src/tree.rs#L17-L22](../../packages/treeknit-core/src/tree.rs#L17-L22) folds `lca` over all nodes of a set. The cost of one `lca_of` call is
 
 $$O(k \, d)$$
 
@@ -19,11 +19,11 @@ The walk comes from TreeTools.jl [[src](https://github.com/PierreBarrat/TreeTool
 
 ### Callers that run once per split or per MCC
 
-- `fn blca()` [packages/treeknit-core/src/resolve.rs#L24-L42](../../packages/treeknit-core/src/resolve.rs#L24-L42): `lca_of` over the leaves of a split, then a climb from every leaf to a child of the LCA
-- `pub fn resolve_trees()` [packages/treeknit-core/src/resolve.rs#L104](../../packages/treeknit-core/src/resolve.rs#L104): one `lca_of` per split of every tree, in up to 20 passes
-- `fn mcc_splits()` [packages/treeknit-core/src/resolve.rs#L161-L201](../../packages/treeknit-core/src/resolve.rs#L161-L201): one `blca` per internal node of every MCC; ARG construction runs it through `resolve_with_mccs` in liberal mode
-- `fn propagate_splits()` [packages/treeknit-core/src/pipeline.rs#L332-L362](../../packages/treeknit-core/src/pipeline.rs#L332-L362) with `pub fn insert_split()` [packages/treeknit-core/src/resolve.rs#L47-L65](../../packages/treeknit-core/src/resolve.rs#L47-L65), which also recomputes `clades` and `leaf_of` of the whole tree on every call ([`M-matched-topologies-slow-on-large-trees.md`](../issues/M-matched-topologies-slow-on-large-trees.md))
-- `fn shared_nodes()` and `fn fix_shared_singletons()` [packages/treeknit-core/src/arg.rs#L173-L331](../../packages/treeknit-core/src/arg.rs#L173-L331), `fn reduce_to_mccs()` and `fn prune_mccs()` (`packages/treeknit-core/src/pair.rs`), `fn closest_mcc()` and `fn graft_attachments()` (`packages/treeknit-core/src/impute.rs`)
+- `fn blca()` [packages/treeknit-core/src/resolve.rs#L279-L297](../../packages/treeknit-core/src/resolve.rs#L279-L297): `lca_of` over the leaves of a split, then a climb from every leaf to a child of the LCA
+- `pub fn resolve_trees()` [packages/treeknit-core/src/resolve.rs#L51](../../packages/treeknit-core/src/resolve.rs#L51): one `lca_of` per split of every tree, in up to 20 passes
+- `fn mcc_splits()` [packages/treeknit-core/src/resolve.rs#L130-L172](../../packages/treeknit-core/src/resolve.rs#L130-L172): one `blca` per internal node of every MCC; ARG construction runs it through `resolve_with_mccs` in liberal mode
+- `fn propagate_splits()` [packages/treeknit-core/src/pipeline/matching.rs#L71-L100](../../packages/treeknit-core/src/pipeline/matching.rs#L71-L100) with `pub fn insert_split()` [packages/treeknit-core/src/resolve.rs#L246-L266](../../packages/treeknit-core/src/resolve.rs#L246-L266), which also recomputes `clades` and `leaf_of` of the whole tree on every call ([`M-matched-topologies-slow-on-large-trees.md`](../issues/M-matched-topologies-slow-on-large-trees.md))
+- `fn shared_nodes()` and `fn fix_shared_singletons()` [packages/treeknit-core/src/arg.rs#L157-L210](../../packages/treeknit-core/src/arg.rs#L157-L210), `fn reduce_to_mccs()` and `fn prune_mccs()` (`packages/treeknit-core/src/pair.rs`), `fn closest_mcc()` and `fn graft_attachments()` (`packages/treeknit-core/src/impute.rs`)
 
 The clade test has the same pattern: `insert_split` recomputes one bit set per node to test a single split, and `mcc_splits` compares each candidate split with every split of the tree (`ref_splits.iter().any(...)`).
 
@@ -71,7 +71,7 @@ Two identical caterpillar trees (every internal node has one leaf child), the `p
 ### Clade storage
 
 - **Keep one bit set per node, add the interval index for membership (recommended)**: the bit sets serve the masked comparisons of the energy; the interval index answers membership without allocation
-- **Replace the bit sets of `Tree::clades` by intervals where only membership is needed**: `Tree::clades` [packages/treeknit-core/src/tree.rs#L210-L224](../../packages/treeknit-core/src/tree.rs#L210-L224) stores $n$ bits per node, about 25 MB per tree of 10,000 leaves
+- **Replace the bit sets of `Tree::clades` by intervals where only membership is needed**: `Tree::clades` [packages/treeknit-core/src/tree.rs#L158-L173](../../packages/treeknit-core/src/tree.rs#L158-L173) stores $n$ bits per node, about 25 MB per tree of 10,000 leaves
 
 ## Rejected options
 

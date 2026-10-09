@@ -26,9 +26,9 @@ The real pair `data/h3n2-2k-4-segments/ha.nwk` and `na.nwk` (1997 leaves, 301 MC
 
 The cause comes from the code and the log timestamps; no profile confirms it yet.
 
-- `pub fn Tree.lca()` [packages/treeknit-core/src/tree.rs#L235-L251](../../packages/treeknit-core/src/tree.rs#L235-L251) walks both nodes to the root to compute their depths, then climbs; `pub fn Tree.lca_of()` [packages/treeknit-core/src/tree.rs#L253-L255](../../packages/treeknit-core/src/tree.rs#L253-L255) repeats this for every node of a set
-- ARG construction calls `resolve_with_mccs` in liberal mode, whose `fn mcc_splits()` [packages/treeknit-core/src/resolve.rs#L161-L201](../../packages/treeknit-core/src/resolve.rs#L161-L201) calls `fn blca()` [packages/treeknit-core/src/resolve.rs#L24-L42](../../packages/treeknit-core/src/resolve.rs#L24-L42) once per internal node of every MCC. `blca` runs `lca_of` over the leaves of the split and climbs from every leaf. With one MCC of $n$ leaves in a caterpillar of depth about $n$, this gives about $n$ calls of $O(n^2)$ each
-- `pub fn resolve_trees()` [packages/treeknit-core/src/resolve.rs#L72-L157](../../packages/treeknit-core/src/resolve.rs#L72-L157) calls `lca_of` once per split of every tree; it is the first step of pair inference when the run resolves
+- `pub fn Tree.lca()` [packages/treeknit-core/src/tree.rs#L17-L22](../../packages/treeknit-core/src/tree.rs#L17-L22) walks both nodes to the root to compute their depths, then climbs; `pub fn Tree.lca_of()` [packages/treeknit-core/src/tree.rs#L17-L22](../../packages/treeknit-core/src/tree.rs#L17-L22) repeats this for every node of a set
+- ARG construction calls `resolve_with_mccs` in liberal mode, whose `fn mcc_splits()` [packages/treeknit-core/src/resolve.rs#L105-L112](../../packages/treeknit-core/src/resolve.rs#L105-L112) calls `fn blca()` [packages/treeknit-core/src/resolve.rs#L105-L112](../../packages/treeknit-core/src/resolve.rs#L105-L112) once per internal node of every MCC. `blca` runs `lca_of` over the leaves of the split and climbs from every leaf. With one MCC of $n$ leaves in a caterpillar of depth about $n$, this gives about $n$ calls of $O(n^2)$ each
+- `pub fn resolve_trees()` [packages/treeknit-core/src/resolve.rs#L13-L103](../../packages/treeknit-core/src/resolve.rs#L13-L103) calls `lca_of` once per split of every tree; it is the first step of pair inference when the run resolves
 - `fn mcc_splits` compares every candidate split with every split of the tree (`ref_splits.iter().any(...)`), $O(n^2/64)$ word operations per MCC node
 
 > [!IMPORTANT]

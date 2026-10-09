@@ -4,10 +4,10 @@ With three or more segment trees, the port writes the MCCs of every pair and no 
 
 ## Locations
 
-- `pub struct ArgNode`, `pub struct Arg` [packages/treeknit-core/src/arg.rs#L30-L51](../../packages/treeknit-core/src/arg.rs#L30-L51): parents, branch lengths, roots, and trees for two segments
-- `pub fn arg_from_trees()` [packages/treeknit-core/src/arg.rs#L140-L170](../../packages/treeknit-core/src/arg.rs#L140-L170): builds the ARG from one pair of trees
+- `pub struct ArgNode`, `pub struct Arg` [packages/treeknit-core/src/arg.rs#L458-L467](../../packages/treeknit-core/src/arg.rs#L458-L467): parents, branch lengths, roots, and trees for two segments
+- `pub fn arg_from_trees()` [packages/treeknit-core/src/arg.rs#L20-L50](../../packages/treeknit-core/src/arg.rs#L20-L50): builds the ARG from one pair of trees
 - `pub fn extended_newick()` [packages/treeknit-io/src/arg.rs#L19-L44](../../packages/treeknit-io/src/arg.rs#L19-L44): writes `GlobalRoot[&segments={0,1}]`
-- `pub struct ArgNodeView` [packages/treeknit-io/src/display.rs#L445-L474](../../packages/treeknit-io/src/display.rs#L445-L474): the node type that the web app receives through WebAssembly
+- `pub struct ArgNodeView` [packages/treeknit-io/src/display.rs#L415-L447](../../packages/treeknit-io/src/display.rs#L415-L447): the node type that the web app receives through WebAssembly
 - `pub(super) fn draw()` [packages/treeknit-io/src/figure/arg.rs#L13](../../packages/treeknit-io/src/figure/arg.rs#L13): the SVG figure for two segment names
 - `packages/web/src/arg/`: the ARG view of the web app
 
@@ -39,6 +39,6 @@ With three or more segment trees, the port writes the MCCs of every pair and no 
 
 ## Validation
 
-- Each embedded segment tree of the ARG equals its resolved input tree, as `fn one_reassortment()` [packages/treeknit-core/src/arg.rs#L549-L572](../../packages/treeknit-core/src/arg.rs#L549-L572) checks for two trees
+- Each embedded segment tree of the ARG equals its resolved input tree, as `fn one_reassortment()` [packages/treeknit-core/src/arg.rs#L543-L572](../../packages/treeknit-core/src/arg.rs#L543-L572) checks for two trees
 - The pairwise MCCs derived from the ARG equal the reported MCCs
 - On simulated fixtures with a stored true ARG ([`N-fixtures-lack-true-arg.md`](N-fixtures-lack-true-arg.md)), inferred and true reassortments are compared with the metric chosen in the proposal

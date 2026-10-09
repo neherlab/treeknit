@@ -674,7 +674,7 @@ The parsers are in TreeNode v1.5.4.
 
 ## Interaction with TreeKnit output
 
-TreeKnit writes resolved segment trees, an ARG in extended Newick, `MCCs.json`, `MCCs.dat`, `ARG/nodes.dat`, Auspice JSON files, and SVG figures (`const ARG_NEWICK` and the other names in [packages/treeknit-io/src/output.rs#L29-L40](../../packages/treeknit-io/src/output.rs#L29-L40)).
+TreeKnit writes resolved segment trees, an ARG in extended Newick, `MCCs.json`, `MCCs.dat`, `ARG/nodes.dat`, Auspice JSON files, and SVG figures (`const ARG_NEWICK` and the other names in [packages/treeknit-io/src/output.rs#L31-L42](../../packages/treeknit-io/src/output.rs#L31-L42)).
 
 ### ARG
 
@@ -682,7 +682,7 @@ TreeKnit writes resolved segment trees, an ARG in extended Newick, `MCCs.json`, 
   - The file loads as a tree. The occurrence of `R1#H1` with children becomes a one-child internal node, which is invisible in the rectangular layout
   - The childless occurrence becomes an extra tip labelled `R1#H1` beside its other parent's clade
   - No reassortment edge is drawn, and nothing tells the user that the file is a network
-  - Zero-length edges, which `fn set_branch_lengths()` can produce ([packages/treeknit-core/src/arg.rs#L492-L539](../../packages/treeknit-core/src/arg.rs#L492-L539)), load and draw at length 0 without error
+  - Zero-length edges, which `fn set_branch_lengths()` can produce ([packages/treeknit-core/src/arg.rs#L404-L456](../../packages/treeknit-core/src/arg.rs#L404-L456)), load and draw at length 0 without error
   - `[&segments={0,1}]` becomes the string attribute `segments='{0,1}'`. A formatter could colour by it only through custom C# code
   - Export as Newick quotes all labels and keeps `#H1` in the names, so a round trip keeps the hybrid occurrences as plain names
 - **Strain names with slashes**: TreeKnit writes labels unquoted ([packages/treeknit-io/src/arg.rs#L59](../../packages/treeknit-io/src/arg.rs#L59)), so labels such as `A/Texas/50/2012` break in TreeViewer as described under "Input parsing"

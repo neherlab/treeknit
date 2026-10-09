@@ -42,9 +42,9 @@ Surveyed revision: `main` at `93a8e03` (2026-10-05). The survey reads the code a
 
 The tests compare the port with fixtures that TreeKnit.jl writes (see [`ref/README.md`](../../ref/README.md)):
 
-- **`deterministic_functions_match_julia`** [[src](../../packages/treeknit-io/tests/fixtures.rs#L109)]: exact comparison of naive MCCs (also per pair for three trees), pre-resolution, strict and liberal resolution with MCCs, the node-to-MCC map, the non-strict polytomy sort, the energy with and without resolution, the likelihood, and the hybrid count and segment-tree splits of the ARG
-- **`annealing_distribution_vs_julia`** [[src](../../packages/treeknit-io/tests/fixtures.rs#L301)]: two-tree runs with 20 seeds against the 20 seeded Julia runs of each case. The test fails only where all Julia runs agree and a Rust run differs
-- **`matched_topologies_on_three_segments`** [[src](../../packages/treeknit-io/tests/fixtures.rs#L344)]: the invariant of the `matched` mode on simulated three-segment cases
+- **`deterministic_functions_match_julia`** [[src](../../packages/treeknit-io/tests/fixtures.rs#L136)]: exact comparison of naive MCCs (also per pair for three trees), pre-resolution, strict and liberal resolution with MCCs, the node-to-MCC map, the non-strict polytomy sort, the energy with and without resolution, the likelihood, and the hybrid count and segment-tree splits of the ARG
+- **`annealing_distribution_vs_julia`** [[src](../../packages/treeknit-io/tests/fixtures.rs#L318)]: two-tree runs with 20 seeds against the 20 seeded Julia runs of each case. The test fails only where all Julia runs agree and a Rust run differs
+- **`matched_topologies_on_three_segments`** [[src](../../packages/treeknit-io/tests/fixtures.rs#L360)]: the invariant of the `matched` mode on simulated three-segment cases
 - **Accuracy report**: `examples/accuracy.rs` measures the distance to the true MCCs of simulated cases for Julia and Rust runs [[src](../../packages/treeknit-io/examples/accuracy.rs#L1-L6)]
 
 [`N-reference-comparison-gaps.md`](../issues/N-reference-comparison-gaps.md) lists the features that no test compares with TreeKnit.jl.

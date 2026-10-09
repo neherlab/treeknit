@@ -72,7 +72,7 @@ No known algorithm finds the smallest change that satisfies the triplet conditio
 
 ### Position of reassortment nodes
 
-The ARG of two trees places a reassortment halfway along the shorter of the two branches above an MCC root (`fn set_branch_lengths()`, [packages/treeknit-core/src/arg.rs#L490-L492](../../packages/treeknit-core/src/arg.rs#L490-L492)). With several events on one branch and branch lengths from $K$ trees, no rule gives their order and heights.
+The ARG of two trees places a reassortment halfway along the shorter of the two branches above an MCC root (`fn set_branch_lengths()`, [packages/treeknit-core/src/arg.rs#L410-L412](../../packages/treeknit-core/src/arg.rs#L410-L412)). With several events on one branch and branch lengths from $K$ trees, no rule gives their order and heights.
 
 ### Comparison with a true ARG
 
@@ -85,14 +85,14 @@ The run on the four segments of `data/h3n2-2k-4-segments` gives 606 to 1067 MCCs
 ## Problems in the current code
 
 - **Two segments in the types and outputs**:
-  - `pub struct ArgNode` and `pub struct Arg` store parents, branch lengths, roots, and trees in arrays of length 2 ([packages/treeknit-core/src/arg.rs#L30-L51](../../packages/treeknit-core/src/arg.rs#L30-L51))
-  - `pub struct ArgNodeView` has the same arrays ([packages/treeknit-io/src/display.rs#L445-L474](../../packages/treeknit-io/src/display.rs#L445-L474)). The web app receives it through WebAssembly, so a change also changes the generated TypeScript declarations
+  - `pub struct ArgNode` and `pub struct Arg` store parents, branch lengths, roots, and trees in arrays of length 2 ([packages/treeknit-core/src/arg.rs#L458-L467](../../packages/treeknit-core/src/arg.rs#L458-L467))
+  - `pub struct ArgNodeView` has the same arrays ([packages/treeknit-io/src/display.rs#L415-L447](../../packages/treeknit-io/src/display.rs#L415-L447)). The web app receives it through WebAssembly, so a change also changes the generated TypeScript declarations
   - The extended Newick writer writes a fixed `GlobalRoot[&segments={0,1}]` ([packages/treeknit-io/src/arg.rs#L19-L44](../../packages/treeknit-io/src/arg.rs#L19-L44))
   - The SVG figure takes two segment names ([packages/treeknit-io/src/figure/arg.rs#L13](../../packages/treeknit-io/src/figure/arg.rs#L13))
   - The web app draws the ARG of two segments (`packages/web/src/arg/`)
-- **Construction from one pair**: `pub fn arg_from_trees()` builds the ARG of the first tree and maps the second tree onto it through the shared nodes of the pair ([packages/treeknit-core/src/arg.rs#L140-L170](../../packages/treeknit-core/src/arg.rs#L140-L170)). A third tree needs partner nodes from two pairs, and these must agree
-- **Tree changes during construction**: construction resolves both trees liberally with the MCCs and inserts shared singletons (`fn fix_shared_singletons()`, [packages/treeknit-core/src/arg.rs#L277-L331](../../packages/treeknit-core/src/arg.rs#L277-L331)). With $K$ trees, a change made for one pair alters a tree of other pairs. This is the problem that consistent resolution solves for MultiTreeKnit (see [`treeknit-and-multitreeknit.md`](../reports/treeknit-and-multitreeknit.md#consistent-resolution))
-- **Input order**: `Resolution::Matched` gives earlier trees precedence when splits conflict ([packages/treeknit-core/src/pipeline.rs#L273-L274](../../packages/treeknit-core/src/pipeline.rs#L273-L274)), so its MCCs, and an ARG built from them, depend on the order of the input trees
+- **Construction from one pair**: `pub fn arg_from_trees()` builds the ARG of the first tree and maps the second tree onto it through the shared nodes of the pair ([packages/treeknit-core/src/arg.rs#L20-L50](../../packages/treeknit-core/src/arg.rs#L20-L50)). A third tree needs partner nodes from two pairs, and these must agree
+- **Tree changes during construction**: construction resolves both trees liberally with the MCCs and inserts shared singletons (`fn fix_shared_singletons()`, [packages/treeknit-core/src/arg.rs#L157-L210](../../packages/treeknit-core/src/arg.rs#L157-L210)). With $K$ trees, a change made for one pair alters a tree of other pairs. This is the problem that consistent resolution solves for MultiTreeKnit (see [`treeknit-and-multitreeknit.md`](../reports/treeknit-and-multitreeknit.md#consistent-resolution))
+- **Input order**: `Resolution::Matched` gives earlier trees precedence when splits conflict ([packages/treeknit-core/src/pipeline/matching.rs#L21-L22](../../packages/treeknit-core/src/pipeline/matching.rs#L21-L22)), so its MCCs, and an ARG built from them, depend on the order of the input trees
 - **Different leaf sets**: the ARG of two trees already fails after imputation in some cases ([`M-arg-fails-after-imputation.md`](../issues/M-arg-fails-after-imputation.md)). With $K$ trees, a leaf can lack several segments, and the triplet condition can be checked only on the leaves present in all three trees
 - **Open defects of the ARG of two trees**:
   - [`N-arg-acyclicity-unchecked.md`](../issues/N-arg-acyclicity-unchecked.md)

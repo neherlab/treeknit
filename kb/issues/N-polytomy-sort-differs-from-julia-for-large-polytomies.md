@@ -1,6 +1,6 @@
 # Polytomy sort can differ from TreeKnit.jl for more than ten children
 
-The non-strict polytomy sort orders the children of each node of the second tree with a comparison that is not a total order: two children in the MCC of their parent compare by their rank in that MCC, any other pair compares by clade size. The port sorts with an insertion sort, because the standard sorts of Rust may panic on such a comparison (`fn insertion_sort_by()`, [packages/treeknit-core/src/mcc_map.rs#L84-L93](../../packages/treeknit-core/src/mcc_map.rs#L84-L93); `kb/feat/visualization.md`). TreeKnit.jl sorts with Julia's default algorithm, which is an insertion sort only for short vectors, so the two orders can differ for polytomies with more than ten children.
+The non-strict polytomy sort orders the children of each node of the second tree with a comparison that is not a total order: two children in the MCC of their parent compare by their rank in that MCC, any other pair compares by clade size. The port sorts with an insertion sort, because the standard sorts of Rust may panic on such a comparison (`fn insertion_sort_by()`, [packages/treeknit-core/src/mcc_map.rs#L110-L122](../../packages/treeknit-core/src/mcc_map.rs#L110-L122); `kb/feat/visualization.md`). TreeKnit.jl sorts with Julia's default algorithm, which is an insertion sort only for short vectors, so the two orders can differ for polytomies with more than ten children.
 
 ## What Julia does
 

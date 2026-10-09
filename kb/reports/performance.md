@@ -74,7 +74,7 @@ Averages over the reassortment rates ρ = 0.05, 0.1, and 0.2 (two trees) and 0.0
 Both implementations run the same annealing: the same number of steps, the same single-leaf flips, and the same Metropolis rule. The cost of one step differs.
 
 - **TreeKnit.jl**: `mcmcstep!` flips one leaf and calls `compute_energy` (`src/SplitGraph/energy.jl`), which climbs from every kept leaf to its first ancestor with two kept leaves and compares the splits of the two trees. Splits are sorted `Vector{Int}`; membership tests use `in` for short splits and binary search (`insorted`) for splits longer than 25
-- **Port**: `EnergyState` ([splitgraph.rs#L325-L532](../../packages/treeknit-core/src/splitgraph.rs#L203-L357)) keeps the number of kept leaves below every node. A flip recomputes the term of the flipped leaf and of the kept leaves whose first non-trivial ancestor is an ancestor of the flipped leaf in some tree, before and after the flip. Clades are `FixedBitSet`s, and the restricted comparisons (equal, subset, disjoint on the kept leaves) work on 64-bit words ([bits.rs](../../packages/treeknit-core/src/bits.rs))
+- **Port**: `EnergyState` ([splitgraph.rs#L325-L532](../../packages/treeknit-core/src/splitgraph.rs#L16-L45)) keeps the number of kept leaves below every node. A flip recomputes the term of the flipped leaf and of the kept leaves whose first non-trivial ancestor is an ancestor of the flipped leaf in some tree, before and after the flip. Clades are `FixedBitSet`s, and the restricted comparisons (equal, subset, disjoint on the kept leaves) work on 64-bit words ([bits.rs](../../packages/treeknit-core/src/bits.rs))
 
 **Profile of TreeKnit.jl** (428 leaves, `--better-MCCs`, one warm run, 2999 samples of the main thread):
 

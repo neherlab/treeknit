@@ -4,7 +4,7 @@ Counterpart: [`v0/formats.md`](v0/formats.md). `treeknit-io` reads and writes al
 
 ## Input: Newick
 
-`fn parse` and `fn parse_first` [[src](../../packages/treeknit-io/src/newick.rs#L18-L59)] read the classic dialect of `util-newick` ([README](../../packages/util-newick/README.md)): standard Newick, with comments as text:
+`fn parse` and `fn parse_first` [[src](../../packages/treeknit-io/src/newick.rs#L24-L59)] read the classic dialect of `util-newick` ([README](../../packages/util-newick/README.md)): standard Newick, with comments as text:
 
 - [/] **Several trees in one file**: the first tree is used, with the warning "<label>: more than one tree in file, using the first". A tree ends at the first `;` outside quoted labels and `[...]` comments, and any text after it other than comments counts as more trees, so `('a;b',C);[x;y]` is one tree and `(A,B);x` gives the warning. The validation logs the warning and the tree inspection of the web app reports it, also when the first tree has an unnamed or a duplicate leaf; a first tree that does not parse gives its parse error alone. TreeKnit.jl reads a vector, which its command line does not handle
 - [x] **Terminator**: `;` is required. Whitespace, `\r`, and comments after it are accepted; TreeTools.jl rejects them. A byte order mark is a parse error
@@ -50,7 +50,7 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 
 ## `parameters.json`
 
-`fn parameters_file` [[src](../../packages/treeknit-io/src/output.rs#L596-L598)]:
+`fn parameters_file` [[src](../../packages/treeknit-io/src/output.rs#L88-L92)]:
 
 - [x] **Time of writing**: before the inference, so the file exists when a run fails
 - [x] **Layout**: compact, as in TreeKnit.jl
@@ -61,7 +61,7 @@ The differences in this list need a decision ([`N-undocumented-differences-from-
 ## `log.txt`
 
 - [/] **Format**: `<RFC 3339 time> [LEVEL] <message>` (see [`cli.md`](cli.md#logging))
-- [x] **Web app (new)**: `fn log_file` writes the records of a run in the same layout, without a thread ID, with the time of the JavaScript clock in UTC with milliseconds [[src](../../packages/treeknit-io/src/output.rs#L602-L609)]
+- [x] **Web app (new)**: `fn log_file` writes the records of a run in the same layout, without a thread ID, with the time of the JavaScript clock in UTC with milliseconds [[src](../../packages/treeknit-io/src/output.rs#L94-L103)]
 
 ## `ARG/arg.nwk`
 
@@ -96,7 +96,7 @@ The analysis request of the web app: the trees with their labels and Newick text
 
 ## ZIP archive (new)
 
-`fn zip_archive` packs the output files of a web app run [[src](../../packages/treeknit-io/src/output.rs#L612-L618)].
+`fn zip_archive` packs the output files of a web app run [[src](../../packages/treeknit-io/src/output/archive.rs#L221-L228)].
 
 - [x] **Entries**: every file under `treeknit_results/`, the default results directory of the command line, at its path in that directory (`treeknit_results/ARG/arg.nwk`)
 - [x] **Reproducible bytes**: every entry is deflated and dated 1980-01-01 00:00, the earliest ZIP time, so equal files give a byte-identical archive. `log.txt` carries clock times, so the archives of two runs differ in that entry

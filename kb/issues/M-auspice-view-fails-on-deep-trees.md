@@ -18,7 +18,7 @@ The depth of real trees is far below these limits: the deepest tree in `data/` h
 ## Fix direction
 
 - Carry the datasets from the worker as JSON text and parse them in the page, because `JSON.parse` does not recurse per level; or send them flat, with child indices, and nest them in the page with an explicit stack
-- Write the dataset text in Rust with an explicit stack, as `auspice_json` [packages/treeknit-io/src/auspice.rs#L18](../../packages/treeknit-io/src/auspice.rs#L18) does for the files, instead of deriving `Serialize` for a nested type
+- Write the dataset text in Rust with an explicit stack, as `auspice_json` [packages/treeknit-io/src/auspice.rs#L13](../../packages/treeknit-io/src/auspice.rs#L13) does for the files, instead of deriving `Serialize` for a nested type
 - Check how Auspice handles a deep tree before choosing, because a fix before Auspice helps only if Auspice itself draws such a tree
 
 ## Validation
