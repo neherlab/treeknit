@@ -168,10 +168,12 @@ The build and run recipes take the mode as their first argument: `just build <mo
 - `dev-opt`: `dev` with optimized workspace crates, for long runs on real datasets; rebuilds are slower
 - `release` (also `just example`): optimized and fast to rebuild, without LTO, with integer overflow checks
 - `prod`: the shipped build, the cargo profile `dist`, with fat LTO, one codegen unit, and the CPU flags of `dev/lib/dist-flags.sh` (`-C target-cpu=haswell` on x86-64); the WebAssembly build adds `wasm-opt`
-- `profiling` (`just build` only): `prod` with full debug info
+- `profiling` (`just build profiling`, `just profile`): `prod` with full debug info; without frame pointers, profilers unwind call stacks with DWARF (`dev/profile` does) or LBR
 - `bench` (`just bench`, no mode): the `prod` settings
 
 `just build release` and `just build prod` copy the binary to `.out/treeknit`; use it with `hyperfine`, which the container provides.
+
+`just profile treeknit -- <args>` (host) builds the `profiling` binary in the container and samples it on the host with samply or perf; read `dev/profile --help` first. Kernel profilers cannot read the host counters inside the container.
 
 ## Cross-compilation
 

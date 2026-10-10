@@ -508,6 +508,11 @@ run-web mode: _js (build-wasm (if mode == "dev" { "release" } else { "prod" }))
 bench *args:
     source dev/lib/dist-flags.sh && export_dist_flags && cargo bench --locked --workspace --benches "$@"
 
+# Sample a profile of the CLI (host only, needs Docker and perf or samply): just profile treeknit -- <args>
+[group("bench")]
+profile *args:
+    dev/profile "$@"
+
 # Explain why a crate is in the dependency tree: just why <crate> [cargo tree options]
 [group("deps")]
 why crate *args:

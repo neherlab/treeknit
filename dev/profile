@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+#
+# Usage: $0 [options] <program> [-- program-args...]
+#
+# Sampling profiler for the treeknit CLI. Builds the "profiling" cargo
+# profile (release optimizations + debug symbols) inside the container, then
+# records a profile on the host, where kernel perf access lives.
+#
+# Two backends:
+#   samply (default)  Interactive Firefox Profiler UI. Best for exploration.
+#                     When stdout is not a terminal, records only and prints
+#                     the recording path (open it later with `samply load`).
+#   perf              Textual hotspots to stdout. Best for scripted or
+#                     agent-driven analysis and for pasting into reports.
+#
+# Options:
+#   --perf             Use perf, print textual self-time + call-graph report
+#   --samply           Use samply, open Firefox Profiler UI (default)
+#   --rate N           Sampling frequency in Hz (default: 1234)
+#   --inline           Resolve inlined frames in the perf call graph (slow: minutes
+#                      for large recordings)
+#   --output PATH      Recording output path (default: tmp/profiling/<program>.<ext>)
+#   --no-build         Skip the container build step, reuse existing binary
+#   -h, --help         Show this help
+#
+# The program is the executable name without a path (treeknit). Everything
+# after -- is passed to the program unchanged.
+#
+# Examples:
+#   $0 --perf treeknit -- data/h3n2-2017/ha.nwk data/h3n2-2017/na.nwk --outdir=tmp/knit
+#   $0 treeknit -- data/h3n2-2017-2018/ha.nwk data/h3n2-2017-2018/na.nwk --outdir=tmp/knit
+#
+# Requirements (host):
+#   perf     linux-tools matching the running kernel
+#   samply   cargo install samply  (only for the default backend)
+#
+# Kernel perf access (until reboot):
+#   echo -1 | sudo tee /proc/sys/kernel/perf_event_paranoid >/dev/null
+#   echo  0 | sudo tee /proc/sys/kernel/kptr_restrict       >/dev/null
+#
+set -euo pipefail
+trap "exit" INT
+
+THIS_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+PROJECT_DIR="$(dirname "${THIS_DIR}")"
+
+BIN_DIR=".build/container/cargo/profiling"
+SAMPLE_RATE=1234
+INLINE_FLAG="--no-inline"
+
+build_binary() {
+  local program="${1}"
+  "${THIS_DIR}/docker/run" just build profiling >&2
+}
+
+profile_perf() {
+  local binary="${1}"
+  local output="${2}"
+  shift 2
+
+  perf record -F "${SAMPLE_RATE}" --call-graph dwarf -o "${output}" -- "${binary}" "$@"
+
+  printf "\n===== Self-time (top 30) =====\n"
+  perf report -i "${output}" --stdio --no-children -g none 2>/dev/null |
+    grep -vE '^\s*#' | c++filt -s rust -i | awk 'NR <= 30'
+
+  printf "\n===== Call graph (callers, >=1%%) =====\n"
+  perf report -i "${output}" --stdio -g graph,1,caller "${INLINE_FLAG}" 2>/dev/null |
+    grep -vE '^\s*#' | c++filt -s rust -i | awk 'NR <= 60'
+
+  printf "\nRecording saved: %s\n" "${output}" >&2
+}
+
+profile_samply() {
+  local binary="${1}"
+  local output="${2}"
+  shift 2
+  if [[ -t 1 ]]; then
+    samply record --rate="${SAMPLE_RATE}" -o "${output}" -- "${binary}" "$@"
+  else
+    samply record --save-only --rate="${SAMPLE_RATE}" -o "${output}" -- "${binary}" "$@"
+    printf "\nRecording saved: %s (open with: samply load %s)\n" "${output}" "${output}" >&2
+  fi
+}
+
+main() {
+  show_help() {
+    sed -n '2,${/^#/!q; s/^# \?//p}' "${BASH_SOURCE[0]}" | sed "s|\$0|${0##*/}|g"
+  }
+
+  local backend="samply"
+  local do_build=true
+  local output=""
+
+  # shfmt:off
+  while (($# > 0)); do
+    case "${1}" in
+    -h | --help)
+      show_help
+      exit 0
+      ;;
+    --perf)
+      backend="perf"
+      shift
+      ;;
+    --samply)
+      backend="samply"
+      shift
+      ;;
+    --rate)
+      SAMPLE_RATE="${2}"
+      shift 2
+      ;;
+    --inline)
+      INLINE_FLAG="--inline"
+      shift
+      ;;
+    --output)
+      output="${2}"
+      shift 2
+      ;;
+    --no-build)
+      do_build=false
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      printf "Unknown option: %s\n" "${1}" >&2
+      exit 1
+      ;;
+    *) break ;;
+    esac
+  done
+  # shfmt:on
+
+  local program="${1:-}"
+  if [[ -z "${program}" ]]; then
+    printf "Error: program name required\n" >&2
+    show_help
+    exit 1
+  fi
+  shift || true
+  [[ "${1:-}" == "--" ]] && shift
+
+  program="$(basename "${program}")"
+  local binary="${PROJECT_DIR}/${BIN_DIR}/${program}"
+
+  if "${do_build}"; then
+    build_binary "${program}"
+  fi
+  if [[ ! -x "${binary}" ]]; then
+    printf "Error: binary not found or not executable: %s\n" "${binary}" >&2
+    exit 1
+  fi
+
+  if [[ -z "${output}" ]]; then
+    local ext="json"
+    [[ "${backend}" == "perf" ]] && ext="data"
+    output="tmp/profiling/${program}.${ext}"
+  fi
+  mkdir -p "$(dirname "${output}")"
+
+  case "${backend}" in
+  perf) profile_perf "${binary}" "${output}" "$@" ;;
+  samply) profile_samply "${binary}" "${output}" "$@" ;;
+  esac
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
