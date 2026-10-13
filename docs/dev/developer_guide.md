@@ -158,7 +158,7 @@ The project settings of the lints are in these files:
 - `oxlint.config.ts`: a call of `projectConfig` from `dev/lints/oxlint/config.ts` with the package layout, the web scopes, the import and property restrictions, and the contracts package
 - `clippy.toml` (thresholds and banned types and functions), `oxfmt.config.ts`, `taplo.toml`, `.config/ruff.toml`, `.config/knip.json`, `.config/deny.toml`, `.config/hawk.toml`, `.config/jscpd.json`, and `.config/mordant-baseline.toml`
 
-Rust comments are allowed in TreeKnit: `dylint_rustflags` turns off `no_comments` and `doc_comment_limit`, and also the builder and error-macro lints, because the project uses neither bon nor error helper macros. TypeScript comments are banned by the oxlint base configuration `dev/lints/oxlint/config.ts`, apart from tool directives.
+Rust comments are allowed in TreeKnit: `dylint_rustflags` turns off `no_comments`, and also the builder and error-macro lints, because the project uses neither bon nor error helper macros. TypeScript comments are banned by the oxlint base configuration `dev/lints/oxlint/config.ts`, apart from tool directives.
 
 ## Build modes
 

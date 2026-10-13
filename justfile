@@ -67,12 +67,11 @@ dylint_cmd := uncached_env + " CARGO_TARGET_DIR=" + quote(dylint_target_dir) + "
 dylint_cargo_args := "--quiet --locked --workspace --all-targets"
 
 # Lint levels of the driver: lints that only one library declares are unknown
-# to the others. Of the custom library, the comment lints (no_comments,
-# doc_comment_limit) are off, because the Rust code keeps its comments, and the
-# builder and error-macro lints (suggest_builder, needless_builder,
-# prefer_error_macros) are off, because the project uses neither bon nor error
-# helper macros.
-dylint_rustflags := "-A unknown_lints -A no_comments -A doc_comment_limit -A suggest_builder -A needless_builder -A prefer_error_macros"
+# to the others. Of the custom library, the comment lint (no_comments) is off,
+# because the Rust code keeps its comments, and the builder and error-macro
+# lints (suggest_builder, needless_builder, prefer_error_macros) are off,
+# because the project uses neither bon nor error helper macros.
+dylint_rustflags := "-A unknown_lints -A no_comments -A suggest_builder -A needless_builder -A prefer_error_macros"
 dylint_over_baseline := dylint_target_dir / "mordant/over-baseline.txt"
 
 # Library crates whose public API is an external boundary, skipped by both

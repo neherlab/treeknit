@@ -128,8 +128,8 @@ impl Default for FileLengthConfig {
     }
 }
 
-/// Config for the `no_comments` and `doc_comment_limit` lints.
-#[derive(Deserialize)]
+/// Config for the `no_comments` lint.
+#[derive(Default, Deserialize)]
 #[serde(default)]
 pub struct NoCommentsConfig {
     /// Render sources: each names a tool surface and the doc comments it keeps.
@@ -138,9 +138,6 @@ pub struct NoCommentsConfig {
     /// text, e.g. `"SPDX-License-Identifier"`. A line comment on the line right
     /// after a kept line comment is kept too, so a marker heads a multi-line note.
     pub allowed_comment_prefixes: Vec<String>,
-    pub max_chars: usize,
-    pub max_lines: usize,
-    pub max_paragraphs: usize,
 }
 
 /// One tool surface that renders doc comments into user-facing output.
@@ -170,16 +167,4 @@ pub enum Granularity {
     Variants,
     /// The public associated functions of an `impl` block.
     Methods,
-}
-
-impl Default for NoCommentsConfig {
-    fn default() -> Self {
-        Self {
-            rendered: vec![],
-            allowed_comment_prefixes: vec![],
-            max_chars: 300,
-            max_lines: 3,
-            max_paragraphs: 2,
-        }
-    }
 }

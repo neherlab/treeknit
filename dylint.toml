@@ -97,7 +97,7 @@ style = "typed"
 threshold = 32
 check_tests = false
 
-# no_comments / doc_comment_limit, allowed by the dylint recipes of the
+# no_comments, allowed by the dylint recipes of the
 # justfile: when enabled, they keep no comments, except doc comments that a
 # configured render source carries into user-facing output (CLI help, the
 # TypeScript declarations of the WebAssembly package). Each render source lists
@@ -106,7 +106,7 @@ check_tests = false
 # functions of an impl block), and the attributes that drop a field or variant
 # from that surface. Derives and attributes inside `cfg_attr` count whatever its
 # condition. A doc comment is kept when at least one render source still shows
-# it. A rendered doc comment stays within the size limits below.
+# it.
 #
 # Comments that start with an allowed prefix are kept: license headers and the
 # markers SAFETY (the invariants an unsafe block relies on), TODO, FIXME, and
@@ -115,9 +115,6 @@ check_tests = false
 # blank line or code between them, belong to the same note and are kept too.
 [no_comments]
 allowed_comment_prefixes = ["SPDX-License-Identifier", "SAFETY:", "TODO", "FIXME", "HACK"]
-max_chars = 500
-max_lines = 6
-max_paragraphs = 2
 
 [[no_comments.rendered]]
 name = "clap-command"
