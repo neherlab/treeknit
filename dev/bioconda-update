@@ -6,12 +6,14 @@
 # release. The recipe recipes/treeknit/meta.yaml lives in
 # bioconda/bioconda-recipes and installs the binaries of the GitHub release:
 # the glibc builds on Linux and the native builds on macOS. The script clones
-# that repository, sets the version, resets the build number to 0, and sets the
-# sha256 of each binary by the selector comment of its source line; every other
-# line of the recipe stays as the Bioconda maintainers left it. It then pushes
-# the branch bump/treeknit-<version> to the fork neherlab/bioconda-recipes and
-# opens the pull request, replacing an open pull request of the same branch.
-# .github/workflows/release.yml runs it for each release.
+# that repository, sets the version, resets the build number to 0, sets the
+# sha256 of each binary by the selector comment of its source line, and sets the
+# sha256 of the license source, whose url ends in /LICENSE, from the LICENSE of
+# this checkout; every other line of the recipe stays as the Bioconda
+# maintainers left it. It then pushes the branch bump/treeknit-<version> to the
+# fork neherlab/bioconda-recipes and opens the pull request, replacing an open
+# pull request of the same branch. .github/workflows/release.yml runs it for
+# each release.
 #
 # While Bioconda has no recipe of TreeKnit, the script prints a warning and
 # exits successfully: the first recipe is submitted by hand.
@@ -42,10 +44,13 @@
 set -euo pipefail
 trap "exit" INT
 
+THIS_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+
 UPSTREAM="bioconda/bioconda-recipes"
 FORK="neherlab/bioconda-recipes"
 RECIPE="recipes/treeknit/meta.yaml"
 REPOSITORY="neherlab/treeknit"
+LICENSE="${THIS_DIR}/../LICENSE"
 
 # The selector comment of each source line of the recipe and its release target.
 SELECTORS=(
@@ -101,6 +106,26 @@ rewrite_recipe() {
     sed -E "s/(sha256: )[0-9a-fA-F]+([[:space:]]+# \[${selector}\])\$/\1${sum}\2/" "${before}" >"${edited}"
     rm "${before}"
   done
+
+  # The license source has no selector: its sha256 line follows its url line.
+  count="$(grep -cE 'url: .*/LICENSE[[:space:]]*$' "${edited}")" || true
+  if [[ "${count}" != 1 ]]; then
+    printf '%s has %s url lines ending in /LICENSE, expected one\n' "${file}" "${count}" >&2
+    rm "${edited}"
+    return 1
+  fi
+  sum="$(sha256 "${LICENSE}")"
+  before="${edited}.before"
+  mv "${edited}" "${before}"
+  if ! awk -v sum="${sum}" '
+    license && /^[[:space:]]+sha256: [0-9a-fA-F]+[[:space:]]*$/ { sub(/[0-9a-fA-F]+[[:space:]]*$/, sum); found = 1 }
+    { license = /url: .*\/LICENSE[[:space:]]*$/; print }
+    END { exit !found }' "${before}" >"${edited}"; then
+    printf '%s has no sha256 line after the url line ending in /LICENSE\n' "${file}" >&2
+    rm "${before}" "${edited}"
+    return 1
+  fi
+  rm "${before}"
   mv "${edited}" "${file}"
 }
 
