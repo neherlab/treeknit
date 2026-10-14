@@ -55,6 +55,12 @@ main() {
   if [[ "${target}" == *-windows-gnu ]]; then
     RUSTFLAGS="${RUSTFLAGS:+${RUSTFLAGS} }-C target-feature=+crt-static"
   fi
+  # glibc binaries link the GCC unwinder statically, so they need no
+  # libgcc_s.so.1 and run on images that carry glibc alone (see the linker
+  # script in dev/cross/static-unwinder/).
+  if [[ "${target}" == *-linux-gnu ]]; then
+    RUSTFLAGS="${RUSTFLAGS:+${RUSTFLAGS} }-L native=${root}/dev/cross/static-unwinder"
+  fi
 
   # The optional kache compiler cache (KACHE_STORE in .env.example), one store
   # per kache version and target, next to the stores of the justfile.

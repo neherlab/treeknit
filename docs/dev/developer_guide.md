@@ -196,7 +196,7 @@ CROSS_COMPILE=aarch64-apple-darwin ./dev/docker/run dev/cross/check treeknit
 
 | Target                                                    | Toolchain                                  | Binary                                                                                  |
 | --------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------- |
-| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`   | GCC 14 (crosstool-ng) with glibc 2.17      | needs glibc 2.17 or newer                                                               |
+| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`   | GCC 14 (crosstool-ng) with glibc 2.17      | links the GCC unwinder statically; needs glibc 2.17 or newer and no other library       |
 | `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl` | GCC 14 (crosstool-ng) with musl            | static, runs on any Linux                                                               |
 | `x86_64-pc-windows-gnu`                                   | GCC 14 (MinGW-w64)                         | links the GCC runtime statically; needs the Universal C Runtime of Windows 10 and newer |
 | `x86_64-apple-darwin`, `aarch64-apple-darwin`             | osxcross with the macOS 11.1 SDK and clang | macOS 10.12 or newer on x86_64, 11.0 or newer on aarch64                                |

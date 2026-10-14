@@ -8,9 +8,10 @@
 # uses; the target defaults to CROSS_COMPILE.
 #
 # Libraries a user system provides:
-#   Linux glibc   glibc and the GCC runtime (libgcc_s); the newest glibc
-#                 symbol version the binary needs is printed, and must not
-#                 exceed GLIBC_MAX
+#   Linux glibc   glibc only, because the binaries link the GCC unwinder
+#                 statically (dev/cross/build); the newest glibc symbol
+#                 version the binary needs is printed, and must not exceed
+#                 GLIBC_MAX
 #   Linux musl    none: the binary must be static
 #   Windows       system DLLs; MinGW runtime DLLs (lib*.dll) fail
 #   macOS         libraries under /usr/lib and /System; the oldest macOS
@@ -24,7 +25,7 @@ shopt -s inherit_errexit
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 
-GLIBC_LIBRARIES='^(ld-linux.*|libc|libdl|libgcc_s|libm|libpthread|librt)\.so\.[0-9]+$'
+GLIBC_LIBRARIES='^(ld-linux.*|libc|libdl|libm|libpthread|librt)\.so\.[0-9]+$'
 
 # The newest glibc that the -gnu binaries may need. Users are promised this
 # version: the manylinux_2_17 tags of the wheels (dev/pypi-wheels), the Linux
