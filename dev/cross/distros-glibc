@@ -1,8 +1,8 @@
 # Linux images with glibc 2.17 or newer, for dev/cross/test-distros: the cross
 # toolchain of x86_64-unknown-linux-gnu links against glibc 2.17
 # (dev/cross/check prints the newest glibc symbol version the binary needs).
-# The oldest releases come first in each family, because old glibc, libgcc and
-# libm versions are the ones that break a binary.
+# The oldest releases come first in each family, because old glibc and libm
+# versions are the ones that break a binary.
 # One image reference per line; '#' starts a comment.
 
 debian/eol:jessie  # 8, glibc 2.19
@@ -84,3 +84,15 @@ opensuse/tumbleweed:latest
 
 archlinux:20191006
 archlinux:latest
+
+# Minimal images: glibc without the rest of a distribution. distroless/base
+# lacks libgcc_s.so.1, so it fails a binary that links the shared GCC unwinder;
+# distroless/cc adds it. The Bioconda images are the bases of the BioContainers
+# images, which run the Bioconda package.
+gcr.io/distroless/base-debian11
+gcr.io/distroless/base-debian12
+gcr.io/distroless/base-debian13
+gcr.io/distroless/cc-debian12
+cgr.dev/chainguard/glibc-dynamic:latest
+quay.io/bioconda/base-glibc-busybox-bash:3.1
+quay.io/bioconda/base-glibc-debian-bash:3.1
