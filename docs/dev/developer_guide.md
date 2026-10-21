@@ -23,6 +23,7 @@ cd treeknit
 - The checkout is mounted at its host path, and the git metadata is mounted read-only. Commit on the host
 - Build output goes to `.build/container/`, the cargo home to `.cache/cargo/`, the Bun package cache to `.cache/bun/`, the uv cache of the Python scripts to `.cache/uv/`
 - Commands run as your user, with all Linux capabilities dropped
+- Each container is named `treeknit-<image>-<start time>-<process id>`, such as `treeknit-native-20261022-011500-4242` or `treeknit-aarch64-apple-darwin-20261022-011500-4250`, so `docker ps` shows what it runs. It uses at most `TREEKNIT_DOCKER_CPUS` CPUs (see [Machine settings](#machine-settings))
 - On Apple Silicon and other arm64 hosts the image runs under x86_64 emulation, which is slower
 
 ### Host
@@ -43,6 +44,7 @@ Optional settings go into the gitignored `.env` in the checkout; `.env.example` 
 
 - `KACHE_STORE`: directory of the [kache](https://github.com/kunobi-ninja/kache) compiler cache stores. Every build and clippy pass then compiles through kache, which shares compiled crates across the worktrees of this project. Workspace crates of incremental builds (`dev`, tests, `release`, clippy) keep their incremental state, so an edit rebuilds as fast as without kache; kache serves their dependencies and every build without incremental state (`dist`, `profiling`, `bench`, cross builds). Coverage compiles without kache. The directory holds one store per kache version, environment (`host` or `docker`), and pass (`build`, `clippy`, or `cross-<target>`)
 - `KACHE_MAX_SIZE`: size limit of each kache store, 100 GiB when unset
+- `TREEKNIT_DOCKER_CPUS`: CPU budget of the containers that the dev scripts start, 8 when unset and at most the CPUs of the Docker daemon. A container of `dev/docker/run` uses at most this many CPUs; `dev/cross/all` and the Linux distribution tests divide the budget between the containers they run at the same time
 
 ## Everyday commands
 
@@ -177,7 +179,7 @@ The build and run recipes take the mode as their first argument: `just build <mo
 
 ## Cross-compilation
 
-`just build-cross <mode>` (on the host, needs Docker) builds the CLI in the given mode for every release target in `dev/cross/targets`, each in its own cross image, in parallel, into `.out/treeknit-<target>` (`.exe` on Windows), and checks the libraries each binary needs. `just build-cross prod` builds the shipped binaries; `release` builds faster, without LTO. Each target writes its log to `tmp/cross/<target>.log`. Options:
+`just build-cross <mode>` (on the host, needs Docker) builds the CLI in the given mode for every release target in `dev/cross/targets`, each in its own cross image, in parallel, into `.out/treeknit-<target>` (`.exe` on Windows), and checks the libraries each binary needs. `just build-cross prod` builds the shipped binaries; `release` builds faster, without LTO. The targets divide the CPU budget `TREEKNIT_DOCKER_CPUS` between them (see [Machine settings](#machine-settings)). Each target writes its log to `tmp/cross/<target>.log`. Options:
 
 - `--target=<triple>`: build this target only; repeat for several
 - `--run`: also run each binary on a simulated case from `fixtures/sim/`, under QEMU or Wine where needed, with output in `tmp/cross/run-<target>/`

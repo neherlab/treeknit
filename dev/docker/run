@@ -16,6 +16,9 @@
 #                           of the release targets in dev/cross/targets
 #   TREEKNIT_DOCKER_PUSH=1  Push the built image and its layer cache to the
 #                           registry (the nightly workflow)
+#   TREEKNIT_DOCKER_CPUS    CPUs that one container may use (default 8, at most
+#                           the CPUs of the Docker daemon); scripts that start
+#                           containers in parallel divide it between them
 #   KACHE_STORE             Host directory of the optional kache compiler cache;
 #                           mounted at the same path when set (see .env.example)
 #   CARGO_PROFILE_*, NEXTEST_*, RUST_LOG, ...
@@ -136,10 +139,16 @@ if ! docker image inspect "${image}" >/dev/null 2>&1; then
   fi
 fi
 
+cpus="$(docker_cpu_budget)"
 run_flags=(
   --rm
   --interactive
   --init
+  # The name shows the project, the image, and the start time in `docker ps`;
+  # the process id keeps containers that start in the same second apart.
+  --name="treeknit-${kind}-$(date +%Y%m%d-%H%M%S)-$$"
+  # The CPU budget of dev/lib/env.sh leaves the other CPUs of the host free.
+  --cpus="${cpus}"
   --platform="${platform}"
   --network=host
   --cap-drop=ALL

@@ -7,6 +7,8 @@
 # libraries each binary needs (dev/cross/check). Runs on the host and needs
 # Docker. Output goes to .out/<bin>-<target>, one log per target to
 # tmp/cross/<target>.log. Portable to the bash 3.2 of macOS.
+# Parallel builds divide the CPU budget of dev/docker/run (TREEKNIT_DOCKER_CPUS)
+# between the targets, so all targets together use at most that many CPUs.
 #
 # Options:
 #   -h, --help                Show this help
@@ -24,6 +26,9 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+# shellcheck source=../lib/env.sh
+source "${root}/dev/lib/env.sh"
+load_env_file "${root}/.env"
 example="fixtures/sim/sim_k2_n50_r0.02"
 
 build_one() {
@@ -78,12 +83,16 @@ main() {
     return
   fi
 
+  local budget
+  budget="$(docker_cpu_budget)"
+  TREEKNIT_DOCKER_CPUS="$(docker_cpu_share "${budget}" "${#targets[@]}")"
+  export TREEKNIT_DOCKER_CPUS
   local pids=() failed=() i
   for target in "${targets[@]}"; do
     build_one "${target}" "${profile}" "${run}" "${bins[@]}" >"tmp/cross/${target}.log" 2>&1 &
     pids+=("$!")
   done
-  printf 'Building %s targets in parallel; logs in tmp/cross/\n' "${#targets[@]}" >&2
+  printf 'Building %s targets in parallel with %s CPUs each; logs in tmp/cross/\n' "${#targets[@]}" "${TREEKNIT_DOCKER_CPUS}" >&2
   for i in "${!pids[@]}"; do
     if wait "${pids[${i}]}"; then
       printf 'PASS %s\n' "${targets[${i}]}" >&2

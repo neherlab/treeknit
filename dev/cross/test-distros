@@ -22,7 +22,9 @@
 # Each container sees the repository read-only as its working directory, and
 # a writable directory /out, which is tmp/cross/distros/<target>/<image>/ on
 # the host; the log of each image goes next to it as <image>.log. Containers
-# run as the current user, without network access and without capabilities.
+# run as the current user, without network access and without capabilities,
+# and divide the CPU budget of dev/docker/run (TREEKNIT_DOCKER_CPUS) between
+# them.
 #
 # Options:
 #   -h, --help        Show this help
@@ -35,6 +37,9 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
+# shellcheck source=../lib/env.sh
+source "${root}/dev/lib/env.sh"
+load_env_file "${root}/.env"
 example="fixtures/sim/sim_k2_n50_r0.02"
 
 # Print the image references of a list file, without comments and blank lines.
@@ -47,13 +52,15 @@ image_slug() {
   printf '%s' "${1}" | tr '/:@' '---'
 }
 
-# Run the binary in one image; the output directory of the image is /out.
+# Run the binary in one image with a share of the CPU budget; the output
+# directory of the image is /out.
 run_one() {
-  local image="${1}" bin="${2}" target="${3}" out="${4}"
-  shift 4
+  local image="${1}" bin="${2}" target="${3}" out="${4}" cpus="${5}"
+  shift 5
   rm -rf "${out}"
   mkdir -p "${out}"
   docker run --rm --pull=always --platform=linux/amd64 \
+    --name="treeknit-distro-$(image_slug "${image}")-$(date +%Y%m%d-%H%M%S)-$$" --cpus="${cpus}" \
     --network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges \
     --user="$(id -u):$(id -g)" \
     --volume="${root}:/workdir:ro" --volume="${root}/${out}:/out" --workdir=/workdir \
@@ -125,10 +132,13 @@ main() {
 
   local dir="tmp/cross/distros/${target}"
   mkdir -p "${dir}"
+  local budget cpus
+  budget="$(docker_cpu_budget)"
+  cpus="$(docker_cpu_share "${budget}" "${#images[@]}")"
   local pids=() outs=() i
   for i in "${!images[@]}"; do
     outs+=("${dir}/$(image_slug "${images[${i}]}")")
-    run_one "${images[${i}]}" "${bin}" "${target}" "${outs[${i}]}" ${args[@]+"${args[@]}"} >"${outs[${i}]}.log" 2>&1 &
+    run_one "${images[${i}]}" "${bin}" "${target}" "${outs[${i}]}" "${cpus}" ${args[@]+"${args[@]}"} >"${outs[${i}]}.log" 2>&1 &
     pids+=("$!")
   done
   printf 'Running .out/%s-%s in %s images in parallel; logs in %s/\n' "${bin}" "${target}" "${#images[@]}" "${dir}" >&2
