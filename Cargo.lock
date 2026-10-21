@@ -1402,7 +1402,7 @@ dependencies = [
 
 [[package]]
 name = "treeknit-cli"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "clap",
  "color-eyre",
@@ -1426,7 +1426,7 @@ dependencies = [
 
 [[package]]
 name = "treeknit-core"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "approx",
  "ctor",
@@ -1444,7 +1444,7 @@ dependencies = [
 
 [[package]]
 name = "treeknit-io"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "approx",
  "base64",
@@ -1478,14 +1478,14 @@ dependencies = [
 
 [[package]]
 name = "treeknit-testing"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "pretty_assertions",
 ]
 
 [[package]]
 name = "treeknit-wasm"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
@@ -1606,7 +1606,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "util-newick"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "indoc",
  "pest",

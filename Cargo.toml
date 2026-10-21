@@ -11,7 +11,7 @@ members = [
 
 [workspace.package]
 description = "Infers reassortment from the trees of the segments of a virus, such as the HA and NA trees of influenza"
-version = "1.0.0"
+version = "1.0.1"
 repository = "https://github.com/neherlab/treeknit"
 homepage = "https://github.com/neherlab/treeknit"
 edition = "2024"

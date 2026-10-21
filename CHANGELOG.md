@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1
+
+- **Security**: downloads of input files over HTTPS reject certificates issued by the compromised eMudhra intermediate CAs ([CVE-2026-111943](https://emudhra.we-have-a-problem.com/)). The CLI carries its own root certificates, so operating system updates do not cover it
+
 ## 1.0.0
 
 First release of TreeKnit, a Rust port of [TreeKnit.jl](https://github.com/PierreBarrat/TreeKnit.jl), which infers reassortment from segment trees.
