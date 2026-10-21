@@ -44,7 +44,7 @@ Optional settings go into the gitignored `.env` in the checkout; `.env.example` 
 
 - `KACHE_STORE`: directory of the [kache](https://github.com/kunobi-ninja/kache) compiler cache stores. Every build and clippy pass then compiles through kache, which shares compiled crates across the worktrees of this project. Workspace crates of incremental builds (`dev`, tests, `release`, clippy) keep their incremental state, so an edit rebuilds as fast as without kache; kache serves their dependencies and every build without incremental state (`dist`, `profiling`, `bench`, cross builds). Coverage compiles without kache. The directory holds one store per kache version, environment (`host` or `docker`), and pass (`build`, `clippy`, or `cross-<target>`)
 - `KACHE_MAX_SIZE`: size limit of each kache store, 100 GiB when unset
-- `TREEKNIT_DOCKER_CPUS`: CPU budget of the containers that the dev scripts start, 8 when unset and at most the CPUs of the Docker daemon. A container of `dev/docker/run` uses at most this many CPUs; `dev/cross/all` and the Linux distribution tests divide the budget between the containers they run at the same time
+- `TREEKNIT_DOCKER_CPUS`: CPU budget of the containers that the dev scripts start, 8 when unset and at most the CPUs of the Docker daemon. A container of `dev/docker/run` uses at most this many CPUs; `dev/cross/all` and the Linux distribution tests divide the budget between the containers they run at the same time. Cargo in a container runs one job per whole CPU of its budget unless `CARGO_BUILD_JOBS` is set, so the compiler work stays within the budget also where a host daemon such as ananicy moves compilers out of the container cgroup
 
 ## Everyday commands
 
