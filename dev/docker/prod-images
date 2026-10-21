@@ -169,7 +169,7 @@ run_all() {
   list="$(variants)"
   while IFS='|' read -r distro tag base newest; do
     name="${IMAGE}:${release_type}-${distro}${tag}"
-    if output="$(docker run --rm --platform="${platform}" "${name}" treeknit --version 2>&1)"; then
+    if output="$(docker run --rm --name="treeknit-prod-$(printf '%s' "${release_type}-${distro}${tag}-${platform}" | tr '/:@' '---')-$$" --platform="${platform}" "${name}" treeknit --version 2>&1)"; then
       printf 'PASS %s (%s): %s\n' "${name}" "${platform}" "${output}" >&2
     else
       printf 'FAIL %s (%s): %s\n' "${name}" "${platform}" "${output}" >&2
