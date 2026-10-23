@@ -47,12 +47,12 @@ const paneStyle = cva("h-full overflow-x-hidden overflow-y-auto", {
   ],
 });
 
-const tabStyle = cva(["absolute flex h-11 cursor-pointer items-center justify-center", focusRing], {
+const tabStyle = cva(["absolute top-1 flex h-11 cursor-pointer items-center justify-center", focusRing], {
   variants: {
     look: {
-      app: "bg-pane border-rule text-ink-muted data-hovered:text-ink top-1/2 w-[13px] -translate-y-1/2 border text-[10px]",
+      app: "bg-pane border-rule text-ink-muted data-hovered:text-ink w-[13px] border text-[10px]",
       auspice:
-        "top-1 w-[17px] bg-[#f2f2f2] text-[12px] text-[#444] data-focus-visible:outline-[#5097ba] data-hovered:text-[#5097ba]",
+        "w-[17px] bg-[#f2f2f2] text-[12px] text-[#444] data-focus-visible:outline-[#5097ba] data-hovered:text-[#5097ba]",
     },
     side: { left: "", right: "" },
     isOverlay: { true: "", false: "" },

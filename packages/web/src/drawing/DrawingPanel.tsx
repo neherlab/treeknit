@@ -20,7 +20,7 @@ export function DrawingPanel<T>({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-rule flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-3 py-1.5">
+      <div className="border-rule flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-4 py-1.5">
         {toolbar}
       </div>
       {failure === undefined ? null : (

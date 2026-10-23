@@ -64,7 +64,7 @@ function Constellation({ data }: { data: ConstellationTable }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-rule flex shrink-0 items-center gap-3 border-b px-3 py-1.5">
+      <div className="border-rule flex shrink-0 items-center gap-3 border-b px-4 py-1.5">
         <h2 className="text-ink flex items-center gap-1 text-sm font-semibold">
           Constellation
           <InfoButton topic="the constellation">
