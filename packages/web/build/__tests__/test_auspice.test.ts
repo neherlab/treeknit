@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { transformAuspiceSource } from "../auspice";
+import { loadAuspiceExtensions, resolveAuspiceExtensions, transformAuspiceSource } from "../auspice";
 
-const AUSPICE_ROOT = "/repo/node_modules/.bun/auspice@3.0.0+ee1ed944166f6889/node_modules/auspice";
+const AUSPICE_ROOT = "/repo/node_modules/.bun/auspice@3.1.0+8cb5516666615bee/node_modules/auspice";
 
 const TIMERS_SOURCE = `
 export const timerStart = (name) => { console.log("start", name); };
@@ -54,6 +54,25 @@ describe("auspice source transform", () => {
 
     expect(code).toContain("react/jsx-runtime");
     expect(code).not.toContain("<span>");
+  });
+});
+
+describe("auspice extension registry", () => {
+  test("the registry that auspice imports is empty", async () => {
+    const id = resolveAuspiceExtensions("@extensions");
+    const code = id === undefined ? undefined : loadAuspiceExtensions(id);
+
+    if (code === undefined) {
+      throw new Error("the plugin does not provide the extension registry");
+    }
+
+    const registry: unknown = await import(`data:text/javascript,${encodeURIComponent(code)}`);
+
+    expect(registry).toStrictEqual(expect.objectContaining({ default: {} }));
+  });
+
+  test("other bare imports are left to the resolver", () => {
+    expect(resolveAuspiceExtensions("@extensions/map")).toBeUndefined();
   });
 });
 

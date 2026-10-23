@@ -32,7 +32,7 @@
       "@types/styled-components": "5.1.36",
       "@vitejs/plugin-react": "6.1.1",
       "@vitest/coverage-v8": "5.0.2",
-      "auspice": "3.0.0",
+      "auspice": "3.1.0",
       "class-variance-authority": "0.7.1",
       "cn": "0.4.0",
       "comlink": "4.4.2",
@@ -125,6 +125,6 @@
   },
   "packageManager": "bun@1.4.2",
   "patchedDependencies": {
-    "auspice@3.0.0": "patches/auspice@3.0.0.patch"
+    "auspice@3.1.0": "patches/auspice@3.1.0.patch"
   }
 }

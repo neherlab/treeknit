@@ -13,4 +13,4 @@ export declare function SVG(
   panelLayout: string,
   publications: readonly AuspicePublication[],
   caption?: readonly string[],
-): void;
+): Promise<void>;

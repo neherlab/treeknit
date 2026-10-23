@@ -47,10 +47,34 @@ const AUSPICE_TIMERS = /[\\/]auspice[\\/]src[\\/]util[\\/]perf\.js(?:\?.*)?$/u;
 
 const AUSPICE_TIMERS_STUB = "export const timerStart = () => {};\nexport const timerEnd = () => {};\n";
 
+const AUSPICE_EXTENSIONS = "@extensions";
+
+const AUSPICE_EXTENSIONS_ID = "\0treeknit-auspice-extensions";
+
+const AUSPICE_EXTENSIONS_STUB = "export default {};\n";
+
 const AUSPICE_TRANSFORM = {
   filter: { id: AUSPICE_SOURCE },
   handler: transformAuspiceSource,
 } satisfies Plugin["transform"];
+
+const AUSPICE_RESOLVE_ID = {
+  filter: { id: /^@extensions$/u },
+  handler: resolveAuspiceExtensions,
+} satisfies Plugin["resolveId"];
+
+const AUSPICE_LOAD = {
+  filter: { id: /^\0treeknit-auspice-extensions$/u },
+  handler: loadAuspiceExtensions,
+} satisfies Plugin["load"];
+
+export function resolveAuspiceExtensions(source: string) {
+  return source === AUSPICE_EXTENSIONS ? AUSPICE_EXTENSIONS_ID : undefined;
+}
+
+export function loadAuspiceExtensions(id: string) {
+  return id === AUSPICE_EXTENSIONS_ID ? AUSPICE_EXTENSIONS_STUB : undefined;
+}
 
 export async function transformAuspiceSource(code: string, id: string) {
   if (AUSPICE_TIMERS.test(id)) {
@@ -74,7 +98,6 @@ export function auspice(): Plugin {
     config() {
       return {
         define: {
-          "process.env.EXTENSION_DATA": JSON.stringify(""),
           "process.env.SKIP_REDUX_CHECKS": JSON.stringify(""),
           "process.env.ENABLE_SERVICE_WORKER": "false",
         },
@@ -82,10 +105,21 @@ export function auspice(): Plugin {
         optimizeDeps: {
           extensions: [".tsx"],
           include: [...AUSPICE_ENTRIES],
-          rolldownOptions: { plugins: [{ name: "treeknit-auspice-source", transform: AUSPICE_TRANSFORM }] },
+          rolldownOptions: {
+            plugins: [
+              {
+                name: "treeknit-auspice-source",
+                resolveId: AUSPICE_RESOLVE_ID,
+                load: AUSPICE_LOAD,
+                transform: AUSPICE_TRANSFORM,
+              },
+            ],
+          },
         },
       };
     },
+    resolveId: AUSPICE_RESOLVE_ID,
+    load: AUSPICE_LOAD,
     transform: AUSPICE_TRANSFORM,
   };
 }
