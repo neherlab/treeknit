@@ -18,6 +18,7 @@ export const AUSPICE_KEYS = {
   scatterY: "scatterY",
   branches: "branches",
   regression: "regression",
+  streamLabel: "streamLabel",
 } as const;
 
 export const AUSPICE_FILTER_PREFIX = "f_";
@@ -72,6 +73,10 @@ export function auspiceQuery(controls: AuspiceControlsState): string {
   }
 
   setScatterKeys(query, controls);
+
+  if (controls.showStreamTrees && controls.streamTreeBranchLabel !== null) {
+    query.set(AUSPICE_KEYS.streamLabel, controls.streamTreeBranchLabel);
+  }
 
   for (const key of Object.keys(controls.filters).toSorted()) {
     setFilter(query, `${AUSPICE_FILTER_PREFIX}${key}`, controls.filters[key], undefined);

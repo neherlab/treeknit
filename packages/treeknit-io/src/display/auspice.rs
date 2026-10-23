@@ -73,6 +73,7 @@ pub fn auspice_view(run: &RunResult, pair: usize, version: TreeVersion, scale: S
       color_by: MCC_KEY.to_owned(),
       branch_label: MCC_LABEL.to_owned(),
     },
+    stream_labels: vec![MCC_LABEL.to_owned()],
     sharing: AuspiceSharing { entropy: false },
   };
   let names: [BTreeSet<&str>; 2] =
@@ -446,6 +447,7 @@ mod tests {
         color_by: "mcc".to_owned(),
         branch_label: "MCC".to_owned(),
       },
+      stream_labels: vec!["MCC".to_owned()],
       sharing: AuspiceSharing { entropy: false },
     }
   }

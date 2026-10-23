@@ -71,6 +71,8 @@ describe("auspiceQuery", () => {
       { layout: "rect", scatterVariables: { x: "mcc", y: "largest_mcc", showBranches: false, showRegression: true } },
       "",
     ],
+    ["streamLabel while stream trees show", { showStreamTrees: true, streamTreeBranchLabel: "MCC" }, "streamLabel=MCC"],
+    ["no streamLabel while stream trees are off", { showStreamTrees: false, streamTreeBranchLabel: "MCC" }, ""],
   ] satisfies [string, Partial<AuspiceControlsState>, string][])("writes %s", (_case, changed, expected) => {
     expect(auspiceQuery({ ...CONTROLS, ...changed })).toBe(expected);
   });

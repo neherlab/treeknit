@@ -695,6 +695,8 @@ pub struct AuspiceMeta {
   /// Keys of the colorings that Auspice offers as filters.
   filters: Vec<String>,
   display_defaults: AuspiceDisplayDefaults,
+  /// Keys of the branch labels that Auspice offers to draw as stream trees, one stream per labeled branch.
+  stream_labels: Vec<String>,
   /// What the download panel of Auspice offers.
   sharing: AuspiceSharing,
 }

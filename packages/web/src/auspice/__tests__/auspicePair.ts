@@ -92,6 +92,7 @@ function dataset(tree: AuspiceNode): AuspiceDataset {
       ],
       filters: ["mcc", "largest_mcc"],
       display_defaults: { color_by: "mcc", branch_label: "MCC" },
+      stream_labels: ["MCC"],
       sharing: { entropy: false },
     },
     tree,

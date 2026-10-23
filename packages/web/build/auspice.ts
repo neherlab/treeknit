@@ -13,6 +13,7 @@ export const AUSPICE_ENTRIES = [
   "auspice/src/components/controls/choose-branch-labelling",
   "auspice/src/components/controls/choose-layout",
   "auspice/src/components/controls/choose-metric",
+  "auspice/src/components/controls/choose-stream-trees",
   "auspice/src/components/controls/choose-tip-label",
   "auspice/src/components/controls/color-by",
   "auspice/src/components/controls/controlHeader",

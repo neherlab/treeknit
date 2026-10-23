@@ -1155,6 +1155,10 @@ export interface AuspiceMeta {
     filters: string[];
     display_defaults: AuspiceDisplayDefaults;
     /**
+     * Keys of the branch labels that Auspice offers to draw as stream trees, one stream per labeled branch.
+     */
+    stream_labels: string[];
+    /**
      * What the download panel of Auspice offers.
      */
     sharing: AuspiceSharing;

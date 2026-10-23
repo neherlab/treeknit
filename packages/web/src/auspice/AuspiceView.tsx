@@ -3,6 +3,7 @@ import { AnnotatedTitle } from "auspice/src/components/controls/annotatedTitle";
 import ChooseBranchLabelling from "auspice/src/components/controls/choose-branch-labelling";
 import ChooseLayout from "auspice/src/components/controls/choose-layout";
 import ChooseMetric from "auspice/src/components/controls/choose-metric";
+import { ChooseStreamTrees } from "auspice/src/components/controls/choose-stream-trees";
 import ChooseTipLabel from "auspice/src/components/controls/choose-tip-label";
 import ColorBy, { ColorByInfo } from "auspice/src/components/controls/color-by";
 import { ControlHeader } from "auspice/src/components/controls/controlHeader";
@@ -14,7 +15,7 @@ import ToggleTangle from "auspice/src/components/controls/toggle-tangle";
 import Tree from "auspice/src/components/tree";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { I18nextProvider } from "react-i18next";
-import { Provider } from "react-redux";
+import { Provider, useSelector } from "react-redux";
 import { ThemeProvider } from "styled-components";
 
 import { useMeasuredSize } from "../canvas/useMeasuredSize";
@@ -29,6 +30,7 @@ import { AUSPICE_I18N } from "./i18n";
 import { SIDEBAR_WIDTH_PX, sidebarOverlays, treeSize } from "./layout";
 import { type AppliedMarks, markedMccValue, NO_MARKS, syncSelection, zoomToMcc } from "./linking";
 import { withoutFilterValue } from "./query";
+import type { AuspiceState } from "./state";
 import type { AuspiceStore } from "./store";
 import { type AuspiceInput, useAuspiceStore } from "./useAuspiceStore";
 
@@ -167,6 +169,8 @@ function SizedTree({ size, files, treeLabels, axisTitle }: { size: MeasuredSize 
 }
 
 function AuspiceSidebar() {
+  const twoTrees = useSelector(showsTwoTrees);
+
   return (
     <ControlsContainer className="auspice-controls auspice-badges">
       <ControlHeader title="Color By" tooltip={ColorByInfo} />
@@ -180,6 +184,7 @@ function AuspiceSidebar() {
         </div>
         <ChooseLayout />
         <ToggleFocus />
+        {twoTrees ? null : <ChooseStreamTrees />}
         <div className="h-2.5 shrink-0" />
         <ChooseMetric />
         <ChooseBranchLabelling />
@@ -190,4 +195,8 @@ function AuspiceSidebar() {
       </div>
     </ControlsContainer>
   );
+}
+
+function showsTwoTrees(state: AuspiceState): boolean {
+  return state.controls.showTreeToo !== false && state.controls.showTreeToo !== undefined;
 }
