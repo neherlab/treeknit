@@ -47,15 +47,16 @@ const paneStyle = cva("h-full overflow-x-hidden overflow-y-auto", {
   ],
 });
 
-const tabStyle = cva(["absolute flex h-11 cursor-pointer items-center justify-center text-[10px]", focusRing], {
+const tabStyle = cva(["absolute flex h-11 cursor-pointer items-center justify-center", focusRing], {
   variants: {
     look: {
-      app: "bg-pane border-rule text-ink-muted data-hovered:text-ink top-1/2 w-[13px] -translate-y-1/2 border",
+      app: "bg-pane border-rule text-ink-muted data-hovered:text-ink top-1/2 w-[13px] -translate-y-1/2 border text-[10px]",
       auspice:
-        "top-0 w-[15px] bg-[#f2f2f2] text-[#333] data-focus-visible:outline-[#5097ba] data-hovered:text-[#5097ba]",
+        "top-1 w-[17px] bg-[#f2f2f2] text-[12px] text-[#444] data-focus-visible:outline-[#5097ba] data-hovered:text-[#5097ba]",
     },
     side: { left: "", right: "" },
     isOverlay: { true: "", false: "" },
+    isOpen: { true: "", false: "" },
   },
   compoundVariants: [
     { look: "app", side: "left", className: "left-[calc(100%-1px)] rounded-r-[6px] border-l-0" },
@@ -70,10 +71,12 @@ const tabStyle = cva(["absolute flex h-11 cursor-pointer items-center justify-ce
       side: "right",
       className: "right-[calc(100%-3px)] rounded-l-[6px] pr-[3px] [clip-path:inset(-12px_0_-12px_-12px)]",
     },
+    { look: "auspice", isOpen: false, className: "shadow-[0_0_5px_1px_rgba(0,0,0,0.2)]" },
     {
       look: "auspice",
       side: "left",
       isOverlay: false,
+      isOpen: true,
       className:
         "shadow-[inset_-3px_0_3px_-3px_rgba(0,0,0,0.2),inset_0_3px_3px_-3px_rgba(0,0,0,0.2),inset_0_-3px_3px_-3px_rgba(0,0,0,0.2)]",
     },
@@ -81,16 +84,29 @@ const tabStyle = cva(["absolute flex h-11 cursor-pointer items-center justify-ce
       look: "auspice",
       side: "right",
       isOverlay: false,
+      isOpen: true,
       className:
         "shadow-[inset_3px_0_3px_-3px_rgba(0,0,0,0.2),inset_0_3px_3px_-3px_rgba(0,0,0,0.2),inset_0_-3px_3px_-3px_rgba(0,0,0,0.2)]",
     },
-    { look: "auspice", side: "left", isOverlay: true, className: "shadow-[2px_0_8px_rgba(0,0,0,0.2)]" },
-    { look: "auspice", side: "right", isOverlay: true, className: "shadow-[-2px_0_8px_rgba(0,0,0,0.2)]" },
+    { look: "auspice", side: "left", isOverlay: true, isOpen: true, className: "shadow-[2px_0_8px_rgba(0,0,0,0.2)]" },
+    { look: "auspice", side: "right", isOverlay: true, isOpen: true, className: "shadow-[-2px_0_8px_rgba(0,0,0,0.2)]" },
     { look: "app", isOverlay: true, className: "shadow-lg" },
   ],
 });
 
-export function CollapsiblePane({ children, className, ...pane }: CollapsiblePaneProps) {
+const backdropStyle = cva(
+  [
+    "absolute inset-0 z-2 cursor-pointer bg-[rgba(0,0,0,0.5)]",
+    "transition-[opacity,visibility] duration-300 ease-out motion-reduce:transition-none",
+  ],
+  {
+    variants: {
+      isOpen: { true: "visible opacity-100", false: "invisible opacity-0" },
+    },
+  },
+);
+
+export function CollapsiblePane({ children, className, backdrop = false, ...pane }: CollapsiblePaneProps) {
   const area = useRef<HTMLDivElement>(null);
   const sidePane = <SidePane {...pane} dismissArea={area} />;
 
@@ -101,6 +117,7 @@ export function CollapsiblePane({ children, className, ...pane }: CollapsiblePan
     >
       {pane.side === "left" ? sidePane : null}
       <div className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
+      {backdrop && pane.isOverlay ? <div aria-hidden className={backdropStyle({ isOpen: pane.isOpen })} /> : null}
       {pane.side === "right" ? sidePane : null}
     </div>
   );
@@ -109,6 +126,7 @@ export function CollapsiblePane({ children, className, ...pane }: CollapsiblePan
 export interface CollapsiblePaneProps extends SidePaneProps {
   children: ReactNode;
   className?: string;
+  backdrop?: boolean;
 }
 
 export function SidePane({
@@ -182,7 +200,7 @@ export function SidePane({
             aria-expanded={isOpen}
             aria-controls={paneId}
             onPress={toggle}
-            className={tabStyle({ look, side, isOverlay })}
+            className={tabStyle({ look, side, isOverlay, isOpen })}
           >
             <Chevron aria-hidden />
           </Button>

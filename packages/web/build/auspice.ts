@@ -26,6 +26,7 @@ export const AUSPICE_ENTRIES = [
   "auspice/src/components/download/helperFunctions",
   "auspice/src/components/info/datasetSummary",
   "auspice/src/components/info/filtersSummary",
+  "auspice/src/components/main/utils",
   "auspice/src/components/tree",
   "auspice/src/components/tree/phyloTree/helpers",
   "auspice/src/middleware/changeURL",

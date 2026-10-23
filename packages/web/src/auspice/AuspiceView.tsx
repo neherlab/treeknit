@@ -13,7 +13,8 @@ import { ControlsContainer } from "auspice/src/components/controls/styles";
 import { ToggleFocus } from "auspice/src/components/controls/toggle-focus";
 import ToggleTangle from "auspice/src/components/controls/toggle-tangle";
 import Tree from "auspice/src/components/tree";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { cn } from "cn";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { I18nextProvider } from "react-i18next";
 import { Provider, useSelector } from "react-redux";
 import { ThemeProvider } from "styled-components";
@@ -25,16 +26,19 @@ import type { Selection } from "../drawing/selection";
 import { usePaneOpen } from "../shell/paneStore";
 import { CollapsiblePane } from "../ui/CollapsiblePane";
 import { useFocusRequest, useFocusStore } from "../workspace/context";
-import { AuspiceHeader } from "./AuspiceHeader";
+import { HeaderDownloads, HeaderSummary, HeaderZoom, useDatasetSummary } from "./AuspiceHeader";
 import { AUSPICE_I18N } from "./i18n";
-import { SIDEBAR_WIDTH_PX, sidebarOverlays, treeSize } from "./layout";
+import { cardTitleHeight, headerLayout, SIDEBAR_WIDTH_PX, sidebarOverlays, treeSize } from "./layout";
 import { type AppliedMarks, markedMccValue, NO_MARKS, syncSelection, zoomToMcc } from "./linking";
 import { withoutFilterValue } from "./query";
 import type { AuspiceState } from "./state";
 import type { AuspiceStore } from "./store";
 import { type AuspiceInput, useAuspiceStore } from "./useAuspiceStore";
+import { useElementWidth } from "./useElementWidth";
 
 const SIDEBAR = <AuspiceSidebar />;
+
+const HEADER_ROW_STYLE = "flex h-[26px] w-(--auspice-tree-width) items-center gap-4";
 
 const SIDEBAR_THEME = {
   background: "#F2F2F2",
@@ -132,13 +136,12 @@ function AuspiceLayout({ files, treeLabels, axisTitle }: LayoutProps) {
         isOpen={isOpen}
         onOpenChange={setOpen}
         isOverlay={isOverlay}
+        backdrop
         look="auspice"
         pane={SIDEBAR}
       >
-        <div className="flex min-h-0 flex-1 pl-4">
-          <div ref={canvasRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden [contain:size]">
-            <SizedTree size={size} files={files} treeLabels={treeLabels} axisTitle={axisTitle} />
-          </div>
+        <div ref={canvasRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden [contain:size]">
+          <SizedTree size={size} files={files} treeLabels={treeLabels} axisTitle={axisTitle} />
         </div>
       </CollapsiblePane>
     </div>
@@ -146,26 +149,64 @@ function AuspiceLayout({ files, treeLabels, axisTitle }: LayoutProps) {
 }
 
 function SizedTree({ size, files, treeLabels, axisTitle }: { size: MeasuredSize | null } & LayoutProps) {
-  const fitted = size === null ? null : treeSize(size.canvas);
+  const twoTrees = useSelector(showsTwoTrees);
+  const summary = useDatasetSummary();
+  const [zoomRef, zoomWidth] = useElementWidth();
+  const [downloadsRef, downloadsWidth] = useElementWidth();
+  const panelWidth = size === null ? 0 : (treeSize(size.canvas, false)?.width ?? 0);
+  const { stacked, compactDownloads } = headerLayout({ tree: panelWidth, zoom: zoomWidth, downloads: downloadsWidth });
+  const fitted = size === null ? null : treeSize(size.canvas, stacked);
+  const titleHeight = cardTitleHeight(twoTrees);
+
+  const cardVariables = useMemo<CardVariables>(
+    () => ({ "--auspice-tree-width": `${String(panelWidth)}px`, "--auspice-title-height": `${String(titleHeight)}px` }),
+    [panelWidth, titleHeight],
+  );
 
   if (fitted === null) {
     return null;
   }
 
+  const summaryAndDownloads = (
+    <>
+      <HeaderSummary summary={summary} />
+      <HeaderDownloads
+        files={files}
+        treeLabels={treeLabels}
+        summary={summary}
+        compact={compactDownloads}
+        groupRef={downloadsRef}
+      />
+    </>
+  );
+
   return (
-    <div className="relative">
-      <div className="auspice-card">
-        <Tree
-          width={fitted.width}
-          height={fitted.height}
-          axisTitle={axisTitle}
-          showTreeButtons={false}
-          showNodeClickedPanel={false}
-        />
+    // oxlint-disable-next-line react/forbid-dom-props -- the tree width and the title height come from the measured view, which a class cannot express; the style only sets the custom properties that the header row and the card title row read
+    <div style={cardVariables}>
+      {stacked ? <div className={cn(HEADER_ROW_STYLE, "ml-5")}>{summaryAndDownloads}</div> : null}
+      <div className="relative">
+        <div className="auspice-card">
+          <Tree
+            width={fitted.width}
+            height={fitted.height}
+            axisTitle={axisTitle}
+            showTreeButtons={false}
+            showNodeClickedPanel={false}
+          />
+        </div>
+        <div className={cn(HEADER_ROW_STYLE, "absolute top-0 left-5 z-1")}>
+          {stacked ? null : summaryAndDownloads}
+          <HeaderZoom groupRef={zoomRef} />
+        </div>
       </div>
-      <AuspiceHeader files={files} treeLabels={treeLabels} />
     </div>
   );
+}
+
+type CardVariables = CSSProperties & Record<"--auspice-tree-width" | "--auspice-title-height", string>;
+
+function showsTwoTrees(state: AuspiceState): boolean {
+  return state.controls.showTreeToo !== false && state.controls.showTreeToo !== undefined;
 }
 
 function AuspiceSidebar() {
@@ -195,8 +236,4 @@ function AuspiceSidebar() {
       </div>
     </ControlsContainer>
   );
-}
-
-function showsTwoTrees(state: AuspiceState): boolean {
-  return state.controls.showTreeToo !== false && state.controls.showTreeToo !== undefined;
 }

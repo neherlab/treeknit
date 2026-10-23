@@ -36,7 +36,3 @@ export interface TreeTabButtonProps extends Pick<ButtonProps, "isDisabled" | "on
   icon?: ComponentType<SVGProps<SVGSVGElement>>;
   iconOnly?: boolean;
 }
-
-export function TreeTabButtonGroup({ children }: { children: ReactNode }) {
-  return <div className="flex shrink-0 gap-1 self-start">{children}</div>;
-}

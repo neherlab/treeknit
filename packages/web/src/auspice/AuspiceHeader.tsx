@@ -7,7 +7,7 @@ import { SVG } from "auspice/src/components/download/helperFunctions";
 import { datasetSummary } from "auspice/src/components/info/datasetSummary";
 import FiltersSummary from "auspice/src/components/info/filtersSummary";
 import { getParentBeyondPolytomy } from "auspice/src/components/tree/phyloTree/helpers";
-import { useCallback, useMemo } from "react";
+import { type Ref, useCallback, useMemo } from "react";
 import type { Key } from "react-aria-components";
 import { useTranslation } from "react-i18next";
 import { useDispatch, useSelector } from "react-redux";
@@ -19,7 +19,7 @@ import { Menu, MenuItem } from "../ui/Menu";
 import { figureCaption } from "./figure";
 import type { AuspiceNode, AuspiceState, ObservedMutations } from "./state";
 import type { AuspiceStore } from "./store";
-import { TreeTabButton, TreeTabButtonGroup } from "./TreeTabButton";
+import { TreeTabButton } from "./TreeTabButton";
 import { type ZoomAction, zoomButtonStates, zoomRoots, type ZoomTree } from "./zoom";
 
 const JSON_TOOLTIP =
@@ -29,42 +29,76 @@ const SVG_TOOLTIP = "Figure of the shown trees and their tangle lines (SVG)";
 
 const SVG_FAILED = "The SVG figure could not be made.";
 
-export function AuspiceHeader({ files, treeLabels }: AuspiceHeaderProps) {
+const DOWNLOAD_TOOLTIP = "The figure of the shown trees (SVG), or an Auspice JSON v2 dataset of a shown tree";
+
+const SVG_ITEM = "svg";
+
+export function useDatasetSummary(): string {
   const { t } = useTranslation();
   const tree = useSelector((state: AuspiceState) => state.tree);
-  const metadata = useSelector((state: AuspiceState) => state.metadata);
+  const mainTreeNumTips = useSelector((state: AuspiceState) => state.metadata.mainTreeNumTips);
   const branchLengthsToDisplay = useSelector((state: AuspiceState) => state.controls.branchLengthsToDisplay);
 
-  const summary = datasetSummary({
-    nodes: tree.nodes,
-    visibility: tree.visibility,
-    mainTreeNumTips: metadata.mainTreeNumTips,
-    branchLengthsToDisplay,
-    t,
-  });
+  return datasetSummary({ nodes: tree.nodes, visibility: tree.visibility, mainTreeNumTips, branchLengthsToDisplay, t });
+}
 
+export function HeaderSummary({ summary }: { summary: string }) {
   return (
-    <div className="absolute inset-x-0 top-0 z-1 flex h-[26px] items-center gap-4">
-      <span className="shrink-0 text-[14px] leading-5 font-medium whitespace-nowrap text-[#888]">{summary}</span>
+    <>
+      <span className="min-w-0 shrink truncate text-[14px] leading-5 font-medium text-[#888]">{summary}</span>
       <div className="auspice-filters-summary auspice-badges">
         <FiltersSummary />
       </div>
       <div className="flex-1" />
-      <TreeTabButtonGroup>
-        <SvgButton prefix={files?.svgPrefix} summary={summary} />
-        <JsonButton files={files?.json} treeLabels={treeLabels} />
-        <ZoomButtons />
-      </TreeTabButtonGroup>
+    </>
+  );
+}
+
+export function HeaderDownloads({ files, treeLabels, summary, compact, groupRef }: HeaderDownloadsProps) {
+  const svg = useSvgDownload(files?.svgPrefix, summary);
+
+  return (
+    <div ref={groupRef} className="flex shrink-0 gap-1 self-start">
+      {compact ? (
+        <DownloadMenu svg={svg} files={files?.json} treeLabels={treeLabels} />
+      ) : (
+        <>
+          <TreeTabButton
+            label="SVG"
+            icon={DownloadIcon}
+            tooltip={SVG_TOOLTIP}
+            isDisabled={svg.isDisabled}
+            onPress={svg.download}
+          />
+          <JsonButton files={files?.json} treeLabels={treeLabels} />
+        </>
+      )}
     </div>
   );
 }
 
-export interface AuspiceHeaderProps {
+export interface HeaderDownloadsProps {
   files: AuspiceFiles | undefined;
   treeLabels: readonly string[];
+  summary: string;
+  compact: boolean;
+  groupRef: Ref<HTMLDivElement>;
 }
 
-function SvgButton({ prefix, summary }: { prefix: string | undefined; summary: string }) {
+export function HeaderZoom({ groupRef }: { groupRef: Ref<HTMLDivElement> }) {
+  return (
+    <div ref={groupRef} className="ml-auto flex shrink-0 gap-1 self-start">
+      <ZoomButtons />
+    </div>
+  );
+}
+
+interface SvgDownload {
+  download: () => void;
+  isDisabled: boolean;
+}
+
+function useSvgDownload(prefix: string | undefined, summary: string): SvgDownload {
   const { t } = useTranslation();
   const dispatch = useDispatch<AuspiceStore["dispatch"]>();
   const metadata = useSelector((state: AuspiceState) => state.metadata);
@@ -100,33 +134,12 @@ function SvgButton({ prefix, summary }: { prefix: string | undefined; summary: s
     }
   }, [prefix, mutate]);
 
-  return (
-    <TreeTabButton
-      label="SVG"
-      icon={DownloadIcon}
-      tooltip={SVG_TOOLTIP}
-      isDisabled={prefix === undefined || isPending}
-      onPress={download}
-    />
-  );
+  return useMemo(() => ({ download, isDisabled: prefix === undefined || isPending }), [download, prefix, isPending]);
 }
 
 function JsonButton({ files, treeLabels }: { files: AuspiceFiles["json"] | undefined; treeLabels: readonly string[] }) {
-  const items = useMemo(
-    () => (files ?? []).map((file, index) => ({ id: file.path, label: treeLabels[index] ?? file.path, file })),
-    [files, treeLabels],
-  );
-
-  const download = useCallback(
-    (key: Key) => {
-      const item = items.find(({ id }) => id === key);
-
-      if (item !== undefined) {
-        downloadFile({ name: item.file.path, mediaType: item.file.mediaType, content: item.file.text });
-      }
-    },
-    [items],
-  );
+  const items = useJsonItems(files, treeLabels);
+  const download = useItemDownload(items);
 
   const trigger = useMemo(
     () => <TreeTabButton label="JSON" icon={DownloadIcon} tooltip={JSON_TOOLTIP} isDisabled={files === undefined} />,
@@ -143,6 +156,80 @@ function JsonButton({ files, treeLabels }: { files: AuspiceFiles["json"] | undef
     >
       {(item) => <MenuItem id={item.id}>{item.label}</MenuItem>}
     </Menu>
+  );
+}
+
+function DownloadMenu({ svg, files, treeLabels }: DownloadMenuProps) {
+  const json = useJsonItems(files, treeLabels);
+  const downloadJson = useItemDownload(json);
+  const { download: downloadSvg, isDisabled: svgDisabled } = svg;
+
+  const items = useMemo(
+    () => [
+      { id: SVG_ITEM, label: "SVG figure", isDisabled: svgDisabled },
+      ...json.map(({ id, label }) => ({ id, label: `JSON: ${label}`, isDisabled: false })),
+    ],
+    [json, svgDisabled],
+  );
+
+  const disabledKeys = useMemo(() => items.filter((item) => item.isDisabled).map(({ id }) => id), [items]);
+
+  const download = useCallback(
+    (key: Key) => {
+      if (key === SVG_ITEM) {
+        downloadSvg();
+      } else {
+        downloadJson(key);
+      }
+    },
+    [downloadSvg, downloadJson],
+  );
+
+  const trigger = useMemo(() => <TreeTabButton label="Download" icon={DownloadIcon} tooltip={DOWNLOAD_TOOLTIP} />, []);
+
+  return (
+    <Menu
+      aria-label="Download the figure or an Auspice dataset"
+      trigger={trigger}
+      items={items}
+      disabledKeys={disabledKeys}
+      onAction={download}
+      placement="bottom end"
+    >
+      {(item) => <MenuItem id={item.id}>{item.label}</MenuItem>}
+    </Menu>
+  );
+}
+
+interface DownloadMenuProps {
+  svg: SvgDownload;
+  files: AuspiceFiles["json"] | undefined;
+  treeLabels: readonly string[];
+}
+
+interface JsonItem {
+  id: string;
+  label: string;
+  file: AuspiceFiles["json"][number];
+}
+
+function useJsonItems(files: AuspiceFiles["json"] | undefined, treeLabels: readonly string[]): JsonItem[] {
+  return useMemo(
+    () => (files ?? []).map((file, index) => ({ id: file.path, label: treeLabels[index] ?? file.path, file })),
+    [files, treeLabels],
+  );
+}
+
+function useItemDownload(items: readonly JsonItem[]): (key: Key) => void {
+  return useCallback(
+    (key: Key) => {
+      const item = items.find(({ id }) => id === key);
+
+      if (item !== undefined) {
+        downloadFile({ name: item.file.path, mediaType: item.file.mediaType, content: item.file.text });
+      }
+    },
+    [items],
   );
 }
 

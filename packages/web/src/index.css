@@ -112,13 +112,11 @@
 
   & > div {
     display: block !important;
-    margin: 0 !important;
-    padding: 0 !important;
   }
 
   & > div > div:first-child {
     box-sizing: border-box;
-    height: 26px;
+    height: var(--auspice-title-height);
     min-height: 0 !important;
     margin: 0 !important;
     line-height: 25px;
@@ -127,7 +125,7 @@
   }
 
   & #TangleSvgContainer {
-    top: 26px !important;
+    top: var(--auspice-title-height) !important;
   }
 }
 

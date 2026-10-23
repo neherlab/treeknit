@@ -1,5 +1,5 @@
 export const PANE_WIDTHS = {
-  260: "w-[260px]",
+  266: "w-[266px]",
   320: "w-[320px]",
   336: "w-[336px]",
 } as const;
