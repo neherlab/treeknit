@@ -4,6 +4,7 @@ const AUSPICE_SOURCE =
   /[\\/]node_modules[\\/](?:\.bun[\\/][^\\/]+[\\/]node_modules[\\/])?auspice[\\/]src[\\/][^?]+\.js(?:\?.*)?$/u;
 
 export const AUSPICE_ENTRIES = [
+  "auspice/src/actions/notifications",
   "auspice/src/actions/recomputeReduxState",
   "auspice/src/actions/tree",
   "auspice/src/actions/types",

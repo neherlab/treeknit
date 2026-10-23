@@ -1,4 +1,6 @@
 import type { AuspiceFiles } from "@neherlab/treeknit-wasm";
+import { useMutation } from "@tanstack/react-query";
+import { errorNotification } from "auspice/src/actions/notifications";
 import { updateVisibleTipsAndBranchThicknesses } from "auspice/src/actions/tree";
 import { publications } from "auspice/src/components/download/downloadModal";
 import { SVG } from "auspice/src/components/download/helperFunctions";
@@ -24,6 +26,8 @@ const JSON_TOOLTIP =
   "Auspice JSON v2 datasets of the shown trees. auspice.us opens two of them together as a tanglegram";
 
 const SVG_TOOLTIP = "Figure of the shown trees and their tangle lines (SVG)";
+
+const SVG_FAILED = "The SVG figure could not be made.";
 
 export function AuspiceHeader({ files, treeLabels }: AuspiceHeaderProps) {
   const { t } = useTranslation();
@@ -68,20 +72,40 @@ function SvgButton({ prefix, summary }: { prefix: string | undefined; summary: s
   const { panelsToDisplay, panelLayout } = useSelector((state: AuspiceState) => state.controls);
   const title = metadata.title ?? "";
 
-  const download = useCallback(() => {
-    if (prefix !== undefined) {
+  const { mutate, isPending } = useMutation({
+    mutationFn: async (filePrefix: string) => {
       const caption = figureCaption({ title, summary, publications: [publications.nextstrain] });
 
-      SVG(dispatch, t, metadata, tree.nodes, tree.visibility, prefix, panelsToDisplay, panelLayout, [], caption);
+      await SVG(
+        dispatch,
+        t,
+        metadata,
+        tree.nodes,
+        tree.visibility,
+        filePrefix,
+        panelsToDisplay,
+        panelLayout,
+        [],
+        caption,
+      );
+    },
+    onError: (error) => {
+      dispatch(errorNotification({ message: SVG_FAILED, details: error.message }));
+    },
+  });
+
+  const download = useCallback(() => {
+    if (prefix !== undefined) {
+      mutate(prefix);
     }
-  }, [prefix, title, summary, dispatch, t, metadata, tree, panelsToDisplay, panelLayout]);
+  }, [prefix, mutate]);
 
   return (
     <TreeTabButton
       label="SVG"
       icon={DownloadIcon}
       tooltip={SVG_TOOLTIP}
-      isDisabled={prefix === undefined}
+      isDisabled={prefix === undefined || isPending}
       onPress={download}
     />
   );
