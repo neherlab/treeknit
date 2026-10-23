@@ -14,6 +14,10 @@ export const AUSPICE_KEYS = {
   legend: "legend",
   focus: "focus",
   strain: "s",
+  scatterX: "scatterX",
+  scatterY: "scatterY",
+  branches: "branches",
+  regression: "regression",
 } as const;
 
 export const AUSPICE_FILTER_PREFIX = "f_";
@@ -67,6 +71,8 @@ export function auspiceQuery(controls: AuspiceControlsState): string {
     query.set(AUSPICE_KEYS.focus, "selected");
   }
 
+  setScatterKeys(query, controls);
+
   for (const key of Object.keys(controls.filters).toSorted()) {
     setFilter(query, `${AUSPICE_FILTER_PREFIX}${key}`, controls.filters[key], undefined);
   }
@@ -78,6 +84,32 @@ export function auspiceQuery(controls: AuspiceControlsState): string {
 
 export function parseAuspiceQuery(text: string | undefined): Record<string, string> {
   return Object.fromEntries(new URLSearchParams(text ?? ""));
+}
+
+function setScatterKeys(
+  query: URLSearchParams,
+  { layout, distanceMeasure, colorBy, scatterVariables }: AuspiceControlsState,
+): void {
+  const { x, y, showBranches, showRegression } = scatterVariables;
+  const scatter = layout === "scatter";
+
+  if (scatter && x !== undefined && x !== distanceMeasure) {
+    query.set(AUSPICE_KEYS.scatterX, x);
+  }
+
+  if (scatter && y !== undefined && y !== colorBy) {
+    query.set(AUSPICE_KEYS.scatterY, y);
+  }
+
+  if ((scatter || layout === "clock") && showBranches === false) {
+    query.set(AUSPICE_KEYS.branches, "hide");
+  }
+
+  if (scatter && showRegression === true) {
+    query.set(AUSPICE_KEYS.regression, "show");
+  } else if (layout === "clock" && showRegression === false) {
+    query.set(AUSPICE_KEYS.regression, "hide");
+  }
 }
 
 function setFilter(

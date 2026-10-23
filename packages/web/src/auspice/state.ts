@@ -63,11 +63,19 @@ export interface AuspiceControlsState {
   showTangle: boolean;
   showStreamTrees: boolean;
   streamTreeBranchLabel: string | null;
+  scatterVariables: AuspiceScatterVariables;
   legendOpen?: boolean | undefined;
   panelsToDisplay: readonly string[];
   selectedNode: AuspiceSelectedNode | null;
   filters: Readonly<Record<string | symbol, readonly AuspiceFilterValue[]>>;
   performanceFlags: ReadonlyMap<string, boolean>;
+}
+
+export interface AuspiceScatterVariables {
+  x?: string | undefined;
+  y?: string | undefined;
+  showBranches?: boolean | undefined;
+  showRegression?: boolean | undefined;
 }
 
 export interface AuspiceFilterValue {

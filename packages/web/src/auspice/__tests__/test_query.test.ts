@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import type { WrittenSearch } from "../../workspace/search";
-import { withAuspiceQuery, withoutFilterValue } from "../query";
+import { auspiceQuery, withAuspiceQuery, withoutFilterValue } from "../query";
+import type { AuspiceControlsState } from "../state";
 
 const SEARCH: WrittenSearch = {
   view: "auspice",
@@ -32,3 +33,67 @@ describe("withAuspiceQuery", () => {
     ]);
   });
 });
+
+describe("auspiceQuery", () => {
+  test.each([
+    [
+      "scatterX, a scatter x axis other than the branch metric",
+      { layout: "scatter", scatterVariables: { x: "mcc", y: "mcc" } },
+      "l=scatter&scatterX=mcc",
+    ],
+    [
+      "no scatterX for the branch metric on the x axis",
+      { layout: "scatter", scatterVariables: { x: "div", y: "mcc" } },
+      "l=scatter",
+    ],
+    [
+      "scatterY, a scatter y axis other than the coloring",
+      { layout: "scatter", scatterVariables: { x: "div", y: "largest_mcc" } },
+      "l=scatter&scatterY=largest_mcc",
+    ],
+    [
+      "branches=hide, hidden branches of a scatter plot",
+      { layout: "scatter", scatterVariables: { x: "div", y: "mcc", showBranches: false } },
+      "l=scatter&branches=hide",
+    ],
+    [
+      "regression=show, a regression of a scatter plot",
+      { layout: "scatter", scatterVariables: { x: "div", y: "mcc", showRegression: true } },
+      "l=scatter&regression=show",
+    ],
+    [
+      "regression=hide, a clock without its regression",
+      { layout: "clock", scatterVariables: { showRegression: false } },
+      "l=clock&regression=hide",
+    ],
+    [
+      "no scatter keys outside a scatter plot",
+      { layout: "rect", scatterVariables: { x: "mcc", y: "largest_mcc", showBranches: false, showRegression: true } },
+      "",
+    ],
+  ] satisfies [string, Partial<AuspiceControlsState>, string][])("writes %s", (_case, changed, expected) => {
+    expect(auspiceQuery({ ...CONTROLS, ...changed })).toBe(expected);
+  });
+});
+
+const CONTROLS: AuspiceControlsState = {
+  defaults: { colorBy: "mcc", layout: "rect", tipLabelKey: "name", selectedBranchLabel: "MCC" },
+  colorBy: "mcc",
+  layout: "rect",
+  tipLabelKey: "name",
+  selectedBranchLabel: "MCC",
+  showAllBranchLabels: false,
+  distanceMeasure: "div",
+  focus: null,
+  branchLengthsToDisplay: "divOnly",
+  panelLayout: "full",
+  showTreeToo: false,
+  showTangle: false,
+  showStreamTrees: false,
+  streamTreeBranchLabel: null,
+  scatterVariables: {},
+  panelsToDisplay: ["tree"],
+  selectedNode: null,
+  filters: {},
+  performanceFlags: new Map(),
+};
