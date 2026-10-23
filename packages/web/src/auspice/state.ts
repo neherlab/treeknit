@@ -43,6 +43,9 @@ export interface AuspiceNode {
   name: string;
   arrayIdx: number;
   hasChildren: boolean;
+  parent: AuspiceNode;
+  fullTipCount: number;
+  node_attrs?: Readonly<Record<string, { value?: unknown }>> | undefined;
 }
 
 export interface AuspiceControlsState {
@@ -58,6 +61,8 @@ export interface AuspiceControlsState {
   panelLayout: string;
   showTreeToo: string | false | undefined;
   showTangle: boolean;
+  showStreamTrees: boolean;
+  streamTreeBranchLabel: string | null;
   legendOpen?: boolean | undefined;
   panelsToDisplay: readonly string[];
   selectedNode: AuspiceSelectedNode | null;

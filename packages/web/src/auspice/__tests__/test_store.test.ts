@@ -1,5 +1,5 @@
 import type { AuspiceTrees } from "@neherlab/treeknit-wasm";
-import { applyFilter } from "auspice/src/actions/tree";
+import { applyFilter, updateVisibleTipsAndBranchThicknesses } from "auspice/src/actions/tree";
 import { ADD_NOTIFICATION, CLEAN_START, DESELECT_NODE, SELECT_NODE } from "auspice/src/actions/types";
 import { strainSymbol } from "auspice/src/util/globals";
 import type { AnyAction } from "redux";
@@ -303,6 +303,51 @@ describe("auspice links with the workspace", () => {
       index.left("NODE_4"),
       index.right("NODE_3"),
     ]);
+  });
+
+  test("zooms out the tree whose zoomed clade lacks a selected leaf, and keeps the zoom of the other tree", () => {
+    const { store } = loadedPair();
+    const index = nodeIndex(store.getState());
+
+    store.dispatch(updateVisibleTipsAndBranchThicknesses({ root: [index.left("NODE_2"), index.right("NODE_4")] }));
+    syncSelection(store, NO_MARKS, { leaf: "C" }, AUSPICE_PAIR);
+    const { tree, treeToo } = store.getState();
+
+    expect([tree.idxOfInViewRootNode, treeToo.idxOfInViewRootNode]).toStrictEqual([
+      index.left("NODE_1"),
+      index.right("NODE_4"),
+    ]);
+  });
+
+  test("keeps the zoom of a tree whose zoomed clade holds the selected leaf", () => {
+    const { store } = loadedPair();
+    const index = nodeIndex(store.getState());
+
+    store.dispatch(updateVisibleTipsAndBranchThicknesses({ root: [index.left("NODE_2"), undefined] }));
+    syncSelection(store, NO_MARKS, { leaf: "A" }, AUSPICE_PAIR);
+
+    expect(store.getState().tree.idxOfInViewRootNode).toBe(index.left("NODE_2"));
+  });
+
+  test.each([
+    { leaf: "C", active: false, effect: "inactivates a filter that hides" },
+    { leaf: "X", active: true, effect: "keeps a filter that shows" },
+  ])("$effect the selected leaf $leaf", ({ leaf, active }) => {
+    const { store } = loadedPair();
+
+    store.dispatch(applyFilter("add", "mcc", ["MCC 1"]));
+    syncSelection(store, NO_MARKS, { leaf }, AUSPICE_PAIR);
+
+    expect(store.getState().controls.filters["mcc"]).toStrictEqual([{ value: "MCC 1", active }]);
+  });
+
+  test("turns stream trees off to show a selected leaf as a tip", () => {
+    const { store } = loadedPair("left", parseAuspiceQuery("streamLabel=MCC"));
+    const before = store.getState().controls.showStreamTrees;
+
+    syncSelection(store, NO_MARKS, { leaf: "C" }, AUSPICE_PAIR);
+
+    expect([before, store.getState().controls.showStreamTrees]).toStrictEqual([true, false]);
   });
 });
 

@@ -7,6 +7,7 @@ export const AUSPICE_ENTRIES = [
   "auspice/src/actions/notifications",
   "auspice/src/actions/recomputeReduxState",
   "auspice/src/actions/tree",
+  "auspice/src/actions/treeStreams",
   "auspice/src/actions/types",
   "auspice/src/components/controls/annotatedTitle",
   "auspice/src/components/controls/choose-branch-labelling",
@@ -40,6 +41,7 @@ export const AUSPICE_ENTRIES = [
   "auspice/src/reducers/tree",
   "auspice/src/reducers/tree/treeToo",
   "auspice/src/util/globals",
+  "auspice/src/util/treeMiscHelpers",
 ] as const;
 
 const SHARED_PACKAGES = ["react", "react-dom"];
