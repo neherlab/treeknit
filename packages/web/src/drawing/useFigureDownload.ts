@@ -44,7 +44,8 @@ export function useFigureDownload(
   const button: FigureButtonProps =
     "entry" in file ? { onDownload: download, isPending } : { disabledReason: file.disabledReason };
 
-  const failure = error === null ? undefined : { title: FIGURE_FAILED, message: error.message, onDismiss: reset };
+  const failure: DrawingFailure | undefined =
+    error === null ? undefined : { tone: "danger", title: FIGURE_FAILED, message: error.message, onDismiss: reset };
 
   return { button, failure };
 }

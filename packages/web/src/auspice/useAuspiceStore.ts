@@ -4,6 +4,7 @@ import { CLEAN_START } from "auspice/src/actions/types";
 import { useEffect, useState } from "react";
 
 import type { Selection } from "../drawing/selection";
+import { type AuspiceNotice, noticeMiddleware } from "./notices";
 import { auspiceQuery } from "./query";
 import { selectionMiddleware, treeSides } from "./selection";
 import { type AuspiceMiddleware, type AuspiceStore, createAuspiceStore } from "./store";
@@ -17,45 +18,36 @@ export interface AuspiceInput {
   query: Readonly<Record<string, string>>;
   onSelect: (selection: Selection) => void;
   onQuery: (query: string) => void;
+  onNotice: (notice: AuspiceNotice) => void;
 }
 
-export function useAuspiceStore({ onSelect, onQuery, ...input }: AuspiceInput): AuspiceStore {
-  const [{ store, selected, queried }] = useState(() => {
-    const selectListeners = new Set<(selection: Selection) => void>();
-    const queryListeners = new Set<(query: string) => void>();
+export function useAuspiceStore({ onSelect, onQuery, onNotice, ...input }: AuspiceInput): AuspiceStore {
+  const [{ store, selected, queried, noticed }] = useState(() => {
+    const listeners = {
+      selected: new Set<(selection: Selection) => void>(),
+      queried: new Set<(query: string) => void>(),
+      noticed: new Set<(notice: AuspiceNotice) => void>(),
+    };
 
     const loaded = loadAuspiceStore({
       ...input,
       onSelect: (selection) => {
-        for (const listener of selectListeners) {
-          listener(selection);
-        }
+        notify(listeners.selected, selection);
       },
       onQuery: (query) => {
-        for (const listener of queryListeners) {
-          listener(query);
-        }
+        notify(listeners.queried, query);
+      },
+      onNotice: (notice) => {
+        notify(listeners.noticed, notice);
       },
     });
 
-    return { store: loaded, selected: selectListeners, queried: queryListeners };
+    return { store: loaded, ...listeners };
   });
 
-  useEffect(() => {
-    selected.add(onSelect);
-
-    return () => {
-      selected.delete(onSelect);
-    };
-  }, [selected, onSelect]);
-
-  useEffect(() => {
-    queried.add(onQuery);
-
-    return () => {
-      queried.delete(onQuery);
-    };
-  }, [queried, onQuery]);
+  useListener(selected, onSelect);
+  useListener(queried, onQuery);
+  useListener(noticed, onNotice);
 
   return store;
 }
@@ -67,8 +59,13 @@ export function loadAuspiceStore({
   query,
   onSelect,
   onQuery,
+  onNotice,
 }: AuspiceInput): AuspiceStore {
-  const store = createAuspiceStore(selectionMiddleware(treeSides(trees), onSelect), queryMiddleware(onQuery));
+  const store = createAuspiceStore(
+    selectionMiddleware(treeSides(trees), onSelect),
+    queryMiddleware(onQuery),
+    noticeMiddleware(onNotice),
+  );
 
   const start = { ...START_QUERY, ...query };
 
@@ -92,6 +89,22 @@ export function loadAuspiceStore({
   store.dispatch({ ...state, type: CLEAN_START });
 
   return store;
+}
+
+function notify<T>(listeners: ReadonlySet<(value: T) => void>, value: T): void {
+  for (const listener of listeners) {
+    listener(value);
+  }
+}
+
+function useListener<T>(listeners: Set<(value: T) => void>, listener: (value: T) => void): void {
+  useEffect(() => {
+    listeners.add(listener);
+
+    return () => {
+      listeners.delete(listener);
+    };
+  }, [listeners, listener]);
 }
 
 function queryMiddleware(onQuery: (query: string) => void): AuspiceMiddleware {

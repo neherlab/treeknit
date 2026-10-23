@@ -15,6 +15,7 @@ import { selectPair } from "../workspace/search";
 import type { RunResult } from "../workspace/store";
 import { useWorkspaceSearch } from "../workspace/useWorkspaceSearch";
 import { leafNames } from "./datasets";
+import type { AuspiceNotice } from "./notices";
 import { parseAuspiceQuery, withAuspiceQuery } from "./query";
 import type { StripChoice } from "./strip";
 import { TreeStrip } from "./TreeStrip";
@@ -45,6 +46,16 @@ function Auspice({ result }: { result: RunResult }) {
   const shownIndices = useMemo(() => shownTrees?.map(({ tree }) => tree) ?? [], [shownTrees]);
   const urlQuery = useMemo(() => parseAuspiceQuery(search.auspice), [search.auspice]);
   const names = useMemo(() => (query.data === undefined ? [] : leafNames(query.data, trees)), [query.data, trees]);
+  const [notice, setNotice] = useState<AuspiceNotice>();
+
+  const clearNotice = useCallback(() => {
+    setNotice(undefined);
+  }, []);
+
+  const failure = useMemo(
+    () => (notice === undefined ? undefined : { ...notice, onDismiss: clearNotice }),
+    [notice, clearNotice],
+  );
 
   const chooseShown = useCallback(
     (next: StripChoice) => {
@@ -85,6 +96,7 @@ function Auspice({ result }: { result: RunResult }) {
     <DrawingPanel
       toolbar={toolbar}
       notice={shownScaleNotice(scale, query.data?.scale, "pair")}
+      failure={failure}
       query={query}
       loading="Loading the Auspice view"
       errorTitle="The Auspice view could not be loaded"
@@ -108,6 +120,7 @@ function Auspice({ result }: { result: RunResult }) {
                   pair={pair}
                   onSelect={select}
                   onQuery={writeQuery}
+                  onNotice={setNotice}
                   files={files}
                   treeLabels={shownLabels}
                   axisTitle={datasets.axis_title}

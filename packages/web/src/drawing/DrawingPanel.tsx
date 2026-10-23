@@ -25,7 +25,7 @@ export function DrawingPanel<T>({
       </div>
       {failure === undefined ? null : (
         <div className="px-3 pt-3">
-          <InlineNotice tone="danger" title={failure.title} onDismiss={failure.onDismiss}>
+          <InlineNotice tone={failure.tone} title={failure.title} onDismiss={failure.onDismiss}>
             {failure.message}
           </InlineNotice>
         </div>
@@ -60,6 +60,7 @@ export interface DrawingNotice {
 }
 
 export interface DrawingFailure {
+  tone: NoticeTone;
   title: string;
   message: string;
   onDismiss: () => void;

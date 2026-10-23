@@ -1,12 +1,13 @@
 import type { AuspiceTrees } from "@neherlab/treeknit-wasm";
 import { applyFilter } from "auspice/src/actions/tree";
-import { CLEAN_START, DESELECT_NODE, SELECT_NODE } from "auspice/src/actions/types";
+import { ADD_NOTIFICATION, CLEAN_START, DESELECT_NODE, SELECT_NODE } from "auspice/src/actions/types";
 import { strainSymbol } from "auspice/src/util/globals";
 import type { AnyAction } from "redux";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { Selection } from "../../drawing/selection";
 import { markedMccValue, NO_MARKS, syncSelection, zoomToMcc } from "../linking";
+import type { AuspiceNotice } from "../notices";
 import { auspiceQuery, parseAuspiceQuery } from "../query";
 import { createAuspiceStore } from "../store";
 import { loadAuspiceStore } from "../useAuspiceStore";
@@ -132,6 +133,33 @@ describe("auspice store", () => {
     store.dispatch({ type: "TOGGLE_TANGLE" });
 
     expect(selections).toStrictEqual([]);
+  });
+
+  test.each([
+    { notificationType: "warning", tone: "warning" },
+    { notificationType: "error", tone: "danger" },
+  ])("an Auspice $notificationType notification becomes a $tone notice", ({ notificationType, tone }) => {
+    const { store, notices } = loadedPair();
+
+    store.dispatch({
+      type: ADD_NOTIFICATION,
+      id: 1,
+      notificationType,
+      message: "Vector image saved",
+      details: "there were errors with the legend",
+    });
+
+    expect(notices).toStrictEqual([
+      { tone, title: "Vector image saved", message: "there were errors with the legend" },
+    ]);
+  });
+
+  test("an Auspice info notification becomes no notice, because the browser shows the download itself", () => {
+    const { store, notices } = loadedPair();
+
+    store.dispatch({ type: ADD_NOTIFICATION, id: 1, notificationType: "info", message: "Vector image saved" });
+
+    expect(notices).toStrictEqual([]);
   });
 });
 
@@ -296,6 +324,7 @@ interface NodeIndex {
 function loadedPair(trees: AuspiceTrees = "both", query: Record<string, string> = {}) {
   const selections: Selection[] = [];
   const queries: string[] = [];
+  const notices: AuspiceNotice[] = [];
 
   const store = loadAuspiceStore({
     datasets: AUSPICE_PAIR,
@@ -308,9 +337,12 @@ function loadedPair(trees: AuspiceTrees = "both", query: Record<string, string> 
     onQuery: (text) => {
       queries.push(text);
     },
+    onNotice: (notice) => {
+      notices.push(notice);
+    },
   });
 
-  return { store, selections, queries };
+  return { store, selections, queries, notices };
 }
 
 function nodeIndex(state: ReturnType<ReturnType<typeof createAuspiceStore>["getState"]>): NodeIndex {
