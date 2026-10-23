@@ -6,7 +6,7 @@ The Auspice view of the web app cannot show a pair whose trees are deeper than a
 
 - **Structured clone**: `Session.auspiceView` returns the datasets from the worker through comlink, which sends them with `postMessage`. Node 24.21 (V8) clones an object of the shape of an Auspice node (`name`, `node_attrs`, `children`) at a nesting depth of 1,135 tree levels and throws "Maximum call stack size exceeded" at 1,136; `JSON.parse` of the same nesting succeeds at 200,000. Measured on 2026-10-08 with `structuredClone` in the project container; the limit of a browser worker was not measured
 - **Rust datasets**: `pub fn auspice_view()` [packages/treeknit-io/src/display/auspice.rs#L52](../../packages/treeknit-io/src/display/auspice.rs#L52) builds the nesting bottom-up, but `struct AuspiceNode` holds its children, so its derived `Serialize`, `Clone`, and `PartialEq`, its drop, and the finiteness check of `fn to_js` [packages/treeknit-wasm/src/lib.rs#L594](../../packages/treeknit-wasm/src/lib.rs#L594) recurse once per level. In the WebAssembly tests in Node, `auspice_view` with its JSON conversion runs a caterpillar of depth 5,000 and fails at 10,000 with "Maximum call stack size exceeded"
-- **Auspice**: Auspice 3.0.0 processes the tree in the page; whether it recurses per level was not checked
+- **Auspice**: Auspice 3.1.0 processes the tree in the page; whether it recurses per level was not checked
 
 The depth of real trees is far below these limits: the deepest tree in `data/` has a nesting depth of 136 (`data/h5n1-587x3-timetree/tree_pb1.nwk`, 587 leaves).
 

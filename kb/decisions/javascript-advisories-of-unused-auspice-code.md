@@ -1,6 +1,6 @@
 # JavaScript advisories: override what runs, ignore what never runs
 
-`packages/web` imports 35 source modules of `auspice` 3.0.0 and the modules they import (`AUSPICE_ENTRIES` in `packages/web/build/auspice.ts`). Installing `auspice` also installs everything else it needs for its own map, spreadsheet export, webpack build, development server, and command lines. `bun audit` reports the advisories of all installed packages, whether the web app runs them or not.
+`packages/web` imports 40 source modules of `auspice` 3.1.0 and the modules they import (`AUSPICE_ENTRIES` in `packages/web/build/auspice.ts`). Installing `auspice` also installs everything else it needs for its own map, spreadsheet export, webpack build, development server, and command lines. `bun audit` reports the advisories of all installed packages, whether the web app runs them or not.
 
 ## Decision
 
