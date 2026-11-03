@@ -9,7 +9,9 @@ Auspice 3.2.0 cuts or misplaces several labels of the tree drawing:
 - **Grid and axis labels**: x-axis labels are centered on their grid line, so the labels of grid lines near the left or right edge of the SVG are cut off. Labels of grid lines at the top or bottom edge are cut. The baseline of the x-axis title sits 1 px above the bottom edge, which cuts its descenders, and the upright y-axis title can extend past the left edge
 - **Clock regression text**: the rate estimate is placed at a fixed offset and can extend past the tree in a narrow view
 
-The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, measures labels with the font of the tree, widens the margin on the root side just enough for the visible branch labels (at most a quarter of the tree width, and hides a label that still does not fit), extends the clip area over that margin, sizes the tip side from the labels of the visible tips, recomputes the layout when the branch labels change, aligns, hides or moves grid and axis labels to keep them whole, and centers the rate estimate and sets it smaller where it is wider than the tree.
+The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, measures labels with the font of the tree, widens the margin on the root side just enough for the visible branch labels (at most a quarter of the tree width, and hides a label that still does not fit), extends the clip area over that margin without moving its edge on the tip side, sizes the tip side from the labels of the visible tips, recomputes the layout when the branch labels change, aligns, hides or moves grid and axis labels to keep them whole, and centers the rate estimate and sets it smaller where it is wider than the tree.
+
+The tests `packages/web/src/auspice/__tests__/test_clip_mask.test.ts` cover the clip area of a tree with branch labels in the root margin, also of a mirrored tree.
 
 ## Code
 
