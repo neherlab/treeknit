@@ -57,7 +57,7 @@ export interface AuspiceControlsState {
   showAllBranchLabels: boolean;
   distanceMeasure: string;
   focus: string | null;
-  branchLengthsToDisplay: string;
+  availableDistanceMeasures: readonly string[];
   panelLayout: string;
   showTreeToo: string | false | undefined;
   showTangle: boolean;

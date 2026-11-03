@@ -5,6 +5,6 @@ export declare function datasetSummary(params: {
   nodes: readonly AuspiceNode[] | null;
   visibility: readonly number[] | null;
   mainTreeNumTips: number | undefined;
-  branchLengthsToDisplay: string;
+  temporalTree: boolean;
   t: TFunction;
 }): string;

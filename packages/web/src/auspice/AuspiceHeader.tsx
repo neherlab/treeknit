@@ -4,7 +4,6 @@ import { errorNotification } from "auspice/src/actions/notifications";
 import { updateVisibleTipsAndBranchThicknesses } from "auspice/src/actions/tree";
 import { publications } from "auspice/src/components/download/downloadModal";
 import { SVG } from "auspice/src/components/download/helperFunctions";
-import { datasetSummary } from "auspice/src/components/info/datasetSummary";
 import FiltersSummary from "auspice/src/components/info/filtersSummary";
 import { getParentBeyondPolytomy } from "auspice/src/components/tree/phyloTree/helpers";
 import { type Ref, useCallback, useMemo } from "react";
@@ -19,6 +18,7 @@ import { Menu, MenuItem } from "../ui/Menu";
 import { figureCaption } from "./figure";
 import type { AuspiceNode, AuspiceState, ObservedMutations } from "./state";
 import type { AuspiceStore } from "./store";
+import { auspiceSummary, isTemporalTree } from "./summary";
 import { TreeTabButton } from "./TreeTabButton";
 import { type ZoomAction, zoomButtonStates, zoomRoots, type ZoomTree } from "./zoom";
 
@@ -35,11 +35,8 @@ const SVG_ITEM = "svg";
 
 export function useDatasetSummary(): string {
   const { t } = useTranslation();
-  const tree = useSelector((state: AuspiceState) => state.tree);
-  const mainTreeNumTips = useSelector((state: AuspiceState) => state.metadata.mainTreeNumTips);
-  const branchLengthsToDisplay = useSelector((state: AuspiceState) => state.controls.branchLengthsToDisplay);
 
-  return datasetSummary({ nodes: tree.nodes, visibility: tree.visibility, mainTreeNumTips, branchLengthsToDisplay, t });
+  return useSelector((state: AuspiceState) => auspiceSummary(state, t));
 }
 
 export function HeaderSummary({ summary }: { summary: string }) {
@@ -104,6 +101,7 @@ function useSvgDownload(prefix: string | undefined, summary: string): SvgDownloa
   const metadata = useSelector((state: AuspiceState) => state.metadata);
   const tree = useSelector((state: AuspiceState) => state.tree);
   const { panelsToDisplay, panelLayout } = useSelector((state: AuspiceState) => state.controls);
+  const temporalTree = useSelector((state: AuspiceState) => isTemporalTree(state.controls));
   const title = metadata.title ?? "";
 
   const { mutate, isPending } = useMutation({
@@ -120,6 +118,7 @@ function useSvgDownload(prefix: string | undefined, summary: string): SvgDownloa
         panelsToDisplay,
         panelLayout,
         [],
+        temporalTree,
         caption,
       );
     },

@@ -87,7 +87,7 @@ const CONTROLS: AuspiceControlsState = {
   showAllBranchLabels: false,
   distanceMeasure: "div",
   focus: null,
-  branchLengthsToDisplay: "divOnly",
+  availableDistanceMeasures: ["div"],
   panelLayout: "full",
   showTreeToo: false,
   showTangle: false,
