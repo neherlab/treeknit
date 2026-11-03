@@ -4,7 +4,7 @@
 
 Auspice 3.2.0 turns a dropped CSV or TSV file with `latitude` and `longitude` (or `__latitude` and `__longitude`) columns into a map of the samples. Its parser groups samples by the joined strings of their coordinates, so `(1, 23)` and `(12, 3)` are one location; reads an empty coordinate as 0; refuses a file whose only other columns are the coordinates; and gives a map that the new metadata makes available no legend placement, so its legend fails.
 
-The Auspice view accepts no dropped metadata and shows no map. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix because its shared part stays identical in the apps that embed Auspice: coordinates alone make a valid file, samples are grouped by their parsed coordinates, rows with an empty coordinate and rows of names that are not in the tree are skipped, and the metadata update adds the legend placement of a map that it makes available.
+The Auspice view accepts no dropped metadata and shows no map. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix in its general part, which fixes Auspice as a whole: coordinates alone make a valid file, samples are grouped by their parsed coordinates, rows with an empty coordinate and rows of names that are not in the tree are skipped, and the metadata update adds the legend placement of a map that it makes available.
 
 ## Code
 

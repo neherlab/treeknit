@@ -80,7 +80,7 @@ Cargo prints warnings, errors, and the output of the programs it runs, but no st
 |---|---|
 | `packages/treeknit-core` | Algorithms, no IO. Arena trees and bitset clades (`tree`, `bits`), naive MCCs, split graph energy and likelihood, simulated annealing, pair inference, resolution, the K-tree pipeline, imputation of missing leaves, ARG construction |
 | `packages/treeknit-io` | File formats (Newick, MCC JSON, extended Newick, node table, Auspice JSON), and what the command line and the web app share: analysis requests and settings, links and examples, output files, figures |
-| `packages/util-newick` | Newick and NEXUS reader and writer in the common dialects, a copy of the crate of TreeTime (`packages/util-newick/README.md`) |
+| `packages/util-newick` | Newick and NEXUS reader and writer in the common dialects, a self-contained library (`packages/util-newick/README.md`) |
 | `packages/treeknit-cli` | The `treeknit` binary |
 | `packages/treeknit-testing` | Test helpers shared by the Rust crates |
 | `packages/treeknit-wasm` | WebAssembly bindings of the core, with TypeScript declarations (`packages/treeknit-wasm/README.md`) |

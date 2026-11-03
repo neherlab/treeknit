@@ -4,7 +4,7 @@
 
 In Auspice 3.2.0, `componentWillUnmount()` of the entropy chart destroys the chart only `if (this.state.chart)`, while the chart is drawn first and stored later through `setState({chart})`. React StrictMode unmounts and mounts each component once more right after the first mount, before that state update applies, so the first drawing stays in the DOM and the second mount draws a second chart over it.
 
-The Auspice view shows no entropy chart. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix because its shared part stays identical in the apps that embed Auspice: `componentWillUnmount()` stops the resize observer and removes the drawing from the DOM (`select(this.d3entropy).selectAll("*").remove()`), which does not depend on the state.
+The Auspice view shows no entropy chart. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix in its general part, which fixes Auspice as a whole: `componentWillUnmount()` stops the resize observer and removes the drawing from the DOM (`select(this.d3entropy).selectAll("*").remove()`), which does not depend on the state.
 
 ## Code
 

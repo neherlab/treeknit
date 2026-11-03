@@ -120,7 +120,7 @@ let text = newick_to_string(&tree.graph, &NewickWriteOptions::new(NewickDialect:
 
 With the default options a write followed by a read in the same dialect gives an equal graph (property tests check this for all 12 dialects, networks, occurrence comments and every comment kind). Names are quoted exactly when the grammar would read them differently unquoted: a name that is not a run of label characters, that contains `'`, that ends like a hybrid tag, or, on an internal node, that reads as a support label. BEAST keys are quoted when they are not bare keys, and BEAST strings are always written in double quotes, so `"TRUE"` stays a string. A NHX tag or value that NHX cannot hold, and a number that is not finite, is an error.
 
-Writer errors, and errors of `add_edge()`, `add_child()` and `validate()`, are `NewickWriteError`, with one message that starts with the context of the step that failed: "When writing Newick: When writing the branch above node 1 ('A'): Newick cannot represent the number inf". A dialect name that `FromStr` cannot read is a `ParseDialectError` (TreeTime: `kb/decisions/util-newick-typed-errors.md`).
+Writer errors, and errors of `add_edge()`, `add_child()` and `validate()`, are `NewickWriteError`, with one message that starts with the context of the step that failed: "When writing Newick: When writing the branch above node 1 ('A'): Newick cannot represent the number inf". A dialect name that `FromStr` cannot read is a `ParseDialectError`.
 
 `write_newick_trees()` writes one tree per line.
 
@@ -157,10 +157,6 @@ A plain comment before the first token is the comment of a root without children
 
 `nexus_to_string()` writes a `Taxa` block with the leaf names of all trees, an optional `Translate` table with numbered labels (`NexusWriteOptions::translate`), and the trees in the dialect of `NexusWriteOptions::newick`. Words are quoted when they contain NEXUS punctuation.
 
-## Tests and benchmark
+## Tests
 
 `src/__tests__/` tests every grammar rule, the reader and writer of each dialect, reading across buffer boundaries, NEXUS, and the conversion table. Property tests round-trip generated graphs in all 12 dialects and feed random and mutated input to the reader in every dialect on a 2 MiB stack. The fixtures modeled on BEAST, TreeAnnotator, MrBayes, IQ-TREE, FastTree, RAxML-NG, Forester, Dendroscope, SplitsTree and PhyloNet output are compared with the readings of DendroPy 5.0.8, ETE3 3.1.3 and PhyloNet 3.8.5; cases named `spec_` take their expectation from the dialect definitions, where these tools reject or lose part of the input, such as the eNewick networks with BEAST annotations of TreeKnit.
-
-## Origin
-
-The crate is a copy of `packages/util-newick` of [TreeTime](https://github.com/neherlab/treetime) at commit `eabc013ded4140702decc068004aff5123bb4e16`. The copy has its own package manifest, which follows this workspace, and has no benchmark and no thread-pool initialization in its tests, and it names a decision of the TreeTime knowledge base as text instead of a link. It also carries `#[expect]` attributes with reasons for findings of the dylint libraries, which report the same findings in TreeTime, orders the items of each module callers first as the dylint lint `topological_ordering` requires, derives the message of `NewickError` with `thiserror`, and the edge helper of its round-trip property test takes the facts of the child node as named fields (`EdgeChild`).

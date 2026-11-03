@@ -4,7 +4,7 @@
 
 With a second tree, Auspice 3.2.0 offers the branch length measures that both trees offer. Removing the second tree (`REMOVE_TREE_TOO`) keeps that list, so the main tree offers neither time nor the mutation counts that only it has until the page loads again.
 
-The Auspice view never removes a second tree: it builds a new store for each change of the shown trees. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix because its shared part stays identical in the apps that embed Auspice: the thunk `removeSecondTree()` sends the measures of the main tree with `REMOVE_TREE_TOO`, the controls reducer takes them, and the second tree select of Auspice's sidebar dispatches the thunk.
+The Auspice view never removes a second tree: it builds a new store for each change of the shown trees. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix in its general part, which fixes Auspice as a whole: the thunk `removeSecondTree()` sends the measures of the main tree with `REMOVE_TREE_TOO`, the controls reducer takes them, and the second tree select of Auspice's sidebar dispatches the thunk.
 
 ## Code
 

@@ -4,7 +4,7 @@
 
 When a second tree is shown, Auspice 3.2.0 computes the genotypes of the second tree only when both trees have the same genome map (`metadata.identicalGenomeMapAcrossBothTrees`). `instantiateSecondTree()` calls `updateMetadataStateViaSecondTree()` with a copy of the metadata (`{...metadata}`) and discards the copy, so the flag is never set, and a coloring by genotype leaves the second tree in the color of missing values even when the genome maps are identical.
 
-TreeKnit datasets have no sequences, so the Auspice view offers no coloring by genotype. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix because its shared part stays identical in the apps that embed Auspice: `instantiateSecondTree()` keeps the copy that the comparison marks and returns it as the metadata.
+TreeKnit datasets have no sequences, so the Auspice view offers no coloring by genotype. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix in its general part, which fixes Auspice as a whole: `instantiateSecondTree()` keeps the copy that the comparison marks and returns it as the metadata.
 
 ## Code
 

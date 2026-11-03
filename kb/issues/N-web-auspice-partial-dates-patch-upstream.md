@@ -4,7 +4,7 @@
 
 Auspice 3.2.0 offers the time metric, the clock layout and the date controls when the root node of the tree has a date (`num_date`), in `findAvailableDistanceMeasures()`. On a tree where other nodes have no date, such as a dated reference tree with sequences placed onto it, the undated nodes have no position on the time axis and are missing from the drawing.
 
-TreeKnit datasets have no dates, so the Auspice view always shows divergence. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix because its shared part stays identical in the apps that embed Auspice: `findAvailableDistanceMeasures()` offers the time axis only when every node of the tree has a date. With a second tree, Auspice offers the measures that both trees offer, so the time axis also needs a date on every node of the second tree.
+TreeKnit datasets have no dates, so the Auspice view always shows divergence. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix in its general part, which fixes Auspice as a whole: `findAvailableDistanceMeasures()` offers the time axis only when every node of the tree has a date. With a second tree, Auspice offers the measures that both trees offer, so the time axis also needs a date on every node of the second tree.
 
 ## Code
 

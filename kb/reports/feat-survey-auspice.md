@@ -107,7 +107,7 @@ The dataset is an Auspice v2 JSON with `meta` and `tree`. Every renderer decisio
 
 - **Mutations are strings per gene, relative to the parent**: `branch_attrs.mutations` is `{gene: ["A123T", ...]}`, 1-based. Auspice reads the first character, the middle, and the last character [[src](https://github.com/nextstrain/auspice/blob/dbf287559125f24a66c3207bdf1eb30fa46806b4/src/util/treeMiscHelpers.js#L134-L167)]
   - insertions and multi-base indels cannot be expressed
-  - a 2022 discussion preferred the Nextclade insertion notation over VCF style. Insertions are still missing [[#1444](https://github.com/nextstrain/auspice/issues/1444)] [[#1962](https://github.com/nextstrain/auspice/issues/1962)]
+  - a 2022 discussion in an Auspice issue preferred a compact insertion notation over VCF style. Insertions are still missing [[#1444](https://github.com/nextstrain/auspice/issues/1444)] [[#1962](https://github.com/nextstrain/auspice/issues/1962)]
 - **Branch length and mutation list can disagree**: divergence comes from branch-length estimation and the mutation list from ancestral reconstruction [[augur#1689](https://github.com/nextstrain/augur/issues/1689)] [[augur#1690](https://github.com/nextstrain/augur/pull/1690)]
   - without an outgroup the root state is not identifiable, so one root child can get zero length and no mutations while the other gets all of them
   - augur now samples the root state from the profile

@@ -4,7 +4,7 @@
 
 The Auspice 3.2.0 map assumes that it is mounted once per page load: it registers the export function of the SVG download (`window.L.getMapSvg`) only once, so after a remount the download reads the detached first map; `componentWillUnmount()` reads the Leaflet map without a check, so an unmount before the first update throws; and the unmount leaves the Leaflet map, which holds a WebGL context, and its timers.
 
-The Auspice view shows no map, because TreeKnit datasets have no locations. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix because its shared part stays identical in the apps that embed Auspice: each mount registers the export function of its own instance and removes it on unmount, and the cleanup removes the Leaflet map and clears the timers after the current task, so that React StrictMode's immediate remount keeps the map.
+The Auspice view shows no map, because TreeKnit datasets have no locations. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix in its general part, which fixes Auspice as a whole: each mount registers the export function of its own instance and removes it on unmount, and the cleanup removes the Leaflet map and clears the timers after the current task, so that React StrictMode's immediate remount keeps the map.
 
 ## Code
 

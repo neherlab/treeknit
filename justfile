@@ -78,8 +78,8 @@ dylint_over_baseline := dylint_target_dir / "mordant/over-baseline.txt"
 # unused-public-code checks (hawk and pub-unused-report): the `#[wasm_bindgen]`
 # surface of the WebAssembly bindings is consumed by the web app, the test
 # helpers by the tests of the other crates, which the checks do not count, and
-# util-newick is a copy of the TreeTime crate that stays identical to it, so its
-# documented API serves TreeTime as well.
+# util-newick is a self-contained Newick library whose documented API is larger
+# than the part that TreeKnit uses.
 public_api_crates := "treeknit_wasm treeknit_testing util_newick"
 
 # Cargo with the seven-day minimum publish age of new dependency releases. The

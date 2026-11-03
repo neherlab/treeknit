@@ -4,7 +4,7 @@
 
 Auspice 3.2.0 asks d3 for 16 ticks on the main genome axis of the entropy chart and 20 on the navigation axis below it, whatever the chart width. In a narrow chart the labels (such as "28,000") run into each other and cannot be read.
 
-The Auspice view shows no entropy chart, because TreeKnit datasets have no sequences. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix because its shared part stays identical in the apps that embed Auspice: each axis asks for one tick per 60 px of its width, at most the numbers above.
+The Auspice view shows no entropy chart, because TreeKnit datasets have no sequences. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix in its general part, which fixes Auspice as a whole: each axis asks for one tick per 60 px of its width, at most the numbers above.
 
 ## Code
 
