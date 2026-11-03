@@ -1720,13 +1720,13 @@ index c4c224e7ffe0395e31721a0916664affe2e5c3d8..4c7c3a75d227f1fa234e34d126fe9ee0
 +  return genes;
 +}
 diff --git a/src/util/extensions.ts b/src/util/extensions.ts
-index 939d1156923c7603360fdcfdd42cadcef3adc3d9..188ab78199f4c52e840e191e6f61690f9432a45e 100644
+index 939d1156923c7603360fdcfdd42cadcef3adc3d9..acd49255485d451cda7234d0d4ff9712150b9494 100644
 --- a/src/util/extensions.ts
 +++ b/src/util/extensions.ts
 @@ -1,37 +1,16 @@
-+/* Nextclade bundles the Auspice sources with its own webpack configuration. The stock registry reads a build-time
++/* TreeKnit bundles the Auspice sources with its own Vite configuration. The stock registry reads a build-time
 +EXTENSION_DATA variable and loads components through webpack's `require.context("@extensions")`. Here "@extensions" is a
-+webpack alias to a module of the app whose default export is the registry itself. */
++module that a Vite plugin of the app provides, whose default export is the registry itself. */
 +import registry from "@extensions";
 +
  // TODO: Add typing for individual extensions.
