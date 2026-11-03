@@ -1,9 +1,10 @@
-import type { AuspiceMetadataState, AuspiceNode, AuspicePublication } from "auspice/src/state";
+import type { AuspiceMetadataState, AuspiceNode, AuspicePublication, AuspiceState } from "auspice/src/state";
 import type { TFunction } from "i18next";
-import type { Dispatch } from "redux";
+import type { AnyAction } from "redux";
+import type { ThunkDispatch } from "redux-thunk";
 
 export declare function SVG(
-  dispatch: Dispatch,
+  dispatch: ThunkDispatch<AuspiceState, undefined, AnyAction>,
   t: TFunction,
   metadata: AuspiceMetadataState,
   nodes: readonly AuspiceNode[] | null,
