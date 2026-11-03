@@ -2,13 +2,13 @@
 
 ## Problem
 
-Auspice 3.1.0 offers the time metric, the clock layout and the date controls when the root node of the tree has a date (`num_date`). On a tree where other nodes have no date, such as a dated reference tree with sequences placed onto it, the undated nodes have no position on the time axis and are missing from the drawing.
+Auspice 3.2.0 offers the time metric, the clock layout and the date controls when the root node of the tree has a date (`num_date`), in `findAvailableDistanceMeasures()`. On a tree where other nodes have no date, such as a dated reference tree with sequences placed onto it, the undated nodes have no position on the time axis and are missing from the drawing.
 
-TreeKnit datasets have no dates, so the Auspice view always shows divergence. The Bun patch of Auspice, `patches/auspice@3.1.0.patch`, carries the fix because its shared part stays identical in the apps that embed Auspice: Auspice offers the time axis only when every node of the main tree and of the second tree has a date.
+TreeKnit datasets have no dates, so the Auspice view always shows divergence. The Bun patch of Auspice, `patches/auspice@3.2.0.patch`, carries the fix because its shared part stays identical in the apps that embed Auspice: `findAvailableDistanceMeasures()` offers the time axis only when every node of the tree has a date. With a second tree, Auspice offers the measures that both trees offer, so the time axis also needs a date on every node of the second tree.
 
 ## Code
 
-- Time axis availability: [actions/recomputeReduxState.js#L476-L480](https://github.com/nextstrain/auspice/blob/v3.1.0/src/actions/recomputeReduxState.js#L476-L480)
+- Time axis availability: [util/computeDistanceMetric.ts#L101-L107](https://github.com/nextstrain/auspice/blob/db211cc6b44296d92529844502a95a3e68710449/src/util/computeDistanceMetric.ts#L101-L107)
 
 ## Fix
 

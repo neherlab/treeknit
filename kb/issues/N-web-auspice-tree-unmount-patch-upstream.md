@@ -2,13 +2,13 @@
 
 ## Problem
 
-Auspice 3.1.0's tree component removes its drawing when it unmounts, but the tree objects keep their pending drawing steps: the staged transitions of an update (`modifySVGInStages`) and the timers that draw tip labels (`updateTipLabels`). The Auspice view mounts again for each new set of datasets and each change of the shown trees, and React `StrictMode` mounts it twice on the same DOM. Without the fix, a pending step of the old tree draws into the SVG of the new one.
+Auspice 3.2.0's tree component removes its drawing when it unmounts, but the tree objects keep their pending drawing steps: the staged transitions of an update (`modifySVGInStages`) and the timers that draw tip labels (`updateTipLabels`). The Auspice view mounts again for each new set of datasets and each change of the shown trees, and React `StrictMode` mounts it twice on the same DOM. Without the fix, a pending step of the old tree draws into the SVG of the new one.
 
-The Bun patch of Auspice, `patches/auspice@3.1.0.patch` (registered in `patchedDependencies` of the root `package.json`), fixes this: `componentWillUnmount()` calls a `dispose()` step on each tree object before the drawing is removed, and the disposed tree stops its staged transitions and tip label timers.
+The Bun patch of Auspice, `patches/auspice@3.2.0.patch` (registered in `patchedDependencies` of the root `package.json`), fixes this: `componentWillUnmount()` calls a `dispose()` step on each tree object before the drawing is removed, and the disposed tree stops its staged transitions and tip label timers.
 
 ## Code
 
-- `TreeComponent.componentWillUnmount()`: removes the drawing ([tree/tree.tsx#L81-L86](https://github.com/nextstrain/auspice/blob/v3.1.0/src/components/tree/tree.tsx#L81-L86))
+- `TreeComponent.componentWillUnmount()`: removes the drawing ([tree/tree.tsx#L81-L86](https://github.com/nextstrain/auspice/blob/db211cc6b44296d92529844502a95a3e68710449/src/components/tree/tree.tsx#L81-L86))
 
 ## Fix
 
@@ -16,7 +16,7 @@ Contribute the change to [nextstrain/auspice](https://github.com/nextstrain/ausp
 
 ## Editing the patch
 
-The patch has two parts. The first part is the shared set of Auspice fixes, identical in the four apps that embed Auspice (Nextclade, treetime.rs, treeknit-rs, auspice-vscode), so that each Auspice upgrade rebases the shared fixes once. Its reference text is Nextclade's patch, `packages/nextclade-web/patches/auspice@3.1.0.patch` in [nextstrain/nextclade](https://github.com/nextstrain/nextclade). The second part holds treeknit's own changes: the tree props `axisTitle`, `showTreeButtons`, and `showNodeClickedPanel`.
+The patch has two parts. The first part is the shared set of Auspice fixes, identical in the four apps that embed Auspice (Nextclade, treetime.rs, treeknit-rs, auspice-vscode), so that each Auspice upgrade rebases the shared fixes once. Its reference text is Nextclade's patch, `packages/nextclade-web/patches/auspice@3.2.0.patch` in [nextstrain/nextclade](https://github.com/nextstrain/nextclade). The second part holds treeknit's own changes: the tree props `axisTitle`, `showTreeButtons`, and `showNodeClickedPanel`.
 
 The patch is a Git diff against the published Auspice package. `bun patch --commit` writes Bun's `.bun-tag-*` marker files into the patch, so write it with Git:
 

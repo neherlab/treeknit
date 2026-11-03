@@ -2,13 +2,13 @@
 
 ## Problem
 
-Auspice 3.1.0 draws a group of zoom buttons for each tree in the title row of the tree card. The header of the Auspice view draws one zoom group for both trees, because it zooms the matching clades of both trees together, and puts the leaf summary, the filter badges, and the downloads in the same title row.
+Auspice 3.2.0 draws a group of zoom buttons for each tree in the title row of the tree card. The header of the Auspice view draws one zoom group for both trees, because it zooms the matching clades of both trees together, and puts the leaf summary, the filter badges, and the downloads in the same title row.
 
-treeknit's own part of the Bun patch of Auspice, `patches/auspice@3.1.0.patch`, adds the prop `showTreeButtons` to the tree component; the app passes `false`, and the CSS utility `auspice-card` (`packages/web/src/index.css`) reshapes the title row for the app's header.
+treeknit's own part of the Bun patch of Auspice, `patches/auspice@3.2.0.patch`, adds the prop `showTreeButtons` to the tree component; the app passes `false`, and the CSS utility `auspice-card` (`packages/web/src/index.css`) reshapes the title row for the app's header.
 
 ## Code
 
-- Zoom buttons of the trees: [tree/tree.tsx#L215-L219](https://github.com/nextstrain/auspice/blob/v3.1.0/src/components/tree/tree.tsx#L215-L219)
+- Zoom buttons of the trees: [tree/tree.tsx#L215-L219](https://github.com/nextstrain/auspice/blob/db211cc6b44296d92529844502a95a3e68710449/src/components/tree/tree.tsx#L215-L219)
 
 ## Fix
 

@@ -2,15 +2,15 @@
 
 ## Problem
 
-Auspice 3.1.0 names the divergence axis and the divergence line of the hover panel "Divergence" or "Mutations" by a guess from the values (`guessAreMutationsPerSite()`: "Divergence" when the largest value is at most 5). TreeKnit's branch scales are divergence and depth (the Cladogram scale), which the guess cannot tell apart, so a deep cladogram is labeled "Mutations".
+Auspice 3.2.0 names the divergence axis and the divergence line of the hover panel "Divergence" or "Mutations" by a guess from the values (`guessAreMutationsPerSite()`: "Divergence" when the largest value is at most 5). TreeKnit's branch scales are divergence and depth (the Cladogram scale), which the guess cannot tell apart, so a deep cladogram is labeled "Mutations".
 
-treeknit's own part of the Bun patch of Auspice, `patches/auspice@3.1.0.patch`, adds the prop `axisTitle` to the tree component, which replaces the guess on the axis and in the hover panel; the app passes the axis title that Rust writes into the pair (`axis_title`). auspice.us, which opens the JSON downloads of the view, still guesses, because only a field of the dataset reaches it.
+treeknit's own part of the Bun patch of Auspice, `patches/auspice@3.2.0.patch`, adds the prop `axisTitle` to the tree component, which replaces the guess on every divergence axis (the rectangular and clock layouts, and a scatterplot axis of divergence) and in the hover panel; the app passes the axis title that Rust writes into the pair (`axis_title`). auspice.us, which opens the JSON downloads of the view, still guesses, because only a field of the dataset reaches it.
 
 ## Code
 
-- Axis titles: [tree/phyloTree/grid.js#L396-L404](https://github.com/nextstrain/auspice/blob/v3.1.0/src/components/tree/phyloTree/grid.js#L396-L404)
-- Hover panel: [tree/infoPanels/hover.js#L48](https://github.com/nextstrain/auspice/blob/v3.1.0/src/components/tree/infoPanels/hover.js#L48)
-- Guess: [tree/phyloTree/helpers.ts#L361](https://github.com/nextstrain/auspice/blob/v3.1.0/src/components/tree/phyloTree/helpers.ts#L361)
+- Axis titles (`distanceMeasureText()`): [tree/phyloTree/grid.js#L397-L410](https://github.com/nextstrain/auspice/blob/db211cc6b44296d92529844502a95a3e68710449/src/components/tree/phyloTree/grid.js#L397-L410)
+- Hover panel: [tree/infoPanels/hover.js#L48](https://github.com/nextstrain/auspice/blob/db211cc6b44296d92529844502a95a3e68710449/src/components/tree/infoPanels/hover.js#L48)
+- Guess: [tree/phyloTree/helpers.ts#L361](https://github.com/nextstrain/auspice/blob/db211cc6b44296d92529844502a95a3e68710449/src/components/tree/phyloTree/helpers.ts#L361)
 
 ## Fix
 

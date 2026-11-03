@@ -2,13 +2,13 @@
 
 ## Problem
 
-Auspice 3.1.0 opens a panel with the details of a node when the user clicks a tip or a branch. In the app, a click selects the leaf or node in the workspace, and the inspector shows the selection, so Auspice's panel would show a second copy of it over the tree.
+Auspice 3.2.0 opens a panel with the details of a node when the user clicks a tip or a branch. In the app, a click selects the leaf or node in the workspace, and the inspector shows the selection, so Auspice's panel would show a second copy of it over the tree.
 
-treeknit's own part of the Bun patch of Auspice, `patches/auspice@3.1.0.patch`, adds the prop `showNodeClickedPanel` to the tree component; the app passes `false`.
+treeknit's own part of the Bun patch of Auspice, `patches/auspice@3.2.0.patch`, adds the prop `showNodeClickedPanel` to the tree component; the app passes `false`.
 
 ## Code
 
-- Panel of a clicked node: [tree/tree.tsx#L180](https://github.com/nextstrain/auspice/blob/v3.1.0/src/components/tree/tree.tsx#L180)
+- Panel of a clicked node: [tree/tree.tsx#L180](https://github.com/nextstrain/auspice/blob/db211cc6b44296d92529844502a95a3e68710449/src/components/tree/tree.tsx#L180)
 
 ## Fix
 
