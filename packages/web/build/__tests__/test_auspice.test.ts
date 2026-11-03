@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { loadAuspiceExtensions, resolveAuspiceExtensions, transformAuspiceSource } from "../auspice";
 
-const AUSPICE_ROOT = "/repo/node_modules/.bun/auspice@3.1.0+8cb5516666615bee/node_modules/auspice";
+const AUSPICE_ROOT = "/repo/node_modules/.bun/auspice@3.2.0+8cb5516666615bee/node_modules/auspice";
 
 const TIMERS_SOURCE = `
 export const timerStart = (name) => { console.log("start", name); };
