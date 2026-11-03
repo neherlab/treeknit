@@ -3,7 +3,13 @@ import { describe, expect, test } from "vitest";
 
 import { AUSPICE_ENTRIES } from "../../../build/auspice";
 
-const SOURCES: Record<string, string> = import.meta.glob(["../**/*.{ts,tsx}", "!**/*.d.ts"], {
+const APP_SOURCES: Record<string, string> = import.meta.glob(["../**/*.{ts,tsx}", "!**/*.d.ts", "!**/__tests__/**"], {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+
+const TEST_SOURCES: Record<string, string> = import.meta.glob("./*.{ts,tsx}", {
   query: "?raw",
   import: "default",
   eager: true,
@@ -17,24 +23,24 @@ const TYPE_ONLY_MODULES = new Set(["auspice/src/state"]);
 
 describe("auspice module list", () => {
   test("the pre-bundled entries are the auspice modules that the app imports", () => {
-    expect(importedModules()).toStrictEqual(AUSPICE_ENTRIES.toSorted());
+    expect(importedModules(APP_SOURCES)).toStrictEqual(AUSPICE_ENTRIES.toSorted());
   });
 
-  test("each pre-bundled entry has a type declaration, and each declaration an entry", () => {
+  test("the auspice modules that the app or its tests import have a type declaration, and no other module", () => {
     const declared = DECLARATIONS.map(declaredModule).filter((name) => !TYPE_ONLY_MODULES.has(name));
 
-    expect(declared.toSorted()).toStrictEqual(AUSPICE_ENTRIES.toSorted());
+    const imported = [...new Set([...AUSPICE_ENTRIES, ...importedModules(TEST_SOURCES)])].filter(
+      (name) => !TYPE_ONLY_MODULES.has(name),
+    );
+
+    expect(declared.toSorted()).toStrictEqual(imported.toSorted());
   });
 });
 
-function importedModules(): string[] {
+function importedModules(sources: Record<string, string>): string[] {
   const names = new Set<string>();
 
-  for (const [path, source] of Object.entries(SOURCES)) {
-    if (path.includes("/__tests__/")) {
-      continue;
-    }
-
+  for (const source of Object.values(sources)) {
     for (const [, name] of source.matchAll(AUSPICE_IMPORT)) {
       if (name !== undefined && !name.endsWith(".json")) {
         names.add(name);
